@@ -71,7 +71,7 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 			// (client feature `enable_request_compression`). Without this branch
 			// the raw zstd frame (magic 0x28 0xb5 0x2f 0xfd) is handed to the
 			// JSON parser and fails with `invalid character '('`.
-			zstdReader, err := zstd.NewReader(origBody)
+			zstdReader, err := zstd.NewReader(origBody, zstd.WithDecoderConcurrency(1))
 			if err != nil {
 				_ = origBody.Close()
 				c.AbortWithStatus(http.StatusBadRequest)
