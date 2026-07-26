@@ -886,23 +886,11 @@ type OpenAIResponsesRequest struct {
 }
 
 func (r *OpenAIResponsesRequest) GetTokenCountMeta() *types.TokenCountMeta {
-	return r.getTokenCountMeta(false)
-}
-
-// GetIncrementalTokenCountMeta includes function-call outputs carried by a
-// stateful incremental transport. HTTP Responses requests keep the historical
-// behavior because they can contain the accumulated tool-output history, which
-// would otherwise inflate pre-consume far beyond the eventual cached cost.
-func (r *OpenAIResponsesRequest) GetIncrementalTokenCountMeta() *types.TokenCountMeta {
-	return r.getTokenCountMeta(true)
-}
-
-func (r *OpenAIResponsesRequest) getTokenCountMeta(includeFunctionCallOutput bool) *types.TokenCountMeta {
 	var fileMeta = make([]*types.FileMeta, 0)
 	var texts = make([]string, 0)
 
 	if r.Input != nil {
-		inputs := r.parseInput(includeFunctionCallOutput)
+		inputs := r.ParseInput()
 		for _, input := range inputs {
 			if input.Type == "input_image" {
 				if input.ImageUrl != "" {
@@ -985,11 +973,6 @@ type Input struct {
 	Type    string          `json:"type,omitempty"`
 	Role    string          `json:"role,omitempty"`
 	Content json.RawMessage `json:"content,omitempty"`
-	// Output carries function_call_output payloads. It must be counted: an
-	// incremental turn (notably over the Responses WebSocket transport) can
-	// consist of nothing but a large tool result, which would otherwise be
-	// estimated at zero tokens and under-reserve quota.
-	Output json.RawMessage `json:"output,omitempty"`
 }
 
 type MediaInput struct {
@@ -1006,10 +989,6 @@ type MediaInput struct {
 //   - input can be an array of objects with a `type` field
 //     supported types: input_text, input_image, input_file
 func (r *OpenAIResponsesRequest) ParseInput() []MediaInput {
-	return r.parseInput(false)
-}
-
-func (r *OpenAIResponsesRequest) parseInput(includeFunctionCallOutput bool) []MediaInput {
 	if r.Input == nil {
 		return nil
 	}
@@ -1033,14 +1012,6 @@ func (r *OpenAIResponsesRequest) parseInput(includeFunctionCallOutput bool) []Me
 		var inputs []Input
 		_ = common.Unmarshal(r.Input, &inputs)
 		for _, input := range inputs {
-			if includeFunctionCallOutput && len(input.Output) > 0 {
-				text := string(input.Output)
-				if common.GetJsonType(input.Output) == "string" {
-					_ = common.Unmarshal(input.Output, &text)
-				}
-				mediaInputs = append(mediaInputs, MediaInput{Type: "input_text", Text: text})
-			}
-
 			if common.GetJsonType(input.Content) == "string" {
 				var str string
 				_ = common.Unmarshal(input.Content, &str)
