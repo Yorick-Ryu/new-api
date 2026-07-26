@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - beiapi-production
+      - feature/responses-websocket-relay
   workflow_dispatch:
 
 concurrency:
@@ -35,6 +36,14 @@ jobs:
       - name: Write build version
         run: echo "beiapi-${GITHUB_SHA::12}" > VERSION
 
+      # Non-production branches get a slugified branch tag so a feature build
+      # can never overwrite the :beiapi-production tag that production pulls.
+      - name: Resolve image tag
+        id: tag
+        run: |
+          BRANCH_TAG=$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
+          echo "branch_tag=${BRANCH_TAG:0:100}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -44,7 +53,7 @@ jobs:
           push: true
           pull: true
           tags: |
-            ghcr.io/yorick-ryu/new-api:beiapi-production
+            ghcr.io/yorick-ryu/new-api:${{ steps.tag.outputs.branch_tag }}
             ghcr.io/yorick-ryu/new-api:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
