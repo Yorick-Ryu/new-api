@@ -496,7 +496,7 @@ func (s *responsesWSSession) prepareCall(create responsesWSCreateRequest, commit
 	relayInfo.RequestId = fmt.Sprintf("%s-ws-%d", relayInfo.RequestId, s.nextEventIndex)
 	s.nextEventIndex++
 
-	meta := req.GetTokenCountMeta()
+	meta := req.GetIncrementalTokenCountMeta()
 	if setting.ShouldCheckPromptSensitive() && meta != nil {
 		contains, words := service.CheckSensitiveText(meta.CombineText)
 		if contains {

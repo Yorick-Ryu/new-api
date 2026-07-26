@@ -8,13 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResponsesTokenCountMetaIncludesFunctionCallOutput guards pre-consume
-// sizing for tool-result turns. A Responses turn can consist of nothing but a
-// function_call_output item; counting only `content` estimated such a turn at
-// zero tokens, which under-reserved quota and skipped the prompt sensitive-word
-// check. This is most visible over the WebSocket transport, where upstream
-// keeps conversation state and each turn carries only the new items.
-func TestResponsesTokenCountMetaIncludesFunctionCallOutput(t *testing.T) {
+// TestResponsesIncrementalTokenCountMetaIncludesFunctionCallOutput guards
+// pre-consume sizing for stateful tool-result turns. A WebSocket turn can
+// consist of nothing but a function_call_output item, so the incremental path
+// must count it even though the HTTP path deliberately does not.
+func TestResponsesIncrementalTokenCountMetaIncludesFunctionCallOutput(t *testing.T) {
 	toolResult := "the weather in Shanghai is 31C and humid"
 
 	var request OpenAIResponsesRequest
@@ -25,12 +23,12 @@ func TestResponsesTokenCountMetaIncludesFunctionCallOutput(t *testing.T) {
 		]
 	}`), &request))
 
-	meta := request.GetTokenCountMeta()
+	meta := request.GetIncrementalTokenCountMeta()
 	require.NotNil(t, meta)
 	assert.Contains(t, meta.CombineText, toolResult, "function_call_output must reach token counting")
 }
 
-func TestResponsesTokenCountMetaIncludesStructuredFunctionCallOutput(t *testing.T) {
+func TestResponsesIncrementalTokenCountMetaIncludesStructuredFunctionCallOutput(t *testing.T) {
 	var request OpenAIResponsesRequest
 	require.NoError(t, common.Unmarshal([]byte(`{
 		"model": "gpt-4o",
@@ -39,9 +37,27 @@ func TestResponsesTokenCountMetaIncludesStructuredFunctionCallOutput(t *testing.
 		]
 	}`), &request))
 
-	meta := request.GetTokenCountMeta()
+	meta := request.GetIncrementalTokenCountMeta()
 	require.NotNil(t, meta)
 	assert.Contains(t, meta.CombineText, "Shanghai", "structured tool output must reach token counting")
+}
+
+func TestResponsesHTTPTokenCountMetaExcludesAccumulatedFunctionCallOutput(t *testing.T) {
+	toolResult := "large accumulated shell output"
+
+	var request OpenAIResponsesRequest
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model": "gpt-4o",
+		"input": [
+			{"type": "function_call_output", "call_id": "call_1", "output": "`+toolResult+`"},
+			{"type": "message", "role": "user", "content": "continue"}
+		]
+	}`), &request))
+
+	meta := request.GetTokenCountMeta()
+	require.NotNil(t, meta)
+	assert.NotContains(t, meta.CombineText, toolResult, "HTTP pre-consume must not include accumulated tool-output history")
+	assert.Contains(t, meta.CombineText, "continue", "ordinary HTTP input must still reach token counting")
 }
 
 func TestResponsesTokenCountMetaStillCountsPlainContent(t *testing.T) {

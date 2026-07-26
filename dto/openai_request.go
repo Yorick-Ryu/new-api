@@ -886,11 +886,23 @@ type OpenAIResponsesRequest struct {
 }
 
 func (r *OpenAIResponsesRequest) GetTokenCountMeta() *types.TokenCountMeta {
+	return r.getTokenCountMeta(false)
+}
+
+// GetIncrementalTokenCountMeta includes function-call outputs carried by a
+// stateful incremental transport. HTTP Responses requests keep the historical
+// behavior because they can contain the accumulated tool-output history, which
+// would otherwise inflate pre-consume far beyond the eventual cached cost.
+func (r *OpenAIResponsesRequest) GetIncrementalTokenCountMeta() *types.TokenCountMeta {
+	return r.getTokenCountMeta(true)
+}
+
+func (r *OpenAIResponsesRequest) getTokenCountMeta(includeFunctionCallOutput bool) *types.TokenCountMeta {
 	var fileMeta = make([]*types.FileMeta, 0)
 	var texts = make([]string, 0)
 
 	if r.Input != nil {
-		inputs := r.ParseInput()
+		inputs := r.parseInput(includeFunctionCallOutput)
 		for _, input := range inputs {
 			if input.Type == "input_image" {
 				if input.ImageUrl != "" {
@@ -994,6 +1006,10 @@ type MediaInput struct {
 //   - input can be an array of objects with a `type` field
 //     supported types: input_text, input_image, input_file
 func (r *OpenAIResponsesRequest) ParseInput() []MediaInput {
+	return r.parseInput(false)
+}
+
+func (r *OpenAIResponsesRequest) parseInput(includeFunctionCallOutput bool) []MediaInput {
 	if r.Input == nil {
 		return nil
 	}
@@ -1017,7 +1033,7 @@ func (r *OpenAIResponsesRequest) ParseInput() []MediaInput {
 		var inputs []Input
 		_ = common.Unmarshal(r.Input, &inputs)
 		for _, input := range inputs {
-			if len(input.Output) > 0 {
+			if includeFunctionCallOutput && len(input.Output) > 0 {
 				text := string(input.Output)
 				if common.GetJsonType(input.Output) == "string" {
 					_ = common.Unmarshal(input.Output, &text)
