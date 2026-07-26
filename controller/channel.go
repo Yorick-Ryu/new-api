@@ -1167,6 +1167,9 @@ func UpdateChannelStatus(c *gin.Context) {
 	if changed {
 		model.InitChannelCache()
 		service.ResetProxyClientCache()
+		if req.Status != common.ChannelStatusEnabled {
+			closeActiveChannelWebSockets([]int{id})
+		}
 	}
 	recordManageAudit(c, "channel.status_update", map[string]interface{}{
 		"id":      id,
@@ -1187,14 +1190,19 @@ func BatchUpdateChannelStatus(c *gin.Context) {
 		return
 	}
 	changedCount := 0
+	changedIds := make([]int, 0, len(req.Ids))
 	for _, id := range req.Ids {
 		if model.UpdateChannelStatus(id, "", req.Status, "manual batch operation") {
 			changedCount++
+			changedIds = append(changedIds, id)
 		}
 	}
 	if changedCount > 0 {
 		model.InitChannelCache()
 		service.ResetProxyClientCache()
+		if req.Status != common.ChannelStatusEnabled {
+			closeActiveChannelWebSockets(changedIds)
+		}
 	}
 	recordManageAudit(c, "channel.status_update_batch", map[string]interface{}{
 		"count":  changedCount,
