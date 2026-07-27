@@ -293,7 +293,7 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
       <TimingMetricsCell
         useTimeSec={useTime}
         completionTokens={log.completion_tokens}
-        frtMs={other?.frt}
+        frtMs={other?.ws === true ? other.first_text_ms : other?.frt}
         isStream={log.is_stream || other?.ws === true}
         indicator='dot'
         className='min-w-0 flex-1'

@@ -761,7 +761,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           <TimingMetricsCell
             useTimeSec={useTime}
             completionTokens={log.completion_tokens}
-            frtMs={other?.frt}
+            frtMs={other?.ws === true ? other.first_text_ms : other?.frt}
             isStream={log.is_stream || other?.ws === true}
           />
         )

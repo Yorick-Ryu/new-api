@@ -469,6 +469,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const isTopup = props.log.type === 1
   const isManage = props.log.type === 3
   const isSubscription = other?.billing_source === 'subscription'
+  const firstTokenMs = other?.ws === true ? other.first_text_ms : other?.frt
   const isTieredBilling =
     isConsume &&
     !isViolation &&
@@ -700,18 +701,18 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 >
                   {formatUseTime(props.log.use_time)}
                   {(props.log.is_stream || other?.ws === true) &&
-                    other?.frt != null &&
-                    other.frt > 0 && (
+                    firstTokenMs != null &&
+                    firstTokenMs > 0 && (
                       <span
                         className={cn(
                           'font-normal',
                           timingTextColorClass(
-                            getFirstResponseTimeColor(other.frt / 1000)
+                            getFirstResponseTimeColor(firstTokenMs / 1000)
                           )
                         )}
                       >
                         {' '}
-                        (FRT: {formatUseTime(other.frt / 1000)})
+                        (FRT: {formatUseTime(firstTokenMs / 1000)})
                       </span>
                     )}
                 </span>

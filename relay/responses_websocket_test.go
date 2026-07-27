@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
@@ -321,6 +322,37 @@ func TestObserveUpstreamFailedReleasesCurrent(t *testing.T) {
 	assert.Nil(t, session.getCurrent(), "current response was not released")
 	require.NotNil(t, committed, "commit was not invoked")
 	assert.False(t, *committed)
+}
+
+func TestObserveUpstreamMessageRecordsFirstTextDeltaSeparatelyFromFirstEvent(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
+	startTime := time.Now().Add(-time.Second)
+	common.SetContextKey(c, constant.ContextKeyRequestStartTime, startTime)
+	info := relaycommon.GenRelayInfoResponses(c, &dto.OpenAIResponsesRequest{})
+	state := &responsesWSCallState{info: info, usage: &dto.Usage{}}
+	session := &responsesWSSession{current: state}
+
+	session.observeUpstreamMessage([]byte(`{"type":"response.created"}`))
+	require.True(t, info.HasFirstEvent(), "the first protocol event should be recorded")
+	firstEventTime := info.FirstEventTime
+	assert.False(t, info.HasSendResponse(), "response.created is not a text token")
+
+	session.observeUpstreamMessage([]byte(`{"type":"response.output_text.delta","delta":""}`))
+	assert.False(t, info.HasSendResponse(), "an empty text delta is not a token")
+
+	session.observeUpstreamMessage([]byte(`{"type":"response.reasoning_summary_text.delta","delta":"thinking"}`))
+	assert.False(t, info.HasSendResponse(), "reasoning metadata is not output text")
+
+	session.observeUpstreamMessage([]byte(`{"type":"response.output_text.delta","delta":"hello"}`))
+	require.True(t, info.HasSendResponse(), "the first non-empty text delta should set TTFT")
+	firstResponseTime := info.FirstResponseTime
+	assert.Equal(t, "hello", state.outputText.String())
+
+	session.observeUpstreamMessage([]byte(`{"type":"response.output_text.delta","delta":" world"}`))
+	assert.Equal(t, firstEventTime, info.FirstEventTime, "later events must not replace first-event time")
+	assert.Equal(t, firstResponseTime, info.FirstResponseTime, "later text deltas must not replace TTFT")
+	assert.Equal(t, "hello world", state.outputText.String())
 }
 
 func TestResponsesWSIdleActivityIgnoresPingAndRefreshesOnDataMessage(t *testing.T) {
