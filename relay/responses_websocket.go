@@ -11,7 +11,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	appconstant "github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	appmodel "github.com/QuantumNous/new-api/model"
@@ -19,10 +18,11 @@ import (
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -111,6 +111,7 @@ type responsesWSCallState struct {
 	mu         sync.Mutex
 	usage      *dto.Usage
 	outputText strings.Builder
+	imageCalls relaycommon.ImageGenerationCallCounter
 }
 
 type responsesWSSession struct {
@@ -723,12 +724,15 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 		state.outputText.WriteString(streamResponse.Delta)
 		state.mu.Unlock()
 	case dto.ResponsesOutputTypeItemDone:
-		if streamResponse.Item != nil && streamResponse.Item.Type == dto.BuildInCallWebSearchCall {
-			if state.info != nil && state.info.ResponsesUsageInfo != nil && state.info.ResponsesUsageInfo.BuiltInTools != nil {
-				if webSearchTool, exists := state.info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolWebSearchPreview]; exists && webSearchTool != nil {
-					webSearchTool.CallCount++
-				}
+		if streamResponse.Item != nil {
+			state.mu.Lock()
+			switch streamResponse.Item.Type {
+			case dto.BuildInCallWebSearchCall, dto.BuildInCallFileSearchCall, dto.BuildInCallFunctionCall:
+				state.info.CountBillableToolCall(streamResponse.Item.Type, streamResponse.Item.Name)
+			case dto.ResponsesOutputTypeImageGenerationCall:
+				state.imageCalls.Observe(streamResponse.Item, streamResponse.OutputIndex)
 			}
+			state.mu.Unlock()
 		}
 	case "error":
 		s.finishCall(state, responsesWSCallSettled)
@@ -739,16 +743,20 @@ func (s *responsesWSSession) applyTerminalResponseUsage(state *responsesWSCallSt
 	if state == nil || response == nil {
 		return
 	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
 	if response.Usage != nil {
-		state.mu.Lock()
 		service.ApplyResponsesUsage(state.usage, response.Usage)
-		state.mu.Unlock()
 	}
-	if response.HasImageGenerationCall() {
-		s.c.Set("image_generation_call", true)
-		s.c.Set("image_generation_call_quality", response.GetQuality())
-		s.c.Set("image_generation_call_size", response.GetSize())
+	if relaycommon.IsNonBillableResponsesStatus(response.Status) {
+		state.imageCalls.Reset()
+	} else {
+		for i := range response.Output {
+			idx := i
+			state.imageCalls.Observe(&response.Output[i], &idx)
+		}
 	}
+	state.imageCalls.Commit(state.info)
 }
 
 func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome responsesWSCallOutcome) {
