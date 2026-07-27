@@ -704,12 +704,11 @@ export const getLogsColumns = ({
         }
         if (record.is_stream) {
           let other = getLogOther(record.other);
-          const firstTokenMs = other?.ws ? other?.first_text_ms : other?.frt;
           return (
             <>
               <Space>
                 {renderUseTime(text, t)}
-                {renderFirstUseTime(firstTokenMs, t)}
+                {renderFirstUseTime(other?.frt, t)}
                 {renderIsStream(record.is_stream, t, other?.stream_status)}
               </Space>
             </>

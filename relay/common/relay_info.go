@@ -94,7 +94,6 @@ type RelayInfo struct {
 	UserGroup         string // 用户所在分组
 	TokenUnlimited    bool
 	StartTime         time.Time
-	FirstEventTime    time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
 	//SendLastReasoningResponse bool
@@ -667,16 +666,6 @@ func (info *RelayInfo) SetFirstResponseTime() {
 		info.FirstResponseTime = time.Now()
 		info.isFirstResponse = false
 	}
-}
-
-func (info *RelayInfo) SetFirstEventTime() {
-	if info.FirstEventTime.IsZero() {
-		info.FirstEventTime = time.Now()
-	}
-}
-
-func (info *RelayInfo) HasFirstEvent() bool {
-	return info.FirstEventTime.After(info.StartTime)
 }
 
 func (info *RelayInfo) HasSendResponse() bool {

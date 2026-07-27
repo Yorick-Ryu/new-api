@@ -33,7 +33,6 @@ func TestGenerateTextOtherInfoMarksWebSocketTransport(t *testing.T) {
 			startTime := time.Unix(1_700_000_000, 0)
 			relayInfo := &relaycommon.RelayInfo{
 				StartTime:         startTime,
-				FirstEventTime:    startTime.Add(250 * time.Millisecond),
 				FirstResponseTime: startTime.Add(1500 * time.Millisecond),
 				ClientWs:          tt.clientWs,
 				ChannelMeta:       &relaycommon.ChannelMeta{},
@@ -46,30 +45,7 @@ func TestGenerateTextOtherInfoMarksWebSocketTransport(t *testing.T) {
 			assert.Equal(t, tt.wantWSKey, exists)
 			if tt.wantWSKey {
 				require.Equal(t, true, ws)
-				assert.Equal(t, float64(250), other["first_event_ms"])
-				assert.Equal(t, float64(1500), other["first_text_ms"])
-			} else {
-				assert.NotContains(t, other, "first_event_ms")
-				assert.NotContains(t, other, "first_text_ms")
 			}
 		})
 	}
-}
-
-func TestGenerateTextOtherInfoOmitsMissingWebSocketFirstText(t *testing.T) {
-	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-	startTime := time.Unix(1_700_000_000, 0)
-	relayInfo := &relaycommon.RelayInfo{
-		StartTime:         startTime,
-		FirstEventTime:    startTime.Add(250 * time.Millisecond),
-		FirstResponseTime: startTime.Add(-time.Second),
-		ClientWs:          &websocket.Conn{},
-		ChannelMeta:       &relaycommon.ChannelMeta{},
-	}
-
-	other := GenerateTextOtherInfo(ctx, relayInfo, 1, 1, 1, 0, 0, 0, -1)
-
-	assert.Equal(t, float64(250), other["first_event_ms"])
-	assert.NotContains(t, other, "first_text_ms")
 }

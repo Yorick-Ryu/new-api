@@ -703,9 +703,7 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 	if state == nil {
 		return
 	}
-	// Keep the first protocol event as a transport-health metric, but do not
-	// treat acknowledgements such as response.created as the first token.
-	state.info.SetFirstEventTime()
+	state.info.SetFirstResponseTime()
 
 	var streamResponse dto.ResponsesStreamResponse
 	if err := common.Unmarshal(message, &streamResponse); err != nil {
@@ -721,9 +719,6 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 		s.applyTerminalResponseUsage(state, streamResponse.Response)
 		s.finishCall(state, responsesWSCallSettled)
 	case "response.output_text.delta":
-		if streamResponse.Delta != "" {
-			state.info.SetFirstResponseTime()
-		}
 		state.mu.Lock()
 		state.outputText.WriteString(streamResponse.Delta)
 		state.mu.Unlock()

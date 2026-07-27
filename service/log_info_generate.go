@@ -81,12 +81,6 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
 	if relayInfo.ClientWs != nil {
 		other["ws"] = true
-		if relayInfo.HasFirstEvent() {
-			other["first_event_ms"] = float64(relayInfo.FirstEventTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
-		}
-		if relayInfo.HasSendResponse() {
-			other["first_text_ms"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
-		}
 	}
 	if relayInfo.ReasoningEffort != "" {
 		other["reasoning_effort"] = relayInfo.ReasoningEffort
