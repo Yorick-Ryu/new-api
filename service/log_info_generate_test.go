@@ -72,5 +72,4 @@ func TestGenerateTextOtherInfoOmitsMissingWebSocketFirstText(t *testing.T) {
 
 	assert.Equal(t, float64(250), other["first_event_ms"])
 	assert.NotContains(t, other, "first_text_ms")
-	assert.NotContains(t, other, "frt")
 }

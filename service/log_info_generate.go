@@ -86,10 +86,6 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 		}
 		if relayInfo.HasSendResponse() {
 			other["first_text_ms"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
-		} else {
-			// A tool-only WebSocket response has no text TTFT. Avoid persisting
-			// the legacy sentinel value (normally -1000 ms) as a real latency.
-			delete(other, "frt")
 		}
 	}
 	if relayInfo.ReasoningEffort != "" {
