@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	appmodel "github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
 
@@ -212,6 +213,67 @@ func TestHandleControlEventWriteFailureSendsResponsesError(t *testing.T) {
 	require.NoError(t, common.Unmarshal(payload, &data))
 	assert.Equal(t, "error", data.Type)
 	assert.NotZero(t, data.Status)
+}
+
+func TestResponsesWSModelChangeClosesTargetAndClearsLock(t *testing.T) {
+	target, targetPeer, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+
+	unregistered := false
+	session := &responsesWSSession{
+		target:        target,
+		unregister:    func() { unregistered = true },
+		lockedModel:   "gpt-5.6-sol",
+		lockedChannel: &appmodel.Channel{Id: 1},
+	}
+
+	session.resetTargetForModelChange("gpt-5.6-terra")
+
+	assert.Nil(t, session.getTarget())
+	assert.Empty(t, session.lockedModel)
+	assert.Nil(t, session.lockedChannel)
+	assert.True(t, unregistered)
+	require.NoError(t, targetPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, _, err := targetPeer.ReadMessage()
+	assert.Error(t, err, "the previous upstream websocket should be closed")
+}
+
+func TestResponsesWSSameModelKeepsTargetAndLock(t *testing.T) {
+	target, cleanup := newTestResponsesWSTarget(t)
+	defer cleanup()
+	channel := &appmodel.Channel{Id: 1}
+	session := &responsesWSSession{
+		target:        target,
+		lockedModel:   "gpt-5.6-sol",
+		lockedChannel: channel,
+	}
+
+	session.resetTargetForModelChange("gpt-5.6-sol")
+
+	assert.Same(t, target, session.getTarget())
+	assert.Equal(t, "gpt-5.6-sol", session.lockedModel)
+	assert.Same(t, channel, session.lockedChannel)
+}
+
+func TestResponsesWSModelChangeWhileResponseActiveKeepsTarget(t *testing.T) {
+	target, cleanup := newTestResponsesWSTarget(t)
+	defer cleanup()
+	state := &responsesWSCallState{}
+	session := &responsesWSSession{
+		target:      target,
+		lockedModel: "gpt-5.6-sol",
+		current:     state,
+	}
+
+	apiErr := session.handleResponseCreate(responsesWSCreateRequest{
+		Request: dto.OpenAIResponsesRequest{Model: "gpt-5.6-terra"},
+	}, "evt-switch")
+
+	require.NotNil(t, apiErr)
+	assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+	assert.Same(t, target, session.getTarget())
+	assert.Equal(t, "gpt-5.6-sol", session.lockedModel)
+	assert.Same(t, state, session.getCurrent())
 }
 
 // TestFinalizeResponsesWSUsageBillsInterruptedStream pins the billing policy

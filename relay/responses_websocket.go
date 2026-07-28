@@ -290,15 +290,6 @@ func normalizeResponsesWSCreateEvent(message []byte) (responsesWSCreateRequest, 
 
 func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateRequest, eventID string) *types.NewAPIError {
 	req := create.Request
-	if s.lockedModel != "" && req.Model != s.lockedModel {
-		return types.NewErrorWithStatusCode(
-			fmt.Errorf("responses websocket connection is locked to model %q; got %q", s.lockedModel, req.Model),
-			types.ErrorCodeInvalidRequest,
-			http.StatusBadRequest,
-			types.ErrOptionWithSkipRetry(),
-		)
-	}
-
 	if s.hasCurrent() {
 		return types.NewErrorWithStatusCode(
 			errors.New("another response.create is already in progress on this websocket connection"),
@@ -312,6 +303,7 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 	if apiErr != nil {
 		return apiErr
 	}
+	s.resetTargetForModelChange(req.Model)
 
 	if !s.hasTarget() {
 		return s.connectAndSendFirst(create, commitRate)
@@ -336,6 +328,15 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 		return s.handleTargetWriteFailureWithState(state, err)
 	}
 	return nil
+}
+
+func (s *responsesWSSession) resetTargetForModelChange(model string) {
+	if s.lockedModel == "" || model == s.lockedModel {
+		return
+	}
+	s.closeTarget()
+	s.lockedModel = ""
+	s.lockedChannel = nil
 }
 
 func (s *responsesWSSession) handleControlEventWriteFailure(err error) *types.NewAPIError {
