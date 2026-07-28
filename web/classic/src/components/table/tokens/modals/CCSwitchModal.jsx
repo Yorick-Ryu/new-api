@@ -29,28 +29,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { selectFilter } from '../../../../helpers';
 
-const APP_CONFIGS = {
-  claude: {
-    label: 'Claude',
-    defaultName: 'My Claude',
-    modelFields: [
-      { key: 'model', label: '主模型' },
-      { key: 'haikuModel', label: 'Haiku 模型' },
-      { key: 'sonnetModel', label: 'Sonnet 模型' },
-      { key: 'opusModel', label: 'Opus 模型' },
-    ],
-  },
-  codex: {
-    label: 'Codex',
-    defaultName: 'My Codex',
-    modelFields: [{ key: 'model', label: '主模型' }],
-  },
-  gemini: {
-    label: 'Gemini',
-    defaultName: 'My Gemini',
-    modelFields: [{ key: 'model', label: '主模型' }],
-  },
-};
+import { APP_CONFIGS } from './cc-switch-config';
 
 function getServerAddress() {
   try {
