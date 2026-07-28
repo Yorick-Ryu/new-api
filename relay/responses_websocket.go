@@ -108,9 +108,11 @@ type responsesWSCallState struct {
 	// mu guards usage and outputText. The upstream reader goroutine appends to
 	// them while the client goroutine may win the race to finish the call on a
 	// disconnect and read them for settlement.
-	mu         sync.Mutex
-	usage      *dto.Usage
-	outputText strings.Builder
+	mu                  sync.Mutex
+	usage               *dto.Usage
+	outputText          strings.Builder
+	imageCalls          relaycommon.ImageGenerationCallCounter
+	imageUsageCommitted bool
 }
 
 type responsesWSSession struct {
@@ -724,11 +726,20 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 		state.outputText.WriteString(streamResponse.Delta)
 		state.mu.Unlock()
 	case dto.ResponsesOutputTypeItemDone:
-		if streamResponse.Item != nil && streamResponse.Item.Type == dto.BuildInCallWebSearchCall {
-			if state.info != nil && state.info.ResponsesUsageInfo != nil && state.info.ResponsesUsageInfo.BuiltInTools != nil {
-				if webSearchTool, exists := state.info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolWebSearchPreview]; exists && webSearchTool != nil {
-					webSearchTool.CallCount++
+		if streamResponse.Item != nil {
+			switch streamResponse.Item.Type {
+			case dto.BuildInCallWebSearchCall:
+				state.info.CountBillableToolCall(dto.BuildInCallWebSearchCall, "")
+			case dto.BuildInCallFileSearchCall:
+				state.info.CountBillableToolCall(dto.BuildInCallFileSearchCall, "")
+			case dto.BuildInCallFunctionCall:
+				state.info.CountBillableToolCall(dto.BuildInCallFunctionCall, streamResponse.Item.Name)
+			case dto.ResponsesOutputTypeImageGenerationCall:
+				state.mu.Lock()
+				if !state.imageUsageCommitted {
+					state.imageCalls.Observe(streamResponse.Item, streamResponse.OutputIndex)
 				}
+				state.mu.Unlock()
 			}
 		}
 	case "error":
@@ -740,15 +751,22 @@ func (s *responsesWSSession) applyTerminalResponseUsage(state *responsesWSCallSt
 	if state == nil || response == nil {
 		return
 	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
 	if response.Usage != nil {
-		state.mu.Lock()
 		service.ApplyResponsesUsage(state.usage, response.Usage)
-		state.mu.Unlock()
 	}
-	if response.HasImageGenerationCall() {
-		s.c.Set("image_generation_call", true)
-		s.c.Set("image_generation_call_quality", response.GetQuality())
-		s.c.Set("image_generation_call_size", response.GetSize())
+	if !state.imageUsageCommitted {
+		if relaycommon.IsNonBillableResponsesStatus(response.Status) {
+			state.imageCalls.Reset()
+		} else {
+			for i := range response.Output {
+				idx := i
+				state.imageCalls.Observe(&response.Output[i], &idx)
+			}
+		}
+		state.imageCalls.Commit(state.info)
+		state.imageUsageCommitted = true
 	}
 }
 
@@ -774,6 +792,10 @@ func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome res
 	// Bill a snapshot: the goroutine that lost the clearCurrent race may still
 	// be applying a late terminal event to state.usage under state.mu.
 	state.mu.Lock()
+	if !state.imageUsageCommitted {
+		state.imageCalls.Commit(state.info)
+		state.imageUsageCommitted = true
+	}
 	usage := *state.usage
 	state.mu.Unlock()
 	service.PostTextConsumeQuota(s.c, state.info, &usage, nil)
