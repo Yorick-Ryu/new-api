@@ -305,10 +305,10 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 	if apiErr != nil {
 		return apiErr
 	}
-	s.resetTargetForModelChange(req.Model)
+	previousChannelID := s.resetTargetForModelChange(req.Model)
 
 	if !s.hasTarget() {
-		return s.connectAndSendFirst(create, commitRate)
+		return s.connectAndSendFirst(create, commitRate, previousChannelID)
 	}
 
 	state, payload, apiErr := s.prepareCall(create, commitRate)
@@ -332,13 +332,18 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 	return nil
 }
 
-func (s *responsesWSSession) resetTargetForModelChange(model string) {
+func (s *responsesWSSession) resetTargetForModelChange(model string) int {
 	if s.lockedModel == "" || model == s.lockedModel {
-		return
+		return 0
+	}
+	previousChannelID := 0
+	if s.lockedChannel != nil {
+		previousChannelID = s.lockedChannel.Id
 	}
 	s.closeTarget()
 	s.lockedModel = ""
 	s.lockedChannel = nil
+	return previousChannelID
 }
 
 func (s *responsesWSSession) handleControlEventWriteFailure(err error) *types.NewAPIError {
@@ -359,7 +364,7 @@ func (s *responsesWSSession) handleTargetWriteFailureWithState(state *responsesW
 	return s.handleTargetWriteFailure(err)
 }
 
-func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest, commitRate middleware.ModelRequestRateLimitCommit) *types.NewAPIError {
+func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest, commitRate middleware.ModelRequestRateLimitCommit, previousChannelID int) *types.NewAPIError {
 	req := create.Request
 	if err := checkResponsesWSModelAccess(s.c, req.Model); err != nil {
 		commitRate(false)
@@ -380,7 +385,7 @@ func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest
 
 	var lastErr *types.NewAPIError
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-		channel, apiErr := selectResponsesWSChannel(s.c, req.Model, retryParam)
+		channel, apiErr := selectResponsesWSChannel(s.c, req.Model, retryParam, previousChannelID)
 		if apiErr != nil {
 			lastErr = apiErr
 			break
@@ -1048,7 +1053,7 @@ func checkResponsesWSModelAccess(c *gin.Context, modelName string) *types.NewAPI
 	return nil
 }
 
-func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *service.RetryParam) (*appmodel.Channel, *types.NewAPIError) {
+func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *service.RetryParam, previousChannelID int) (*appmodel.Channel, *types.NewAPIError) {
 	if channelIdRaw, ok := common.GetContextKey(c, appconstant.ContextKeyTokenSpecificChannelId); ok {
 		channelID, ok := channelIdRaw.(string)
 		if !ok {
@@ -1080,7 +1085,33 @@ func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *serv
 	}
 
 	if retryParam.GetRetry() == 0 {
-		if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelName, usingGroup); found {
+		affinityChannelID, hasAffinity := service.GetPreferredChannelByAffinity(c, modelName, usingGroup)
+		if previousChannelID > 0 {
+			previous, err := appmodel.CacheGetChannel(previousChannelID)
+			if err == nil && previous != nil && previous.Status == common.ChannelStatusEnabled &&
+				previous.SupportsResponsesTransport(appconstant.ResponsesTransportWebSocket) {
+				if usingGroup == "auto" {
+					userGroup := common.GetContextKeyString(c, appconstant.ContextKeyUserGroup)
+					for _, g := range service.GetUserAutoGroup(userGroup) {
+						if !appmodel.IsChannelEnabledForGroupModel(g, modelName, previous.Id) {
+							continue
+						}
+						common.SetContextKey(c, appconstant.ContextKeyAutoGroup, g)
+						if setupErr := middleware.SetupContextForSelectedChannel(c, previous, modelName); setupErr == nil {
+							return previous, nil
+						}
+						break
+					}
+				} else if appmodel.IsChannelEnabledForGroupModel(usingGroup, modelName, previous.Id) {
+					if setupErr := middleware.SetupContextForSelectedChannel(c, previous, modelName); setupErr == nil {
+						return previous, nil
+					}
+				}
+			}
+		}
+
+		if hasAffinity {
+			preferredChannelID := affinityChannelID
 			preferred, err := appmodel.CacheGetChannel(preferredChannelID)
 			if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
 				preferred.SupportsResponsesTransport(appconstant.ResponsesTransportWebSocket) {

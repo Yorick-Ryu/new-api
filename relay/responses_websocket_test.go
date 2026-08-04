@@ -9,15 +9,19 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	appconstant "github.com/QuantumNous/new-api/constant"
 	appmodel "github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestNormalizeResponsesWSCreateEventWrapper(t *testing.T) {
@@ -227,8 +231,9 @@ func TestResponsesWSModelChangeClosesTargetAndClearsLock(t *testing.T) {
 		lockedChannel: &appmodel.Channel{Id: 1},
 	}
 
-	session.resetTargetForModelChange("gpt-5.6-terra")
+	previousChannelID := session.resetTargetForModelChange("gpt-5.6-terra")
 
+	assert.Equal(t, 1, previousChannelID)
 	assert.Nil(t, session.getTarget())
 	assert.Empty(t, session.lockedModel)
 	assert.Nil(t, session.lockedChannel)
@@ -248,11 +253,92 @@ func TestResponsesWSSameModelKeepsTargetAndLock(t *testing.T) {
 		lockedChannel: channel,
 	}
 
-	session.resetTargetForModelChange("gpt-5.6-sol")
+	previousChannelID := session.resetTargetForModelChange("gpt-5.6-sol")
 
+	assert.Zero(t, previousChannelID)
 	assert.Same(t, target, session.getTarget())
 	assert.Equal(t, "gpt-5.6-sol", session.lockedModel)
 	assert.Same(t, channel, session.lockedChannel)
+}
+
+func setupResponsesWSChannelSelectionTest(t *testing.T) {
+	t.Helper()
+	originalDB := appmodel.DB
+	originalMemoryCacheEnabled := common.MemoryCacheEnabled
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	appmodel.DB = db
+	common.MemoryCacheEnabled = true
+	require.NoError(t, appmodel.DB.AutoMigrate(&appmodel.Channel{}, &appmodel.Ability{}))
+	t.Cleanup(func() {
+		appmodel.DB = originalDB
+		common.MemoryCacheEnabled = originalMemoryCacheEnabled
+		if originalDB != nil && originalMemoryCacheEnabled {
+			appmodel.InitChannelCache()
+		}
+	})
+}
+
+func addResponsesWSChannelSelectionTestChannel(t *testing.T, channel *appmodel.Channel) {
+	t.Helper()
+	channel.Status = common.ChannelStatusEnabled
+	channel.Type = appconstant.ChannelTypeCodex
+	channel.Key = "test-key"
+	channel.Group = "default"
+	channel.Priority = common.GetPointer[int64](100)
+	channel.Weight = common.GetPointer[uint](100)
+	require.NoError(t, appmodel.DB.Create(channel).Error)
+	require.NoError(t, channel.AddAbilities(nil))
+	appmodel.InitChannelCache()
+}
+
+func newResponsesWSChannelSelectionContext() *gin.Context {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
+	common.SetContextKey(c, appconstant.ContextKeyUsingGroup, "default")
+	return c
+}
+
+func TestSelectResponsesWSChannelPrefersPreviousChannelForNewModel(t *testing.T) {
+	setupResponsesWSChannelSelectionTest(t)
+	addResponsesWSChannelSelectionTestChannel(t, &appmodel.Channel{Id: 4, Name: "CPA", Models: "gpt-old,gpt-new"})
+	addResponsesWSChannelSelectionTestChannel(t, &appmodel.Channel{Id: 13, Name: "Krill", Models: "gpt-new"})
+
+	c := newResponsesWSChannelSelectionContext()
+	retryParam := &service.RetryParam{
+		Ctx:                c,
+		TokenGroup:         "default",
+		ModelName:          "gpt-new",
+		RequestPath:        "/v1/responses",
+		ResponsesTransport: appconstant.ResponsesTransportWebSocket,
+		Retry:              common.GetPointer(0),
+	}
+
+	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4)
+	require.Nil(t, apiErr)
+	require.NotNil(t, channel)
+	assert.Equal(t, 4, channel.Id)
+}
+
+func TestSelectResponsesWSChannelFallsBackWhenPreviousChannelLacksNewModel(t *testing.T) {
+	setupResponsesWSChannelSelectionTest(t)
+	addResponsesWSChannelSelectionTestChannel(t, &appmodel.Channel{Id: 4, Name: "CPA", Models: "gpt-old"})
+	addResponsesWSChannelSelectionTestChannel(t, &appmodel.Channel{Id: 13, Name: "Krill", Models: "gpt-new"})
+
+	c := newResponsesWSChannelSelectionContext()
+	retryParam := &service.RetryParam{
+		Ctx:                c,
+		TokenGroup:         "default",
+		ModelName:          "gpt-new",
+		RequestPath:        "/v1/responses",
+		ResponsesTransport: appconstant.ResponsesTransportWebSocket,
+		Retry:              common.GetPointer(0),
+	}
+
+	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4)
+	require.Nil(t, apiErr)
+	require.NotNil(t, channel)
+	assert.Equal(t, 13, channel.Id)
 }
 
 func TestResponsesWSModelChangeWhileResponseActiveKeepsTarget(t *testing.T) {
