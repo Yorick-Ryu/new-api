@@ -39,6 +39,7 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 		wrapMaxBytes := func(body io.ReadCloser) io.ReadCloser {
 			return http.MaxBytesReader(c.Writer, body, maxBytes)
 		}
+		decompressed := false
 
 		switch c.GetHeader("Content-Encoding") {
 		case "gzip":
@@ -56,7 +57,7 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 					return origBody.Close()
 				},
 			})
-			c.Request.Header.Del("Content-Encoding")
+			decompressed = true
 		case "br":
 			reader := brotli.NewReader(origBody)
 			c.Request.Body = wrapMaxBytes(&readCloser{
@@ -65,7 +66,7 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 					return origBody.Close()
 				},
 			})
-			c.Request.Header.Del("Content-Encoding")
+			decompressed = true
 		case "zstd":
 			// OpenAI Codex CLI/Desktop default to zstd request-body compression
 			// (client feature `enable_request_compression`). Without this branch
@@ -84,10 +85,14 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 					return origBody.Close()
 				},
 			})
-			c.Request.Header.Del("Content-Encoding")
+			decompressed = true
 		default:
 			// Even for uncompressed bodies, enforce a max size to avoid huge request allocations.
 			c.Request.Body = wrapMaxBytes(origBody)
+		}
+
+		if decompressed {
+			c.Request.Header.Del("Content-Encoding")
 		}
 
 		// Continue processing the request

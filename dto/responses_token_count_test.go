@@ -1,9 +1,10 @@
-package dto
+package dto_test
 
 import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 func TestResponsesTokenCountMetaExcludesFunctionCallOutput(t *testing.T) {
 	toolResult := "large accumulated shell output"
 
-	var request OpenAIResponsesRequest
+	var request dto.OpenAIResponsesRequest
 	require.NoError(t, common.Unmarshal([]byte(`{
 		"model": "gpt-4o",
 		"input": [
@@ -27,7 +28,7 @@ func TestResponsesTokenCountMetaExcludesFunctionCallOutput(t *testing.T) {
 }
 
 func TestResponsesTokenCountMetaStillCountsPlainContent(t *testing.T) {
-	var request OpenAIResponsesRequest
+	var request dto.OpenAIResponsesRequest
 	require.NoError(t, common.Unmarshal([]byte(`{
 		"model": "gpt-4o",
 		"input": [

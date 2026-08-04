@@ -1,11 +1,13 @@
 package constant
 
-type ResponsesTransport string
+import "github.com/QuantumNous/new-api/relaykit/types"
+
+type ResponsesTransport = types.ResponsesTransport
 
 const (
-	ResponsesTransportNone      ResponsesTransport = ""
-	ResponsesTransportHTTP      ResponsesTransport = "http"
-	ResponsesTransportWebSocket ResponsesTransport = "websocket"
+	ResponsesTransportNone      = types.ResponsesTransportNone
+	ResponsesTransportHTTP      = types.ResponsesTransportHTTP
+	ResponsesTransportWebSocket = types.ResponsesTransportWebSocket
 )
 
 const (
@@ -65,6 +67,7 @@ const (
 	ChannelTypeCodex          = 57
 	ChannelTypeAdvancedCustom = 58
 	ChannelTypeSub2API        = 59
+	ChannelTypeNewAPI         = 60
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -130,6 +133,7 @@ var ChannelBaseURLs = []string{
 	"https://chatgpt.com",                       //57
 	"",                                          //58
 	"",                                          //59
+	"",                                          //60
 }
 
 var ChannelTypeNames = map[int]string{
@@ -189,6 +193,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeCodex:          "ChatGPT Subscription (Codex)",
 	ChannelTypeAdvancedCustom: "Advanced Custom",
 	ChannelTypeSub2API:        "Sub2API",
+	ChannelTypeNewAPI:         "New API",
 }
 
 func GetChannelTypeName(channelType int) string {
