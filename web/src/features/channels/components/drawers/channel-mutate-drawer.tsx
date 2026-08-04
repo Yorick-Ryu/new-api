@@ -281,6 +281,7 @@ const SENSITIVE_FORM_FIELDS = [
   'vertex_key_type',
   'aws_key_type',
   'azure_responses_version',
+  'responses_transport',
   'force_format',
   'thinking_to_content',
   'proxy',
@@ -731,6 +732,7 @@ export function ChannelMutateDrawer({
   const currentAdvancedCustom = form.watch('advanced_custom')
   const currentPriority = form.watch('priority')
   const currentWeight = form.watch('weight')
+  const currentResponsesTransport = form.watch('responses_transport')
   const currentTestModel = form.watch('test_model')
   const currentAutoBan = form.watch('auto_ban')
   const currentTag = form.watch('tag')
@@ -996,6 +998,7 @@ export function ChannelMutateDrawer({
   const routingStrategyConfigured = Boolean(
     currentPriority ||
     currentWeight ||
+    currentResponsesTransport !== 'both' ||
     currentTestModel?.trim() ||
     (currentAutoBan ?? 1) !== 1
   )
@@ -3678,6 +3681,49 @@ export function ChannelMutateDrawer({
                                 )}
                               />
                             </div>
+
+                            <FormField
+                              control={form.control}
+                              name='responses_transport'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    {t('Responses API transport')}
+                                  </FormLabel>
+                                  <Select
+                                    value={field.value || 'both'}
+                                    onValueChange={field.onChange}
+                                    disabled={sensitiveLocked}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value='both'>
+                                        {t('HTTP and WebSocket')}
+                                      </SelectItem>
+                                      <SelectItem value='http'>
+                                        {t('HTTP only')}
+                                      </SelectItem>
+                                      <SelectItem value='websocket'>
+                                        {t('WebSocket only')}
+                                      </SelectItem>
+                                      <SelectItem value='none'>
+                                        {t('Responses API disabled')}
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormDescription>
+                                    {t(
+                                      'Only matching /v1/responses requests can use this channel'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
                             <FormField
                               control={form.control}

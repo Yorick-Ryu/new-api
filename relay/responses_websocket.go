@@ -367,11 +367,12 @@ func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest
 	}
 
 	retryParam := &service.RetryParam{
-		Ctx:         s.c,
-		TokenGroup:  common.GetContextKeyString(s.c, appconstant.ContextKeyUsingGroup),
-		ModelName:   req.Model,
-		RequestPath: s.c.Request.URL.Path,
-		Retry:       common.GetPointer(0),
+		Ctx:                s.c,
+		TokenGroup:         common.GetContextKeyString(s.c, appconstant.ContextKeyUsingGroup),
+		ModelName:          req.Model,
+		RequestPath:        s.c.Request.URL.Path,
+		ResponsesTransport: appconstant.ResponsesTransportWebSocket,
+		Retry:              common.GetPointer(0),
 	}
 	if retryParam.TokenGroup == "" {
 		retryParam.TokenGroup = common.GetContextKeyString(s.c, appconstant.ContextKeyTokenGroup)
@@ -1064,6 +1065,9 @@ func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *serv
 		if channel.Status != common.ChannelStatusEnabled {
 			return nil, types.NewErrorWithStatusCode(errors.New("specified channel is disabled"), types.ErrorCodeGetChannelFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry())
 		}
+		if !channel.SupportsResponsesTransport(appconstant.ResponsesTransportWebSocket) {
+			return nil, types.NewErrorWithStatusCode(errors.New("specified channel does not support Responses WebSocket"), types.ErrorCodeGetChannelFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
 		if err := middleware.SetupContextForSelectedChannel(c, channel, modelName); err != nil {
 			return nil, err
 		}
@@ -1078,7 +1082,8 @@ func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *serv
 	if retryParam.GetRetry() == 0 {
 		if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelName, usingGroup); found {
 			preferred, err := appmodel.CacheGetChannel(preferredChannelID)
-			if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled {
+			if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
+				preferred.SupportsResponsesTransport(appconstant.ResponsesTransportWebSocket) {
 				if usingGroup == "auto" {
 					userGroup := common.GetContextKeyString(c, appconstant.ContextKeyUserGroup)
 					for _, g := range service.GetUserAutoGroup(userGroup) {

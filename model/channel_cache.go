@@ -21,6 +21,7 @@ var channelsIDM map[int]*Channel                     // all channels include dis
 // channel2advancedCustomConfig caches parsed Advanced Custom (type 58) configs so
 // path-aware selection avoids re-parsing JSON per request. Refreshed on full sync.
 var channel2advancedCustomConfig map[int]*dto.AdvancedCustomConfig
+var channel2ResponsesRoutingSettings map[int]dto.ChannelOtherSettings
 var channelSyncLock sync.RWMutex
 
 func InitChannelCache() {
@@ -30,12 +31,15 @@ func InitChannelCache() {
 	}
 	newChannelId2channel := make(map[int]*Channel)
 	newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
+	newChannel2ResponsesRoutingSettings := make(map[int]dto.ChannelOtherSettings)
 	var channels []*Channel
 	DB.Find(&channels)
 	for _, channel := range channels {
 		newChannelId2channel[channel.Id] = channel
+		settings := channel.GetOtherSettings()
+		newChannel2ResponsesRoutingSettings[channel.Id] = settings
 		if channel.Type == constant.ChannelTypeAdvancedCustom {
-			if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
+			if config := settings.AdvancedCustom; config != nil {
 				newChannel2advancedCustomConfig[channel.Id] = config
 			}
 		}
@@ -94,6 +98,7 @@ func InitChannelCache() {
 	}
 	channelsIDM = newChannelId2channel
 	channel2advancedCustomConfig = newChannel2advancedCustomConfig
+	channel2ResponsesRoutingSettings = newChannel2ResponsesRoutingSettings
 	channelSyncLock.Unlock()
 	// Lock ordering: InvalidatePricingCache acquires updatePricingLock, and
 	// GetPricing (holding updatePricingLock) nests channelSyncLock.RLock via
@@ -111,22 +116,22 @@ func SyncChannelCache(frequency int) {
 	}
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
+func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string, transport constant.ResponsesTransport) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetChannel(group, model, retry, requestPath)
+		return GetChannel(group, model, retry, requestPath, transport)
 	}
 
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
 
 	// First, try to find channels with the exact model name.
-	channels := filterChannelsByRequestPathAndModel(group2model2channels[group][model], requestPath, model)
+	channels := filterChannelsForRequest(group2model2channels[group][model], requestPath, model, transport)
 
 	// If no channels found, try to find channels with the normalized model name.
 	if len(channels) == 0 {
 		normalizedModel := ratio_setting.FormatMatchingModelName(model)
-		channels = filterChannelsByRequestPathAndModel(group2model2channels[group][normalizedModel], requestPath, model)
+		channels = filterChannelsForRequest(group2model2channels[group][normalizedModel], requestPath, model, transport)
 	}
 
 	if len(channels) == 0 {
@@ -208,13 +213,14 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
 	return nil, errors.New("channel not found")
 }
 
-// filterChannelsByRequestPathAndModel restricts candidates by request path and
-// model. Only Advanced Custom (type 58) channels are path-checked: they are kept
-// only when one of their configured routes matches requestPath and model. All
-// other channel types always pass. When requestPath is empty, filtering is skipped.
+// filterChannelsForRequest restricts candidates by request path, model and
+// Responses transport. Only Advanced Custom (type 58) channels are path-checked.
+// Transport settings apply only when the caller identifies an HTTP or WebSocket
+// Responses request. Unconfigured channels retain the legacy behavior of
+// supporting both transports at their regular priority.
 // Caller must hold channelSyncLock (read lock). The cached slice is never mutated.
-func filterChannelsByRequestPathAndModel(channels []int, requestPath string, model string) []int {
-	if requestPath == "" || len(channels) == 0 {
+func filterChannelsForRequest(channels []int, requestPath string, model string, transport constant.ResponsesTransport) []int {
+	if len(channels) == 0 {
 		return channels
 	}
 	filtered := make([]int, 0, len(channels))
@@ -225,7 +231,14 @@ func filterChannelsByRequestPathAndModel(channels []int, requestPath string, mod
 			filtered = append(filtered, channelId)
 			continue
 		}
+		if !cachedChannelSupportsResponsesTransport(channel, transport) {
+			continue
+		}
 		if channel.Type != constant.ChannelTypeAdvancedCustom {
+			filtered = append(filtered, channelId)
+			continue
+		}
+		if requestPath == "" {
 			filtered = append(filtered, channelId)
 			continue
 		}
@@ -234,6 +247,16 @@ func filterChannelsByRequestPathAndModel(channels []int, requestPath string, mod
 		}
 	}
 	return filtered
+}
+
+func cachedChannelSupportsResponsesTransport(channel *Channel, transport constant.ResponsesTransport) bool {
+	if channel == nil {
+		return false
+	}
+	if settings, ok := channel2ResponsesRoutingSettings[channel.Id]; ok {
+		return settings.SupportsResponsesTransport(transport)
+	}
+	return channel.SupportsResponsesTransport(transport)
 }
 
 func CacheGetChannel(id int) (*Channel, error) {
@@ -313,9 +336,14 @@ func CacheUpdateChannel(channel *Channel) {
 	if channel2advancedCustomConfig == nil {
 		channel2advancedCustomConfig = make(map[int]*dto.AdvancedCustomConfig)
 	}
+	if channel2ResponsesRoutingSettings == nil {
+		channel2ResponsesRoutingSettings = make(map[int]dto.ChannelOtherSettings)
+	}
 	delete(channel2advancedCustomConfig, channel.Id)
+	settings := channel.GetOtherSettings()
+	channel2ResponsesRoutingSettings[channel.Id] = settings
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
-		if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
+		if config := settings.AdvancedCustom; config != nil {
 			channel2advancedCustomConfig[channel.Id] = config
 		}
 	}

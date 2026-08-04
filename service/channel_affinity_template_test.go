@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
@@ -205,7 +206,7 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 	}
 
 	affinityValue := fmt.Sprintf("header-hit-%d", time.Now().UnixNano())
-	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, "gpt-5", "default", affinityValue)
+	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, "gpt-5", "default", affinityValue, constant.ResponsesTransportHTTP)
 
 	cache := getChannelAffinityCache()
 	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 9528, time.Minute))
@@ -234,6 +235,20 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 	require.Equal(t, "request_header", meta.KeySourceType)
 	require.Equal(t, "X-Affinity-Key", meta.KeySourceKey)
 	require.Equal(t, buildChannelAffinityKeyHint(affinityValue), meta.KeyHint)
+}
+
+func TestChannelAffinityCacheKeySeparatesResponsesTransports(t *testing.T) {
+	rule := operation_setting.ChannelAffinityRule{
+		Name:              "codex",
+		IncludeRuleName:   true,
+		IncludeModelName:  true,
+		IncludeUsingGroup: true,
+	}
+
+	httpKey := buildChannelAffinityCacheKeySuffix(rule, "gpt-5", "default", "thread-1", constant.ResponsesTransportHTTP)
+	webSocketKey := buildChannelAffinityCacheKeySuffix(rule, "gpt-5", "default", "thread-1", constant.ResponsesTransportWebSocket)
+
+	require.NotEqual(t, httpKey, webSocketKey)
 }
 
 func TestClearCurrentChannelAffinityCache(t *testing.T) {
@@ -280,7 +295,7 @@ func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
 	require.NotNil(t, codexRule)
 
 	affinityValue := fmt.Sprintf("pc-hit-%d", time.Now().UnixNano())
-	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(*codexRule, "gpt-5", "default", affinityValue)
+	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(*codexRule, "gpt-5", "default", affinityValue, constant.ResponsesTransportHTTP)
 
 	cache := getChannelAffinityCache()
 	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 9527, time.Minute))

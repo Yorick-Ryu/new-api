@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -54,6 +55,7 @@ type channelAffinityMeta struct {
 	UsingGroup     string
 	ModelName      string
 	RequestPath    string
+	Transport      constant.ResponsesTransport
 }
 
 type ChannelAffinityStatsContext struct {
@@ -334,8 +336,8 @@ func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAf
 	}
 }
 
-func buildChannelAffinityCacheKeySuffix(rule operation_setting.ChannelAffinityRule, modelName string, usingGroup string, affinityValue string) string {
-	parts := make([]string, 0, 4)
+func buildChannelAffinityCacheKeySuffix(rule operation_setting.ChannelAffinityRule, modelName string, usingGroup string, affinityValue string, transport constant.ResponsesTransport) string {
+	parts := make([]string, 0, 5)
 	if rule.IncludeRuleName && rule.Name != "" {
 		parts = append(parts, rule.Name)
 	}
@@ -344,6 +346,9 @@ func buildChannelAffinityCacheKeySuffix(rule operation_setting.ChannelAffinityRu
 	}
 	if rule.IncludeUsingGroup && usingGroup != "" {
 		parts = append(parts, usingGroup)
+	}
+	if transport != constant.ResponsesTransportNone {
+		parts = append(parts, string(transport))
 	}
 	parts = append(parts, affinityValue)
 	return strings.Join(parts, ":")
@@ -520,6 +525,7 @@ func appendChannelAffinityTemplateAdminInfo(c *gin.Context, meta channelAffinity
 		"using_group":       meta.UsingGroup,
 		"model":             meta.ModelName,
 		"request_path":      meta.RequestPath,
+		"transport":         meta.Transport,
 		"key_source":        meta.KeySourceType,
 		"key_key":           meta.KeySourceKey,
 		"key_path":          meta.KeySourcePath,
@@ -591,7 +597,8 @@ func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup 
 		if ttlSeconds <= 0 {
 			ttlSeconds = setting.DefaultTTLSeconds
 		}
-		cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, modelName, usingGroup, affinityValue)
+		transport := ResponsesTransportFromRequest(c.Request)
+		cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, modelName, usingGroup, affinityValue, transport)
 		cacheKeyFull := channelAffinityCacheNamespace + ":" + cacheKeySuffix
 		setChannelAffinityContext(c, channelAffinityMeta{
 			CacheKey:       cacheKeyFull,
@@ -607,6 +614,7 @@ func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup 
 			UsingGroup:     usingGroup,
 			ModelName:      modelName,
 			RequestPath:    path,
+			Transport:      transport,
 		})
 
 		cache := getChannelAffinityCache()
@@ -689,6 +697,7 @@ func MarkChannelAffinityUsed(c *gin.Context, selectedGroup string, channelID int
 		"selected_group": selectedGroup,
 		"model":          meta.ModelName,
 		"request_path":   meta.RequestPath,
+		"transport":      meta.Transport,
 		"channel_id":     channelID,
 		"key_source":     meta.KeySourceType,
 		"key_key":        meta.KeySourceKey,

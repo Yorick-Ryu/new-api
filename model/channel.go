@@ -487,6 +487,13 @@ func (channel *Channel) GetPriority() int64 {
 	return *channel.Priority
 }
 
+func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesTransport) bool {
+	if channel == nil {
+		return false
+	}
+	return channel.GetOtherSettings().SupportsResponsesTransport(transport)
+}
+
 func (channel *Channel) GetWeight() int {
 	if channel.Weight == nil {
 		return 0

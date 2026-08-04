@@ -5168,6 +5168,7 @@
     "Worker URL": "Worker URL",
     "Workspaces": "工作區",
     "Write value to the target field": "把值寫入目標欄位",
+    "WS": "WS",
     "x": "x",
     "xAI": "xAI",
     "Xinference": "Xinference",
@@ -5215,6 +5216,12 @@
     "Zero retention": "零數據保留",
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Responses API transport": "回應 API 傳輸方式",
+    "HTTP and WebSocket": "HTTP 與 WebSocket",
+    "HTTP only": "僅 HTTP",
+    "WebSocket only": "僅 WebSocket",
+    "Responses API disabled": "停用回應 API",
+    "Only matching /v1/responses requests can use this channel": "只有傳輸方式相符的 /v1/responses 請求可以使用此渠道"
   }
 }

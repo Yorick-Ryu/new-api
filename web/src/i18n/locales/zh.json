@@ -5216,6 +5216,12 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Responses API transport": "响应 API 传输方式",
+    "HTTP and WebSocket": "HTTP 和 WebSocket",
+    "HTTP only": "仅 HTTP",
+    "WebSocket only": "仅 WebSocket",
+    "Responses API disabled": "禁用响应 API",
+    "Only matching /v1/responses requests can use this channel": "只有传输方式匹配的 /v1/responses 请求才能使用此渠道"
   }
 }

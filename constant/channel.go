@@ -1,5 +1,13 @@
 package constant
 
+type ResponsesTransport string
+
+const (
+	ResponsesTransportNone      ResponsesTransport = ""
+	ResponsesTransportHTTP      ResponsesTransport = "http"
+	ResponsesTransportWebSocket ResponsesTransport = "websocket"
+)
+
 const (
 	ChannelTypeUnknown        = 0
 	ChannelTypeOpenAI         = 1

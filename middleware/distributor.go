@@ -53,6 +53,10 @@ func Distribute() func(c *gin.Context) {
 				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
 				return
 			}
+			if !channel.SupportsResponsesTransport(service.ResponsesTransportFromRequest(c.Request)) {
+				abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorChannelTransportUnsupported))
+				return
+			}
 		} else {
 			// Select a channel for the user
 			// check token model mapping
@@ -105,7 +109,7 @@ func Distribute() func(c *gin.Context) {
 					affinityUsable := false
 					preferred, err := model.CacheGetChannel(preferredChannelID)
 					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
-						channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
+						channelSupportsRequest(preferred, c.Request.URL.Path, modelRequest.Model, service.ResponsesTransportFromRequest(c.Request)) {
 						if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 							autoGroups := service.GetUserAutoGroup(userGroup)
@@ -133,11 +137,12 @@ func Distribute() func(c *gin.Context) {
 
 				if channel == nil {
 					channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
-						Ctx:         c,
-						ModelName:   modelRequest.Model,
-						TokenGroup:  usingGroup,
-						RequestPath: c.Request.URL.Path,
-						Retry:       common.GetPointer(0),
+						Ctx:                c,
+						ModelName:          modelRequest.Model,
+						TokenGroup:         usingGroup,
+						RequestPath:        c.Request.URL.Path,
+						ResponsesTransport: service.ResponsesTransportFromRequest(c.Request),
+						Retry:              common.GetPointer(0),
 					})
 					if err != nil {
 						showGroup := usingGroup
@@ -169,11 +174,13 @@ func Distribute() func(c *gin.Context) {
 	}
 }
 
-// channelSupportsRequestPath reports whether a channel can serve the request path.
-// Only Advanced Custom (type 58) channels are path-checked; all other channel types
-// always pass. A type-58 channel is usable only when one of its routes matches.
-func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
+// channelSupportsRequest reports whether a channel can serve the path, model
+// and Responses transport represented by the request.
+func channelSupportsRequest(channel *model.Channel, requestPath string, requestModel string, transport constant.ResponsesTransport) bool {
 	if channel == nil {
+		return false
+	}
+	if !channel.SupportsResponsesTransport(transport) {
 		return false
 	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {

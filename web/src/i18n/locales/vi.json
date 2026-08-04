@@ -5216,6 +5216,12 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Responses API transport": "Phương thức truyền Responses API",
+    "HTTP and WebSocket": "HTTP và WebSocket",
+    "HTTP only": "Chỉ HTTP",
+    "WebSocket only": "Chỉ WebSocket",
+    "Responses API disabled": "Tắt Responses API",
+    "Only matching /v1/responses requests can use this channel": "Chỉ các yêu cầu /v1/responses có phương thức truyền phù hợp mới có thể dùng kênh này"
   }
 }

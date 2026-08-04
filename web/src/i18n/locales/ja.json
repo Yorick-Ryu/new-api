@@ -5216,6 +5216,12 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Responses API transport": "Responses API の転送方式",
+    "HTTP and WebSocket": "HTTP と WebSocket",
+    "HTTP only": "HTTP のみ",
+    "WebSocket only": "WebSocket のみ",
+    "Responses API disabled": "Responses API を無効化",
+    "Only matching /v1/responses requests can use this channel": "一致する転送方式の /v1/responses リクエストのみこのチャネルを使用できます"
   }
 }

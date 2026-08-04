@@ -9,6 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestResponsesTransportSettingsDefaultToLegacyBehavior(t *testing.T) {
+	settings := ChannelOtherSettings{}
+
+	require.True(t, settings.SupportsResponsesTransport(constant.ResponsesTransportHTTP))
+	require.True(t, settings.SupportsResponsesTransport(constant.ResponsesTransportWebSocket))
+
+	disabled := false
+	settings.ResponsesWebSocketEnabled = &disabled
+	require.False(t, settings.SupportsResponsesTransport(constant.ResponsesTransportWebSocket))
+}
+
 func TestAdvancedCustomValidateResponsesToChatConverterPath(t *testing.T) {
 	valid := &AdvancedCustomConfig{
 		Routes: []AdvancedCustomRoute{

@@ -5216,6 +5216,12 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Responses API transport": "Responses API transport",
+    "HTTP and WebSocket": "HTTP and WebSocket",
+    "HTTP only": "HTTP only",
+    "WebSocket only": "WebSocket only",
+    "Responses API disabled": "Responses API disabled",
+    "Only matching /v1/responses requests can use this channel": "Only matching /v1/responses requests can use this channel"
   }
 }
