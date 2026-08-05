@@ -4,9 +4,31 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSupportsAlphaSearchChannelType(t *testing.T) {
+	tests := []struct {
+		name        string
+		channelType int
+		want        bool
+	}{
+		{name: "OpenAI", channelType: constant.ChannelTypeOpenAI, want: true},
+		{name: "Sub2API", channelType: constant.ChannelTypeSub2API, want: true},
+		{name: "NewAPI", channelType: constant.ChannelTypeNewAPI, want: true},
+		{name: "Codex", channelType: constant.ChannelTypeCodex, want: true},
+		{name: "Advanced Custom", channelType: constant.ChannelTypeAdvancedCustom, want: true},
+		{name: "Anthropic", channelType: constant.ChannelTypeAnthropic, want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, supportsAlphaSearchChannelType(test.channelType))
+		})
+	}
+}
 
 func TestBuildAlphaSearchRequestBodyPreservesUnknownFields(t *testing.T) {
 	raw := []byte(`{
