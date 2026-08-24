@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,7 +26,12 @@ import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { formatQuota } from '@/lib/format'
 
-import { formatDuration, formatResetPeriod } from '../lib'
+import {
+  formatDuration,
+  formatQuotaWindowPeriod,
+  formatResetPeriod,
+  parseQuotaWindows,
+} from '../lib'
 import type { PlanRecord } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -165,11 +170,22 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         header: t('Plan Quota'),
         meta: { mobileHidden: true },
         cell: ({ row }) => {
-          const total = Number(row.original.plan.total_amount || 0)
+          const plan = row.original.plan
+          const total = Number(plan.total_amount || 0)
+          const quotaWindows = parseQuotaWindows(plan)
           return (
-            <span className='text-muted-foreground'>
-              {total > 0 ? formatQuota(total) : t('Unlimited')}
-            </span>
+            <div className='text-muted-foreground space-y-1 text-xs'>
+              <div>
+                {t('Main quota')}:{' '}
+                {total > 0 ? formatQuota(total) : t('Unlimited')}
+              </div>
+              {quotaWindows.map((window) => (
+                <div key={window.key}>
+                  {window.name}: {formatQuota(window.amount_total)} /{' '}
+                  {formatQuotaWindowPeriod(window, t)}
+                </div>
+              ))}
+            </div>
           )
         },
         size: 150,

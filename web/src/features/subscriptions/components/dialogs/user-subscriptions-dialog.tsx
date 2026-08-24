@@ -65,8 +65,12 @@ import {
   deleteUserSubscription,
   resetUserSubscriptionsByPlan,
 } from '../../api'
-import { formatTimestamp } from '../../lib'
-import type { PlanRecord, UserSubscriptionRecord } from '../../types'
+import { formatQuotaWindowPeriod, formatTimestamp } from '../../lib'
+import type {
+  PlanRecord,
+  UserSubscriptionQuotaWindow,
+  UserSubscriptionRecord,
+} from '../../types'
 
 interface Props {
   open: boolean
@@ -119,9 +123,11 @@ export function UserSubscriptionsDialog(props: Props) {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('')
   const [resetting, setResetting] = useState(false)
   const [advanceResetTime, setAdvanceResetTime] = useState(true)
+  const [resetWindow, setResetWindow] = useState('primary')
   const [resetAction, setResetAction] = useState<{
     planId: number
     planTitle: string
+    quotaWindows: UserSubscriptionQuotaWindow[]
   } | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
     type: 'invalidate' | 'delete'
@@ -210,11 +216,14 @@ export function UserSubscriptionsDialog(props: Props) {
 
   const handleResetConfirm = async () => {
     if (!props.user?.id || !resetAction) return
+    const canAdvanceResetTime =
+      resetWindow === 'primary' || resetWindow === 'all'
     setResetting(true)
     try {
       const res = await resetUserSubscriptionsByPlan(props.user.id, {
         plan_id: resetAction.planId,
-        advance_reset_time: advanceResetTime,
+        advance_reset_time: canAdvanceResetTime && advanceResetTime,
+        reset_window: resetWindow,
       })
       if (res.success) {
         toast.success(
@@ -345,9 +354,23 @@ export function UserSubscriptionsDialog(props: Props) {
                     const sub = record.subscription
                     const total = Number(sub.amount_total || 0)
                     const used = Number(sub.amount_used || 0)
-                    return total > 0
-                      ? `${formatQuota(used)}/${formatQuota(total)}`
-                      : t('Unlimited')
+                    return (
+                      <div className='space-y-1 text-xs'>
+                        <div>
+                          {t('Main quota')}:{' '}
+                          {total > 0
+                            ? `${formatQuota(used)}/${formatQuota(total)}`
+                            : t('Unlimited')}
+                        </div>
+                        {(record.quota_windows || []).map((window) => (
+                          <div key={window.window_key}>
+                            {window.name}: {formatQuota(window.amount_used)}/
+                            {formatQuota(window.amount_total)} ·{' '}
+                            {formatQuotaWindowPeriod(window, t)}
+                          </div>
+                        ))}
+                      </div>
+                    )
                   },
                 },
                 {
@@ -368,11 +391,13 @@ export function UserSubscriptionsDialog(props: Props) {
                           disabled={!isActive}
                           onClick={() => {
                             setAdvanceResetTime(true)
+                            setResetWindow('primary')
                             setResetAction({
                               planId: sub.plan_id,
                               planTitle:
                                 planTitleMap.get(sub.plan_id) ||
                                 `#${sub.plan_id}`,
+                              quotaWindows: record.quota_windows || [],
                             })
                           }}
                         >
@@ -455,14 +480,62 @@ export function UserSubscriptionsDialog(props: Props) {
           handleConfirm={handleResetConfirm}
           isLoading={resetting}
         >
-          <label className='flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm'>
-            <span>{t('Advance next reset time')}</span>
-            <Switch
-              checked={advanceResetTime}
-              onCheckedChange={(checked) => setAdvanceResetTime(!!checked)}
-              aria-label={t('Advance next reset time')}
-            />
-          </label>
+          <div className='space-y-3'>
+            <div className='space-y-1.5'>
+              <label className='text-sm font-medium'>{t('Quota window')}</label>
+              <Select
+                value={resetWindow}
+                onValueChange={(value) =>
+                  value !== null && setResetWindow(value)
+                }
+                items={[
+                  { value: 'primary', label: t('Main quota') },
+                  ...(resetAction.quotaWindows.length > 0
+                    ? [{ value: 'all', label: t('All quota windows') }]
+                    : []),
+                  ...resetAction.quotaWindows.map((window) => ({
+                    value: window.window_key,
+                    label: `${window.name} · ${formatQuotaWindowPeriod(window, t)}`,
+                  })),
+                ]}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    <SelectItem value='primary'>{t('Main quota')}</SelectItem>
+                    {resetAction.quotaWindows.length > 0 && (
+                      <SelectItem value='all'>
+                        {t('All quota windows')}
+                      </SelectItem>
+                    )}
+                    {resetAction.quotaWindows.map((window) => (
+                      <SelectItem
+                        key={window.window_key}
+                        value={window.window_key}
+                      >
+                        {window.name} · {formatQuotaWindowPeriod(window, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className='flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm'>
+              <span>{t('Advance next reset time')}</span>
+              <Switch
+                checked={
+                  (resetWindow === 'primary' || resetWindow === 'all') &&
+                  advanceResetTime
+                }
+                disabled={resetWindow !== 'primary' && resetWindow !== 'all'}
+                onCheckedChange={(checked) => setAdvanceResetTime(!!checked)}
+                aria-label={t('Advance next reset time')}
+              />
+            </label>
+          </div>
         </ConfirmDialog>
       )}
     </>

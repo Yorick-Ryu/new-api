@@ -21,7 +21,24 @@ import { z } from 'zod'
 
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
-import type { SubscriptionPlan, PlanPayload } from '../types'
+import {
+  subscriptionQuotaWindowConfigSchema,
+  type PlanPayload,
+  type SubscriptionPlan,
+  type SubscriptionQuotaWindowConfig,
+} from '../types'
+
+const quotaWindowFormSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  name: z.string().min(1).max(64),
+  period_unit: z.enum(['hour', 'day', 'week', 'month']),
+  period_value: z.coerce.number().int().min(1),
+  amount_total: z.coerce.number().positive(),
+})
 
 export function getPlanFormSchema(t: TFunction) {
   return z.object({
@@ -45,6 +62,7 @@ export function getPlanFormSchema(t: TFunction) {
     allow_wallet_overflow: z.boolean(),
     max_purchase_per_user: z.coerce.number().min(0),
     total_amount: z.coerce.number().min(0),
+    quota_windows: z.array(quotaWindowFormSchema).max(2),
     upgrade_group: z.string().optional(),
     downgrade_group: z.string().optional(),
     stripe_price_id: z.string().optional(),
@@ -70,6 +88,7 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   allow_wallet_overflow: true,
   max_purchase_per_user: 0,
   total_amount: 0,
+  quota_windows: [],
   upgrade_group: '',
   downgrade_group: '',
   stripe_price_id: '',
@@ -78,6 +97,27 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
 }
 
 export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
+  let quotaWindows: SubscriptionQuotaWindowConfig[] = []
+  try {
+    const parsed = JSON.parse(plan.quota_windows || '[]') as unknown
+    if (Array.isArray(parsed)) {
+      quotaWindows = parsed
+        .flatMap((item) => {
+          const result = subscriptionQuotaWindowConfigSchema.safeParse(item)
+          return result.success ? [result.data] : []
+        })
+        .slice(0, 2)
+        .map((item, index) => ({
+          key: String(item.key || `window_${index + 1}`),
+          name: String(item.name || ''),
+          period_unit: item.period_unit || 'hour',
+          period_value: Number(item.period_value || 1),
+          amount_total: quotaUnitsToDollars(Number(item.amount_total || 0)),
+        }))
+    }
+  } catch {
+    quotaWindows = []
+  }
   return {
     title: plan.title || '',
     subtitle: plan.subtitle || '',
@@ -93,6 +133,7 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     allow_wallet_overflow: plan.allow_wallet_overflow !== false,
     max_purchase_per_user: Number(plan.max_purchase_per_user || 0),
     total_amount: quotaUnitsToDollars(Number(plan.total_amount || 0)),
+    quota_windows: quotaWindows,
     upgrade_group: plan.upgrade_group || '',
     downgrade_group: plan.downgrade_group || '',
     stripe_price_id: plan.stripe_price_id || '',
@@ -117,6 +158,14 @@ export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
       sort_order: Number(values.sort_order || 0),
       max_purchase_per_user: Number(values.max_purchase_per_user || 0),
       total_amount: parseQuotaFromDollars(Number(values.total_amount || 0)),
+      quota_windows: JSON.stringify(
+        values.quota_windows.map((window, index) => ({
+          ...window,
+          key: window.key || `window_${index + 1}`,
+          period_value: Number(window.period_value || 1),
+          amount_total: parseQuotaFromDollars(Number(window.amount_total || 0)),
+        }))
+      ),
       upgrade_group: values.upgrade_group || '',
       downgrade_group: values.downgrade_group || '',
     },

@@ -20,7 +20,11 @@ import type { TFunction } from 'i18next'
 
 import dayjs from '@/lib/dayjs'
 
-import type { SubscriptionPlan } from '../types'
+import {
+  subscriptionQuotaWindowConfigSchema,
+  type SubscriptionPlan,
+  type SubscriptionQuotaWindowConfig,
+} from '../types'
 
 export function formatDuration(
   plan: Partial<SubscriptionPlan>,
@@ -65,4 +69,37 @@ export function formatResetPeriod(
 export function formatTimestamp(ts: number): string {
   if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
+}
+
+export function parseQuotaWindows(
+  plan: Partial<SubscriptionPlan>
+): SubscriptionQuotaWindowConfig[] {
+  try {
+    const parsed = JSON.parse(plan.quota_windows || '[]') as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .flatMap((item) => {
+        const result = subscriptionQuotaWindowConfigSchema.safeParse(item)
+        return result.success ? [result.data] : []
+      })
+      .slice(0, 2)
+  } catch {
+    return []
+  }
+}
+
+export function formatQuotaWindowPeriod(
+  window: Pick<SubscriptionQuotaWindowConfig, 'period_unit' | 'period_value'>,
+  t: TFunction
+): string {
+  const unitLabels: Record<
+    SubscriptionQuotaWindowConfig['period_unit'],
+    string
+  > = {
+    hour: t('hours'),
+    day: t('days'),
+    week: t('weeks'),
+    month: t('months'),
+  }
+  return `${window.period_value} ${unitLabels[window.period_unit]}`
 }

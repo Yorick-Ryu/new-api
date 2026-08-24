@@ -204,7 +204,13 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
-	err := model.DB.Create(&req.Plan).Error
+	normalizedQuotaWindows, err := model.NormalizeAndSerializeSubscriptionQuotaWindows(req.Plan.QuotaWindows)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	req.Plan.QuotaWindows = normalizedQuotaWindows
+	err = model.DB.Create(&req.Plan).Error
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -278,8 +284,13 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+	normalizedQuotaWindows, err := model.NormalizeAndSerializeSubscriptionQuotaWindows(req.Plan.QuotaWindows)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
 
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		// update plan (allow zero values updates with map)
 		updateMap := map[string]interface{}{
 			"title":                      req.Plan.Title,
@@ -300,6 +311,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"downgrade_group":            req.Plan.DowngradeGroup,
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
+			"quota_windows":              normalizedQuotaWindows,
 			"updated_at":                 common.GetTimestamp(),
 		}
 		if req.Plan.AllowBalancePay != nil {
@@ -396,8 +408,9 @@ type AdminCreateUserSubscriptionRequest struct {
 }
 
 type AdminResetSubscriptionRequest struct {
-	PlanId           int   `json:"plan_id"`
-	AdvanceResetTime *bool `json:"advance_reset_time"`
+	PlanId           int    `json:"plan_id"`
+	AdvanceResetTime *bool  `json:"advance_reset_time"`
+	ResetWindow      string `json:"reset_window"`
 }
 
 func resolveAdvanceResetTime(value *bool) bool {
@@ -411,7 +424,7 @@ func recordSubscriptionResetUserLogs(result *model.SubscriptionResetResult, admi
 	if result == nil || result.ResetCount == 0 {
 		return
 	}
-	content := fmt.Sprintf("管理员重置订阅套餐 %s（ID: %d）额度", result.PlanTitle, result.PlanId)
+	content := fmt.Sprintf("管理员重置订阅套餐 %s（ID: %d）额度，窗口: %s", result.PlanTitle, result.PlanId, result.ResetWindow)
 	for _, userId := range result.AffectedUserIds {
 		model.RecordLogWithAdminInfo(userId, model.LogTypeManage, content, adminInfo)
 	}
@@ -461,7 +474,7 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
-	result, err := model.AdminResetUserSubscriptionsByPlan(userId, req.PlanId, advanceResetTime)
+	result, err := model.AdminResetUserSubscriptionsByPlanWindow(userId, req.PlanId, advanceResetTime, req.ResetWindow)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -474,6 +487,7 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 		"reset_count":        result.ResetCount,
 		"user_count":         result.UserCount,
 		"advance_reset_time": result.AdvanceResetTime,
+		"reset_window":       result.ResetWindow,
 	})
 	common.ApiSuccess(c, result)
 }
@@ -490,20 +504,21 @@ func AdminResetPlanSubscriptions(c *gin.Context) {
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
-	result, err := model.AdminResetPlanSubscriptions(planId, advanceResetTime)
+	result, err := model.AdminResetPlanSubscriptionsWindow(planId, advanceResetTime, req.ResetWindow)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	recordSubscriptionResetUserLogs(result, auditOperatorInfo(c))
-	common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t",
-		result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime))
+	common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t reset_window=%s",
+		result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime, result.ResetWindow))
 	recordManageAudit(c, "subscription.plan_reset", map[string]interface{}{
 		"plan_id":            result.PlanId,
 		"plan_title":         result.PlanTitle,
 		"reset_count":        result.ResetCount,
 		"user_count":         result.UserCount,
 		"advance_reset_time": result.AdvanceResetTime,
+		"reset_window":       result.ResetWindow,
 	})
 	common.ApiSuccess(c, result)
 }

@@ -39,6 +39,7 @@ export const subscriptionPlanSchema = z.object({
   allow_wallet_overflow: z.boolean().optional().default(true),
   max_purchase_per_user: z.number(),
   total_amount: z.number(),
+  quota_windows: z.string().optional(),
   upgrade_group: z.string().optional(),
   downgrade_group: z.string().optional(),
   stripe_price_id: z.string().optional(),
@@ -47,6 +48,22 @@ export const subscriptionPlanSchema = z.object({
 })
 
 export type SubscriptionPlan = z.infer<typeof subscriptionPlanSchema>
+
+export const subscriptionQuotaWindowConfigSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  name: z.string().min(1).max(64),
+  period_unit: z.enum(['hour', 'day', 'week', 'month']),
+  period_value: z.number().int().positive(),
+  amount_total: z.number().int().positive(),
+})
+
+export type SubscriptionQuotaWindowConfig = z.infer<
+  typeof subscriptionQuotaWindowConfigSchema
+>
 
 export interface PlanRecord {
   plan: SubscriptionPlan
@@ -71,8 +88,26 @@ export const userSubscriptionSchema = z.object({
 
 export type UserSubscription = z.infer<typeof userSubscriptionSchema>
 
+export const userSubscriptionQuotaWindowSchema = z.object({
+  id: z.number(),
+  user_subscription_id: z.number(),
+  window_key: z.string(),
+  name: z.string(),
+  period_unit: z.enum(['hour', 'day', 'week', 'month']),
+  period_value: z.number(),
+  amount_total: z.number(),
+  amount_used: z.number(),
+  window_start: z.number(),
+  next_reset_time: z.number().optional(),
+})
+
+export type UserSubscriptionQuotaWindow = z.infer<
+  typeof userSubscriptionQuotaWindowSchema
+>
+
 export interface UserSubscriptionRecord {
   subscription: UserSubscription
+  quota_windows?: UserSubscriptionQuotaWindow[]
 }
 
 // ============================================================================
@@ -120,10 +155,12 @@ export interface CreateUserSubscriptionRequest {
 export interface ResetUserSubscriptionsRequest {
   plan_id: number
   advance_reset_time: boolean
+  reset_window: string
 }
 
 export interface ResetPlanSubscriptionsRequest {
   advance_reset_time: boolean
+  reset_window: string
 }
 
 export interface SubscriptionResetResult {
@@ -132,6 +169,7 @@ export interface SubscriptionResetResult {
   reset_count: number
   user_count: number
   advance_reset_time: boolean
+  reset_window: string
 }
 
 // ============================================================================

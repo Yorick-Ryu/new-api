@@ -51,7 +51,12 @@ import {
   updateBillingPreference,
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
-import { formatDuration, formatResetPeriod } from '@/features/subscriptions/lib'
+import {
+  formatDuration,
+  formatQuotaWindowPeriod,
+  formatResetPeriod,
+  parseQuotaWindows,
+} from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
   UserSubscriptionRecord,
@@ -233,6 +238,11 @@ export function SubscriptionPlansCard({
     const used = Number(sub?.subscription?.amount_used || 0)
     if (total <= 0) return 0
     return Math.round((used / total) * 100)
+  }
+
+  const getQuotaUsagePercent = (used: number, total: number) => {
+    if (total <= 0) return 0
+    return Math.min(100, Math.round((used / total) * 100))
   }
 
   if (loading) {
@@ -507,6 +517,46 @@ export function SubscriptionPlansCard({
                       {totalAmount > 0 && isActive && (
                         <Progress value={usagePercent} className='mt-2 h-1.5' />
                       )}
+                      {(sub.quota_windows || []).map((window) => {
+                        const windowTotal = Number(window.amount_total || 0)
+                        const windowUsed = Number(window.amount_used || 0)
+                        const windowPercent = getQuotaUsagePercent(
+                          windowUsed,
+                          windowTotal
+                        )
+
+                        return (
+                          <div
+                            key={window.window_key}
+                            className='mt-2 border-t pt-2'
+                          >
+                            <div className='flex flex-wrap items-center justify-between gap-1'>
+                              <span className='font-medium'>
+                                {window.name} ·{' '}
+                                {formatQuotaWindowPeriod(window, t)}
+                              </span>
+                              <span className='text-muted-foreground'>
+                                {formatQuota(windowUsed)}/
+                                {formatQuota(windowTotal)} · {windowPercent}%
+                              </span>
+                            </div>
+                            {isActive && Number(window.next_reset_time) > 0 && (
+                              <div className='text-muted-foreground mt-1'>
+                                {t('Next reset')}:{' '}
+                                {new Date(
+                                  Number(window.next_reset_time) * 1000
+                                ).toLocaleString()}
+                              </div>
+                            )}
+                            {isActive && (
+                              <Progress
+                                value={windowPercent}
+                                className='mt-1.5 h-1.5'
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 })}
@@ -533,6 +583,7 @@ export function SubscriptionPlansCard({
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
               const reached = limit > 0 && count >= limit
+              const quotaWindows = parseQuotaWindows(plan)
 
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
@@ -542,6 +593,10 @@ export function SubscriptionPlansCard({
                 totalAmount > 0
                   ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
+                ...quotaWindows.map(
+                  (window) =>
+                    `${window.name}: ${formatQuota(window.amount_total)} / ${formatQuotaWindowPeriod(window, t)}`
+                ),
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`

@@ -79,6 +79,7 @@ import {
   type PlanFormValues,
 } from '../lib'
 import type { PlanRecord } from '../types'
+import { QuotaWindowsField } from './quota-windows-field'
 import { useSubscriptions } from './subscriptions-provider'
 
 interface Props {
@@ -743,6 +744,8 @@ export function SubscriptionsMutateDrawer({
                   )}
                 />
               </div>
+
+              <QuotaWindowsField />
             </SideDrawerSection>
 
             {/* Payment Config */}

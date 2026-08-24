@@ -181,6 +181,10 @@ type SubscriptionPlan struct {
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
 
+	// Optional additional quota windows. Stored as validated JSON and copied
+	// into independent counter rows only when a new subscription is created.
+	QuotaWindows string `json:"quota_windows" gorm:"type:text"`
+
 	// Quota reset period for plan
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
@@ -293,7 +297,8 @@ func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 }
 
 type SubscriptionSummary struct {
-	Subscription *UserSubscription `json:"subscription"`
+	Subscription *UserSubscription             `json:"subscription"`
+	QuotaWindows []UserSubscriptionQuotaWindow `json:"quota_windows,omitempty"`
 }
 
 type SubscriptionResetResult struct {
@@ -302,6 +307,7 @@ type SubscriptionResetResult struct {
 	ResetCount       int    `json:"reset_count"`
 	UserCount        int    `json:"user_count"`
 	AdvanceResetTime bool   `json:"advance_reset_time"`
+	ResetWindow      string `json:"reset_window"`
 	PlanTitle        string `json:"-"`
 	AffectedUserIds  []int  `json:"-"`
 }
@@ -552,6 +558,9 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		UpdatedAt:           common.GetTimestamp(),
 	}
 	if err := tx.Create(sub).Error; err != nil {
+		return nil, err
+	}
+	if err := createSubscriptionQuotaWindowsTx(tx, sub, plan.QuotaWindows); err != nil {
 		return nil, err
 	}
 	return sub, nil
@@ -847,7 +856,7 @@ func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildSubscriptionSummaries(subs), nil
+	return buildSubscriptionSummaries(subs)
 }
 
 // HasActiveUserSubscription returns whether the user has any active subscription.
@@ -896,21 +905,38 @@ func GetAllUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildSubscriptionSummaries(subs), nil
+	return buildSubscriptionSummaries(subs)
 }
 
-func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
+func buildSubscriptionSummaries(subs []UserSubscription) ([]SubscriptionSummary, error) {
 	if len(subs) == 0 {
-		return []SubscriptionSummary{}
+		return []SubscriptionSummary{}, nil
+	}
+	subscriptionIds := make([]int, 0, len(subs))
+	for _, sub := range subs {
+		subscriptionIds = append(subscriptionIds, sub.Id)
+	}
+	var windows []UserSubscriptionQuotaWindow
+	if err := DB.Where("user_subscription_id IN ?", subscriptionIds).
+		Order("user_subscription_id asc, id asc").
+		Find(&windows).Error; err != nil {
+		return nil, err
+	}
+	windowsBySubscription := make(map[int][]UserSubscriptionQuotaWindow, len(subs))
+	for _, window := range windows {
+		windowsBySubscription[window.UserSubscriptionId] = append(
+			windowsBySubscription[window.UserSubscriptionId], window,
+		)
 	}
 	result := make([]SubscriptionSummary, 0, len(subs))
 	for _, sub := range subs {
 		subCopy := sub
 		result = append(result, SubscriptionSummary{
 			Subscription: &subCopy,
+			QuotaWindows: windowsBySubscription[sub.Id],
 		})
 	}
-	return result
+	return result, nil
 }
 
 // AdminInvalidateUserSubscription marks a user subscription as cancelled and ends it immediately.
@@ -982,6 +1008,10 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 			cacheGroup = target
 			downgradeGroup = target
 		}
+		if err := tx.Where("user_subscription_id = ?", userSubscriptionId).
+			Delete(&UserSubscriptionQuotaWindow{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("id = ?", userSubscriptionId).Delete(&UserSubscription{}).Error; err != nil {
 			return err
 		}
@@ -999,27 +1029,45 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 	return "", nil
 }
 
-func resetUserSubscriptionTx(tx *gorm.DB, sub *UserSubscription, plan *SubscriptionPlan, now int64, advanceResetTime bool) error {
+func resetUserSubscriptionTx(tx *gorm.DB, sub *UserSubscription, plan *SubscriptionPlan, now int64, advanceResetTime bool, resetWindow string) (bool, error) {
 	if tx == nil || sub == nil || plan == nil {
-		return errors.New("invalid reset args")
+		return false, errors.New("invalid reset args")
 	}
-	sub.AmountUsed = 0
-	if advanceResetTime {
-		nextReset := calcNextResetTime(time.Unix(now, 0), plan, sub.EndTime)
-		sub.NextResetTime = nextReset
-		if nextReset > 0 {
-			sub.LastResetTime = now
-		} else {
-			sub.LastResetTime = 0
+	resetWindow, err := normalizeSubscriptionQuotaWindowKey(resetWindow)
+	if err != nil {
+		return false, err
+	}
+	changed := false
+	if resetWindow == SubscriptionQuotaWindowPrimary || resetWindow == SubscriptionQuotaWindowAll {
+		sub.AmountUsed = 0
+		if advanceResetTime {
+			nextReset := calcNextResetTime(time.Unix(now, 0), plan, sub.EndTime)
+			sub.NextResetTime = nextReset
+			if nextReset > 0 {
+				sub.LastResetTime = now
+			} else {
+				sub.LastResetTime = 0
+			}
 		}
+		if err := tx.Save(sub).Error; err != nil {
+			return false, err
+		}
+		changed = true
 	}
-	return tx.Save(sub).Error
+	if resetWindow != SubscriptionQuotaWindowPrimary {
+		windowChanged, err := resetSubscriptionQuotaWindowTx(tx, sub, resetWindow)
+		if err != nil {
+			return false, err
+		}
+		changed = changed || windowChanged
+	}
+	return changed, nil
 }
 
-func buildSubscriptionResetResult(plan *SubscriptionPlan, subs []UserSubscription, advanceResetTime bool) *SubscriptionResetResult {
-	userIds := make([]int, 0, len(subs))
-	seenUsers := make(map[int]struct{}, len(subs))
-	for _, sub := range subs {
+func buildSubscriptionResetResult(plan *SubscriptionPlan, matchedSubs []UserSubscription, resetSubs []UserSubscription, advanceResetTime bool, resetWindow string) *SubscriptionResetResult {
+	userIds := make([]int, 0, len(resetSubs))
+	seenUsers := make(map[int]struct{}, len(resetSubs))
+	for _, sub := range resetSubs {
 		if _, ok := seenUsers[sub.UserId]; ok {
 			continue
 		}
@@ -1028,16 +1076,17 @@ func buildSubscriptionResetResult(plan *SubscriptionPlan, subs []UserSubscriptio
 	}
 	return &SubscriptionResetResult{
 		PlanId:           plan.Id,
-		MatchedCount:     len(subs),
-		ResetCount:       len(subs),
+		MatchedCount:     len(matchedSubs),
+		ResetCount:       len(resetSubs),
 		UserCount:        len(userIds),
 		AdvanceResetTime: advanceResetTime,
+		ResetWindow:      resetWindow,
 		PlanTitle:        plan.Title,
 		AffectedUserIds:  userIds,
 	}
 }
 
-func adminResetUserSubscriptionsByPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, now int64, advanceResetTime bool) (*SubscriptionResetResult, error) {
+func adminResetUserSubscriptionsByPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, now int64, advanceResetTime bool, resetWindow string) (*SubscriptionResetResult, error) {
 	if tx == nil || plan == nil {
 		return nil, errors.New("invalid reset args")
 	}
@@ -1051,15 +1100,23 @@ func adminResetUserSubscriptionsByPlanTx(tx *gorm.DB, userId int, plan *Subscrip
 	if len(subs) == 0 {
 		return nil, errors.New("该用户没有有效的此套餐订阅")
 	}
+	resetSubs := make([]UserSubscription, 0, len(subs))
 	for i := range subs {
-		if err := resetUserSubscriptionTx(tx, &subs[i], plan, now, advanceResetTime); err != nil {
+		changed, err := resetUserSubscriptionTx(tx, &subs[i], plan, now, advanceResetTime, resetWindow)
+		if err != nil {
 			return nil, err
 		}
+		if changed {
+			resetSubs = append(resetSubs, subs[i])
+		}
 	}
-	return buildSubscriptionResetResult(plan, subs, advanceResetTime), nil
+	if len(resetSubs) == 0 {
+		return nil, errors.New("该用户没有有效的此套餐额度窗口")
+	}
+	return buildSubscriptionResetResult(plan, subs, resetSubs, advanceResetTime, resetWindow), nil
 }
 
-func adminResetPlanSubscriptionsTx(tx *gorm.DB, plan *SubscriptionPlan, now int64, advanceResetTime bool) (*SubscriptionResetResult, error) {
+func adminResetPlanSubscriptionsTx(tx *gorm.DB, plan *SubscriptionPlan, now int64, advanceResetTime bool, resetWindow string) (*SubscriptionResetResult, error) {
 	if tx == nil || plan == nil {
 		return nil, errors.New("invalid reset args")
 	}
@@ -1070,26 +1127,42 @@ func adminResetPlanSubscriptionsTx(tx *gorm.DB, plan *SubscriptionPlan, now int6
 		Find(&subs).Error; err != nil {
 		return nil, err
 	}
+	resetSubs := make([]UserSubscription, 0, len(subs))
 	for i := range subs {
-		if err := resetUserSubscriptionTx(tx, &subs[i], plan, now, advanceResetTime); err != nil {
+		changed, err := resetUserSubscriptionTx(tx, &subs[i], plan, now, advanceResetTime, resetWindow)
+		if err != nil {
 			return nil, err
 		}
+		if changed {
+			resetSubs = append(resetSubs, subs[i])
+		}
 	}
-	return buildSubscriptionResetResult(plan, subs, advanceResetTime), nil
+	return buildSubscriptionResetResult(plan, subs, resetSubs, advanceResetTime, resetWindow), nil
 }
 
 func AdminResetUserSubscriptionsByPlan(userId int, planId int, advanceResetTime bool) (*SubscriptionResetResult, error) {
+	return AdminResetUserSubscriptionsByPlanWindow(userId, planId, advanceResetTime, SubscriptionQuotaWindowPrimary)
+}
+
+func AdminResetUserSubscriptionsByPlanWindow(userId int, planId int, advanceResetTime bool, resetWindow string) (*SubscriptionResetResult, error) {
 	if userId <= 0 || planId <= 0 {
 		return nil, errors.New("invalid userId or planId")
 	}
+	resetWindow, err := normalizeSubscriptionQuotaWindowKey(resetWindow)
+	if err != nil {
+		return nil, err
+	}
+	if resetWindow != SubscriptionQuotaWindowPrimary && resetWindow != SubscriptionQuotaWindowAll {
+		advanceResetTime = false
+	}
 	var result *SubscriptionResetResult
 	now := GetDBTimestamp()
-	err := DB.Transaction(func(tx *gorm.DB) error {
+	err = DB.Transaction(func(tx *gorm.DB) error {
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
 		if err != nil {
 			return err
 		}
-		result, err = adminResetUserSubscriptionsByPlanTx(tx, userId, plan, now, advanceResetTime)
+		result, err = adminResetUserSubscriptionsByPlanTx(tx, userId, plan, now, advanceResetTime, resetWindow)
 		return err
 	})
 	if err != nil {
@@ -1099,17 +1172,28 @@ func AdminResetUserSubscriptionsByPlan(userId int, planId int, advanceResetTime 
 }
 
 func AdminResetPlanSubscriptions(planId int, advanceResetTime bool) (*SubscriptionResetResult, error) {
+	return AdminResetPlanSubscriptionsWindow(planId, advanceResetTime, SubscriptionQuotaWindowPrimary)
+}
+
+func AdminResetPlanSubscriptionsWindow(planId int, advanceResetTime bool, resetWindow string) (*SubscriptionResetResult, error) {
 	if planId <= 0 {
 		return nil, errors.New("invalid planId")
 	}
+	resetWindow, err := normalizeSubscriptionQuotaWindowKey(resetWindow)
+	if err != nil {
+		return nil, err
+	}
+	if resetWindow != SubscriptionQuotaWindowPrimary && resetWindow != SubscriptionQuotaWindowAll {
+		advanceResetTime = false
+	}
 	var result *SubscriptionResetResult
 	now := GetDBTimestamp()
-	err := DB.Transaction(func(tx *gorm.DB) error {
+	err = DB.Transaction(func(tx *gorm.DB) error {
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
 		if err != nil {
 			return err
 		}
-		result, err = adminResetPlanSubscriptionsTx(tx, plan, now, advanceResetTime)
+		result, err = adminResetPlanSubscriptionsTx(tx, plan, now, advanceResetTime, resetWindow)
 		return err
 	})
 	if err != nil {
@@ -1347,6 +1431,16 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 					continue
 				}
 			}
+			quotaWindows, _, err := loadSubscriptionQuotaWindowsForUpdateTx(tx, &sub, now)
+			if err != nil {
+				return err
+			}
+			if err := checkSubscriptionQuotaWindows(quotaWindows, amount); err != nil {
+				if errors.Is(err, ErrSubscriptionQuotaWindowExceeded) {
+					continue
+				}
+				return err
+			}
 			record := &SubscriptionPreConsumeRecord{
 				RequestId:          requestId,
 				UserId:             userId,
@@ -1371,6 +1465,9 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			sub.AmountUsed += amount
 			if err := tx.Save(&sub).Error; err != nil {
+				return err
+			}
+			if err := applySubscriptionQuotaWindowDeltaRowsTx(tx, quotaWindows, amount); err != nil {
 				return err
 			}
 			returnValue.UserSubscriptionId = sub.Id
@@ -1406,7 +1503,7 @@ func RefundSubscriptionPreConsume(requestId string) error {
 			record.Status = "refunded"
 			return tx.Save(&record).Error
 		}
-		if err := PostConsumeUserSubscriptionDelta(record.UserSubscriptionId, -record.PreConsumed); err != nil {
+		if err := postConsumeUserSubscriptionDeltaTx(tx, record.UserSubscriptionId, -record.PreConsumed); err != nil {
 			return err
 		}
 		record.Status = "refunded"
@@ -1414,15 +1511,22 @@ func RefundSubscriptionPreConsume(requestId string) error {
 	})
 }
 
-// ResetDueSubscriptions resets subscriptions whose next_reset_time has passed.
+// ResetDueSubscriptions resets primary or additional quota windows whose next
+// reset time has passed.
 func ResetDueSubscriptions(limit int) (int, error) {
 	if limit <= 0 {
 		limit = 200
 	}
 	now := GetDBTimestamp()
 	var subs []UserSubscription
-	if err := DB.Where("next_reset_time > 0 AND next_reset_time <= ? AND status = ?", now, "active").
-		Order("next_reset_time asc").
+	dueWindowSubscriptions := DB.Model(&UserSubscriptionQuotaWindow{}).
+		Select("user_subscription_id").
+		Where("next_reset_time > 0 AND next_reset_time <= ?", now)
+	if err := DB.Where(
+		"status = ? AND ((next_reset_time > 0 AND next_reset_time <= ?) OR id IN (?))",
+		"active", now, dueWindowSubscriptions,
+	).
+		Order("id asc").
 		Limit(limit).
 		Find(&subs).Error; err != nil {
 		return 0, err
@@ -1440,14 +1544,23 @@ func ResetDueSubscriptions(limit int) (int, error) {
 		err = DB.Transaction(func(tx *gorm.DB) error {
 			var locked UserSubscription
 			if err := lockForUpdate(tx).
-				Where("id = ? AND next_reset_time > 0 AND next_reset_time <= ?", subCopy.Id, now).
+				Where("id = ? AND status = ?", subCopy.Id, "active").
 				First(&locked).Error; err != nil {
 				return nil
 			}
-			if err := maybeResetUserSubscriptionWithPlanTx(tx, &locked, plan, now); err != nil {
+			primaryDue := locked.NextResetTime > 0 && locked.NextResetTime <= now
+			if primaryDue {
+				if err := maybeResetUserSubscriptionWithPlanTx(tx, &locked, plan, now); err != nil {
+					return err
+				}
+			}
+			_, quotaWindowReset, err := loadSubscriptionQuotaWindowsForUpdateTx(tx, &locked, now)
+			if err != nil {
 				return err
 			}
-			resetCount++
+			if primaryDue || quotaWindowReset {
+				resetCount++
+			}
 			return nil
 		})
 		if err != nil {
@@ -1505,20 +1618,36 @@ func PostConsumeUserSubscriptionDelta(userSubscriptionId int, delta int64) error
 		return nil
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
-		var sub UserSubscription
-		if err := lockForUpdate(tx).
-			Where("id = ?", userSubscriptionId).
-			First(&sub).Error; err != nil {
-			return err
-		}
-		newUsed := sub.AmountUsed + delta
-		if newUsed < 0 {
-			newUsed = 0
-		}
-		if sub.AmountTotal > 0 && newUsed > sub.AmountTotal {
-			return fmt.Errorf("subscription used exceeds total, used=%d total=%d", newUsed, sub.AmountTotal)
-		}
-		sub.AmountUsed = newUsed
-		return tx.Save(&sub).Error
+		return postConsumeUserSubscriptionDeltaTx(tx, userSubscriptionId, delta)
 	})
+}
+
+func postConsumeUserSubscriptionDeltaTx(tx *gorm.DB, userSubscriptionId int, delta int64) error {
+	if tx == nil {
+		return errors.New("tx is nil")
+	}
+	if userSubscriptionId <= 0 {
+		return errors.New("invalid userSubscriptionId")
+	}
+	if delta == 0 {
+		return nil
+	}
+	var sub UserSubscription
+	if err := lockForUpdate(tx).
+		Where("id = ?", userSubscriptionId).
+		First(&sub).Error; err != nil {
+		return err
+	}
+	newUsed := sub.AmountUsed + delta
+	if newUsed < 0 {
+		newUsed = 0
+	}
+	if sub.AmountTotal > 0 && newUsed > sub.AmountTotal {
+		return fmt.Errorf("subscription used exceeds total, used=%d total=%d", newUsed, sub.AmountTotal)
+	}
+	if err := applySubscriptionQuotaWindowDeltaTx(tx, &sub, delta); err != nil {
+		return err
+	}
+	sub.AmountUsed = newUsed
+	return tx.Save(&sub).Error
 }
