@@ -28,7 +28,6 @@ import {
 } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -66,6 +65,7 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { PaymentMethod, TopupInfo } from '../types'
+import { SubscriptionQuotaUsage } from './subscription-quota-usage'
 
 interface SubscriptionPlansCardProps {
   topupInfo: TopupInfo | null
@@ -234,18 +234,6 @@ export function SubscriptionPlansCard({
     return Math.max(0, Math.ceil((endTime - now) / 86400))
   }
 
-  const getUsagePercent = (sub: UserSubscriptionRecord) => {
-    const total = Number(sub?.subscription?.amount_total || 0)
-    const used = Number(sub?.subscription?.amount_used || 0)
-    if (total <= 0) return 0
-    return Math.round((used / total) * 100)
-  }
-
-  const getQuotaUsagePercent = (used: number, total: number) => {
-    if (total <= 0) return 0
-    return Math.min(100, Math.round((used / total) * 100))
-  }
-
   if (loading) {
     return (
       <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
@@ -412,21 +400,17 @@ export function SubscriptionPlansCard({
                   const subscription = sub.subscription
                   const totalAmount = Number(subscription?.amount_total || 0)
                   const usedAmount = Number(subscription?.amount_used || 0)
-                  const remainAmount =
-                    totalAmount > 0 ? Math.max(0, totalAmount - usedAmount) : 0
                   const subscriptionPlan = planMap.get(subscription?.plan_id)
                   const planTitle = subscriptionPlan?.title || ''
                   const primaryQuotaLabel = subscriptionPlan
                     ? formatPrimaryQuotaLabel(subscriptionPlan, t)
                     : t('Main quota')
                   const remainDays = getRemainingDays(sub)
-                  const usagePercent = getUsagePercent(sub)
                   const now = Date.now() / 1000
                   const isExpired = (subscription?.end_time || 0) < now
                   const isCancelled = subscription?.status === 'cancelled'
                   const isActive =
                     subscription?.status === 'active' && !isExpired
-                  const nextResetTime = subscription?.next_reset_time ?? 0
                   let statusBadge = (
                     <StatusBadge
                       label={t('Expired')}
@@ -487,80 +471,23 @@ export function SubscriptionPlansCard({
                           (subscription?.end_time || 0) * 1000
                         ).toLocaleString()}
                       </div>
-                      {isActive && nextResetTime > 0 && (
-                        <div className='text-muted-foreground mt-1'>
-                          {t('Next reset')}:{' '}
-                          {new Date(nextResetTime * 1000).toLocaleString()}
-                        </div>
-                      )}
-                      <div className='text-muted-foreground mt-1'>
-                        {primaryQuotaLabel}:{' '}
-                        {totalAmount > 0 ? (
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={<span className='cursor-help' />}
-                            >
-                              {formatQuota(usedAmount)}/
-                              {formatQuota(totalAmount)} · {t('Remaining')}{' '}
-                              {formatQuota(remainAmount)}
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t('Raw Quota')}: {usedAmount}/{totalAmount} ·{' '}
-                              {t('Remaining')} {remainAmount}
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          t('Unlimited')
-                        )}
-                        {totalAmount > 0 && (
-                          <span className='ml-2'>
-                            {t('Used')} {usagePercent}%
-                          </span>
-                        )}
-                      </div>
-                      {totalAmount > 0 && isActive && (
-                        <Progress value={usagePercent} className='mt-2 h-1.5' />
-                      )}
-                      {(sub.quota_windows || []).map((window) => {
-                        const windowTotal = Number(window.amount_total || 0)
-                        const windowUsed = Number(window.amount_used || 0)
-                        const windowPercent = getQuotaUsagePercent(
-                          windowUsed,
-                          windowTotal
-                        )
-
-                        return (
-                          <div
-                            key={window.window_key}
-                            className='mt-2 border-t pt-2'
-                          >
-                            <div className='flex flex-wrap items-center justify-between gap-1'>
-                              <span className='font-medium'>
-                                {window.name} ·{' '}
-                                {formatQuotaWindowPeriod(window, t)}
-                              </span>
-                              <span className='text-muted-foreground'>
-                                {formatQuota(windowUsed)}/
-                                {formatQuota(windowTotal)} · {windowPercent}%
-                              </span>
-                            </div>
-                            {isActive && Number(window.next_reset_time) > 0 && (
-                              <div className='text-muted-foreground mt-1'>
-                                {t('Next reset')}:{' '}
-                                {new Date(
-                                  Number(window.next_reset_time) * 1000
-                                ).toLocaleString()}
-                              </div>
-                            )}
-                            {isActive && (
-                              <Progress
-                                value={windowPercent}
-                                className='mt-1.5 h-1.5'
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
+                      <SubscriptionQuotaUsage
+                        label={primaryQuotaLabel}
+                        amountUsed={usedAmount}
+                        amountTotal={totalAmount}
+                        nextResetTime={subscription?.next_reset_time}
+                        isActive={isActive}
+                      />
+                      {(sub.quota_windows || []).map((window) => (
+                        <SubscriptionQuotaUsage
+                          key={window.window_key}
+                          label={window.name}
+                          amountUsed={Number(window.amount_used || 0)}
+                          amountTotal={Number(window.amount_total || 0)}
+                          nextResetTime={window.next_reset_time}
+                          isActive={isActive}
+                        />
+                      ))}
                     </div>
                   )
                 })}
