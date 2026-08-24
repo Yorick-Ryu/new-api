@@ -47,6 +47,7 @@ import {
 } from '../../api'
 import {
   formatDuration,
+  formatPrimaryQuotaLabel,
   formatQuotaWindowPeriod,
   formatResetPeriod,
   parseQuotaWindows,
@@ -305,7 +306,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
           )}
           <div className='flex items-center justify-between'>
             <span className='text-muted-foreground text-sm'>
-              {t('Plan Quota')}
+              {formatPrimaryQuotaLabel(plan, t)}
             </span>
             <span className='flex items-center gap-1 text-sm'>
               <Package className='h-3.5 w-3.5' />

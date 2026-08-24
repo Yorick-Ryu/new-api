@@ -22,14 +22,19 @@ import { describe, test } from 'node:test'
 import type { TFunction } from 'i18next'
 
 import type { SubscriptionPlan } from '../../types'
-import { formatQuotaWindowPeriod, parseQuotaWindows } from '../format'
+import {
+  formatPrimaryQuotaLabel,
+  formatQuotaWindowPeriod,
+  parseQuotaWindows,
+} from '../format'
 import {
   formValuesToPlanPayload,
   PLAN_FORM_DEFAULTS,
   planToFormValues,
 } from '../plan-form'
 
-const t = ((key: string) => key) as TFunction
+const t = ((key: string, options?: Record<string, unknown>) =>
+  key.replace('{{period}}', String(options?.period ?? ''))) as TFunction
 
 const basePlan: SubscriptionPlan = {
   id: 1,
@@ -48,6 +53,30 @@ const basePlan: SubscriptionPlan = {
 }
 
 describe('subscription quota window form mapping', () => {
+  test('labels the primary quota from its configured reset window', () => {
+    assert.equal(
+      formatPrimaryQuotaLabel(
+        {
+          quota_reset_period: 'custom',
+          quota_reset_custom_seconds: 5 * 60 * 60,
+        },
+        t
+      ),
+      '5 hours quota'
+    )
+    assert.equal(
+      formatPrimaryQuotaLabel({ quota_reset_period: 'monthly' }, t),
+      'Monthly quota'
+    )
+  })
+
+  test('labels a non-resetting primary quota as total quota', () => {
+    assert.equal(
+      formatPrimaryQuotaLabel({ quota_reset_period: 'never' }, t),
+      'Total Quota'
+    )
+  })
+
   test('serializes flexible hour and month windows and round-trips quota', () => {
     const payload = formValuesToPlanPayload({
       ...PLAN_FORM_DEFAULTS,

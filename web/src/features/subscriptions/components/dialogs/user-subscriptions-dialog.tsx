@@ -65,7 +65,11 @@ import {
   deleteUserSubscription,
   resetUserSubscriptionsByPlan,
 } from '../../api'
-import { formatQuotaWindowPeriod, formatTimestamp } from '../../lib'
+import {
+  formatPrimaryQuotaLabel,
+  formatQuotaWindowPeriod,
+  formatTimestamp,
+} from '../../lib'
 import type {
   PlanRecord,
   UserSubscriptionQuotaWindow,
@@ -134,10 +138,10 @@ export function UserSubscriptionsDialog(props: Props) {
     subId: number
   } | null>(null)
 
-  const planTitleMap = useMemo(() => {
-    const map = new Map<number, string>()
+  const planMap = useMemo(() => {
+    const map = new Map<number, PlanRecord['plan']>()
     plans.forEach((p) => {
-      if (p.plan.id) map.set(p.plan.id, p.plan.title || `#${p.plan.id}`)
+      if (p.plan.id) map.set(p.plan.id, p.plan)
     })
     return map
   }, [plans])
@@ -313,7 +317,7 @@ export function UserSubscriptionsDialog(props: Props) {
                     return (
                       <div>
                         <div className='font-medium'>
-                          {planTitleMap.get(sub.plan_id) || `#${sub.plan_id}`}
+                          {planMap.get(sub.plan_id)?.title || `#${sub.plan_id}`}
                         </div>
                         <div className='text-muted-foreground text-sm'>
                           {t('Source')}: {sub.source || '-'}
@@ -349,15 +353,19 @@ export function UserSubscriptionsDialog(props: Props) {
                 },
                 {
                   id: 'quota',
-                  header: t('Total Quota'),
+                  header: t('Quota'),
                   cell: (record) => {
                     const sub = record.subscription
                     const total = Number(sub.amount_total || 0)
                     const used = Number(sub.amount_used || 0)
+                    const plan = planMap.get(sub.plan_id)
+                    const primaryQuotaLabel = plan
+                      ? formatPrimaryQuotaLabel(plan, t)
+                      : t('Main quota')
                     return (
                       <div className='space-y-1 text-xs'>
                         <div>
-                          {t('Main quota')}:{' '}
+                          {primaryQuotaLabel}:{' '}
                           {total > 0
                             ? `${formatQuota(used)}/${formatQuota(total)}`
                             : t('Unlimited')}
@@ -395,7 +403,7 @@ export function UserSubscriptionsDialog(props: Props) {
                             setResetAction({
                               planId: sub.plan_id,
                               planTitle:
-                                planTitleMap.get(sub.plan_id) ||
+                                planMap.get(sub.plan_id)?.title ||
                                 `#${sub.plan_id}`,
                               quotaWindows: record.quota_windows || [],
                             })

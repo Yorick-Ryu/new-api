@@ -5269,6 +5269,7 @@
     "HTTP only": "仅 HTTP",
     "WebSocket only": "仅 WebSocket",
     "Responses API disabled": "禁用响应 API",
-    "Only matching /v1/responses requests can use this channel": "只有传输方式匹配的 /v1/responses 请求才能使用此渠道"
+    "Only matching /v1/responses requests can use this channel": "只有传输方式匹配的 /v1/responses 请求才能使用此渠道",
+    "{{period}} quota": "{{period}}额度"
   }
 }

@@ -66,6 +66,17 @@ export function formatResetPeriod(
   return t('No Reset')
 }
 
+export function formatPrimaryQuotaLabel(
+  plan: Partial<SubscriptionPlan>,
+  t: TFunction
+): string {
+  if ((plan?.quota_reset_period || 'never') === 'never') {
+    return t('Total Quota')
+  }
+
+  return t('{{period}} quota', { period: formatResetPeriod(plan, t) })
+}
+
 export function formatTimestamp(ts: number): string {
   if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')

@@ -53,6 +53,7 @@ import {
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
 import {
   formatDuration,
+  formatPrimaryQuotaLabel,
   formatQuotaWindowPeriod,
   formatResetPeriod,
   parseQuotaWindows,
@@ -216,11 +217,11 @@ export function SubscriptionPlansCard({
     onAvailabilityChange?.(isAvailable)
   }, [isAvailable, onAvailabilityChange])
 
-  const planTitleMap = useMemo(() => {
-    const map = new Map<number, string>()
+  const planMap = useMemo(() => {
+    const map = new Map<number, PlanRecord['plan']>()
     for (const p of plans) {
       if (p?.plan?.id) {
-        map.set(p.plan.id, p.plan.title || '')
+        map.set(p.plan.id, p.plan)
       }
     }
     return map
@@ -413,8 +414,11 @@ export function SubscriptionPlansCard({
                   const usedAmount = Number(subscription?.amount_used || 0)
                   const remainAmount =
                     totalAmount > 0 ? Math.max(0, totalAmount - usedAmount) : 0
-                  const planTitle =
-                    planTitleMap.get(subscription?.plan_id) || ''
+                  const subscriptionPlan = planMap.get(subscription?.plan_id)
+                  const planTitle = subscriptionPlan?.title || ''
+                  const primaryQuotaLabel = subscriptionPlan
+                    ? formatPrimaryQuotaLabel(subscriptionPlan, t)
+                    : t('Main quota')
                   const remainDays = getRemainingDays(sub)
                   const usagePercent = getUsagePercent(sub)
                   const now = Date.now() / 1000
@@ -490,7 +494,7 @@ export function SubscriptionPlansCard({
                         </div>
                       )}
                       <div className='text-muted-foreground mt-1'>
-                        {t('Total Quota')}:{' '}
+                        {primaryQuotaLabel}:{' '}
                         {totalAmount > 0 ? (
                           <Tooltip>
                             <TooltipTrigger
@@ -591,8 +595,8 @@ export function SubscriptionPlansCard({
                   ? `${t('Quota Reset')}: ${formatResetPeriod(plan, t)}`
                   : null,
                 totalAmount > 0
-                  ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
-                  : `${t('Total Quota')}: ${t('Unlimited')}`,
+                  ? `${formatPrimaryQuotaLabel(plan, t)}: ${formatQuota(totalAmount)}`
+                  : `${formatPrimaryQuotaLabel(plan, t)}: ${t('Unlimited')}`,
                 ...quotaWindows.map(
                   (window) =>
                     `${window.name}: ${formatQuota(window.amount_total)} / ${formatQuotaWindowPeriod(window, t)}`

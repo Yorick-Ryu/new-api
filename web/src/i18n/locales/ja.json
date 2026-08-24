@@ -5269,6 +5269,7 @@
     "HTTP only": "HTTP のみ",
     "WebSocket only": "WebSocket のみ",
     "Responses API disabled": "Responses API を無効化",
-    "Only matching /v1/responses requests can use this channel": "一致する転送方式の /v1/responses リクエストのみこのチャネルを使用できます"
+    "Only matching /v1/responses requests can use this channel": "一致する転送方式の /v1/responses リクエストのみこのチャネルを使用できます",
+    "{{period}} quota": "{{period}}クォータ"
   }
 }

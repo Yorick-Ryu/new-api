@@ -5269,6 +5269,7 @@
     "HTTP only": "Chỉ HTTP",
     "WebSocket only": "Chỉ WebSocket",
     "Responses API disabled": "Tắt Responses API",
-    "Only matching /v1/responses requests can use this channel": "Chỉ các yêu cầu /v1/responses có phương thức truyền phù hợp mới có thể dùng kênh này"
+    "Only matching /v1/responses requests can use this channel": "Chỉ các yêu cầu /v1/responses có phương thức truyền phù hợp mới có thể dùng kênh này",
+    "{{period}} quota": "Hạn ngạch {{period}}"
   }
 }

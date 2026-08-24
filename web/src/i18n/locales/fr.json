@@ -5269,6 +5269,7 @@
     "HTTP only": "HTTP uniquement",
     "WebSocket only": "WebSocket uniquement",
     "Responses API disabled": "API Responses désactivée",
-    "Only matching /v1/responses requests can use this channel": "Seules les requêtes /v1/responses utilisant le transport correspondant peuvent utiliser ce canal"
+    "Only matching /v1/responses requests can use this channel": "Seules les requêtes /v1/responses utilisant le transport correspondant peuvent utiliser ce canal",
+    "{{period}} quota": "Quota {{period}}"
   }
 }

@@ -5269,6 +5269,7 @@
     "HTTP only": "HTTP only",
     "WebSocket only": "WebSocket only",
     "Responses API disabled": "Responses API disabled",
-    "Only matching /v1/responses requests can use this channel": "Only matching /v1/responses requests can use this channel"
+    "Only matching /v1/responses requests can use this channel": "Only matching /v1/responses requests can use this channel",
+    "{{period}} quota": "{{period}} quota"
   }
 }
