@@ -37,7 +37,7 @@ const quotaWindowFormSchema = z.object({
   name: z.string().min(1).max(64),
   period_unit: z.enum(['hour', 'day', 'week', 'month']),
   period_value: z.coerce.number().int().min(1),
-  amount_total: z.coerce.number().positive(),
+  amount_total: z.coerce.number().int().positive(),
 })
 
 export function getPlanFormSchema(t: TFunction) {

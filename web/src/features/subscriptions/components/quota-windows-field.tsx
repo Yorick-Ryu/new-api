@@ -133,8 +133,8 @@ export function QuotaWindowsField() {
                   <Input
                     {...field}
                     type='number'
-                    min={0.000001}
-                    step='0.01'
+                    min={1}
+                    step={1}
                     onChange={(event) =>
                       field.onChange(Number.parseFloat(event.target.value) || 0)
                     }

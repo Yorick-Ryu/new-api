@@ -29,6 +29,7 @@ import {
 } from '../format'
 import {
   formValuesToPlanPayload,
+  getPlanFormSchema,
   PLAN_FORM_DEFAULTS,
   planToFormValues,
 } from '../plan-form'
@@ -53,6 +54,29 @@ const basePlan: SubscriptionPlan = {
 }
 
 describe('subscription quota window form mapping', () => {
+  test('requires positive integer quota amounts for windows', () => {
+    const schema = getPlanFormSchema(t)
+    const values = {
+      ...PLAN_FORM_DEFAULTS,
+      title: 'Flexible plan',
+      quota_windows: [
+        {
+          key: 'monthly',
+          name: 'Monthly',
+          period_unit: 'month' as const,
+          period_value: 1,
+          amount_total: 1,
+        },
+      ],
+    }
+
+    assert.equal(schema.safeParse(values).success, true)
+    values.quota_windows[0].amount_total = 1.5
+    assert.equal(schema.safeParse(values).success, false)
+    values.quota_windows[0].amount_total = 0
+    assert.equal(schema.safeParse(values).success, false)
+  })
+
   test('labels the primary quota from its configured reset window', () => {
     assert.equal(
       formatPrimaryQuotaLabel(

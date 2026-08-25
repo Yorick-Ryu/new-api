@@ -107,6 +107,30 @@ describe('subscription quota windows field', () => {
     domWindow.close()
   })
 
+  test('restricts an added window quota to positive integers', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(<Harness />))
+
+    const addButton = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Add window')
+    )
+    assert.ok(addButton)
+    await act(async () => addButton.click())
+
+    const quotaInput = container.querySelector<HTMLInputElement>(
+      'input[type="number"][min][step]'
+    )
+    assert.ok(quotaInput)
+    assert.equal(quotaInput.min, '1')
+    assert.equal(quotaInput.step, '1')
+
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
   test('adds the 5-hour and weekly defaults, enforces two windows, and reuses a free key after deletion', async () => {
     const container = document.createElement('div')
     document.body.append(container)
