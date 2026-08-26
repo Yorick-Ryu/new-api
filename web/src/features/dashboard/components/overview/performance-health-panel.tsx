@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Gauge, HeartPulse, Timer } from 'lucide-react'
+import { DatabaseZap, Gauge, HeartPulse, Timer } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -33,6 +33,8 @@ import {
 } from '@/features/performance-metrics/lib/format'
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
 import { cn } from '@/lib/utils'
+
+import { performanceHealthMetricGridClass } from './performance-health-panel-layout'
 
 const PERFORMANCE_WINDOW_HOURS = 24
 const TOP_MODEL_LIMIT = 6
@@ -86,6 +88,7 @@ export function PerformanceHealthPanel() {
       successRate: simpleAverage(models, 'success_rate', Number.isFinite),
     }
   }, [models])
+  const cacheHitRate = metricsQuery.data?.data.cache_hit_rate ?? Number.NaN
 
   const topModels = useMemo(() => models.slice(0, TOP_MODEL_LIMIT), [models])
   const loading = metricsQuery.isLoading
@@ -104,7 +107,7 @@ export function PerformanceHealthPanel() {
       </div>
 
       <div className='space-y-3 p-4 sm:p-5'>
-        <div className='grid grid-cols-3 gap-2'>
+        <div className={performanceHealthMetricGridClass}>
           <MetricCell
             icon={HeartPulse}
             label={t('Success rate')}
@@ -127,11 +130,18 @@ export function PerformanceHealthPanel() {
             loading={loading}
             tone='info'
           />
+          <MetricCell
+            icon={DatabaseZap}
+            label={t('Cache hit rate')}
+            value={formatUptimePct(cacheHitRate)}
+            loading={loading}
+            tone='info'
+          />
         </div>
 
         {loading ? (
           <div className='space-y-1'>
-            {['success', 'latency', 'throughput'].map((key) => (
+            {['success', 'latency', 'throughput', 'cache-hit'].map((key) => (
               <Skeleton key={key} className='h-5 w-full rounded' />
             ))}
           </div>
