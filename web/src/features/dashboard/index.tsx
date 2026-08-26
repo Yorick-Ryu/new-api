@@ -71,6 +71,7 @@ const PERFORMANCE_METRIC_FALLBACK_KEYS = [
   'success-rate',
   'average-latency',
   'throughput',
+  'cache-hit-rate',
 ] as const
 const PERFORMANCE_MODEL_FALLBACK_KEYS = [
   'primary-model',

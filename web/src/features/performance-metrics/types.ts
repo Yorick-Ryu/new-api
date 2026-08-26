@@ -57,5 +57,6 @@ export type PerfSummaryAllData = {
   message?: string
   data: {
     models: PerfModelSummary[]
+    cache_hit_rate?: number
   }
 }

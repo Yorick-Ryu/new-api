@@ -537,7 +537,22 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
 	})
+	inputTokens := 0
+	cacheReadTokens := 0
+	if billingUsage != nil {
+		inputTokens = billingUsage.PromptTokens
+		if billingUsage.InputTokens > 0 {
+			inputTokens = billingUsage.InputTokens
+		}
+		cacheReadTokens = billingUsage.PromptTokensDetails.CachedTokens
+	}
 	gopool.Go(func() {
-		perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))
+		perfmetrics.RecordRelaySample(
+			relayInfo,
+			true,
+			int64(summary.CompletionTokens),
+			int64(inputTokens),
+			int64(cacheReadTokens),
+		)
 	})
 }

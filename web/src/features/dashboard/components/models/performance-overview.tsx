@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Gauge, HeartPulse, Timer } from 'lucide-react'
+import { DatabaseZap, Gauge, HeartPulse, Timer } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -97,6 +97,7 @@ export function PerformanceOverview() {
     [metricsQuery.data]
   )
   const summary = useMemo(() => buildPerformanceSummary(models), [models])
+  const cacheHitRate = metricsQuery.data?.data.cache_hit_rate ?? Number.NaN
   const topModels = useMemo(() => models.slice(0, TOP_MODEL_LIMIT), [models])
   const loading = metricsQuery.isLoading
   const hasData = models.length > 0
@@ -128,7 +129,7 @@ export function PerformanceOverview() {
         {/* 3 KPI inline metrics */}
         {loading ? (
           <div className='flex flex-wrap items-center gap-x-5 gap-y-2'>
-            {['success', 'latency', 'throughput'].map((key) => (
+            {['success', 'latency', 'throughput', 'cache-hit'].map((key) => (
               <div key={key} className='flex items-center gap-1.5'>
                 <Skeleton className='h-3 w-14' />
                 <Skeleton className='h-4 w-16' />
@@ -154,6 +155,12 @@ export function PerformanceOverview() {
               icon={Gauge}
               label={t('Throughput')}
               value={formatThroughput(summary.avgTps)}
+              tone='info'
+            />
+            <InlineMetric
+              icon={DatabaseZap}
+              label={t('Cache hit rate')}
+              value={formatUptimePct(cacheHitRate)}
               tone='info'
             />
           </div>
