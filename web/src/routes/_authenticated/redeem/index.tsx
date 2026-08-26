@@ -16,13 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// ============================================================================
-// Wallet Hooks Exports
-// ============================================================================
+import { createFileRoute } from '@tanstack/react-router'
 
-export * from './use-topup-info'
-export * from './use-payment'
-export * from './use-affiliate'
-export * from './use-creem-payment'
-export * from './use-waffo-payment'
-export * from './use-waffo-pancake-payment'
+import { RedeemCode } from '@/features/redeem-code'
+
+export const Route = createFileRoute('/_authenticated/redeem/')({
+  component: RedeemCode,
+})

@@ -16,13 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// ============================================================================
-// Wallet Hooks Exports
-// ============================================================================
+import { api } from '@/lib/api'
 
-export * from './use-topup-info'
-export * from './use-payment'
-export * from './use-affiliate'
-export * from './use-creem-payment'
-export * from './use-waffo-payment'
-export * from './use-waffo-pancake-payment'
+export type RedemptionConfig = {
+  enable_redemption?: boolean
+  topup_link?: string
+}
+
+type ApiResponse<T> = {
+  success?: boolean
+  message?: string
+  data?: T
+}
+
+export async function getRedemptionConfig(): Promise<
+  ApiResponse<RedemptionConfig>
+> {
+  const response = await api.get('/api/user/topup/info')
+  return response.data
+}
+
+export async function redeemCode(code: string): Promise<ApiResponse<number>> {
+  const response = await api.post('/api/user/topup', { key: code })
+  return response.data
+}
