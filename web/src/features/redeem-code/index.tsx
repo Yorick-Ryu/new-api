@@ -73,7 +73,6 @@ export function RedeemCode() {
             enabled={config?.enable_redemption !== false}
             loading={configQuery.isLoading}
             redeeming={redemptionMutation.isPending}
-            topupLink={config?.topup_link}
             onRedeem={handleRedeem}
           />
         </div>

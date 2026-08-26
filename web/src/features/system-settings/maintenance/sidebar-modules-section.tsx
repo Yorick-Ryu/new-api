@@ -128,6 +128,10 @@ export function SidebarModulesSection({
         title: t('Redeem Code'),
         description: t('Redeem codes for account credit'),
       },
+      subscription: {
+        title: t('Subscription Plans'),
+        description: t('Subscribe to a plan for model access'),
+      },
       personal: {
         title: t('Profile'),
         description: t('Personal settings and profile management.'),

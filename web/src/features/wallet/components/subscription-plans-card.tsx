@@ -53,8 +53,6 @@ import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/
 import {
   formatDuration,
   formatPrimaryQuotaLabel,
-  formatQuotaWindowPeriod,
-  formatResetPeriod,
   parseQuotaWindows,
 } from '@/features/subscriptions/lib'
 import type {
@@ -518,15 +516,12 @@ export function SubscriptionPlansCard({
 
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
-                formatResetPeriod(plan, t) !== t('No Reset')
-                  ? `${t('Quota Reset')}: ${formatResetPeriod(plan, t)}`
-                  : null,
                 totalAmount > 0
                   ? `${formatPrimaryQuotaLabel(plan, t)}: ${formatQuota(totalAmount)}`
                   : `${formatPrimaryQuotaLabel(plan, t)}: ${t('Unlimited')}`,
                 ...quotaWindows.map(
                   (window) =>
-                    `${window.name}: ${formatQuota(window.amount_total)} / ${formatQuotaWindowPeriod(window, t)}`
+                    `${window.name}: ${formatQuota(window.amount_total)}`
                 ),
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group

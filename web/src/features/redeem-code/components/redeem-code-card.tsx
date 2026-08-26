@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ExternalLink, Loader2, Ticket } from 'lucide-react'
+import { Loader2, Ticket } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -31,7 +31,6 @@ type RedeemCodeCardProps = {
   enabled: boolean
   loading?: boolean
   redeeming: boolean
-  topupLink?: string
   onRedeem: (code: string) => Promise<boolean>
 }
 
@@ -82,21 +81,6 @@ export function RedeemCodeCard(props: RedeemCodeCardProps) {
           {props.redeeming && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
           {t('Redeem')}
         </Button>
-
-        {props.topupLink && (
-          <p className='text-muted-foreground text-sm'>
-            {t('Need a redemption code?')}{' '}
-            <a
-              href={props.topupLink}
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-foreground inline-flex items-center gap-1 underline-offset-4 hover:underline'
-            >
-              {t('Get one here')}
-              <ExternalLink className='h-3.5 w-3.5' aria-hidden='true' />
-            </a>
-          </p>
-        )}
       </form>
     )
   } else {

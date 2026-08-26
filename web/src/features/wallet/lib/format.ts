@@ -64,10 +64,19 @@ export function formatCurrency(amount: number | string): string {
 /**
  * Get discount label for display (e.g., "20% OFF")
  */
-export function getDiscountLabel(discount: number): string {
+export function getDiscountLabel(
+  discount: number,
+  useChineseFormat = false
+): string {
   if (discount >= DEFAULT_DISCOUNT_RATE) {
     return ''
   }
+
+  if (useChineseFormat) {
+    const chineseDiscount = Math.round(discount * 100) / 10
+    return `${chineseDiscount}折`
+  }
+
   const off = Math.round((1 - discount) * 100)
   return `${off}% OFF`
 }

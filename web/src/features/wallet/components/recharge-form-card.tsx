@@ -101,7 +101,7 @@ export function RechargeFormCard({
   onWaffoMethodSelect,
   enableWaffoPancakeTopup,
 }: RechargeFormCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [localAmount, setLocalAmount] = useState(topupAmount.toString())
 
   useEffect(() => {
@@ -211,17 +211,13 @@ export function RechargeFormCard({
                         preset.discount ||
                         topupInfo?.discount?.[preset.value] ||
                         1.0
-                      const {
-                        displayValue,
-                        actualPrice,
-                        savedAmount,
-                        hasDiscount,
-                      } = calculatePresetPricing(
-                        preset.value,
-                        priceRatio,
-                        discount,
-                        usdExchangeRate
-                      )
+                      const { displayValue, actualPrice, hasDiscount } =
+                        calculatePresetPricing(
+                          preset.value,
+                          priceRatio,
+                          discount,
+                          usdExchangeRate
+                        )
                       return (
                         <Button
                           key={preset.value}
@@ -240,18 +236,15 @@ export function RechargeFormCard({
                             </div>
                             {hasDiscount && (
                               <div className='text-xs font-medium text-green-600'>
-                                {getDiscountLabel(discount)}
+                                {getDiscountLabel(
+                                  discount,
+                                  i18n.resolvedLanguage?.startsWith('zh')
+                                )}
                               </div>
                             )}
                           </div>
                           <div className='text-muted-foreground mt-1.5 w-full text-xs sm:mt-2'>
-                            Pay {formatCurrency(actualPrice)}
-                            {hasDiscount && savedAmount > 0 && (
-                              <span className='text-green-600'>
-                                {' '}
-                                • Save {formatCurrency(savedAmount)}
-                              </span>
-                            )}
+                            {t('Pay')} ¥{formatCurrency(actualPrice)}
                           </div>
                         </Button>
                       )
@@ -285,7 +278,7 @@ export function RechargeFormCard({
                       <Skeleton className='h-5 w-16' />
                     ) : (
                       <span className='text-sm font-semibold'>
-                        {formatCurrency(paymentAmount)}
+                        ¥{formatCurrency(paymentAmount)}
                       </span>
                     )}
                   </div>

@@ -121,6 +121,11 @@ export function SidebarModulesCard() {
           description: t('Redeem codes for account credit'),
         },
         {
+          key: 'subscription',
+          title: t('Subscription Plans'),
+          description: t('Subscribe to a plan for model access'),
+        },
+        {
           key: 'personal',
           title: t('Personal Settings'),
           description: t('Personal info settings'),

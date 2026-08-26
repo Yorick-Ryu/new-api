@@ -20,6 +20,7 @@ import {
   Activity,
   Box,
   CreditCard,
+  Crown,
   FileText,
   FlaskConical,
   Gift,
@@ -113,6 +114,11 @@ export function useSidebarData(): SidebarData {
             title: t('Redeem Code'),
             url: '/redeem',
             icon: Gift,
+          },
+          {
+            title: t('Subscription Plans'),
+            url: '/subscription-plans',
+            icon: Crown,
           },
           {
             title: t('Profile'),
