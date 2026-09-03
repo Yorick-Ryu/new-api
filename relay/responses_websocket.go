@@ -139,24 +139,44 @@ type responsesWSSession struct {
 	// I/O, so closing the session cannot block behind an in-flight write.
 	targetMu sync.Mutex
 	// targetWriteMu only serializes writes, as gorilla allows a single writer.
-	targetWriteMu sync.Mutex
-	stateMu       sync.Mutex
-	current       *responsesWSCallState
-	activityState atomic.Uint32
-	lastActivity  atomic.Int64
+	targetWriteMu   sync.Mutex
+	stateMu         sync.Mutex
+	current         *responsesWSCallState
+	activityState   atomic.Uint32
+	lastActivity    atomic.Int64
+	lastPong        atomic.Int64
+	heartbeat       responsesWSHeartbeatConfig
+	heartbeatStop   chan struct{}
+	heartbeatDone   chan struct{}
+	heartbeatOnce   sync.Once
+	heartbeatFailed atomic.Bool
 }
 
 func ResponsesWebSocketHelper(c *gin.Context, client *websocket.Conn) *types.NewAPIError {
-	return responsesWebSocketHelper(c, client, relaycommon.RefreshClientWebSocketReadDeadline)
+	return responsesWebSocketHelper(c, client, responsesWSHeartbeatConfig{
+		idleTimeout:  relaycommon.GetWebSocketIdleTimeout(),
+		pingInterval: relaycommon.GetWebSocketPingInterval(),
+		pongTimeout:  relaycommon.GetWebSocketPongTimeout(),
+	})
 }
 
-func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshReadDeadline func(*websocket.Conn) error) *types.NewAPIError {
+type responsesWSHeartbeatConfig struct {
+	idleTimeout  time.Duration
+	pingInterval time.Duration
+	pongTimeout  time.Duration
+}
+
+func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat responsesWSHeartbeatConfig) *types.NewAPIError {
 	userId := common.GetContextKeyInt(c, appconstant.ContextKeyUserId)
 	session := &responsesWSSession{
-		c:      c,
-		client: client,
+		c:             c,
+		client:        client,
+		heartbeat:     heartbeat,
+		heartbeatStop: make(chan struct{}),
+		heartbeatDone: make(chan struct{}),
 	}
 	session.touchActivity()
+	session.lastPong.Store(time.Now().UnixNano())
 	evicted, acquired := acquireResponsesWSSlot(userId, session)
 	if !acquired {
 		return types.NewErrorWithStatusCode(
@@ -173,9 +193,10 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshRea
 	defer session.closeTarget()
 	defer session.settleCurrent()
 	client.SetReadLimit(responsesWSMaxMessageBytes())
-	if err := refreshReadDeadline(client); err != nil {
+	if err := session.startHeartbeat(heartbeat); err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
 	}
+	defer session.stopHeartbeat()
 
 	for {
 		messageType, message, err := client.ReadMessage()
@@ -183,20 +204,31 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshRea
 			if session.activityState.Load() == responsesWSSessionEvicting {
 				return nil
 			}
-			if relaycommon.IsWebSocketIdleTimeout(err) {
-				logger.LogInfo(c, "responses websocket closed after idle timeout")
-				session.closeForIdleTimeout()
+			if session.heartbeatFailed.Load() {
+				logger.LogInfo(c, "responses websocket closed after heartbeat write failure")
 				return nil
+			}
+			if relaycommon.IsWebSocketIdleTimeout(err) {
+				now := time.Now()
+				if session.businessIdleExpired(now) {
+					logger.LogInfo(c, "responses websocket closed after idle timeout")
+					session.closeForIdleTimeout()
+					return nil
+				}
+				if session.heartbeatExpired(now) {
+					logger.LogInfo(c, "responses websocket closed after heartbeat timeout")
+					session.closeForHeartbeatTimeout()
+					return nil
+				}
 			}
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				return nil
 			}
 			return types.NewError(err, types.ErrorCodeBadRequestBody, types.ErrOptionWithSkipRetry())
 		}
-		if err := refreshReadDeadline(client); err != nil {
+		if err := session.markBusinessActivity(); err != nil {
 			return types.NewError(err, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
 		}
-		session.touchActivity()
 
 		eventType, eventErr := responsesWSEventType(message)
 		if eventErr != nil {
@@ -713,7 +745,7 @@ func (s *responsesWSSession) startTargetReader() {
 				_ = s.client.Close()
 				return
 			}
-			s.touchActivity()
+			_ = s.markBusinessActivity()
 			finished := s.observeUpstreamMessage(message)
 			if err := s.writeClient(messageType, message); err != nil {
 				if finished {
@@ -736,7 +768,6 @@ func (s *responsesWSSession) startTargetReader() {
 			// SetReadDeadline as a read method: it is a bare passthrough to
 			// net.Conn.SetReadDeadline (conn.go:1105), which is documented to be
 			// callable concurrently with a blocked Read.
-			_ = relaycommon.RefreshClientWebSocketReadDeadline(s.client)
 		}
 	}()
 }
@@ -875,6 +906,97 @@ func (state *responsesWSCallState) refund(c *gin.Context) {
 	if state != nil && state.info != nil && state.info.Billing != nil {
 		state.info.Billing.Refund(c)
 	}
+}
+
+func (s *responsesWSSession) startHeartbeat(config responsesWSHeartbeatConfig) error {
+	if s == nil || s.client == nil {
+		return errors.New("websocket connection is nil")
+	}
+	s.heartbeat = config
+	if s.lastActivity.Load() == 0 {
+		s.touchActivity()
+	}
+	if s.lastPong.Load() == 0 {
+		s.lastPong.Store(time.Now().UnixNano())
+	}
+
+	previousPongHandler := s.client.PongHandler()
+	s.client.SetPongHandler(func(data string) error {
+		if err := previousPongHandler(data); err != nil {
+			return err
+		}
+		s.lastPong.Store(time.Now().UnixNano())
+		return s.refreshClientReadDeadline()
+	})
+	if err := s.refreshClientReadDeadline(); err != nil {
+		return err
+	}
+
+	if config.pingInterval <= 0 || config.pongTimeout <= 0 {
+		close(s.heartbeatDone)
+		return nil
+	}
+	go func() {
+		defer close(s.heartbeatDone)
+		ticker := time.NewTicker(config.pingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				deadline := time.Now().Add(responsesWSWriteTimeout)
+				if err := s.client.WriteControl(websocket.PingMessage, nil, deadline); err != nil {
+					s.heartbeatFailed.Store(true)
+					_ = s.client.Close()
+					return
+				}
+			case <-s.heartbeatStop:
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (s *responsesWSSession) stopHeartbeat() {
+	if s == nil || s.heartbeatStop == nil || s.heartbeatDone == nil {
+		return
+	}
+	s.heartbeatOnce.Do(func() {
+		close(s.heartbeatStop)
+	})
+	<-s.heartbeatDone
+}
+
+func (s *responsesWSSession) markBusinessActivity() error {
+	s.touchActivity()
+	return s.refreshClientReadDeadline()
+}
+
+func (s *responsesWSSession) refreshClientReadDeadline() error {
+	if s == nil || s.client == nil {
+		return errors.New("websocket connection is nil")
+	}
+	var deadline time.Time
+	if s.heartbeat.idleTimeout > 0 {
+		deadline = time.Unix(0, s.lastActivity.Load()).Add(s.heartbeat.idleTimeout)
+	}
+	if s.heartbeat.pingInterval > 0 && s.heartbeat.pongTimeout > 0 {
+		pongDeadline := time.Unix(0, s.lastPong.Load()).Add(s.heartbeat.pongTimeout)
+		if deadline.IsZero() || pongDeadline.Before(deadline) {
+			deadline = pongDeadline
+		}
+	}
+	return s.client.SetReadDeadline(deadline)
+}
+
+func (s *responsesWSSession) businessIdleExpired(now time.Time) bool {
+	return s != nil && s.heartbeat.idleTimeout > 0 &&
+		!now.Before(time.Unix(0, s.lastActivity.Load()).Add(s.heartbeat.idleTimeout))
+}
+
+func (s *responsesWSSession) heartbeatExpired(now time.Time) bool {
+	return s != nil && s.heartbeat.pingInterval > 0 && s.heartbeat.pongTimeout > 0 &&
+		!now.Before(time.Unix(0, s.lastPong.Load()).Add(s.heartbeat.pongTimeout))
 }
 
 func (s *responsesWSSession) tryReserveCurrent(state *responsesWSCallState) bool {
@@ -1110,6 +1232,10 @@ func (s *responsesWSSession) closeForPolicy(reason string) {
 
 func (s *responsesWSSession) closeForIdleTimeout() {
 	s.closeWithCode(websocket.CloseGoingAway, relaycommon.WebSocketIdleCloseReason)
+}
+
+func (s *responsesWSSession) closeForHeartbeatTimeout() {
+	s.closeWithCode(websocket.CloseGoingAway, relaycommon.WebSocketHeartbeatCloseReason)
 }
 
 func (s *responsesWSSession) closeForReplacement() {

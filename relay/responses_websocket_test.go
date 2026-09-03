@@ -557,50 +557,31 @@ func TestObserveUpstreamFailedReleasesCurrent(t *testing.T) {
 	assert.Equal(t, responsesWSSessionIdle, session.activityState.Load())
 }
 
-func TestResponsesWSIdleActivityIgnoresPingAndRefreshesOnDataMessage(t *testing.T) {
+func TestResponsesWSPongKeepsNetworkAlive(t *testing.T) {
 	clientPeer, client, cleanup := newTestWebSocketPair(t)
 	defer cleanup()
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 
-	pingSeen := make(chan struct{}, 1)
-	defaultPingHandler := client.PingHandler()
-	client.SetPingHandler(func(data string) error {
-		pingSeen <- struct{}{}
-		return defaultPingHandler(data)
-	})
-	refreshCalls := make(chan struct{}, 3)
-	refresh := func(conn *websocket.Conn) error {
-		refreshCalls <- struct{}{}
-		return conn.SetReadDeadline(time.Time{})
-	}
 	done := make(chan *types.NewAPIError, 1)
 	go func() {
-		done <- responsesWebSocketHelper(ctx, client, refresh)
+		done <- responsesWebSocketHelper(ctx, client, responsesWSHeartbeatConfig{
+			pingInterval: 10 * time.Millisecond,
+			pongTimeout:  40 * time.Millisecond,
+		})
 	}()
 
+	clientReadDone := make(chan error, 1)
+	go func() {
+		_, _, err := clientPeer.ReadMessage()
+		clientReadDone <- err
+	}()
+	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-refreshCalls:
-	case <-time.After(time.Second):
-		t.Fatal("initial WebSocket idle deadline was not set")
-	}
-	require.NoError(t, clientPeer.WriteControl(websocket.PingMessage, []byte("heartbeat"), time.Now().Add(time.Second)))
-	select {
-	case <-pingSeen:
-	case <-time.After(time.Second):
-		t.Fatal("server did not process WebSocket ping")
-	}
-	select {
-	case <-refreshCalls:
-		t.Fatal("WebSocket ping refreshed the application-message idle deadline")
+	case apiErr := <-done:
+		t.Fatalf("heartbeat connection closed while Pong frames were arriving: %v", apiErr)
 	default:
 	}
 
-	require.NoError(t, clientPeer.WriteMessage(websocket.TextMessage, []byte(`{}`)))
-	select {
-	case <-refreshCalls:
-	case <-time.After(time.Second):
-		t.Fatal("data message did not refresh the WebSocket idle deadline")
-	}
 	require.NoError(t, clientPeer.WriteControl(
 		websocket.CloseMessage,
 		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "done"),
@@ -612,6 +593,67 @@ func TestResponsesWSIdleActivityIgnoresPingAndRefreshesOnDataMessage(t *testing.
 	case <-time.After(time.Second):
 		t.Fatal("responses WebSocket helper did not stop after client close")
 	}
+	select {
+	case <-clientReadDone:
+	case <-time.After(time.Second):
+		t.Fatal("client reader did not stop")
+	}
+}
+
+func TestResponsesWSHeartbeatTimeoutClosesClientWithoutPong(t *testing.T) {
+	clientPeer, client, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	clientPeer.SetPingHandler(func(string) error { return nil })
+
+	done := make(chan *types.NewAPIError, 1)
+	go func() {
+		done <- responsesWebSocketHelper(ctx, client, responsesWSHeartbeatConfig{
+			pingInterval: 10 * time.Millisecond,
+			pongTimeout:  45 * time.Millisecond,
+		})
+	}()
+
+	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, _, err := clientPeer.ReadMessage()
+	var closeErr *websocket.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	assert.Equal(t, websocket.CloseGoingAway, closeErr.Code)
+	assert.Equal(t, relaycommon.WebSocketHeartbeatCloseReason, closeErr.Text)
+	select {
+	case apiErr := <-done:
+		assert.Nil(t, apiErr)
+	case <-time.After(time.Second):
+		t.Fatal("responses WebSocket helper did not stop after heartbeat timeout")
+	}
+}
+
+func TestResponsesWSPongDoesNotRefreshBusinessIdleTimeout(t *testing.T) {
+	clientPeer, client, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	done := make(chan *types.NewAPIError, 1)
+	go func() {
+		done <- responsesWebSocketHelper(ctx, client, responsesWSHeartbeatConfig{
+			idleTimeout:  60 * time.Millisecond,
+			pingInterval: 10 * time.Millisecond,
+			pongTimeout:  200 * time.Millisecond,
+		})
+	}()
+
+	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, _, err := clientPeer.ReadMessage()
+	var closeErr *websocket.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	assert.Equal(t, websocket.CloseGoingAway, closeErr.Code)
+	assert.Equal(t, relaycommon.WebSocketIdleCloseReason, closeErr.Text)
+	select {
+	case apiErr := <-done:
+		assert.Nil(t, apiErr)
+	case <-time.After(time.Second):
+		t.Fatal("responses WebSocket helper did not stop after business idle timeout")
+	}
 }
 
 func TestResponsesWSIdleTimeoutClosesConnection(t *testing.T) {
@@ -619,12 +661,11 @@ func TestResponsesWSIdleTimeoutClosesConnection(t *testing.T) {
 	defer cleanup()
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 
-	refresh := func(conn *websocket.Conn) error {
-		return conn.SetReadDeadline(time.Now().Add(25 * time.Millisecond))
-	}
 	done := make(chan *types.NewAPIError, 1)
 	go func() {
-		done <- responsesWebSocketHelper(ctx, client, refresh)
+		done <- responsesWebSocketHelper(ctx, client, responsesWSHeartbeatConfig{
+			idleTimeout: 25 * time.Millisecond,
+		})
 	}()
 
 	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
