@@ -682,6 +682,14 @@ func (s *responsesWSSession) startTargetReader() {
 				if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					logger.LogError(s.c, "responses websocket upstream read failed: "+err.Error())
 				}
+				var closeErr *websocket.CloseError
+				if errors.As(err, &closeErr) && closeErr.Code != websocket.CloseAbnormalClosure && closeErr.Code != websocket.CloseTLSHandshake {
+					// Preserve the upstream close handshake for the client. In
+					// particular, retry signals such as 1012 and size errors such
+					// as 1009 must not collapse into a local 1006/EOF.
+					s.closeWithCode(closeErr.Code, closeErr.Text)
+					return
+				}
 				s.settleCurrent()
 				_ = s.client.Close()
 				return

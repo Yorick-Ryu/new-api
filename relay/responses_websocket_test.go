@@ -555,6 +555,61 @@ func TestResponsesWSIdleTimeoutClosesConnection(t *testing.T) {
 	}
 }
 
+func TestResponsesWSForwardsUpstreamClose(t *testing.T) {
+	tests := []struct {
+		name   string
+		code   int
+		reason string
+	}{
+		{name: "normal closure", code: websocket.CloseNormalClosure, reason: "done"},
+		{name: "message too big", code: websocket.CloseMessageTooBig, reason: "request exceeds upstream limit"},
+		{name: "service restart", code: websocket.CloseServiceRestart, reason: "upstream requires HTTP replay"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientPeer, client, cleanupClient := newTestWebSocketPair(t)
+			defer cleanupClient()
+			targetPeer, target, cleanupTarget := newTestWebSocketPair(t)
+			defer cleanupTarget()
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+			session := &responsesWSSession{c: ctx, client: client, target: target}
+			session.startTargetReader()
+
+			require.NoError(t, targetPeer.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(tt.code, tt.reason),
+				time.Now().Add(time.Second),
+			))
+			require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+			_, _, err := clientPeer.ReadMessage()
+			var closeErr *websocket.CloseError
+			require.ErrorAs(t, err, &closeErr)
+			assert.Equal(t, tt.code, closeErr.Code)
+			assert.Equal(t, tt.reason, closeErr.Text)
+		})
+	}
+}
+
+func TestResponsesWSDoesNotSendSyntheticAbnormalClose(t *testing.T) {
+	clientPeer, client, cleanupClient := newTestWebSocketPair(t)
+	defer cleanupClient()
+	targetPeer, target, cleanupTarget := newTestWebSocketPair(t)
+	defer cleanupTarget()
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	session := &responsesWSSession{c: ctx, client: client, target: target}
+	session.startTargetReader()
+	require.NoError(t, targetPeer.Close())
+
+	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, _, err := clientPeer.ReadMessage()
+	var closeErr *websocket.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	assert.Equal(t, websocket.CloseAbnormalClosure, closeErr.Code)
+}
+
 func newTestResponsesWSTarget(t *testing.T) (*websocket.Conn, func()) {
 	t.Helper()
 	target, _, cleanup := newTestWebSocketPair(t)
