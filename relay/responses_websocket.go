@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -65,9 +66,17 @@ func responsesWSMaxMessageBytes() int64 {
 var responsesWSMaxPerUser = common.GetEnvOrDefault("RESPONSES_WEBSOCKET_MAX_PER_USER", 8)
 
 var (
-	responsesWSCountMu sync.Mutex
-	responsesWSCounts  = map[int]int{}
+	responsesWSSlotMu sync.Mutex
+	responsesWSSlots  = map[int][]*responsesWSSession{}
 )
+
+const (
+	responsesWSSessionIdle uint32 = iota
+	responsesWSSessionActive
+	responsesWSSessionEvicting
+)
+
+const responsesWSReplacedCloseReason = "replaced by a newer websocket connection"
 
 // responsesWSCallOutcome decides how a finished call is billed.
 type responsesWSCallOutcome int
@@ -133,6 +142,8 @@ type responsesWSSession struct {
 	targetWriteMu sync.Mutex
 	stateMu       sync.Mutex
 	current       *responsesWSCallState
+	activityState atomic.Uint32
+	lastActivity  atomic.Int64
 }
 
 func ResponsesWebSocketHelper(c *gin.Context, client *websocket.Conn) *types.NewAPIError {
@@ -141,7 +152,13 @@ func ResponsesWebSocketHelper(c *gin.Context, client *websocket.Conn) *types.New
 
 func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshReadDeadline func(*websocket.Conn) error) *types.NewAPIError {
 	userId := common.GetContextKeyInt(c, appconstant.ContextKeyUserId)
-	if !acquireResponsesWSSlot(userId) {
+	session := &responsesWSSession{
+		c:      c,
+		client: client,
+	}
+	session.touchActivity()
+	evicted, acquired := acquireResponsesWSSlot(userId, session)
+	if !acquired {
 		return types.NewErrorWithStatusCode(
 			fmt.Errorf("too many concurrent responses websocket connections (limit %d)", responsesWSMaxPerUser),
 			types.ErrorCodeInvalidRequest,
@@ -149,11 +166,9 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshRea
 			types.ErrOptionWithSkipRetry(),
 		)
 	}
-	defer releaseResponsesWSSlot(userId)
-
-	session := &responsesWSSession{
-		c:      c,
-		client: client,
+	defer releaseResponsesWSSlot(userId, session)
+	if evicted != nil {
+		evicted.closeForReplacement()
 	}
 	defer session.closeTarget()
 	defer session.settleCurrent()
@@ -165,6 +180,9 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshRea
 	for {
 		messageType, message, err := client.ReadMessage()
 		if err != nil {
+			if session.activityState.Load() == responsesWSSessionEvicting {
+				return nil
+			}
 			if relaycommon.IsWebSocketIdleTimeout(err) {
 				logger.LogInfo(c, "responses websocket closed after idle timeout")
 				session.closeForIdleTimeout()
@@ -178,6 +196,7 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, refreshRea
 		if err := refreshReadDeadline(client); err != nil {
 			return types.NewError(err, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
 		}
+		session.touchActivity()
 
 		eventType, eventErr := responsesWSEventType(message)
 		if eventErr != nil {
@@ -360,7 +379,7 @@ func (s *responsesWSSession) handleTargetWriteFailure(err error) *types.NewAPIEr
 }
 
 func (s *responsesWSSession) handleTargetWriteFailureWithState(state *responsesWSCallState, err error) *types.NewAPIError {
-	s.finishCall(state, responsesWSCallAborted)
+	s.finishCall(state, responsesWSCallAborted, true)
 	return s.handleTargetWriteFailure(err)
 }
 
@@ -439,7 +458,7 @@ func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest
 			return types.NewErrorWithStatusCode(errors.New("another response.create is already in progress on this websocket connection"), types.ErrorCodeInvalidRequest, http.StatusConflict, types.ErrOptionWithSkipRetry())
 		}
 		if err := s.writeTarget(websocket.TextMessage, payload); err != nil {
-			s.finishCall(state, responsesWSCallAborted)
+			s.finishCall(state, responsesWSCallAborted, true)
 			s.closeTarget()
 			apiErr = types.NewError(err, types.ErrorCodeBadResponse)
 			var shouldRetry bool
@@ -694,12 +713,19 @@ func (s *responsesWSSession) startTargetReader() {
 				_ = s.client.Close()
 				return
 			}
-			s.observeUpstreamMessage(message)
+			s.touchActivity()
+			finished := s.observeUpstreamMessage(message)
 			if err := s.writeClient(messageType, message); err != nil {
+				if finished {
+					s.markIdle()
+				}
 				logger.LogError(s.c, "responses websocket client write failed: "+err.Error())
 				s.settleCurrent()
 				s.closeTarget()
 				return
+			}
+			if finished {
+				s.markIdle()
 			}
 			// Upstream traffic also counts as activity: a long generation can
 			// stream for minutes while the client only listens, and that must
@@ -715,16 +741,16 @@ func (s *responsesWSSession) startTargetReader() {
 	}()
 }
 
-func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
+func (s *responsesWSSession) observeUpstreamMessage(message []byte) bool {
 	state := s.getCurrent()
 	if state == nil {
-		return
+		return false
 	}
 	state.info.SetFirstResponseTime()
 
 	var streamResponse dto.ResponsesStreamResponse
 	if err := common.Unmarshal(message, &streamResponse); err != nil {
-		return
+		return false
 	}
 
 	switch streamResponse.Type {
@@ -734,7 +760,7 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 		// failed, so settle on it instead of discarding what upstream generated
 		// and already billed us for.
 		s.applyTerminalResponseUsage(state, streamResponse.Response)
-		s.finishCall(state, responsesWSCallSettled)
+		return s.finishCall(state, responsesWSCallSettled, false)
 	case "response.output_text.delta":
 		state.mu.Lock()
 		state.outputText.WriteString(streamResponse.Delta)
@@ -757,8 +783,9 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) {
 			}
 		}
 	case "error":
-		s.finishCall(state, responsesWSCallSettled)
+		return s.finishCall(state, responsesWSCallSettled, false)
 	}
+	return false
 }
 
 func (s *responsesWSSession) applyTerminalResponseUsage(state *responsesWSCallState, response *dto.OpenAIResponsesResponse) {
@@ -784,12 +811,15 @@ func (s *responsesWSSession) applyTerminalResponseUsage(state *responsesWSCallSt
 	}
 }
 
-func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome responsesWSCallOutcome) {
+func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome responsesWSCallOutcome, releaseActivity bool) bool {
 	if state == nil {
-		return
+		return false
 	}
 	if !s.clearCurrent(state) {
-		return
+		return false
+	}
+	if releaseActivity {
+		defer s.markIdle()
 	}
 	// Refund only when upstream produced nothing: either it never accepted the
 	// request, or it accepted but no usage and no output text were observed.
@@ -800,7 +830,7 @@ func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome res
 		if state.commitRate != nil {
 			state.commitRate(false)
 		}
-		return
+		return true
 	}
 
 	// Bill a snapshot: the goroutine that lost the clearCurrent race may still
@@ -816,6 +846,7 @@ func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome res
 	if state.commitRate != nil {
 		state.commitRate(true)
 	}
+	return true
 }
 
 // finalizeResponsesWSUsage fills in what upstream did not report — the usual
@@ -852,6 +883,9 @@ func (s *responsesWSSession) tryReserveCurrent(state *responsesWSCallState) bool
 	if s.current != nil {
 		return false
 	}
+	if !s.activityState.CompareAndSwap(responsesWSSessionIdle, responsesWSSessionActive) {
+		return false
+	}
 	s.current = state
 	return true
 }
@@ -885,34 +919,84 @@ func (s *responsesWSSession) getCurrent() *responsesWSCallState {
 func (s *responsesWSSession) settleCurrent() {
 	state := s.getCurrent()
 	if state != nil {
-		s.finishCall(state, responsesWSCallSettled)
+		s.finishCall(state, responsesWSCallSettled, true)
 	}
 }
 
-func acquireResponsesWSSlot(userId int) bool {
-	if responsesWSMaxPerUser <= 0 || userId == 0 {
-		return true
-	}
-	responsesWSCountMu.Lock()
-	defer responsesWSCountMu.Unlock()
-	if responsesWSCounts[userId] >= responsesWSMaxPerUser {
-		return false
-	}
-	responsesWSCounts[userId]++
-	return true
+func (s *responsesWSSession) touchActivity() {
+	s.lastActivity.Store(time.Now().UnixNano())
 }
 
-func releaseResponsesWSSlot(userId int) {
+func (s *responsesWSSession) markIdle() {
+	s.touchActivity()
+	s.activityState.CompareAndSwap(responsesWSSessionActive, responsesWSSessionIdle)
+}
+
+func acquireResponsesWSSlot(userId int, session *responsesWSSession) (*responsesWSSession, bool) {
 	if responsesWSMaxPerUser <= 0 || userId == 0 {
+		return nil, true
+	}
+	if session == nil {
+		return nil, false
+	}
+	if session.lastActivity.Load() == 0 {
+		session.touchActivity()
+	}
+	responsesWSSlotMu.Lock()
+	defer responsesWSSlotMu.Unlock()
+	sessions := responsesWSSlots[userId]
+	if len(sessions) < responsesWSMaxPerUser {
+		responsesWSSlots[userId] = append(sessions, session)
+		return nil, true
+	}
+
+	for {
+		victimIndex := -1
+		var victimActivity int64
+		for i, candidate := range sessions {
+			if candidate == nil || candidate.activityState.Load() != responsesWSSessionIdle {
+				continue
+			}
+			lastActivity := candidate.lastActivity.Load()
+			if victimIndex == -1 || lastActivity < victimActivity {
+				victimIndex = i
+				victimActivity = lastActivity
+			}
+		}
+		if victimIndex == -1 {
+			return nil, false
+		}
+
+		victim := sessions[victimIndex]
+		if !victim.activityState.CompareAndSwap(responsesWSSessionIdle, responsesWSSessionEvicting) {
+			continue
+		}
+		sessions = append(sessions[:victimIndex], sessions[victimIndex+1:]...)
+		responsesWSSlots[userId] = append(sessions, session)
+		return victim, true
+	}
+}
+
+func releaseResponsesWSSlot(userId int, session *responsesWSSession) {
+	if userId == 0 || session == nil {
 		return
 	}
-	responsesWSCountMu.Lock()
-	defer responsesWSCountMu.Unlock()
-	if responsesWSCounts[userId] <= 1 {
-		delete(responsesWSCounts, userId)
+	responsesWSSlotMu.Lock()
+	defer responsesWSSlotMu.Unlock()
+	sessions := responsesWSSlots[userId]
+	for i, candidate := range sessions {
+		if candidate != session {
+			continue
+		}
+		sessions = append(sessions[:i], sessions[i+1:]...)
+		if len(sessions) == 0 {
+			delete(responsesWSSlots, userId)
+		} else {
+			responsesWSSlots[userId] = sessions
+		}
+		session.activityState.Store(responsesWSSessionEvicting)
 		return
 	}
-	responsesWSCounts[userId]--
 }
 
 func (s *responsesWSSession) writeClient(messageType int, message []byte) error {
@@ -1026,6 +1110,10 @@ func (s *responsesWSSession) closeForPolicy(reason string) {
 
 func (s *responsesWSSession) closeForIdleTimeout() {
 	s.closeWithCode(websocket.CloseGoingAway, relaycommon.WebSocketIdleCloseReason)
+}
+
+func (s *responsesWSSession) closeForReplacement() {
+	s.closeWithCode(websocket.CloseGoingAway, responsesWSReplacedCloseReason)
 }
 
 func (s *responsesWSSession) closeWithCode(code int, reason string) {

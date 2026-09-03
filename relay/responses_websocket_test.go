@@ -404,7 +404,7 @@ func TestFinishCallAbortedRefundsDespiteObservedOutput(t *testing.T) {
 	state.outputText.WriteString("never sent upstream")
 	session.current = state
 
-	session.finishCall(state, responsesWSCallAborted)
+	session.finishCall(state, responsesWSCallAborted, true)
 
 	assert.Nil(t, session.getCurrent(), "current response was not released")
 	require.NotNil(t, committed, "commit was not invoked")
@@ -430,32 +430,114 @@ func TestApplyTerminalResponseUsageRecordsFailedResponseUsage(t *testing.T) {
 	assert.Equal(t, 9, state.usage.CompletionTokens)
 }
 
-func TestResponsesWSSlotCapIsPerUserAndReleased(t *testing.T) {
-	original := responsesWSMaxPerUser
-	responsesWSMaxPerUser = 2
-	defer func() { responsesWSMaxPerUser = original }()
+func TestResponsesWSSlotCapEvictsLeastRecentlyUsedIdleSession(t *testing.T) {
+	resetResponsesWSSlotsForTest(t, 2)
 
 	const userId = 4242
-	require.True(t, acquireResponsesWSSlot(userId))
-	require.True(t, acquireResponsesWSSlot(userId))
-	assert.False(t, acquireResponsesWSSlot(userId), "third concurrent session must be rejected")
-	assert.True(t, acquireResponsesWSSlot(userId+1), "cap must be scoped per user")
+	oldIdle := &responsesWSSession{}
+	oldIdle.lastActivity.Store(10)
+	active := &responsesWSSession{}
+	active.lastActivity.Store(5)
+	active.activityState.Store(responsesWSSessionActive)
+	incoming := &responsesWSSession{}
+	incoming.lastActivity.Store(30)
 
-	releaseResponsesWSSlot(userId)
-	assert.True(t, acquireResponsesWSSlot(userId), "releasing must free a slot")
+	evicted, acquired := acquireResponsesWSSlot(userId, oldIdle)
+	require.True(t, acquired)
+	assert.Nil(t, evicted)
+	evicted, acquired = acquireResponsesWSSlot(userId, active)
+	require.True(t, acquired)
+	assert.Nil(t, evicted)
+	otherUser := &responsesWSSession{}
+	evicted, acquired = acquireResponsesWSSlot(userId+1, otherUser)
+	require.True(t, acquired, "connection cap must remain scoped per user")
+	assert.Nil(t, evicted)
 
-	releaseResponsesWSSlot(userId)
-	releaseResponsesWSSlot(userId)
-	releaseResponsesWSSlot(userId + 1)
+	evicted, acquired = acquireResponsesWSSlot(userId, incoming)
+	require.True(t, acquired)
+	assert.Same(t, oldIdle, evicted, "oldest idle session should be replaced before an active session")
+	assert.Equal(t, responsesWSSessionEvicting, oldIdle.activityState.Load())
 
-	responsesWSCountMu.Lock()
-	defer responsesWSCountMu.Unlock()
-	assert.Empty(t, responsesWSCounts, "fully released users must not leak counter entries")
+	responsesWSSlotMu.Lock()
+	assert.ElementsMatch(t, []*responsesWSSession{active, incoming}, responsesWSSlots[userId])
+	responsesWSSlotMu.Unlock()
+
+	releaseResponsesWSSlot(userId, active)
+	releaseResponsesWSSlot(userId, incoming)
+	releaseResponsesWSSlot(userId+1, otherUser)
+	responsesWSSlotMu.Lock()
+	assert.Empty(t, responsesWSSlots)
+	responsesWSSlotMu.Unlock()
+}
+
+func TestResponsesWSSlotCapRejectsWhenEverySessionIsActive(t *testing.T) {
+	resetResponsesWSSlotsForTest(t, 2)
+
+	const userId = 4242
+	first := &responsesWSSession{}
+	first.activityState.Store(responsesWSSessionActive)
+	second := &responsesWSSession{}
+	second.activityState.Store(responsesWSSessionActive)
+	incoming := &responsesWSSession{}
+
+	_, acquired := acquireResponsesWSSlot(userId, first)
+	require.True(t, acquired)
+	_, acquired = acquireResponsesWSSlot(userId, second)
+	require.True(t, acquired)
+	evicted, acquired := acquireResponsesWSSlot(userId, incoming)
+	assert.False(t, acquired)
+	assert.Nil(t, evicted)
+
+	responsesWSSlotMu.Lock()
+	assert.ElementsMatch(t, []*responsesWSSession{first, second}, responsesWSSlots[userId])
+	responsesWSSlotMu.Unlock()
+}
+
+func TestResponsesWSSlotEvictionClosesReplacedSession(t *testing.T) {
+	resetResponsesWSSlotsForTest(t, 1)
+
+	clientPeer, client, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	oldIdle := &responsesWSSession{client: client}
+	oldIdle.lastActivity.Store(10)
+	incoming := &responsesWSSession{}
+	incoming.lastActivity.Store(20)
+
+	_, acquired := acquireResponsesWSSlot(4242, oldIdle)
+	require.True(t, acquired)
+	evicted, acquired := acquireResponsesWSSlot(4242, incoming)
+	require.True(t, acquired)
+	require.Same(t, oldIdle, evicted)
+
+	evicted.closeForReplacement()
+	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, _, err := clientPeer.ReadMessage()
+	var closeErr *websocket.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	assert.Equal(t, websocket.CloseGoingAway, closeErr.Code)
+	assert.Equal(t, responsesWSReplacedCloseReason, closeErr.Text)
+}
+
+func resetResponsesWSSlotsForTest(t *testing.T, maxPerUser int) {
+	t.Helper()
+	responsesWSSlotMu.Lock()
+	originalMax := responsesWSMaxPerUser
+	originalSlots := responsesWSSlots
+	responsesWSMaxPerUser = maxPerUser
+	responsesWSSlots = map[int][]*responsesWSSession{}
+	responsesWSSlotMu.Unlock()
+	t.Cleanup(func() {
+		responsesWSSlotMu.Lock()
+		responsesWSMaxPerUser = originalMax
+		responsesWSSlots = originalSlots
+		responsesWSSlotMu.Unlock()
+	})
 }
 
 func TestObserveUpstreamFailedReleasesCurrent(t *testing.T) {
 	var committed *bool
 	session := &responsesWSSession{}
+	session.activityState.Store(responsesWSSessionActive)
 	state := &responsesWSCallState{
 		info: &relaycommon.RelayInfo{},
 		commitRate: func(success bool) {
@@ -464,11 +546,15 @@ func TestObserveUpstreamFailedReleasesCurrent(t *testing.T) {
 	}
 	session.current = state
 
-	session.observeUpstreamMessage([]byte(`{"type":"response.failed"}`))
+	finished := session.observeUpstreamMessage([]byte(`{"type":"response.failed"}`))
 
+	assert.True(t, finished)
 	assert.Nil(t, session.getCurrent(), "current response was not released")
+	assert.Equal(t, responsesWSSessionActive, session.activityState.Load(), "session must stay protected until the terminal event reaches the client")
 	require.NotNil(t, committed, "commit was not invoked")
 	assert.False(t, *committed)
+	session.markIdle()
+	assert.Equal(t, responsesWSSessionIdle, session.activityState.Load())
 }
 
 func TestResponsesWSIdleActivityIgnoresPingAndRefreshesOnDataMessage(t *testing.T) {
