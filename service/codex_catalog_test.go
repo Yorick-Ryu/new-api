@@ -73,3 +73,19 @@ func TestCodexCatalogETagDependsOnEffectiveModels(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"models":[]}`, string(empty))
 }
+
+func TestCodexCatalogIncludesConfiguredLegacySpark(t *testing.T) {
+	body, _, err := BuildCodexModelCatalog([]dto.OpenAIModels{{
+		Id: "gpt-5.3-codex-spark", SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI},
+	}})
+	require.NoError(t, err)
+	var catalog struct {
+		Models []map[string]json.RawMessage `json:"models"`
+	}
+	require.NoError(t, common.Unmarshal(body, &catalog))
+	require.Len(t, catalog.Models, 1)
+	assert.JSONEq(t, `128000`, string(catalog.Models[0]["context_window"]))
+	assert.JSONEq(t, `["text"]`, string(catalog.Models[0]["input_modalities"]))
+	assert.JSONEq(t, `true`, string(catalog.Models[0]["supported_in_api"]))
+	assert.JSONEq(t, `"list"`, string(catalog.Models[0]["visibility"]))
+}

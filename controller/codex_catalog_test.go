@@ -74,3 +74,31 @@ func TestCodexModelsUsesFilteredAvailabilityAndConditionalResponses(t *testing.T
 	require.Equal(t, http.StatusOK, disabled.Code)
 	assert.JSONEq(t, `{"models":[]}`, disabled.Body.String())
 }
+
+func TestCodexModelsDiscoversNewResponsesRouteWithColdPricingCache(t *testing.T) {
+	withSelfUseModeEnabled(t)
+	db := setupModelListControllerTestDB(t)
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	require.NoError(t, db.Create(&model.Channel{
+		Id: 901, Type: constant.ChannelTypeNewAPI, Status: common.ChannelStatusEnabled,
+		Name: "catalog-responses-route", Group: "default", Models: "custom-responses-route",
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "custom-responses-route", ChannelId: 901, Enabled: true,
+	}).Error)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models?client_version=0.153.2", nil)
+	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var catalog struct {
+		Models []struct {
+			Slug string `json:"slug"`
+		} `json:"models"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &catalog))
+	require.Len(t, catalog.Models, 1)
+	assert.Equal(t, "custom-responses-route", catalog.Models[0].Slug)
+}

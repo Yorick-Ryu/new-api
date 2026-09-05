@@ -258,6 +258,11 @@ func ListModels(c *gin.Context, modelType int) {
 		ownerByModel = getPreferredModelOwners(userModelNames, ownerGroups)
 	}
 	userOpenAiModels := make([]dto.OpenAIModels, 0, len(userModelNames))
+	if modelType == constant.ChannelTypeOpenAI && c.Query("client_version") != "" {
+		// Endpoint metadata is cached with pricing. Rebuild after channel changes
+		// so newly configured Responses routes do not require a pricing-page visit.
+		model.GetPricing()
+	}
 	for _, modelName := range userModelNames {
 		userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, ownerByModel))
 	}

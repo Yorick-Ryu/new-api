@@ -5,6 +5,10 @@ installed OpenAI Codex CLI 0.153.2 bundled catalog (`codex debug models
 --bundled`). It preserves opaque tool fields and instructions. It was checked
 against BeiAPI's temporary Nginx catalog on 2026-09-05.
 
+The legacy `gpt-5.3-codex-spark` profile comes from the existing CLIProxyAPI
+Codex client registry (`02e3d33c`, `internal/registry/models/codex_client_models.json`).
+It retains its own 128K/text-only capabilities rather than inheriting Astra's.
+
 This registry does **not** decide model availability. `controller.ListModels`
 first applies the existing enabled-channel/group, token-model and billing
 filters. `BuildCodexModelCatalog` uses the resulting names to select profiles,
