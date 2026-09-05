@@ -298,6 +298,27 @@ func ListModels(c *gin.Context, modelType int) {
 			"nextPageToken": nil,
 		})
 	default:
+		if c.Query("client_version") != "" {
+			body, etag, err := service.BuildCodexModelCatalog(userOpenAiModels)
+			if err != nil {
+				common.SysError(fmt.Sprintf("build Codex model catalog: %v", err))
+				c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{
+					"message": "Failed to build Codex model catalog", "type": "api_error",
+				}})
+				return
+			}
+			c.Header("Cache-Control", "private, no-cache")
+			c.Header("ETag", etag)
+			for _, validator := range strings.Split(c.GetHeader("If-None-Match"), ",") {
+				validator = strings.TrimSpace(validator)
+				if validator == "*" || strings.TrimPrefix(validator, "W/") == etag {
+					c.Status(http.StatusNotModified)
+					return
+				}
+			}
+			c.Data(http.StatusOK, "application/json", body)
+			return
+		}
 		c.JSON(200, gin.H{
 			"success": true,
 			"data":    userOpenAiModels,
