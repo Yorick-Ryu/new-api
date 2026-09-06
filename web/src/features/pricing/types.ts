@@ -28,6 +28,7 @@ export type PricingVendor = {
 }
 
 export type PricingModel = {
+  display_order?: number
   id: number
   model_name: string
   description?: string

@@ -115,6 +115,19 @@ export function sortModels(
   const sorted = [...models]
 
   switch (sortBy) {
+    default:
+    case SORT_OPTIONS.RECOMMENDED:
+      sorted.sort((a, b) => {
+        const rankA =
+          a.display_order && a.display_order > 0 ? a.display_order : Infinity
+        const rankB =
+          b.display_order && b.display_order > 0 ? b.display_order : Infinity
+        return (
+          (rankA === rankB ? 0 : rankA - rankB) ||
+          (a.model_name || '').localeCompare(b.model_name || '')
+        )
+      })
+      break
     case SORT_OPTIONS.NAME:
       sorted.sort((a, b) =>
         (a.model_name || '').localeCompare(b.model_name || '')
@@ -183,7 +196,7 @@ export function extractAllTags(models: PricingModel[]): string[] {
     }
   })
 
-  return Array.from(tagSet).sort((a, b) => a.localeCompare(b))
+  return [...tagSet].sort((a, b) => a.localeCompare(b))
 }
 
 /**

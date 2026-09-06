@@ -5273,6 +5273,16 @@
     "WebSocket only": "僅 WebSocket",
     "Responses API disabled": "停用回應 API",
     "Only matching /v1/responses requests can use this channel": "只有傳輸方式相符的 /v1/responses 請求可以使用此渠道",
-    "{{period}} quota": "{{period}}額度"
+    "{{period}} quota": "{{period}}額度",
+    "Model display order": "模型顯示排序",
+    "Recommended order": "推薦排序",
+    "Drag {{model}} to reorder": "拖曳 {{model}} 調整順序",
+    "Move {{model}} up": "上移 {{model}}",
+    "Move {{model}} down": "下移 {{model}}",
+    "No models available to reorder": "暫無可排序的模型",
+    "Model display order saved": "模型顯示順序已儲存",
+    "Failed to load model order": "載入模型順序失敗",
+    "Failed to save model order. Your changes are kept; please retry.": "儲存模型順序失敗，已保留你的調整，請重試。",
+    "Drag models or use the arrow buttons to reorder. Save to apply this order to the model marketplace. New models appear after your saved models.": "拖曳模型或點擊上下箭頭調整順序，儲存後套用到模型廣場。新增模型會排在已儲存的模型後面。"
   }
 }

@@ -5273,6 +5273,16 @@
     "WebSocket only": "Chỉ WebSocket",
     "Responses API disabled": "Tắt Responses API",
     "Only matching /v1/responses requests can use this channel": "Chỉ các yêu cầu /v1/responses có phương thức truyền phù hợp mới có thể dùng kênh này",
-    "{{period}} quota": "Hạn ngạch {{period}}"
+    "{{period}} quota": "Hạn ngạch {{period}}",
+    "Model display order": "Model display order",
+    "Recommended order": "Recommended order",
+    "Drag {{model}} to reorder": "Drag {{model}} to reorder",
+    "Move {{model}} up": "Move {{model}} up",
+    "Move {{model}} down": "Move {{model}} down",
+    "No models available to reorder": "No models available to reorder",
+    "Model display order saved": "Model display order saved",
+    "Failed to load model order": "Failed to load model order",
+    "Failed to save model order. Your changes are kept; please retry.": "Failed to save model order. Your changes are kept; please retry.",
+    "Drag models or use the arrow buttons to reorder. Save to apply this order to the model marketplace. New models appear after your saved models.": "Drag models or use the arrow buttons to reorder. Save to apply this order to the model marketplace. New models appear after your saved models."
   }
 }

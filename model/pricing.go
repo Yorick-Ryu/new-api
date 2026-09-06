@@ -16,6 +16,7 @@ import (
 )
 
 type Pricing struct {
+	DisplayOrder           int                     `json:"display_order,omitempty"`
 	ModelName              string                  `json:"model_name"`
 	Description            string                  `json:"description,omitempty"`
 	Icon                   string                  `json:"icon,omitempty"`

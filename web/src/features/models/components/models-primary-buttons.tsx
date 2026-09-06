@@ -65,6 +65,14 @@ export function ModelsPrimaryButtons() {
 
   return (
     <div className='flex items-center gap-2'>
+      <Button
+        variant='outline'
+        size='sm'
+        onClick={() => setOpen('display-order')}
+      >
+        <List className='h-4 w-4' />
+        {t('Model display order')}
+      </Button>
       {/* Create Model */}
       <Button onClick={handleCreateModel} size='sm'>
         <Plus className='h-4 w-4' />
