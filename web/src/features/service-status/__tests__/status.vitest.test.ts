@@ -78,6 +78,24 @@ describe('Service status history', () => {
     expect(getGroupHealth([model], 9000, 3600)).toBe('unknown')
     expect(getGroupHealth([], 9000, 3600)).toBe('unknown')
   })
+  it.each([
+    { rates: [100, null], expected: 'normal' },
+    { rates: [null, 100], expected: 'normal' },
+    { rates: [98, null, 100], expected: 'warning' },
+    { rates: [100, 98, null], expected: 'warning' },
+    { rates: [99, 94.9, null], expected: 'error' },
+    { rates: [null, null], expected: 'unknown' },
+  ])(
+    'ignores models without current requests: $rates produces $expected',
+    ({ rates, expected }) => {
+      const models = rates.map((rate, index) => ({
+        ...model,
+        model_name: `model-${index}`,
+        series: rate === null ? [] : [{ ...healthy, success_rate: rate }],
+      }))
+      expect(getGroupHealth(models, 4500, 1800)).toBe(expected)
+    }
+  )
   it('shows a current error even when other models have no requests', () => {
     expect(
       getGroupHealth(

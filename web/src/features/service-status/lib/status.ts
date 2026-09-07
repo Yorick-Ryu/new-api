@@ -64,15 +64,14 @@ export function getGroupHealth(
   step: number
 ): ServiceHealth {
   const latestTs = end - (end % step)
-  let health: ServiceHealth = 'normal'
-  if (models.length === 0) return 'unknown'
+  let health: ServiceHealth = 'unknown'
   for (const model of models) {
     const rate =
       model.series.find((point) => point.ts === latestTs)?.success_rate ?? null
     const status = getServiceHealth(rate)
+    if (status === 'unknown') continue
     if (status === 'error') return 'error'
-    if (status === 'warning') health = 'warning'
-    if (status === 'unknown' && health === 'normal') health = 'unknown'
+    if (status === 'warning' || health === 'unknown') health = status
   }
   return health
 }

@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import dayjs from 'dayjs'
-import { useId, useMemo, useState, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -64,27 +71,68 @@ export function StatusTimeline(props: StatusTimelineProps) {
   const [selected, setSelected] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const [pinned, setPinned] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const touchGesture = useRef<{
+    index: number
+    cancelled: boolean
+  } | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    function dismiss() {
+      setPinned(false)
+      setOpen(false)
+    }
+    function dismissOutside(event: globalThis.PointerEvent) {
+      if (!(event.target instanceof Node)) return
+      if (
+        triggerRef.current?.contains(event.target) ||
+        tooltipRef.current?.contains(event.target)
+      ) {
+        return
+      }
+      dismiss()
+    }
+    function dismissOnScroll() {
+      if (touchGesture.current) touchGesture.current.cancelled = true
+      dismiss()
+    }
+
+    document.addEventListener('pointerdown', dismissOutside, true)
+    document.addEventListener('touchmove', dismissOnScroll, { passive: true })
+    document.addEventListener('scroll', dismissOnScroll, true)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside, true)
+      document.removeEventListener('touchmove', dismissOnScroll)
+      document.removeEventListener('scroll', dismissOnScroll, true)
+    }
+  }, [open])
+
   const index = Math.min(selected ?? points.length - 1, points.length - 1)
   const point = points[index]
   if (!point) return null
 
   const interval = `${dayjs.unix(point.ts).format('MM/DD HH:mm')} – ${dayjs.unix(Math.min(point.ts + props.step, props.end)).format('MM/DD HH:mm')}`
 
-  function selectInterval(event: PointerEvent<HTMLButtonElement>) {
-    if (pinned) return
+  function getPointerInterval(event: PointerEvent<HTMLButtonElement>) {
     const bounds = event.currentTarget.getBoundingClientRect()
-    if (bounds.width === 0) return
-    setSelected(
-      Math.max(
-        0,
-        Math.min(
-          points.length - 1,
-          Math.floor(
-            ((event.clientX - bounds.left) / bounds.width) * points.length
-          )
+    if (bounds.width === 0) return index
+    return Math.max(
+      0,
+      Math.min(
+        points.length - 1,
+        Math.floor(
+          ((event.clientX - bounds.left) / bounds.width) * points.length
         )
       )
     )
+  }
+
+  function selectInterval(event: PointerEvent<HTMLButtonElement>) {
+    if (pinned) return
+    setSelected(getPointerInterval(event))
     setOpen(true)
   }
 
@@ -94,7 +142,7 @@ export function StatusTimeline(props: StatusTimelineProps) {
         open={open}
         triggerId={triggerId}
         onOpenChange={(next, details) => {
-          if (details.reason === 'trigger-press') {
+          if (touchGesture.current || details.reason === 'trigger-press') {
             details.cancel()
             return
           }
@@ -105,16 +153,52 @@ export function StatusTimeline(props: StatusTimelineProps) {
           id={triggerId}
           render={
             <button
+              ref={triggerRef}
               type='button'
-              className='flex min-h-6 w-full items-center rounded-sm outline-offset-4 pointer-coarse:min-h-11'
+              className='flex min-h-6 w-full items-center rounded-sm outline-offset-4 active:transform-none! pointer-coarse:min-h-11'
               aria-describedby={open ? tooltipId : undefined}
               aria-label={t(
                 'Request history for {{model}}. Use arrow keys to select an interval.',
                 { model: props.model.model_name }
               )}
-              onPointerMove={selectInterval}
-              onPointerDown={selectInterval}
+              onPointerMove={(event) => {
+                if (event.pointerType === 'touch') {
+                  if (touchGesture.current) {
+                    touchGesture.current.cancelled = true
+                  }
+                  setPinned(false)
+                  setOpen(false)
+                  return
+                }
+                touchGesture.current = null
+                selectInterval(event)
+              }}
+              onPointerDown={(event) => {
+                if (event.pointerType === 'touch') {
+                  touchGesture.current = {
+                    index: getPointerInterval(event),
+                    cancelled: false,
+                  }
+                  return
+                }
+                touchGesture.current = null
+                selectInterval(event)
+              }}
+              onPointerCancel={() => {
+                if (touchGesture.current) touchGesture.current.cancelled = true
+                setPinned(false)
+                setOpen(false)
+              }}
               onClick={() => {
+                const gesture = touchGesture.current
+                if (gesture) {
+                  if (gesture.cancelled) return
+                  const nextOpen = !open || gesture.index !== index
+                  setSelected(gesture.index)
+                  setPinned(nextOpen)
+                  setOpen(nextOpen)
+                  return
+                }
                 setPinned(!pinned)
                 setOpen(!pinned)
               }}
@@ -158,6 +242,7 @@ export function StatusTimeline(props: StatusTimelineProps) {
           </span>
         </TooltipTrigger>
         <TooltipContent
+          ref={tooltipRef}
           id={tooltipId}
           role='tooltip'
           anchor={anchor}
