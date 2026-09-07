@@ -37,6 +37,9 @@ const responsesWSEventTypeResponseCreate = "response.create"
 // and idle timeout, channel disable and shutdown all block behind it.
 const responsesWSWriteTimeout = 30 * time.Second
 
+// Compress substantial responses while avoiding deflate overhead for small deltas.
+const responsesWSCompressionMinBytes = 1 << 10
+
 // responsesWSMaxMessageBytes bounds one inbound WebSocket message. The HTTP
 // body limit does not cover WebSocket frames, so without it a valid key can
 // stream unbounded data into memory. It follows MAX_REQUEST_BODY_MB so the same
@@ -1142,6 +1145,11 @@ func (s *responsesWSSession) writeClient(messageType int, message []byte) error 
 	if err := s.client.SetWriteDeadline(time.Now().Add(responsesWSWriteTimeout)); err != nil {
 		return err
 	}
+	// Compression state and the write must share the lock. Gorilla only compresses
+	// when the peer negotiated permessage-deflate during the handshake.
+	s.client.EnableWriteCompression(len(message) >= responsesWSCompressionMinBytes)
+	// Keep terminal errors written outside the session uncompressed by default.
+	defer s.client.EnableWriteCompression(false)
 	return s.client.WriteMessage(messageType, message)
 }
 

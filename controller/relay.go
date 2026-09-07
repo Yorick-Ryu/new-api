@@ -76,7 +76,7 @@ func ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 	defer ws.Close()
-	// Accept compressed uploads without spending CPU compressing small streamed deltas.
+	// The session enables response compression per message once its size is known.
 	ws.EnableWriteCompression(false)
 
 	if newAPIError := relay.ResponsesWebSocketHelper(c, ws); newAPIError != nil {
