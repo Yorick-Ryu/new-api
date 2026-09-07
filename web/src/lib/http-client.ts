@@ -53,7 +53,11 @@ const inFlightGet = new Map<string, Promise<unknown>>()
 const originalGet = api.get.bind(api)
 
 api.get = ((url: string, config: ApiRequestConfig = {}) => {
-  if (config.disableDuplicate) return originalGet(url, config)
+  // Cancellation belongs to the caller. Sharing its promise would also cancel
+  // a subsequent caller (for example, React Query remounting in StrictMode).
+  if (config.disableDuplicate || config.signal || config.cancelToken) {
+    return originalGet(url, config)
+  }
 
   const params = config.params ? JSON.stringify(config.params) : '{}'
   const sessionSID = useAuthStore.getState().auth.session?.sid || 'anonymous'
@@ -98,6 +102,9 @@ api.interceptors.response.use(
     return response
   },
   async (error) => {
+    // Cancellation is a lifecycle event, not a failed request to show the user.
+    if (axios.isCancel(error)) throw error
+
     const config = error?.config as ApiRequestConfig | undefined
     const skipErrorHandler = config?.skipErrorHandler
     const status = error?.response?.status

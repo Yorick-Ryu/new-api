@@ -24,6 +24,9 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
     environment: 'happy-dom',
+    // The icon library's emoji dependency uses extensionless directory imports.
+    // Let Vite resolve those imports, as the application bundler does.
+    server: { deps: { inline: [/@lobehub\//] } },
     include: ['src/**/*.vitest.test.{ts,tsx}'],
     restoreMocks: true,
   },

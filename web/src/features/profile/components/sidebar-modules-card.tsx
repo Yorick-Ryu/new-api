@@ -84,6 +84,11 @@ export function SidebarModulesCard() {
           description: t('System data statistics'),
         },
         {
+          key: 'service_status',
+          title: t('Service status'),
+          description: t('Model request performance by group'),
+        },
+        {
           key: 'token',
           title: t('Token Management'),
           description: t('API token management'),

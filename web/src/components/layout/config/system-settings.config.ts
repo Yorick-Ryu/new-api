@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 import {
   Box,
   CreditCard,
@@ -34,6 +34,7 @@ import { getModelsSectionNavItems } from '@/features/system-settings/models/sect
 import { getOperationsSectionNavItems } from '@/features/system-settings/operations/section-registry.tsx'
 import { getSecuritySectionNavItems } from '@/features/system-settings/security/section-registry.tsx'
 import { getSiteSectionNavItems } from '@/features/system-settings/site/section-registry.tsx'
+import { ROLE } from '@/lib/roles'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -52,38 +53,50 @@ function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
       items: [
         {
           title: t('Site & Branding'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: Settings,
           items: getSiteSectionNavItems(t),
         },
         {
           title: t('Authentication'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: Shield,
           items: getAuthSectionNavItems(t),
         },
         {
           title: t('Billing & Payment'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: CreditCard,
           items: getBillingSectionNavItems(t),
         },
         {
           title: t('Models & Routing'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: Box,
           items: getModelsSectionNavItems(t),
         },
         {
           title: t('Security & Limits'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: ShieldAlert,
           items: getSecuritySectionNavItems(t),
         },
         {
           title: t('Console Content'),
+          requiredRole: ROLE.SUPER_ADMIN,
           icon: Layout,
           items: getContentSectionNavItems(t),
         },
         {
           title: t('Operations'),
           icon: Wrench,
-          items: getOperationsSectionNavItems(t),
+          items: getOperationsSectionNavItems(t).map((item) => ({
+            ...item,
+            requiredRole:
+              item.url === '/system-settings/operations/service-status'
+                ? ROLE.ADMIN
+                : ROLE.SUPER_ADMIN,
+          })),
         },
       ],
     },

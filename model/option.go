@@ -206,6 +206,10 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if key == ServiceStatusSettingsOptionKey {
+		_, err := ParseServiceStatusSettings(value)
+		return err
+	}
 	if key == ModelDisplayOrderOptionKey {
 		_, err := ParseModelDisplayOrder(value)
 		return err

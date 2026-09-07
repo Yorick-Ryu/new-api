@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ServiceStatusManagementPage } from '@/features/service-status/manage'
+
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
@@ -52,12 +54,17 @@ const OPERATIONS_SECTIONS = [
           'perf_metrics_setting.flush_interval':
             settings['perf_metrics_setting.flush_interval'] ?? 5,
           'perf_metrics_setting.bucket_time':
-            settings['perf_metrics_setting.bucket_time'] ?? 'hour',
+            settings['perf_metrics_setting.bucket_time'] ?? '30min',
           'perf_metrics_setting.retention_days':
             settings['perf_metrics_setting.retention_days'] ?? 0,
         }}
       />
     ),
+  },
+  {
+    id: 'service-status',
+    titleKey: 'Service status',
+    build: () => <ServiceStatusManagementPage />,
   },
   {
     id: 'email',

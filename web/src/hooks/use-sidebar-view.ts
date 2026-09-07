@@ -70,7 +70,31 @@ export function useSidebarView(): ResolvedSidebarView {
     return {
       key: view.id,
       view,
-      navGroups: view.getNavGroups(t),
+      navGroups: view
+        .getNavGroups(t)
+        .map((group) => ({
+          ...group,
+          items: group.items
+            .filter(
+              (item) =>
+                item.requiredRole === undefined ||
+                (userRole ?? ROLE.GUEST) >= item.requiredRole
+            )
+            .map((item) =>
+              item.items
+                ? {
+                    ...item,
+                    items: item.items.filter(
+                      (child) =>
+                        child.requiredRole === undefined ||
+                        (userRole ?? ROLE.GUEST) >= child.requiredRole
+                    ),
+                  }
+                : item
+            )
+            .filter((item) => !item.items || item.items.length > 0),
+        }))
+        .filter((group) => group.items.length > 0),
     }
   }
 
