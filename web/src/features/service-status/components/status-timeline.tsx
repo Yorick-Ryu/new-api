@@ -246,7 +246,7 @@ export function StatusTimeline(props: StatusTimelineProps) {
           id={tooltipId}
           role='tooltip'
           anchor={anchor}
-          className='block max-w-[220px] space-y-0.5 px-2 py-1.5 text-[11px] leading-4'
+          className='block max-w-[calc(100vw-24px)] space-y-0.5 px-2 py-1.5 text-[11px] leading-4'
           side='top'
         >
           <p className='font-mono'>{interval}</p>
@@ -254,19 +254,19 @@ export function StatusTimeline(props: StatusTimelineProps) {
             <p>{t('No requests in this interval')}</p>
           )}
           {point.success_rate !== null && (
-            <>
+            <div className='grid grid-cols-[max-content_max-content] gap-x-2 gap-y-0.5'>
               <p>
                 {t('Success rate')}: {formatUptimePct(point.success_rate)}
               </p>
+              {!props.model.is_image_model && point.avg_ttft_ms !== null && (
+                <p>
+                  {t('TTFT')}: {formatLatency(point.avg_ttft_ms)}
+                </p>
+              )}
               {!props.model.is_image_model && (
                 <p>
                   {t('Cache rate')}:{' '}
                   {formatUptimePct(point.cache_hit_rate ?? Number.NaN)}
-                </p>
-              )}
-              {!props.model.is_image_model && point.avg_ttft_ms !== null && (
-                <p>
-                  {t('TTFT')}: {formatLatency(point.avg_ttft_ms)}
                 </p>
               )}
               {point.avg_latency_ms !== null && (
@@ -274,7 +274,7 @@ export function StatusTimeline(props: StatusTimelineProps) {
                   {t('Average duration')}: {formatLatency(point.avg_latency_ms)}
                 </p>
               )}
-            </>
+            </div>
           )}
         </TooltipContent>
       </Tooltip>
