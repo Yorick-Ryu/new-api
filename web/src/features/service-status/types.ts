@@ -32,6 +32,7 @@ export type StatusPoint = StatusMetrics & {
 export type StatusModel = StatusMetrics & {
   model_name: string
   icon?: string
+  is_image_model?: boolean
   series: StatusPoint[]
 }
 export type StatusGroup = {

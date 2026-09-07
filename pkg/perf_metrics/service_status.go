@@ -24,9 +24,10 @@ type StatusPoint struct {
 }
 
 type StatusModel struct {
-	ModelName string        `json:"model_name"`
-	Icon      string        `json:"icon,omitempty"`
-	Series    []StatusPoint `json:"series"`
+	ModelName    string        `json:"model_name"`
+	Icon         string        `json:"icon,omitempty"`
+	IsImageModel bool          `json:"is_image_model,omitempty"`
+	Series       []StatusPoint `json:"series"`
 	StatusMetrics
 }
 

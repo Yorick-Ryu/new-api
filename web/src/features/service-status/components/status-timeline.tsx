@@ -173,11 +173,13 @@ export function StatusTimeline(props: StatusTimelineProps) {
               <p>
                 {t('Success rate')}: {formatUptimePct(point.success_rate)}
               </p>
-              <p>
-                {t('Cache rate')}:{' '}
-                {formatUptimePct(point.cache_hit_rate ?? Number.NaN)}
-              </p>
-              {point.avg_ttft_ms !== null && (
+              {!props.model.is_image_model && (
+                <p>
+                  {t('Cache rate')}:{' '}
+                  {formatUptimePct(point.cache_hit_rate ?? Number.NaN)}
+                </p>
+              )}
+              {!props.model.is_image_model && point.avg_ttft_ms !== null && (
                 <p>
                   {t('TTFT')}: {formatLatency(point.avg_ttft_ms)}
                 </p>

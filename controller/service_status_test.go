@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/gin-gonic/gin"
@@ -97,6 +98,24 @@ func TestVisibleServiceStatusWithNoAllowedGroupsReturnsEmptyArray(t *testing.T) 
 	result := buildVisibleServiceStatus(perfmetrics.StatusResult{}, map[string]string{}, []model.Pricing{{ModelName: "alpha", EnableGroup: []string{"all"}}}, nil, nil)
 	assert.NotNil(t, result.Groups)
 	assert.Empty(t, result.Groups)
+}
+
+func TestServiceStatusIdentifiesImageModelsWithoutInferringFromTokenMetrics(t *testing.T) {
+	input := perfmetrics.StatusResult{Groups: []perfmetrics.StatusGroup{{Group: "default", Models: []perfmetrics.StatusModel{
+		{ModelName: "gpt-image-2", StatusMetrics: perfmetrics.StatusMetrics{AvgTps: common.GetPointer(21.2)}},
+		{ModelName: "gpt-6-astra", StatusMetrics: perfmetrics.StatusMetrics{AvgTps: common.GetPointer(21.2)}},
+	}}}}
+	pricing := []model.Pricing{
+		{ModelName: "gpt-image-2", EnableGroup: []string{"default"}, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeImageGeneration}},
+		{ModelName: "art-model", EnableGroup: []string{"default"}, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeImageGeneration}},
+	}
+	result := buildVisibleServiceStatus(input, map[string]string{"default": ""}, pricing, nil, nil)
+	require.Len(t, result.Groups, 1)
+	require.Len(t, result.Groups[0].Models, 3)
+	for _, item := range result.Groups[0].Models {
+		assert.Equal(t, item.ModelName != "gpt-6-astra", item.IsImageModel, item.ModelName)
+	}
+	assert.False(t, input.Groups[0].Models[0].IsImageModel, "shared metrics must remain unchanged")
 }
 
 func TestServiceStatusOrdersNumericVersionsDescendingWithManualOrderFirst(t *testing.T) {

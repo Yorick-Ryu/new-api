@@ -116,6 +116,44 @@ function respond(data: () => ServiceStatusResponse, hours: number[] = []) {
   }
 }
 describe('Service status page', () => {
+  it.each([false, true])(
+    'shows image duration instead of token metrics when requests are absent: %s',
+    async (empty) => {
+      const response = fixture()
+      const model = response.data.groups[0].models[0]
+      Object.assign(model, {
+        model_name: 'gpt-image-2',
+        is_image_model: true,
+        success_rate: empty ? null : 100,
+        avg_ttft_ms: null,
+        avg_tps: empty ? null : 21.2,
+        avg_latency_ms: empty ? null : 52400,
+        cache_hit_rate: empty ? null : 0,
+        series: empty ? [] : [{ ...model.series[1], avg_latency_ms: 42000 }],
+      })
+      respond(() => response)
+      renderPage()
+      const article = await screen.findByRole('article', {
+        name: 'gpt-image-2',
+      })
+      expect(within(article).getByText('Average duration')).toBeTruthy()
+      expect(within(article).getByText('Success rate')).toBeTruthy()
+      expect(within(article).queryByText('TTFT')).toBeNull()
+      expect(within(article).queryByText('Throughput (short)')).toBeNull()
+      expect(within(article).queryByText('Cache rate')).toBeNull()
+      if (empty) {
+        expect(within(article).getAllByText('—')).toHaveLength(2)
+      } else {
+        expect(within(article).getByText('52.40s')).toBeTruthy()
+        await userEvent.click(within(article).getByRole('button'))
+        const tooltip = await screen.findByRole('tooltip')
+        expect(
+          within(tooltip).getByText('Average duration: 42.00s')
+        ).toBeTruthy()
+        expect(within(tooltip).queryByText(/TTFT|Cache rate/)).toBeNull()
+      }
+    }
+  )
   it('starts the loaded content with groups without an introductory or update row', async () => {
     respond(fixture)
     renderPage()

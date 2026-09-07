@@ -57,9 +57,10 @@ export function ModelStatus(props: {
     )?.[1]
   }
   const latencyOnly =
-    model.success_rate !== null &&
-    model.avg_ttft_ms === null &&
-    model.avg_tps === null
+    model.is_image_model ||
+    (model.success_rate !== null &&
+      model.avg_ttft_ms === null &&
+      model.avg_tps === null)
   return (
     <article className='min-w-0' aria-label={model.model_name}>
       <h4 className='mb-1 flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight'>
@@ -108,12 +109,14 @@ export function ModelStatus(props: {
             </div>
           </>
         )}
-        <div className='flex items-baseline gap-1.5 whitespace-nowrap'>
-          <dt className='text-neutral-500 dark:text-neutral-400'>
-            {t('Cache rate')}
-          </dt>
-          <dd>{formatUptimePct(model.cache_hit_rate ?? Number.NaN)}</dd>
-        </div>
+        {!model.is_image_model && (
+          <div className='flex items-baseline gap-1.5 whitespace-nowrap'>
+            <dt className='text-neutral-500 dark:text-neutral-400'>
+              {t('Cache rate')}
+            </dt>
+            <dd>{formatUptimePct(model.cache_hit_rate ?? Number.NaN)}</dd>
+          </div>
+        )}
         <div className='flex items-baseline gap-1.5 whitespace-nowrap'>
           <dt className='text-neutral-500 dark:text-neutral-400'>
             {t('Success rate')}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/service"
@@ -85,7 +86,13 @@ func buildVisibleServiceStatus(result perfmetrics.StatusResult, usable map[strin
 		vendorIcons[vendor.ID] = vendor.Icon
 	}
 	icons := map[string]string{}
+	imageModels := map[string]bool{}
 	for _, item := range pricing {
+		for _, endpoint := range item.SupportedEndpointTypes {
+			if endpoint == constant.EndpointTypeImageGeneration {
+				imageModels[item.ModelName] = true
+			}
+		}
 		icon := item.Icon
 		if icon == "" {
 			icon = vendorIcons[item.VendorID]
@@ -112,6 +119,7 @@ func buildVisibleServiceStatus(result perfmetrics.StatusResult, usable map[strin
 		entry := perfmetrics.StatusGroup{Group: group, Description: strings.TrimSpace(usable[group]), Models: make([]perfmetrics.StatusModel, 0, len(models))}
 		for name, item := range models {
 			item.Icon = icons[name]
+			item.IsImageModel = imageModels[name]
 			entry.Models = append(entry.Models, item)
 		}
 		sort.Slice(entry.Models, func(i, j int) bool {
