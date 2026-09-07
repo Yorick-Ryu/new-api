@@ -73,6 +73,7 @@ func TestResponsesWebSocketUploadCompression(t *testing.T) {
 			} else {
 				assert.Empty(t, response.Header.Get("Sec-WebSocket-Extensions"))
 			}
+			require.NoError(t, client.SetCompressionLevel(6))
 			client.EnableWriteCompression(tc.compress)
 			require.NoError(t, client.SetWriteDeadline(time.Now().Add(5*time.Second)))
 			require.NoError(t, client.SetReadDeadline(time.Now().Add(5*time.Second)))

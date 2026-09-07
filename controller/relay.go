@@ -76,6 +76,8 @@ func ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 	defer ws.Close()
+	// Match the Codex client's DEFLATE level; 6 is always valid.
+	_ = ws.SetCompressionLevel(6)
 	// The session enables response compression per message once its size is known.
 	ws.EnableWriteCompression(false)
 

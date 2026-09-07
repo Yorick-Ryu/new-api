@@ -66,6 +66,7 @@ func TestResponsesWebSocketResponseCompression(t *testing.T) {
 			assert.Equal(t, tc.negotiate, strings.Contains(response.Header.Get("Sec-WebSocket-Extensions"), "permessage-deflate"))
 			serverConn := <-connections
 			defer serverConn.Close()
+			require.NoError(t, serverConn.SetCompressionLevel(6))
 			session := &responsesWSSession{client: serverConn}
 			// No data is sent until after the handshake, so recording starts at a frame boundary.
 			wire.received.Reset()
