@@ -69,11 +69,15 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 
 func ResponsesWebSocket(c *gin.Context) {
 	requestId := c.GetString(common.RequestIdKey)
-	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	responsesUpgrader := upgrader
+	responsesUpgrader.EnableCompression = true
+	ws, err := responsesUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 	defer ws.Close()
+	// Accept compressed uploads without spending CPU compressing small streamed deltas.
+	ws.EnableWriteCompression(false)
 
 	if newAPIError := relay.ResponsesWebSocketHelper(c, ws); newAPIError != nil {
 		errorPreview := common.LocalLogPreview(newAPIError.Error())
@@ -271,13 +275,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 }
 
-// EnableCompression is deliberately left off. gorilla's permessage-deflate is
-// experimental and has no context takeover, so each message compresses in
-// isolation — the streamed delta events are too small to gain from that, while
-// every frame costs a deflate round trip. More importantly, SetReadLimit is
-// enforced against the compressed wire length, so enabling compression would
-// turn the WebSocket read limits into a compressed bound and reopen the zip
-// bomb hole that MAX_REQUEST_BODY_MB exists to close on the HTTP side.
+// Realtime keeps compression disabled. Responses opts in separately because its
+// reader bounds both the wire message and the decompressed payload.
 var upgrader = websocket.Upgrader{
 	Subprotocols: []string{"realtime", "responses"}, // WS 握手支持的协议，如果有使用 Sec-WebSocket-Protocol，则必须在此声明对应的 Protocol
 	CheckOrigin: func(r *http.Request) bool {

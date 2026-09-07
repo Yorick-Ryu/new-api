@@ -3,6 +3,7 @@ package relay
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,10 +46,8 @@ const responsesWSWriteTimeout = 30 * time.Second
 // Read lazily: constant.MaxRequestBodyMB is populated by InitEnv from main, so
 // a package-level var here would capture zero.
 //
-// NOTE: gorilla enforces this against the compressed wire length (conn.go:924,
-// before the decompression reader is attached at conn.go:1019). It is a real
-// memory bound only while permessage-deflate stays disabled — see the upgrader
-// in controller/relay.go.
+// Gorilla's SetReadLimit bounds the wire length. The client reader also limits
+// decompressed bytes so negotiated compression cannot bypass this bound.
 func responsesWSMaxMessageBytes() int64 {
 	maxMB := common.GetEnvOrDefault("WEBSOCKET_MAX_MESSAGE_MB", 0)
 	if maxMB <= 0 {
@@ -192,15 +191,31 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat 
 	}
 	defer session.closeTarget()
 	defer session.settleCurrent()
-	client.SetReadLimit(responsesWSMaxMessageBytes())
+	maxMessageBytes := responsesWSMaxMessageBytes()
+	client.SetReadLimit(maxMessageBytes)
 	if err := session.startHeartbeat(heartbeat); err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
 	}
 	defer session.stopHeartbeat()
 
 	for {
-		messageType, message, err := client.ReadMessage()
+		messageType, reader, err := client.NextReader()
+		var message []byte
+		if err == nil {
+			// NextReader decompresses transparently. Read one extra byte to distinguish
+			// an exactly-at-limit message from an oversized one without draining it.
+			message, err = io.ReadAll(io.LimitReader(reader, maxMessageBytes+1))
+			if int64(len(message)) > maxMessageBytes {
+				err = websocket.ErrReadLimit
+			}
+		}
 		if err != nil {
+			if errors.Is(err, websocket.ErrReadLimit) {
+				_ = client.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseMessageTooBig, "websocket message exceeds size limit"),
+					time.Now().Add(responsesWSWriteTimeout))
+				return nil
+			}
 			if session.activityState.Load() == responsesWSSessionEvicting {
 				return nil
 			}
