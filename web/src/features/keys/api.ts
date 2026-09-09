@@ -72,7 +72,7 @@ export async function getTokenAutoGroups(): Promise<
 // Create a new API key
 export async function createApiKey(
   data: ApiKeyFormData
-): Promise<ApiResponse<ApiKey>> {
+): Promise<ApiResponse<Pick<ApiKey, 'id'>>> {
   const res = await api.post('/api/token/', data)
   return res.data
 }

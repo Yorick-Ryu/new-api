@@ -43,7 +43,7 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
     <div data-slot='subscription-quota-usage' className='mt-2'>
       <div className='flex flex-wrap items-center justify-between gap-1'>
         <span className='font-medium'>{props.label}</span>
-        <span className='text-muted-foreground'>
+        <span className='text-foreground'>
           {props.amountTotal > 0
             ? `${formatQuota(props.amountUsed)}/${formatQuota(props.amountTotal)} · ${usagePercent}%`
             : t('Unlimited')}
@@ -56,7 +56,11 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
         </div>
       )}
       {props.isActive && props.amountTotal > 0 && (
-        <Progress value={usagePercent} className='mt-1.5 h-1.5' />
+        <Progress
+          aria-label={props.label}
+          value={usagePercent}
+          className='mt-1.5 h-1.5'
+        />
       )}
     </div>
   )

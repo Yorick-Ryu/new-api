@@ -102,3 +102,49 @@ func TestCodexModelsDiscoversNewResponsesRouteWithColdPricingCache(t *testing.T)
 	require.Len(t, catalog.Models, 1)
 	assert.Equal(t, "custom-responses-route", catalog.Models[0].Slug)
 }
+
+func TestDashboardCodexCatalogMatchesTokenCatalogOrderAndFiltering(t *testing.T) {
+	withSelfUseModeEnabled(t)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{Id: 1107, Username: "codexbei-catalog-user", Group: "default", Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "gpt-5.6-sol", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-6-astra", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-5.6-terra", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-image-2", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-5.5-openai-compact", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-5.6-luna", ChannelId: 1, Enabled: false},
+		{Group: "unavailable", Model: "gpt-5.5", ChannelId: 2, Enabled: true},
+	}).Error)
+	tokenResponse := httptest.NewRecorder()
+	tokenContext, _ := gin.CreateTestContext(tokenResponse)
+	tokenContext.Request = httptest.NewRequest(http.MethodGet, "/v1/models?client_version=codexbei", nil)
+	tokenContext.Set("id", 1107)
+	common.SetContextKey(tokenContext, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(tokenContext, constant.ContextKeyTokenGroup, "default")
+	ListModels(tokenContext, constant.ChannelTypeOpenAI)
+	require.Equal(t, http.StatusOK, tokenResponse.Code)
+
+	dashboardResponse := httptest.NewRecorder()
+	dashboardContext, _ := gin.CreateTestContext(dashboardResponse)
+	dashboardContext.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default&client_version=codexbei", nil)
+	dashboardContext.Set("id", 1107)
+	GetUserModels(dashboardContext)
+	require.Equal(t, http.StatusOK, dashboardResponse.Code)
+	assert.Equal(t, tokenResponse.Body.String(), dashboardResponse.Body.String())
+	var catalog struct {
+		Models []struct {
+			Slug string `json:"slug"`
+		} `json:"models"`
+	}
+	require.NoError(t, common.Unmarshal(dashboardResponse.Body.Bytes(), &catalog))
+	require.Len(t, catalog.Models, 3)
+	assert.Equal(t, "gpt-6-astra", catalog.Models[0].Slug)
+
+	forbiddenResponse := httptest.NewRecorder()
+	forbiddenContext, _ := gin.CreateTestContext(forbiddenResponse)
+	forbiddenContext.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=unavailable&client_version=codexbei", nil)
+	forbiddenContext.Set("id", 1107)
+	GetUserModels(forbiddenContext)
+	assert.JSONEq(t, `{"models":[]}`, forbiddenResponse.Body.String())
+}

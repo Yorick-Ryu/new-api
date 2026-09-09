@@ -63,6 +63,7 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { PaymentMethod, TopupInfo } from '../types'
+import { SubscriptionExpiry } from './subscription-expiry'
 import { SubscriptionQuotaUsage } from './subscription-quota-usage'
 
 interface SubscriptionPlansCardProps {
@@ -224,13 +225,6 @@ export function SubscriptionPlansCard({
     }
     return map
   }, [plans])
-
-  const getRemainingDays = (sub: UserSubscriptionRecord) => {
-    const endTime = sub?.subscription?.end_time || 0
-    if (!endTime) return 0
-    const now = Date.now() / 1000
-    return Math.max(0, Math.ceil((endTime - now) / 86400))
-  }
 
   if (loading) {
     return (
@@ -403,7 +397,6 @@ export function SubscriptionPlansCard({
                   const primaryQuotaLabel = subscriptionPlan
                     ? formatPrimaryQuotaLabel(subscriptionPlan, t)
                     : t('Main quota')
-                  const remainDays = getRemainingDays(sub)
                   const now = Date.now() / 1000
                   const isExpired = (subscription?.end_time || 0) < now
                   const isCancelled = subscription?.status === 'cancelled'
@@ -434,40 +427,25 @@ export function SubscriptionPlansCard({
                     )
                   }
 
-                  let endTimeLabel = t('Expired at')
-                  if (isActive) {
-                    endTimeLabel = t('Until')
-                  } else if (isCancelled) {
-                    endTimeLabel = t('Cancelled at')
-                  }
-
                   return (
                     <div
                       key={subscription?.id}
                       className='bg-background rounded-md border p-3 text-xs'
                     >
-                      <div className='flex items-center justify-between'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-medium'>
+                      <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1'>
+                        <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                          <span className='font-semibold wrap-anywhere'>
                             {planTitle
                               ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
                               : `${t('Subscription')} #${subscription?.id}`}
                           </span>
                           {statusBadge}
                         </div>
-                        {isActive && (
-                          <span className='text-muted-foreground'>
-                            {t('{{count}} days remaining', {
-                              count: remainDays,
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      <div className='text-muted-foreground mt-1.5'>
-                        {endTimeLabel}{' '}
-                        {new Date(
-                          (subscription?.end_time || 0) * 1000
-                        ).toLocaleString()}
+                        <SubscriptionExpiry
+                          endTime={subscription.end_time}
+                          isActive={isActive}
+                          isCancelled={isCancelled}
+                        />
                       </div>
                       <SubscriptionQuotaUsage
                         label={primaryQuotaLabel}

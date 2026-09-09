@@ -93,9 +93,9 @@ function SelectContent({
   align = 'center',
   alignOffset = 0,
   alignItemWithTrigger = true,
+  portalOnMobile = false,
   ...props
-}: SelectPrimitive.Popup.Props &
-  Pick<
+}: SelectPrimitive.Popup.Props & { portalOnMobile?: boolean } & Pick<
     SelectPrimitive.Positioner.Props,
     'align' | 'alignOffset' | 'side' | 'sideOffset' | 'alignItemWithTrigger'
   >) {
@@ -126,7 +126,7 @@ function SelectContent({
     </SelectPrimitive.Positioner>
   )
 
-  if (isMobile) {
+  if (isMobile && !portalOnMobile) {
     return content
   }
 

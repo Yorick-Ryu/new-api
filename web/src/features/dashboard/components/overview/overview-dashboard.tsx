@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowRight,
@@ -25,33 +24,23 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
-  Copy,
   CreditCard,
+  Download,
   FileText,
   KeyRound,
   ListChecks,
   RadioTower,
-  ShieldCheck,
   TerminalSquare,
-  Timer,
   type LucideIcon,
 } from 'lucide-react'
-import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
-import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
-import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
-import type { ApiKey } from '@/features/keys/types'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { getUserModels } from '@/lib/api'
-import { MOTION_TRANSITION } from '@/lib/motion'
 import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -62,6 +51,8 @@ import {
 } from '../../hooks/use-status-data'
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
+import { DesktopSetupCard } from './desktop-setup-card'
+import { DesktopSetupDialog } from './desktop-setup-dialog'
 import { FAQPanel } from './faq-panel'
 import { PerformanceHealthPanel } from './performance-health-panel'
 import { SummaryCards } from './summary-cards'
@@ -92,7 +83,8 @@ type DashboardActionPath =
 interface StartStep {
   title: string
   description: string
-  to: DashboardActionPath
+  to?: DashboardActionPath
+  onClick?: () => void
   icon: LucideIcon
   completed: boolean
 }
@@ -103,22 +95,6 @@ interface QuickAction {
   to: DashboardActionPath
   icon: LucideIcon
   adminOnly?: boolean
-}
-
-interface RequestExample {
-  endpoint: string
-  model: string
-  keyName: string
-  keyId?: number
-  displayKey: string
-  ready: boolean
-}
-
-interface HeroSignal {
-  label: string
-  value: string
-  icon: LucideIcon
-  tone: IconBadgeTone
 }
 
 function getSavedSetupGuideExpanded(): boolean | null {
@@ -155,29 +131,6 @@ function normalizeEndpoint(sourceUrl?: string): string {
     return `${withoutTrailingSlash}/chat/completions`
   }
   return `${withoutTrailingSlash}/v1/chat/completions`
-}
-
-function getPreferredKey(keys: ApiKey[]): ApiKey | null {
-  return keys.find((item) => item.status === 1) ?? keys[0] ?? null
-}
-
-function formatDisplayKey(key?: string): string {
-  if (!key) return 'sk-...'
-  if (key.length <= 14) return key
-  return `${key.slice(0, 7)}...${key.slice(-4)}`
-}
-
-function buildCurlCommand(args: {
-  endpoint: string
-  apiKey: string
-  model: string
-}): string {
-  return [
-    `curl ${args.endpoint} \\`,
-    '  -H "Content-Type: application/json" \\',
-    `  -H "Authorization: Bearer ${args.apiKey}" \\`,
-    `  -d '{"model":"${args.model}","messages":[{"role":"user","content":"Say hello in one sentence."}]}'`,
-  ].join('\n')
 }
 
 function SetupGuideBackdrop(props: { compact?: boolean }) {
@@ -218,7 +171,7 @@ function SetupGuideBackdrop(props: { compact?: boolean }) {
   )
 }
 
-function StartStepItem(props: {
+export function StartStepItem(props: {
   step: StartStep
   index: number
   isLast: boolean
@@ -227,28 +180,43 @@ function StartStepItem(props: {
   const StatusIcon = props.step.completed ? Check : Circle
 
   return (
-    <li className='relative flex gap-3 pb-2.5 last:pb-0'>
-      {!props.isLast && (
-        <span
-          className='bg-border absolute top-9 bottom-0 left-4 w-px'
-          aria-hidden='true'
-        />
-      )}
+    <li className='relative flex items-center gap-3 pb-2.5 last:pb-0'>
       <span
-        className={cn(
-          'bg-background relative z-10 flex size-8 shrink-0 items-center justify-center rounded-lg border shadow-xs',
-          props.step.completed && 'border-success/30 bg-success/10'
-        )}
+        className='relative flex w-8 shrink-0 items-center justify-center self-stretch'
+        data-slot='step-track'
       >
-        <StatusIcon
-          className={props.step.completed ? 'text-success size-4' : 'size-4'}
-          aria-hidden='true'
-        />
+        {props.index > 0 && (
+          <span
+            className='bg-border absolute top-0 bottom-[calc(50%+1.25rem)] left-1/2 w-px -translate-x-1/2'
+            aria-hidden='true'
+          />
+        )}
+        {!props.isLast && (
+          <span
+            className='bg-border absolute top-[calc(50%+1.25rem)] -bottom-2.5 left-1/2 w-px -translate-x-1/2'
+            aria-hidden='true'
+          />
+        )}
+        <span
+          data-slot='step-marker'
+          className={cn(
+            'bg-background relative z-10 flex size-8 shrink-0 items-center justify-center rounded-lg border shadow-xs',
+            props.step.completed && 'border-success/30 bg-success/10'
+          )}
+        >
+          <StatusIcon
+            className={props.step.completed ? 'text-success size-4' : 'size-4'}
+            aria-hidden='true'
+          />
+        </span>
       </span>
 
-      <Link
-        to={props.step.to}
-        className='bg-background/70 hover:bg-muted/50 focus-visible:ring-ring flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left shadow-xs transition-colors outline-none focus-visible:ring-2'
+      <Button
+        variant='ghost'
+        render={props.step.to ? <Link to={props.step.to} /> : undefined}
+        role={props.step.to ? 'link' : undefined}
+        onClick={props.step.onClick}
+        className='bg-background/70 hover:bg-muted/50 focus-visible:ring-ring flex h-auto min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left shadow-xs transition-colors outline-none focus-visible:ring-2'
       >
         <span className='flex min-w-0 items-start gap-2.5'>
           <span className='bg-muted mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg'>
@@ -270,172 +238,8 @@ function StartStepItem(props: {
           className='text-muted-foreground size-4 shrink-0'
           aria-hidden='true'
         />
-      </Link>
+      </Button>
     </li>
-  )
-}
-
-function RequestPreview(props: {
-  example: RequestExample
-  signals: HeroSignal[]
-}) {
-  const { t } = useTranslation()
-  const shouldReduceMotion = useReducedMotion()
-  const [isCopying, setIsCopying] = useState(false)
-  const { copyToClipboard } = useCopyToClipboard({ notify: false })
-  const previewCurl = buildCurlCommand({
-    endpoint: props.example.endpoint,
-    apiKey: props.example.displayKey,
-    model: props.example.model,
-  })
-  const previewLines = previewCurl.split('\n')
-  const handleCopyRequest = async () => {
-    if (!props.example.keyId || isCopying) return
-
-    setIsCopying(true)
-    try {
-      const result = await fetchTokenKey(props.example.keyId)
-      const key = result.success && result.data?.key ? result.data.key : ''
-      if (!key) {
-        toast.error(result.message || t('Failed to copy to clipboard'))
-        return
-      }
-
-      const realCurl = buildCurlCommand({
-        endpoint: props.example.endpoint,
-        apiKey: `sk-${key}`,
-        model: props.example.model,
-      })
-      const copied = await copyToClipboard(realCurl)
-      if (copied) {
-        toast.success(t('Copied to clipboard'))
-      } else {
-        toast.error(t('Failed to copy to clipboard'))
-      }
-    } finally {
-      setIsCopying(false)
-    }
-  }
-
-  return (
-    <motion.div
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 10, scale: 0.98 }}
-      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-      transition={MOTION_TRANSITION.slow}
-      className='bg-background/75 relative overflow-hidden rounded-2xl border p-3 shadow-sm backdrop-blur'
-    >
-      {!shouldReduceMotion && (
-        <motion.div
-          className='via-foreground/30 pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent to-transparent'
-          animate={{ x: ['-100%', '100%'] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-          aria-hidden='true'
-        />
-      )}
-
-      <div className='flex items-center justify-between gap-3 border-b pb-3'>
-        <div className='flex min-w-0 items-center gap-2'>
-          <IconBadge tone='info'>
-            <TerminalSquare />
-          </IconBadge>
-          <div className='min-w-0'>
-            <div className='truncate text-sm font-medium'>
-              {t('First API request')}
-            </div>
-            <div className='text-muted-foreground truncate text-xs'>
-              {props.example.ready
-                ? props.example.keyName
-                : t('Create an API key to unlock the real request')}
-            </div>
-          </div>
-        </div>
-        {props.example.ready ? (
-          <Button
-            variant='outline'
-            size='sm'
-            className='h-7 gap-1.5 px-2 text-xs'
-            disabled={isCopying}
-            onClick={handleCopyRequest}
-            aria-label={t('Copy ready-to-run curl')}
-          >
-            <Copy data-icon='inline-start' />
-            {isCopying ? t('Loading') : t('Copy')}
-          </Button>
-        ) : (
-          <Button size='sm' variant='outline' render={<Link to='/keys' />}>
-            {t('Create API Key')}
-          </Button>
-        )}
-      </div>
-
-      <div className='bg-foreground/[0.035] my-3 rounded-xl p-3 font-mono text-xs'>
-        <div className='mb-2 flex items-center gap-1.5'>
-          <span className='bg-destructive size-2 rounded-full' />
-          <span className='bg-warning size-2 rounded-full' />
-          <span className='bg-success size-2 rounded-full' />
-        </div>
-        <div className='flex flex-col gap-1 overflow-hidden'>
-          {previewLines.map((line) => (
-            <code
-              key={line}
-              className='text-muted-foreground truncate'
-              title={line}
-            >
-              {line}
-            </code>
-          ))}
-        </div>
-      </div>
-
-      <div className='grid gap-2'>
-        {props.signals.map((signal) => {
-          const Icon = signal.icon
-
-          return (
-            <div
-              key={signal.label}
-              className='bg-muted/40 flex items-center justify-between gap-3 rounded-xl px-3 py-2'
-            >
-              <span className='flex min-w-0 items-center gap-2'>
-                <IconBadge tone={signal.tone} size='xs'>
-                  <Icon />
-                </IconBadge>
-                <span className='truncate text-xs font-medium'>
-                  {signal.label}
-                </span>
-              </span>
-              <span className='text-muted-foreground shrink-0 text-xs'>
-                {signal.value}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </motion.div>
-  )
-}
-
-function QuickActionItem(props: { action: QuickAction }) {
-  const Icon = props.action.icon
-
-  return (
-    <Button
-      variant='outline'
-      className='h-auto justify-start rounded-xl px-3 py-3 text-left'
-      render={<Link to={props.action.to} />}
-    >
-      <span className='bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg'>
-        <Icon className='size-4' aria-hidden='true' />
-      </span>
-      <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
-        <span className='truncate text-sm font-medium'>
-          {props.action.title}
-        </span>
-        <span className='text-muted-foreground line-clamp-2 text-xs leading-relaxed'>
-          {props.action.description}
-        </span>
-      </span>
-    </Button>
   )
 }
 
@@ -469,59 +273,45 @@ export function OverviewDashboard() {
     boolean | null
   >(() => getSavedSetupGuideExpanded())
 
-  const requestCount = Number(user?.request_count ?? 0)
+  const [desktopSetupView, setDesktopSetupView] = useState<
+    'setup' | 'download' | null
+  >(null)
+  const [confirmedUser, setConfirmedUser] = useState<number | null>(null)
+  const desktopConfigured = Boolean(
+    user &&
+    (confirmedUser === user.id ||
+      window.localStorage.getItem(`beiapi-desktop-setup:${user.id}`) ===
+        'confirmed')
+  )
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
 
-  const apiKeysQuery = useQuery({
-    queryKey: ['dashboard', 'overview', 'api-keys'],
-    queryFn: async () => {
-      const result = await getApiKeys({ p: 1, size: 10 })
-      return result.success ? (result.data?.items ?? []) : []
-    },
-    staleTime: 60 * 1000,
-  })
-
-  const modelsQuery = useQuery({
-    queryKey: ['dashboard', 'overview', 'user-models'],
-    queryFn: async () => {
-      const result = await getUserModels()
-      return result.success ? (result.data ?? []) : []
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const preferredKey = useMemo(
-    () => getPreferredKey(apiKeysQuery.data ?? []),
-    [apiKeysQuery.data]
-  )
-
   const startSteps = useMemo<StartStep[]>(
     () => [
       {
-        title: t('Create API Key'),
-        description: t('Create a key for your app or service'),
-        to: '/keys',
-        icon: KeyRound,
-        completed: Boolean(preferredKey),
-      },
-      {
         title: t('Add credits'),
-        description: t('Keep enough balance before production traffic'),
+        description: t('Keep sufficient balance before use'),
         to: '/wallet',
         icon: CreditCard,
         completed: remainQuota > 0 || usedQuota > 0,
       },
       {
-        title: t('Send a request'),
-        description: t('Verify routing with Playground or your client'),
-        to: '/playground',
+        title: t('Download setup tool'),
+        description: t('Download the one-click setup tool CodexBei'),
+        onClick: () => setDesktopSetupView('download'),
+        icon: Download,
+        completed: desktopConfigured,
+      },
+      {
+        title: t('One-click setup'),
+        description: t('Choose an agent and model to get started'),
+        onClick: () => setDesktopSetupView('setup'),
         icon: TerminalSquare,
-        completed: requestCount > 0,
+        completed: desktopConfigured,
       },
     ],
-    [preferredKey, remainQuota, requestCount, t, usedQuota]
+    [remainQuota, desktopConfigured, t, usedQuota]
   )
 
   const quickActions = useMemo<QuickAction[]>(
@@ -560,51 +350,9 @@ export function OverviewDashboard() {
     [isAdmin, quickActions]
   )
 
-  const heroSignals = useMemo<HeroSignal[]>(
-    () => [
-      {
-        label: t('Route active'),
-        value: apiInfoItems.length > 0 ? t('Online') : t('Current domain'),
-        icon: RadioTower,
-        tone: 'info',
-      },
-      {
-        label: t('Auth configured'),
-        value: preferredKey ? t('Secured') : t('Needs API key'),
-        icon: ShieldCheck,
-        tone: 'success',
-      },
-      {
-        label: t('Model selected'),
-        value: modelsQuery.data?.[0] ?? t('Loading'),
-        icon: Timer,
-        tone: 'chart-4',
-      },
-    ],
-    [apiInfoItems.length, modelsQuery.data, preferredKey, t]
-  )
-
-  const requestExample = useMemo<RequestExample>(() => {
-    const endpoint = normalizeEndpoint(apiInfoItems[0]?.url)
-    const model = modelsQuery.data?.[0] ?? 'gpt-4o-mini'
-    const keyName = preferredKey?.name ?? t('No API key yet')
-    const ready = Boolean(preferredKey?.id && model)
-
-    return {
-      endpoint,
-      model,
-      keyName,
-      keyId: preferredKey?.id,
-      displayKey: preferredKey
-        ? formatDisplayKey(`sk-${preferredKey.key}`)
-        : 'sk-...',
-      ready,
-    }
-  }, [apiInfoItems, modelsQuery.data, preferredKey, t])
-
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
-  const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
+  const setupStatusReady = Boolean(user)
   const setupGuideExpanded =
     manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
   const showLeftContentPanels =
@@ -619,8 +367,36 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
+      <DesktopSetupDialog
+        open={desktopSetupView !== null}
+        showDownloads={desktopSetupView === 'download'}
+        onOpenChange={(open) => {
+          if (!open) setDesktopSetupView(null)
+        }}
+        key={user?.id}
+        userId={user?.id ?? 0}
+        baseUrl={
+          apiInfoItems[0]?.url?.trim()
+            ? normalizeEndpoint(apiInfoItems[0].url).replace(
+                /\/chat\/completions$/,
+                ''
+              )
+            : ''
+        }
+        hasCredits={remainQuota > 0}
+        onConfirmed={() => {
+          if (user) {
+            window.localStorage.setItem(
+              `beiapi-desktop-setup:${user.id}`,
+              'confirmed'
+            )
+            setConfirmedUser(user.id)
+          }
+          setDesktopSetupView(null)
+        }}
+      />
       {setupGuideExpanded ? (
-        <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+        <CardStaggerContainer className='grid grid-cols-1 gap-4'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
               <SetupGuideBackdrop />
@@ -650,10 +426,6 @@ export function OverviewDashboard() {
                         <ChevronUp data-icon='inline-start' />
                         {t('Hide setup guide')}
                       </Button>
-                      <Button size='sm' render={<Link to='/keys' />}>
-                        <KeyRound data-icon='inline-start' />
-                        {t('Create API Key')}
-                      </Button>
                     </div>
                   </div>
 
@@ -669,28 +441,7 @@ export function OverviewDashboard() {
                   </ol>
                 </div>
 
-                <RequestPreview
-                  example={requestExample}
-                  signals={heroSignals}
-                />
-              </div>
-            </div>
-          </CardStaggerItem>
-
-          <CardStaggerItem className='bg-card h-full rounded-2xl border p-4 shadow-xs sm:p-5'>
-            <div className='flex h-full flex-col gap-4'>
-              <div className='flex flex-col gap-1'>
-                <div className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
-                  {t('Recommended actions')}
-                </div>
-                <h3 className='text-lg font-semibold tracking-tight'>
-                  {t('Keep the platform ready')}
-                </h3>
-              </div>
-              <div className='grid gap-2'>
-                {visibleQuickActions.map((action) => (
-                  <QuickActionItem key={action.title} action={action} />
-                ))}
+                <DesktopSetupCard />
               </div>
             </div>
           </CardStaggerItem>
