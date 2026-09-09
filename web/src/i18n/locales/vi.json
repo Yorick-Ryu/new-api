@@ -5377,6 +5377,7 @@
     "For Windows and macOS": "For Windows and macOS",
     "Continue in CodexBei.": "Continue in CodexBei.",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<start>Dùng</start><model/><middle>trong</middle><agent/>",
-    "An API key is configured for your selection and created automatically if no suitable key is available.": "Khóa API được cấu hình theo lựa chọn của bạn và tự động tạo nếu chưa có khóa phù hợp."
+    "An API key is configured for your selection and created automatically if no suitable key is available.": "Khóa API được cấu hình theo lựa chọn của bạn và tự động tạo nếu chưa có khóa phù hợp.",
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "Đang thử mở CodexBei. Chưa mở được? Hãy <download>tải xuống và cài đặt</download>, rồi nhấn “One-click setup”."
   }
 }

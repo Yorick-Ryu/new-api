@@ -5377,6 +5377,7 @@
     "For Windows and macOS": "For Windows and macOS",
     "Continue in CodexBei.": "Continue in CodexBei.",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<start>我想在</start><agent/><middle>中使用</middle><model/>",
-    "An API key is configured for your selection and created automatically if no suitable key is available.": "根據您的選擇自動設定 API 金鑰，無可用金鑰時自動建立。"
+    "An API key is configured for your selection and created automatically if no suitable key is available.": "根據您的選擇自動設定 API 金鑰，無可用金鑰時自動建立。",
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "正在嘗試開啟 CodexBei。未開啟？請先<download>下載安裝</download>，再點擊「One-click setup」。"
   }
 }

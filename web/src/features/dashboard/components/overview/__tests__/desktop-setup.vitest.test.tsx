@@ -369,7 +369,7 @@ it('opens download links immediately from the download step without creating a k
   expect(calls).toHaveLength(0)
 })
 
-it('offers all published CodexBei installers when download URLs are not configured', async () => {
+it('uses stable latest-version links for all CodexBei installers when download URLs are not configured', async () => {
   for (const name of [
     'VITE_SETUP_WINDOWS_X64_URL',
     'VITE_SETUP_WINDOWS_ARM64_URL',
@@ -381,15 +381,15 @@ it('offers all published CodexBei installers when download URLs are not configur
   const { calls } = requests()
   renderDialog(undefined, true)
   const expected = [
-    ['Windows x64', 'CodexBei_0.1.0_x64-setup.exe'],
-    ['Windows ARM64', 'CodexBei_0.1.0_arm64-setup.exe'],
-    ['macOS Apple Silicon', 'CodexBei_0.1.0_aarch64.dmg'],
-    ['macOS Intel', 'CodexBei_0.1.0_x64.dmg'],
+    ['Windows x64', 'CodexBei_x64-setup.exe'],
+    ['Windows ARM64', 'CodexBei_arm64-setup.exe'],
+    ['macOS Apple Silicon', 'CodexBei_aarch64.dmg'],
+    ['macOS Intel', 'CodexBei_x64.dmg'],
   ]
   for (const [label, file] of expected) {
     const link = screen.getByRole('link', { name: label })
     expect(link.getAttribute('href')).toBe(
-      `https://codexbei.beiapi.cn/downloads/0.1.0/${file}`
+      `https://codexbei.beiapi.cn/downloads/latest/${file}`
     )
     expect(link.getAttribute('rel')).toBe('noopener noreferrer')
   }
@@ -766,6 +766,15 @@ it('uses matching typography and equal vertical gaps for setup guidance and the 
   )
   await userEvent.click(screen.getByRole('button', { name: 'One-click setup' }))
   const status = await screen.findByRole('status')
+  const download = within(status).getByRole('link', {
+    name: 'Download and install',
+  })
+  expect(download.getAttribute('href')).toBe('https://codexbei.beiapi.cn/')
+  expect(download.getAttribute('target')).toBe('_blank')
+  expect(download.getAttribute('rel')).toContain('noopener')
+  expect(status.textContent).toBe(
+    'Trying to open CodexBei. Didn’t open? Download and install it, then click “One-click setup”.'
+  )
   const guidance = screen.getByText(
     'An API key is configured for your selection and created automatically if no suitable key is available.'
   )

@@ -43,31 +43,31 @@ import { SetupAgentSelect, SetupModelSelect } from './desktop-setup-selectors'
 export type SetupDownload = { label: string; url: string }
 
 function setupDownloads(): SetupDownload[] {
-  const downloadBase = 'https://codexbei.beiapi.cn/downloads/0.1.0'
+  const downloadBase = 'https://codexbei.beiapi.cn/downloads/latest'
   const candidates = [
     {
       label: 'Windows x64',
       url:
         import.meta.env.VITE_SETUP_WINDOWS_X64_URL?.trim() ||
-        `${downloadBase}/CodexBei_0.1.0_x64-setup.exe`,
+        `${downloadBase}/CodexBei_x64-setup.exe`,
     },
     {
       label: 'Windows ARM64',
       url:
         import.meta.env.VITE_SETUP_WINDOWS_ARM64_URL?.trim() ||
-        `${downloadBase}/CodexBei_0.1.0_arm64-setup.exe`,
+        `${downloadBase}/CodexBei_arm64-setup.exe`,
     },
     {
       label: 'macOS Apple Silicon',
       url:
         import.meta.env.VITE_SETUP_MAC_ARM64_URL?.trim() ||
-        `${downloadBase}/CodexBei_0.1.0_aarch64.dmg`,
+        `${downloadBase}/CodexBei_aarch64.dmg`,
     },
     {
       label: 'macOS Intel',
       url:
         import.meta.env.VITE_SETUP_MAC_X64_URL?.trim() ||
-        `${downloadBase}/CodexBei_0.1.0_x64.dmg`,
+        `${downloadBase}/CodexBei_x64.dmg`,
     },
   ]
   return candidates.filter((item): item is SetupDownload => {
@@ -292,7 +292,19 @@ export function DesktopSetupDialog(props: {
                   role='status'
                   className='text-muted-foreground text-xs leading-relaxed'
                 >
-                  {t('Continue in CodexBei.')}
+                  <Trans
+                    i18nKey='Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.'
+                    components={{
+                      download: (
+                        <a
+                          href='https://codexbei.beiapi.cn/'
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='text-primary focus-visible:ring-ring rounded-sm underline underline-offset-2 outline-none focus-visible:ring-2'
+                        />
+                      ),
+                    }}
+                  />
                 </p>
                 <Button
                   variant='outline'

@@ -5377,6 +5377,7 @@
     "For Windows and macOS": "For Windows and macOS",
     "Continue in CodexBei.": "Continue in CodexBei.",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<start>Использовать</start><model/><middle>в</middle><agent/>",
-    "An API key is configured for your selection and created automatically if no suitable key is available.": "API-ключ настраивается под ваш выбор и создаётся автоматически, если подходящего ключа нет."
+    "An API key is configured for your selection and created automatically if no suitable key is available.": "API-ключ настраивается под ваш выбор и создаётся автоматически, если подходящего ключа нет.",
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "Пробуем открыть CodexBei. Не открылось? <download>Скачайте и установите приложение</download>, затем нажмите «One-click setup»."
   }
 }
