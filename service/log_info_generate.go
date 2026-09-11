@@ -167,6 +167,9 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		other["billing_preference"] = relayInfo.UserSetting.BillingPreference
 	}
 	if relayInfo.BillingSource == "subscription" {
+		if relayInfo.SubscriptionModelMultiplier > 0 {
+			other["subscription_model_multiplier"] = relayInfo.SubscriptionModelMultiplier
+		}
 		if relayInfo.SubscriptionId != 0 {
 			other["subscription_id"] = relayInfo.SubscriptionId
 		}
@@ -201,9 +204,7 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 			other["subscription_used"] = usedFinal
 			other["subscription_remain"] = remain
 		}
-		if consumed > 0 {
-			other["subscription_consumed"] = consumed
-		}
+		other["subscription_consumed"] = consumed
 		// Wallet quota is not deducted when billed from subscription.
 		other["wallet_quota_deducted"] = 0
 	}

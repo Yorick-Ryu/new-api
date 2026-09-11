@@ -5384,6 +5384,14 @@
     "Continue in CodexBei.": "请在 CodexBei 中继续。",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<start>我想在</start><agent/><middle>中使用</middle><model/>",
     "An API key is configured for your selection and created automatically if no suitable key is available.": "根据您的选择自动配置 API 密钥，无可用密钥时自动创建。",
-    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "正在尝试打开 CodexBei。未打开？请先<download>下载安装</download>，再点击“一键配置”。"
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "正在尝试打开 CodexBei。未打开？请先<download>下载安装</download>，再点击“一键配置”。",
+    "Model consumption multipliers": "模型消耗倍率",
+    "Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.": "使用此套餐时，在正常费用基础上乘以倍率，同时计入所有额度窗口。未配置的模型按 1 倍消耗，钱包扣款保持正常价格。",
+    "Changes apply to new requests on existing and future subscriptions.": "保存后，对已有及新购套餐的后续请求生效。",
+    "Consumption multiplier": "消耗倍率",
+    "Remove model multiplier": "删除模型倍率",
+    "Enter an exact model name": "请输入完整模型名称，不支持通配符",
+    "Model names must be unique": "模型名称不能重复",
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} 按 {{multiplier}} 倍消耗套餐额度"
   }
 }

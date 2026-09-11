@@ -204,6 +204,12 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+	normalizedMultipliers, err := model.NormalizeSubscriptionModelMultipliers(req.Plan.ModelMultipliers)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	req.Plan.ModelMultipliers = normalizedMultipliers
 	normalizedQuotaWindows, err := model.NormalizeAndSerializeSubscriptionQuotaWindows(req.Plan.QuotaWindows)
 	if err != nil {
 		common.ApiErrorMsg(c, err.Error())
@@ -284,6 +290,12 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+	normalizedMultipliers, err := model.NormalizeSubscriptionModelMultipliers(req.Plan.ModelMultipliers)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	req.Plan.ModelMultipliers = normalizedMultipliers
 	normalizedQuotaWindows, err := model.NormalizeAndSerializeSubscriptionQuotaWindows(req.Plan.QuotaWindows)
 	if err != nil {
 		common.ApiErrorMsg(c, err.Error())
@@ -312,6 +324,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"quota_windows":              normalizedQuotaWindows,
+			"model_multipliers":          normalizedMultipliers,
 			"updated_at":                 common.GetTimestamp(),
 		}
 		if req.Plan.AllowBalancePay != nil {

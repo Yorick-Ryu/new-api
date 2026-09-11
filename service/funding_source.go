@@ -68,12 +68,15 @@ func (w *WalletFunding) Refund() error {
 // ---------------------------------------------------------------------------
 
 type SubscriptionFunding struct {
-	requestId      string
-	userId         int
-	modelName      string
-	amount         int64 // 预扣的订阅额度（subConsume）
-	subscriptionId int
-	preConsumed    int64
+	requestId       string
+	userId          int
+	modelName       string
+	amount          int64 // 预扣的订阅额度（subConsume）
+	subscriptionId  int
+	preConsumed     int64 // Full reservation in subscription units
+	baseConsumed    int64 // Normal model charge before the subscription multiplier
+	consumed        int64 // Current subscription charge after the multiplier
+	ModelMultiplier float64
 	// 以下字段在 PreConsume 成功后填充，供 RelayInfo 同步使用
 	AmountTotal     int64
 	AmountUsedAfter int64
@@ -91,6 +94,9 @@ func (s *SubscriptionFunding) PreConsume(_ int) error {
 	}
 	s.subscriptionId = res.UserSubscriptionId
 	s.preConsumed = res.PreConsumed
+	s.baseConsumed = s.amount
+	s.consumed = res.PreConsumed
+	s.ModelMultiplier = res.ModelMultiplier
 	s.AmountTotal = res.AmountTotal
 	s.AmountUsedAfter = res.AmountUsedAfter
 	// 获取订阅计划信息
@@ -102,10 +108,33 @@ func (s *SubscriptionFunding) PreConsume(_ int) error {
 }
 
 func (s *SubscriptionFunding) Settle(delta int) error {
-	if delta == 0 {
-		return nil
+	targetBase := s.baseConsumed + int64(delta)
+	target, err := model.SubscriptionQuotaWithMultiplier(targetBase, s.ModelMultiplier)
+	if err != nil {
+		return err
 	}
-	return model.PostConsumeUserSubscriptionDelta(s.subscriptionId, int64(delta))
+	if err := model.PostConsumeUserSubscriptionDelta(s.subscriptionId, target-s.consumed); err != nil {
+		return err
+	}
+	s.baseConsumed = targetBase
+	s.consumed = target
+	return nil
+}
+
+func (s *SubscriptionFunding) Reserve(delta int) error {
+	targetBase := s.baseConsumed + int64(delta)
+	target, err := model.SubscriptionQuotaWithMultiplier(targetBase, s.ModelMultiplier)
+	if err != nil {
+		return err
+	}
+	if err := model.UpdateSubscriptionPreConsumeAmount(s.requestId, target); err != nil {
+		return err
+	}
+	s.AmountUsedAfter += target - s.consumed
+	s.baseConsumed = targetBase
+	s.consumed = target
+	s.preConsumed = target
+	return nil
 }
 
 func (s *SubscriptionFunding) Refund() error {

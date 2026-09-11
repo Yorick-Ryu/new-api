@@ -51,6 +51,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	appendBillingInfo(info, other)
 	attachQuotaSaturation(c, info, other)
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId: info.ChannelId,
@@ -89,12 +90,44 @@ func taskIsSubscription(task *model.Task) bool {
 // taskAdjustFunding 调整任务的资金来源（钱包或订阅），delta > 0 表示扣费，delta < 0 表示退还。
 func taskAdjustFunding(task *model.Task, delta int) error {
 	if taskIsSubscription(task) {
-		return model.PostConsumeUserSubscriptionDelta(task.PrivateData.SubscriptionId, int64(delta))
+		before, err := taskSubscriptionQuota(task, int64(task.Quota))
+		if err != nil {
+			return err
+		}
+		after, err := taskSubscriptionQuota(task, int64(task.Quota)+int64(delta))
+		if err != nil {
+			return err
+		}
+		return model.PostConsumeUserSubscriptionDelta(task.PrivateData.SubscriptionId, after-before)
 	}
 	if delta > 0 {
 		return model.DecreaseUserQuota(task.UserId, delta, false)
 	}
 	return model.IncreaseUserQuota(task.UserId, -delta, false)
+}
+
+func taskSubscriptionQuota(task *model.Task, quota int64) (int64, error) {
+	multiplier := task.PrivateData.SubscriptionModelMultiplier
+	if multiplier == 0 { // Tasks created before model multipliers existed.
+		multiplier = 1
+	}
+	return model.SubscriptionQuotaWithMultiplier(quota, multiplier)
+}
+
+func appendTaskSubscriptionCharge(other map[string]interface{}, task *model.Task, beforeQuota, afterQuota int) {
+	if !taskIsSubscription(task) {
+		return
+	}
+	before, beforeErr := taskSubscriptionQuota(task, int64(beforeQuota))
+	after, afterErr := taskSubscriptionQuota(task, int64(afterQuota))
+	if beforeErr != nil || afterErr != nil {
+		return // The funding adjustment already validates both amounts.
+	}
+	consumed := after - before
+	if consumed < 0 {
+		consumed = -consumed
+	}
+	other["subscription_consumed"] = consumed
 }
 
 // taskAdjustTokenQuota 调整任务的令牌额度，delta > 0 表示扣费，delta < 0 表示退还。
@@ -121,6 +154,15 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
 func taskBillingOther(task *model.Task) map[string]interface{} {
 	other := make(map[string]interface{})
+	if taskIsSubscription(task) {
+		other["billing_source"] = BillingSourceSubscription
+		other["subscription_id"] = task.PrivateData.SubscriptionId
+		multiplier := task.PrivateData.SubscriptionModelMultiplier
+		if multiplier == 0 {
+			multiplier = 1
+		}
+		other["subscription_model_multiplier"] = multiplier
+	}
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
 		if bc.ModelRatio > 0 {
@@ -180,6 +222,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 
 	// 3. 记录日志
 	other := taskBillingOther(task)
+	appendTaskSubscriptionCharge(other, task, quota, 0)
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
@@ -254,6 +297,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		logQuota = -quotaDelta
 	}
 	other := taskBillingOther(task)
+	appendTaskSubscriptionCharge(other, task, preConsumedQuota, actualQuota)
 	other["task_id"] = task.TaskID
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota

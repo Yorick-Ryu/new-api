@@ -53,6 +53,7 @@ import {
   parseQuotaWindows,
 } from '../../lib'
 import type { PlanRecord } from '../../types'
+import { ModelMultiplierSummary } from '../model-multiplier-summary'
 
 interface PaymentMethod {
   type: string
@@ -335,6 +336,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <GroupBadge group={plan.upgrade_group} />
             </div>
           )}
+          <ModelMultiplierSummary value={plan.model_multipliers} />
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>

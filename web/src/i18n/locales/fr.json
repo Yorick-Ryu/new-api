@@ -5384,6 +5384,14 @@
     "Continue in CodexBei.": "Continue in CodexBei.",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<start>Utiliser</start><model/><middle>dans</middle><agent/>",
     "An API key is configured for your selection and created automatically if no suitable key is available.": "Une clé API est configurée selon votre sélection et créée automatiquement si aucune clé adaptée n’est disponible.",
-    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "Tentative d’ouverture de CodexBei. Il ne s’ouvre pas ? <download>Téléchargez-le et installez-le</download>, puis cliquez sur « One-click setup »."
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "Tentative d’ouverture de CodexBei. Il ne s’ouvre pas ? <download>Téléchargez-le et installez-le</download>, puis cliquez sur « One-click setup ».",
+    "Model consumption multipliers": "Model consumption multipliers",
+    "Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.": "Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.",
+    "Changes apply to new requests on existing and future subscriptions.": "Changes apply to new requests on existing and future subscriptions.",
+    "Consumption multiplier": "Consumption multiplier",
+    "Remove model multiplier": "Remove model multiplier",
+    "Enter an exact model name": "Enter an exact model name",
+    "Model names must be unique": "Model names must be unique",
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota"
   }
 }

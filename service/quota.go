@@ -426,6 +426,17 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 			return errors.New("subscription id is missing")
 		}
 		delta := int64(quota)
+		if relayInfo.SubscriptionModelMultiplier > 0 {
+			before, err := model.SubscriptionQuotaWithMultiplier(int64(preConsumedQuota), relayInfo.SubscriptionModelMultiplier)
+			if err != nil {
+				return err
+			}
+			after, err := model.SubscriptionQuotaWithMultiplier(int64(preConsumedQuota)+int64(quota), relayInfo.SubscriptionModelMultiplier)
+			if err != nil {
+				return err
+			}
+			delta = after - before
+		}
 		if delta != 0 {
 			if err := model.PostConsumeUserSubscriptionDelta(relayInfo.SubscriptionId, delta); err != nil {
 				return err

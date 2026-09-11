@@ -79,6 +79,7 @@ import {
   type PlanFormValues,
 } from '../lib'
 import type { PlanRecord } from '../types'
+import { ModelMultipliersField } from './model-multipliers-field'
 import { QuotaWindowsField } from './quota-windows-field'
 import { useSubscriptions } from './subscriptions-provider'
 
@@ -746,6 +747,7 @@ export function SubscriptionsMutateDrawer({
               </div>
 
               <QuotaWindowsField />
+              <ModelMultipliersField />
             </SideDrawerSection>
 
             {/* Payment Config */}

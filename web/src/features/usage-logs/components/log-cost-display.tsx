@@ -92,7 +92,7 @@ function QuotaBadge(props: { quota: number }) {
   )
 }
 
-function SubscriptionBadge(props: { quota: number }) {
+function SubscriptionBadge(props: { quota: number; multiplier?: number }) {
   const { t } = useTranslation()
 
   return (
@@ -100,7 +100,11 @@ function SubscriptionBadge(props: { quota: number }) {
       <TooltipTrigger
         render={
           <StatusBadge
-            label={t('Subscription')}
+            label={
+              props.multiplier && props.multiplier !== 1
+                ? `${t('Subscription')} ${props.multiplier}×`
+                : t('Subscription')
+            }
             variant='success'
             size='sm'
             copyable={false}
@@ -133,7 +137,10 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     <TooltipProvider>
       <div className='inline-flex items-center gap-1'>
         {isSubscription ? (
-          <SubscriptionBadge quota={props.quota} />
+          <SubscriptionBadge
+            quota={props.other?.subscription_consumed ?? props.quota}
+            multiplier={props.other?.subscription_model_multiplier}
+          />
         ) : (
           <QuotaBadge quota={props.quota} />
         )}

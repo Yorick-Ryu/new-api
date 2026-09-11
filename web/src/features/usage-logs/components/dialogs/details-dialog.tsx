@@ -1164,6 +1164,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {other.subscription_model_multiplier != null && (
+              <DetailRow
+                label={t('Consumption multiplier')}
+                value={`${other.subscription_model_multiplier}×`}
+              />
+            )}
             {other.subscription_pre_consumed != null && (
               <DetailRow
                 label={t('Pre-consumed')}

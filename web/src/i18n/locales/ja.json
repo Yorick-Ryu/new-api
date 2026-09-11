@@ -5384,6 +5384,14 @@
     "Continue in CodexBei.": "Continue in CodexBei.",
     "<start>I want to use</start> <model/> <middle>in</middle> <agent/>": "<agent/><middle>で</middle><model/><start>を使う</start>",
     "An API key is configured for your selection and created automatically if no suitable key is available.": "選択内容に応じて API キーを設定し、利用可能なキーがない場合は自動で作成します。",
-    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "CodexBei を開こうとしています。開かない場合は、<download>ダウンロードしてインストール</download>し、「One-click setup」をクリックしてください。"
+    "Trying to open CodexBei. Didn’t open? <download>Download and install</download> it, then click “One-click setup”.": "CodexBei を開こうとしています。開かない場合は、<download>ダウンロードしてインストール</download>し、「One-click setup」をクリックしてください。",
+    "Model consumption multipliers": "Model consumption multipliers",
+    "Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.": "Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.",
+    "Changes apply to new requests on existing and future subscriptions.": "Changes apply to new requests on existing and future subscriptions.",
+    "Consumption multiplier": "Consumption multiplier",
+    "Remove model multiplier": "Remove model multiplier",
+    "Enter an exact model name": "Enter an exact model name",
+    "Model names must be unique": "Model names must be unique",
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota"
   }
 }

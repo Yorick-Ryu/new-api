@@ -27,6 +27,7 @@ import {
   type SubscriptionPlan,
   type SubscriptionQuotaWindowConfig,
 } from '../types'
+import { parseModelMultipliers } from './model-multipliers'
 
 const quotaWindowFormSchema = z.object({
   key: z
@@ -63,6 +64,35 @@ export function getPlanFormSchema(t: TFunction) {
     max_purchase_per_user: z.coerce.number().min(0),
     total_amount: z.coerce.number().min(0),
     quota_windows: z.array(quotaWindowFormSchema).max(2),
+    model_multipliers: z
+      .array(
+        z.object({
+          model: z
+            .string()
+            .trim()
+            .min(1)
+            .max(200)
+            .refine(
+              (name) => !name.includes('*'),
+              t('Enter an exact model name')
+            ),
+          multiplier: z.coerce.number().min(0.001).max(1000),
+        })
+      )
+      .max(100)
+      .superRefine((rows, ctx) => {
+        const names = new Set<string>()
+        rows.forEach((row, index) => {
+          if (names.has(row.model)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [index, 'model'],
+              message: t('Model names must be unique'),
+            })
+          }
+          names.add(row.model)
+        })
+      }),
     upgrade_group: z.string().optional(),
     downgrade_group: z.string().optional(),
     stripe_price_id: z.string().optional(),
@@ -89,6 +119,7 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   max_purchase_per_user: 0,
   total_amount: 0,
   quota_windows: [],
+  model_multipliers: [],
   upgrade_group: '',
   downgrade_group: '',
   stripe_price_id: '',
@@ -134,6 +165,7 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     max_purchase_per_user: Number(plan.max_purchase_per_user || 0),
     total_amount: quotaUnitsToDollars(Number(plan.total_amount || 0)),
     quota_windows: quotaWindows,
+    model_multipliers: parseModelMultipliers(plan.model_multipliers),
     upgrade_group: plan.upgrade_group || '',
     downgrade_group: plan.downgrade_group || '',
     stripe_price_id: plan.stripe_price_id || '',
@@ -165,6 +197,14 @@ export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
           period_value: Number(window.period_value || 1),
           amount_total: parseQuotaFromDollars(Number(window.amount_total || 0)),
         }))
+      ),
+      model_multipliers: JSON.stringify(
+        Object.fromEntries(
+          values.model_multipliers.map((row) => [
+            row.model.trim(),
+            row.multiplier,
+          ])
+        )
       ),
       upgrade_group: values.upgrade_group || '',
       downgrade_group: values.downgrade_group || '',

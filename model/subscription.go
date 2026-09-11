@@ -185,6 +185,9 @@ type SubscriptionPlan struct {
 	// into independent counter rows only when a new subscription is created.
 	QuotaWindows string `json:"quota_windows" gorm:"type:text"`
 
+	// Live plan policy; captured per request before consuming subscription quota.
+	ModelMultipliers string `json:"model_multipliers" gorm:"type:text"`
+
 	// Quota reset period for plan
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
@@ -1203,6 +1206,7 @@ func AdminResetPlanSubscriptionsWindow(planId int, advanceResetTime bool, resetW
 }
 
 type SubscriptionPreConsumeResult struct {
+	ModelMultiplier    float64
 	UserSubscriptionId int
 	PreConsumed        int64
 	AmountTotal        int64
@@ -1310,14 +1314,15 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 
 // SubscriptionPreConsumeRecord stores idempotent pre-consume operations per request.
 type SubscriptionPreConsumeRecord struct {
-	Id                 int    `json:"id"`
-	RequestId          string `json:"request_id" gorm:"type:varchar(64);uniqueIndex"`
-	UserId             int    `json:"user_id" gorm:"index"`
-	UserSubscriptionId int    `json:"user_subscription_id" gorm:"index"`
-	PreConsumed        int64  `json:"pre_consumed" gorm:"type:bigint;not null;default:0"`
-	Status             string `json:"status" gorm:"type:varchar(32);index"` // consumed/refunded
-	CreatedAt          int64  `json:"created_at" gorm:"bigint"`
-	UpdatedAt          int64  `json:"updated_at" gorm:"bigint;index"`
+	ModelMultiplier    float64 `json:"model_multiplier" gorm:"type:double precision"`
+	Id                 int     `json:"id"`
+	RequestId          string  `json:"request_id" gorm:"type:varchar(64);uniqueIndex"`
+	UserId             int     `json:"user_id" gorm:"index"`
+	UserSubscriptionId int     `json:"user_subscription_id" gorm:"index"`
+	PreConsumed        int64   `json:"pre_consumed" gorm:"type:bigint;not null;default:0"`
+	Status             string  `json:"status" gorm:"type:varchar(32);index"` // consumed/refunded
+	CreatedAt          int64   `json:"created_at" gorm:"bigint"`
+	UpdatedAt          int64   `json:"updated_at" gorm:"bigint;index"`
 }
 
 func (r *SubscriptionPreConsumeRecord) BeforeCreate(tx *gorm.DB) error {
@@ -1399,6 +1404,10 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			returnValue.UserSubscriptionId = sub.Id
 			returnValue.PreConsumed = existing.PreConsumed
+			returnValue.ModelMultiplier = existing.ModelMultiplier
+			if returnValue.ModelMultiplier == 0 {
+				returnValue.ModelMultiplier = 1
+			}
 			returnValue.AmountTotal = sub.AmountTotal
 			returnValue.AmountUsedBefore = sub.AmountUsed
 			returnValue.AmountUsedAfter = sub.AmountUsed
@@ -1424,10 +1433,22 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
+			multipliers, err := ParseSubscriptionModelMultipliers(plan.ModelMultipliers)
+			if err != nil {
+				return err
+			}
+			multiplier := 1.0
+			if configured, ok := multipliers[modelName]; ok {
+				multiplier = configured
+			}
+			charge, err := SubscriptionQuotaWithMultiplier(amount, multiplier)
+			if err != nil {
+				return err
+			}
 			usedBefore := sub.AmountUsed
 			if sub.AmountTotal > 0 {
 				remain := sub.AmountTotal - usedBefore
-				if remain < amount {
+				if remain < charge {
 					continue
 				}
 			}
@@ -1435,7 +1456,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err != nil {
 				return err
 			}
-			if err := checkSubscriptionQuotaWindows(quotaWindows, amount); err != nil {
+			if err := checkSubscriptionQuotaWindows(quotaWindows, charge); err != nil {
 				if errors.Is(err, ErrSubscriptionQuotaWindowExceeded) {
 					continue
 				}
@@ -1445,7 +1466,8 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 				RequestId:          requestId,
 				UserId:             userId,
 				UserSubscriptionId: sub.Id,
-				PreConsumed:        amount,
+				PreConsumed:        charge,
+				ModelMultiplier:    multiplier,
 				Status:             "consumed",
 			}
 			if err := tx.Create(record).Error; err != nil {
@@ -1456,6 +1478,10 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 					}
 					returnValue.UserSubscriptionId = sub.Id
 					returnValue.PreConsumed = dup.PreConsumed
+					returnValue.ModelMultiplier = dup.ModelMultiplier
+					if returnValue.ModelMultiplier == 0 {
+						returnValue.ModelMultiplier = 1
+					}
 					returnValue.AmountTotal = sub.AmountTotal
 					returnValue.AmountUsedBefore = sub.AmountUsed
 					returnValue.AmountUsedAfter = sub.AmountUsed
@@ -1463,15 +1489,16 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 				}
 				return err
 			}
-			sub.AmountUsed += amount
+			sub.AmountUsed += charge
 			if err := tx.Save(&sub).Error; err != nil {
 				return err
 			}
-			if err := applySubscriptionQuotaWindowDeltaRowsTx(tx, quotaWindows, amount); err != nil {
+			if err := applySubscriptionQuotaWindowDeltaRowsTx(tx, quotaWindows, charge); err != nil {
 				return err
 			}
 			returnValue.UserSubscriptionId = sub.Id
-			returnValue.PreConsumed = amount
+			returnValue.PreConsumed = charge
+			returnValue.ModelMultiplier = multiplier
 			returnValue.AmountTotal = sub.AmountTotal
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed

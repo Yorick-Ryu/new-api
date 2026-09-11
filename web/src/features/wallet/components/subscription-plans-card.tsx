@@ -50,6 +50,7 @@ import {
   updateBillingPreference,
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
+import { ModelMultiplierSummary } from '@/features/subscriptions/components/model-multiplier-summary'
 import {
   formatDuration,
   formatPrimaryQuotaLabel,
@@ -555,6 +556,9 @@ export function SubscriptionPlansCard({
                       ))}
                     </div>
 
+                    <div className='mb-3'>
+                      <ModelMultiplierSummary value={plan.model_multipliers} />
+                    </div>
                     <Separator className='mb-3' />
 
                     {reached ? (
