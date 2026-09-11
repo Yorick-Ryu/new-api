@@ -82,12 +82,10 @@ export function QuotaWindowsField() {
           <FormDescription>
             {t(
               'Each request consumes the main quota and every additional window. Reaching any limit stops subscription usage.'
+            )}{' '}
+            {t(
+              'Additional windows reset on rolling periods anchored to the subscription start time.'
             )}
-            <span className='mt-1 block'>
-              {t(
-                'Additional windows reset on rolling periods anchored to the subscription start time.'
-              )}
-            </span>
           </FormDescription>
         </div>
         <Button

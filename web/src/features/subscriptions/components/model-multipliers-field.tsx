@@ -49,12 +49,10 @@ export function ModelMultipliersField() {
           <FormDescription>
             {t(
               'When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.'
+            )}{' '}
+            {t(
+              'Changes apply to new requests on existing and future subscriptions.'
             )}
-            <span className='mt-1 block'>
-              {t(
-                'Changes apply to new requests on existing and future subscriptions.'
-              )}
-            </span>
           </FormDescription>
         </div>
         <Button
@@ -68,59 +66,72 @@ export function ModelMultipliersField() {
           {t('Add model')}
         </Button>
       </div>
-      {rows.fields.map((row, index) => (
-        <div
-          key={row.id}
-          className='grid grid-cols-1 gap-3 rounded-md border p-3 sm:grid-cols-2'
-        >
-          <FormField
-            control={form.control}
-            name={`model_multipliers.${index}.model`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Model name')}</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder='gpt-6-astra' maxLength={200} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className='flex items-end gap-2'>
-            <FormField
-              control={form.control}
-              name={`model_multipliers.${index}.multiplier`}
-              render={({ field }) => (
-                <FormItem className='flex-1'>
-                  <FormLabel>{t('Override group ratio')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type='number'
-                      min={0.001}
-                      max={1000}
-                      step='any'
-                      onChange={(event) =>
-                        field.onChange(Number(event.target.value))
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button
-              type='button'
-              variant='outline'
-              size='icon'
-              aria-label={t('Remove model multiplier')}
-              onClick={() => rows.remove(index)}
-            >
-              <Trash2 className='h-4 w-4' />
-            </Button>
+      {rows.fields.length > 0 ? (
+        <div className='space-y-3 rounded-md border p-3'>
+          <div className='grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem]'>
+            <FormLabel>{t('Model name')}</FormLabel>
+            <FormLabel>{t('Override group ratio')}</FormLabel>
+            <span aria-hidden='true' />
           </div>
+          {rows.fields.map((row, index) => (
+            <div
+              key={row.id}
+              className='grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem]'
+            >
+              <FormField
+                control={form.control}
+                name={`model_multipliers.${index}.model`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className='sr-only'>{t('Model name')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder='gpt-6-astra'
+                        maxLength={200}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`model_multipliers.${index}.multiplier`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className='sr-only'>
+                      {t('Override group ratio')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type='number'
+                        min={0.001}
+                        max={1000}
+                        step='any'
+                        onChange={(event) =>
+                          field.onChange(Number(event.target.value))
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                aria-label={t('Remove model multiplier')}
+                onClick={() => rows.remove(index)}
+              >
+                <Trash2 className='h-4 w-4' />
+              </Button>
+            </div>
+          ))}
         </div>
-      ))}
+      ) : null}
     </div>
   )
 }
