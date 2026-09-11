@@ -34,6 +34,10 @@ export const STATIC_I18N_KEYS = [
   'Channel health checks',
   'Request retry',
 
+  // Announcement form validation
+  'Content must be at most 500 characters',
+  'Extra must be at most 200 characters',
+
   // System settings sidebar
   'System Administration',
   'General',

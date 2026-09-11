@@ -22,8 +22,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import * as z from 'zod'
 
+import { AnnouncementPopup } from '@/components/announcement-popup'
 import { StaticDataTable } from '@/components/data-table/static/static-data-table'
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
 import { DateTimePicker } from '@/components/datetime-picker'
@@ -65,6 +65,10 @@ import dayjs from '@/lib/dayjs'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  announcementSchema,
+  type AnnouncementFormValues,
+} from '../lib/announcement-validation'
 
 type Announcement = {
   id: number
@@ -72,27 +76,13 @@ type Announcement = {
   publishDate: string
   type: 'default' | 'ongoing' | 'success' | 'warning' | 'error'
   extra?: string
+  popup?: boolean
 }
 
 type AnnouncementsSectionProps = {
   enabled: boolean
   data: string
 }
-
-const announcementSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Content is required')
-    .max(500, 'Content must be less than 500 characters'),
-  publishDate: z.string().min(1, 'Publish date is required'),
-  type: z.enum(['default', 'ongoing', 'success', 'warning', 'error']),
-  extra: z
-    .string()
-    .max(100, 'Extra must be less than 100 characters')
-    .optional(),
-})
-
-type AnnouncementFormValues = z.infer<typeof announcementSchema>
 
 const ANNOUNCEMENT_FORM_ID = 'announcement-form'
 
@@ -140,6 +130,8 @@ export function AnnouncementsSection({
   const [hasChanges, setHasChanges] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
+  const [previewAnnouncement, setPreviewAnnouncement] =
+    useState<AnnouncementFormValues | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingAnnouncement, setEditingAnnouncement] =
     useState<Announcement | null>(null)
@@ -152,6 +144,7 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'default',
       extra: '',
+      popup: false,
     },
   })
 
@@ -195,6 +188,7 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'default',
       extra: '',
+      popup: false,
     })
     setShowDialog(true)
   }
@@ -206,6 +200,7 @@ export function AnnouncementsSection({
       publishDate: announcement.publishDate,
       type: announcement.type,
       extra: announcement.extra || '',
+      popup: announcement.popup === true,
     })
     setShowDialog(true)
   }
@@ -420,6 +415,11 @@ export function AnnouncementsSection({
               cell: (announcement) => announcement.extra || '-',
             },
             {
+              id: 'popup',
+              header: t('Show as popup'),
+              cell: (announcement) => (announcement.popup ? t('Enabled') : '-'),
+            },
+            {
               id: 'actions',
               header: t('Actions'),
               cell: (announcement) => (
@@ -484,9 +484,42 @@ export function AnnouncementsSection({
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
-                    {t('Maximum 500 characters. Supports Markdown and HTML.')}
+                  <FormDescription className='flex flex-wrap justify-between gap-x-2'>
+                    <span>
+                      {t('Maximum 500 characters. Supports Markdown and HTML.')}
+                    </span>
+                    <span className='tabular-nums'>
+                      {[...field.value].length} / 500
+                    </span>
                   </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='popup'
+              render={({ field }) => (
+                <FormItem>
+                  <div className='flex flex-wrap items-center gap-3'>
+                    <div className='flex items-center gap-2'>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel>{t('Show as popup')}</FormLabel>
+                    </div>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setPreviewAnnouncement(form.getValues())}
+                    >
+                      {t('Preview popup')}
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -574,10 +607,15 @@ export function AnnouncementsSection({
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
-                    {t(
-                      'Optional supplementary information (max 100 characters)'
-                    )}
+                  <FormDescription className='flex flex-wrap justify-between gap-x-2'>
+                    <span>
+                      {t(
+                        'Optional supplementary information (max 200 characters)'
+                      )}
+                    </span>
+                    <span className='tabular-nums'>
+                      {[...(field.value || '')].length} / 200
+                    </span>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -586,6 +624,13 @@ export function AnnouncementsSection({
           </form>
         </Form>
       </Dialog>
+
+      {previewAnnouncement && (
+        <AnnouncementPopup
+          announcement={previewAnnouncement}
+          onAcknowledge={() => setPreviewAnnouncement(null)}
+        />
+      )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
