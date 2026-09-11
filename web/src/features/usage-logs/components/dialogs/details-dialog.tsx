@@ -1164,6 +1164,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {other.subscription_group_ratio != null && (
+              <DetailRow
+                label={t('Override group ratio')}
+                value={`${other.subscription_group_ratio}×`}
+              />
+            )}
             {other.subscription_model_multiplier != null && (
               <DetailRow
                 label={t('Consumption multiplier')}

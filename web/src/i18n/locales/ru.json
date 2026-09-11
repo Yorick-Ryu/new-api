@@ -5392,6 +5392,10 @@
     "Remove model multiplier": "Remove model multiplier",
     "Enter an exact model name": "Enter an exact model name",
     "Model names must be unique": "Model names must be unique",
-    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota"
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota",
+    "Subscription model group overrides": "Замена множителя группы для модели",
+    "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "При оплате указанной модели этой подпиской значение заменяет множитель группы. Цены моделей, множители других моделей и оплаты из кошелька не меняются.",
+    "Override group ratio": "Новый множитель группы",
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: множитель группы {{multiplier}}× в этой подписке"
   }
 }

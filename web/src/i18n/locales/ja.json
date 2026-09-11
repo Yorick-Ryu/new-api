@@ -5392,6 +5392,10 @@
     "Remove model multiplier": "Remove model multiplier",
     "Enter an exact model name": "Enter an exact model name",
     "Model names must be unique": "Model names must be unique",
-    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota"
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota",
+    "Subscription model group overrides": "モデル別グループ倍率の上書き",
+    "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "このサブスクリプションで指定モデルを使う場合、グループ倍率をこの値に置き換えます。モデルの価格、他のモデル、ウォレット払いの倍率は変更されません。",
+    "Override group ratio": "上書きする倍率",
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}：このサブスクリプションのグループ倍率 {{multiplier}}倍"
   }
 }

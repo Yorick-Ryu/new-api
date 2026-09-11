@@ -108,6 +108,7 @@ type TaskPrivateData struct {
 	BillingSource               string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId              int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
 	SubscriptionModelMultiplier float64             `json:"subscription_model_multiplier,omitempty"`
+	SubscriptionGroupRatio      float64             `json:"subscription_group_ratio,omitempty"`
 	TokenId                     int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
 	NodeName                    string              `json:"node_name,omitempty"`       // 发起任务的节点名，轮询结算阶段据此归属日志而非最后查询节点
 	BillingContext              *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）

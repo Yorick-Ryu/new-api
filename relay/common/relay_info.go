@@ -138,6 +138,9 @@ type RelayInfo struct {
 	SubscriptionPlanTitle string
 	// Applies only to subscription funding; pricing and wallet charges stay in base units.
 	SubscriptionModelMultiplier float64
+	// Exact per-model group ratio override captured from the selected plan.
+	// Zero means no override. Model prices and other models remain unchanged.
+	SubscriptionGroupRatio float64
 	// RequestId is used for idempotent pre-consume/refund
 	RequestId string
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.

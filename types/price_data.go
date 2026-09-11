@@ -29,7 +29,10 @@ type PriceData struct {
 	UsePrice             bool
 	Quota                int // 按次计费的最终额度（MJ / Task）
 	QuotaToPreConsume    int // 按量计费的预消耗额度
-	GroupRatioInfo       GroupRatioInfo
+	// Exact estimate before the group ratio, used when subscription pricing
+	// replaces that ratio (including a normally free group).
+	QuotaBeforeGroup *float64
+	GroupRatioInfo   GroupRatioInfo
 }
 
 func (p *PriceData) AddOtherRatio(key string, ratio float64) {

@@ -5392,6 +5392,10 @@
     "Remove model multiplier": "删除模型倍率",
     "Enter an exact model name": "请输入完整模型名称，不支持通配符",
     "Model names must be unique": "模型名称不能重复",
-    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} 按 {{multiplier}} 倍消耗套餐额度"
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} 按 {{multiplier}} 倍消耗套餐额度",
+    "Subscription model group overrides": "模型分组倍率覆盖",
+    "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "使用此订阅调用指定模型时，以此处的倍率替代分组倍率。模型原有定价不变，其他模型及钱包付费继续使用原分组倍率。",
+    "Override group ratio": "覆盖倍率",
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}：订阅内分组倍率 {{multiplier}}×"
   }
 }

@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// Model multipliers apply to subscription quota only, after normal model pricing.
-// Exact requested model names are used; an unlisted model consumes at 1x.
+// Each configured value replaces the group ratio for this requested model when
+// the subscription funds it. Unlisted models retain their normal group ratio.
 func ParseSubscriptionModelMultipliers(raw string) (map[string]float64, error) {
 	multipliers := make(map[string]float64)
 	if strings.TrimSpace(raw) == "" {
@@ -44,6 +44,32 @@ func NormalizeSubscriptionModelMultipliers(raw string) (string, error) {
 	}
 	encoded, err := common.Marshal(multipliers)
 	return string(encoded), err
+}
+
+// HasActiveSubscriptionModelOverride also allows a normally free group to
+// enter subscription selection when a plan explicitly overrides that group.
+func HasActiveSubscriptionModelOverride(userID int, modelName string) (bool, error) {
+	if userID <= 0 {
+		return false, nil
+	}
+	var planIDs []int
+	if err := DB.Model(&UserSubscription{}).Where("user_id = ? AND status = ? AND end_time > ?", userID, "active", GetDBTimestamp()).Distinct("plan_id").Pluck("plan_id", &planIDs).Error; err != nil {
+		return false, err
+	}
+	for _, planID := range planIDs {
+		plan, err := getSubscriptionPlanByIdTx(DB, planID)
+		if err != nil {
+			return false, err
+		}
+		ratios, err := ParseSubscriptionModelMultipliers(plan.ModelMultipliers)
+		if err != nil {
+			return false, err
+		}
+		if _, exists := ratios[modelName]; exists {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // SubscriptionQuotaWithMultiplier rounds the total, never a delta, so partial

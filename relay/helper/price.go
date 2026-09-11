@@ -54,6 +54,10 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 		logger.LogDebug(ctx, "final group: %s", autoGroup)
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
+	if relayInfo.BillingSource == "subscription" && relayInfo.SubscriptionGroupRatio > 0 {
+		groupRatioInfo.GroupRatio = relayInfo.SubscriptionGroupRatio
+		return groupRatioInfo
+	}
 
 	// check user group special ratio
 	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
@@ -81,6 +85,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	var preConsumedQuota int
+	var quotaBeforeGroup float64
 	var modelRatio float64
 	var completionRatio float64
 	var cacheRatio float64
@@ -117,8 +122,8 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		imageRatio, _ = ratio_setting.GetImageRatio(info.OriginModelName)
 		audioRatio = ratio_setting.GetAudioRatio(info.OriginModelName)
 		audioCompletionRatio = ratio_setting.GetAudioCompletionRatio(info.OriginModelName)
-		ratio := modelRatio * groupRatioInfo.GroupRatio
-		quota, err := common.QuotaFromFloatStrict(float64(preConsumedTokens) * ratio)
+		quotaBeforeGroup = float64(preConsumedTokens) * modelRatio
+		quota, err := common.QuotaFromFloatStrict(quotaBeforeGroup * groupRatioInfo.GroupRatio)
 		if err != nil {
 			return hosttypes.PriceData{}, err
 		}
@@ -163,8 +168,10 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreation5mRatio: cacheCreationRatio5m,
 		CacheCreation1hRatio: cacheCreationRatio1h,
 		QuotaToPreConsume:    preConsumedQuota,
+		QuotaBeforeGroup:     &quotaBeforeGroup,
 	}
 	if usePrice {
+		quotaBeforeGroup = modelPrice * common.QuotaPerUnit
 		for name, ratio := range meta.BillingRatios {
 			priceData.AddOtherRatio(name, ratio)
 		}
@@ -174,6 +181,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 			return hosttypes.PriceData{}, err
 		}
 		priceData.QuotaToPreConsume = quota
+	}
+	if err := preserveSubscriptionGroupOverride(info, &priceData); err != nil {
+		return hosttypes.PriceData{}, err
 	}
 
 	if common.DebugEnabled {
@@ -211,11 +221,13 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 	}
 
 	var quota int
+	var quotaBeforeGroup float64
 	freeModel := false
 
 	if usePrice {
 		var err error
-		quota, err = common.QuotaFromFloatStrict(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		quotaBeforeGroup = modelPrice * common.QuotaPerUnit
+		quota, err = common.QuotaFromFloatStrict(quotaBeforeGroup * groupRatioInfo.GroupRatio)
 		if err != nil {
 			return hosttypes.PriceData{}, err
 		}
@@ -228,7 +240,8 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 	} else {
 		// 按量计费：以模型倍率的一半作为预扣额度
 		var err error
-		quota, err = common.QuotaFromFloatStrict(modelRatio / 2 * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		quotaBeforeGroup = modelRatio / 2 * common.QuotaPerUnit
+		quota, err = common.QuotaFromFloatStrict(quotaBeforeGroup * groupRatioInfo.GroupRatio)
 		if err != nil {
 			return hosttypes.PriceData{}, err
 		}
@@ -242,14 +255,36 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 	}
 
 	priceData := hosttypes.PriceData{
-		FreeModel:      freeModel,
-		ModelPrice:     modelPrice,
-		ModelRatio:     modelRatio,
-		UsePrice:       usePrice,
-		Quota:          quota,
-		GroupRatioInfo: groupRatioInfo,
+		FreeModel:        freeModel,
+		ModelPrice:       modelPrice,
+		ModelRatio:       modelRatio,
+		UsePrice:         usePrice,
+		Quota:            quota,
+		QuotaBeforeGroup: &quotaBeforeGroup,
+		GroupRatioInfo:   groupRatioInfo,
+	}
+	if err := preserveSubscriptionGroupOverride(info, &priceData); err != nil {
+		return hosttypes.PriceData{}, err
 	}
 	return priceData, nil
+}
+
+func preserveSubscriptionGroupOverride(info *relaycommon.RelayInfo, price *hosttypes.PriceData) error {
+	if !price.FreeModel {
+		return nil
+	}
+	pref := common.NormalizeBillingPreference(info.UserSetting.BillingPreference)
+	if pref == "wallet_only" || pref == "wallet_first" {
+		return nil
+	}
+	hasOverride, err := model.HasActiveSubscriptionModelOverride(info.UserId, info.OriginModelName)
+	if err != nil {
+		return err
+	}
+	if hasOverride {
+		price.FreeModel = false
+	}
+	return nil
 }
 
 func HasModelBillingConfig(modelName string) bool {
@@ -328,6 +363,10 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		FreeModel:         freeModel,
 		GroupRatioInfo:    groupRatioInfo,
 		QuotaToPreConsume: preConsumedQuota,
+		QuotaBeforeGroup:  &quotaBeforeGroup,
+	}
+	if err := preserveSubscriptionGroupOverride(info, &priceData); err != nil {
+		return hosttypes.PriceData{}, err
 	}
 
 	logger.LogDebug(c, "model_price_helper_tiered result: model=%s preConsume=%d quotaBeforeGroup=%.2f groupRatio=%.2f tier=%s", info.OriginModelName, preConsumedQuota, quotaBeforeGroup, groupRatioInfo.GroupRatio, trace.MatchedTier)

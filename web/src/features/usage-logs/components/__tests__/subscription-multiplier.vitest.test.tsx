@@ -50,3 +50,19 @@ it('shows the subscription multiplier and actual deducted quota instead of base 
   )
   expect(tooltip.textContent).toContain(formatLogQuota(250))
 })
+
+it('shows an explicit group override of one and the effective subscription charge', () => {
+  render(
+    <I18nextProvider i18n={i18n}>
+      <LogCostDisplay
+        quota={100}
+        other={{
+          billing_source: 'subscription',
+          subscription_group_ratio: 1,
+          subscription_consumed: 100,
+        }}
+      />
+    </I18nextProvider>
+  )
+  expect(screen.getByText('Subscription 1×')).toBeTruthy()
+})

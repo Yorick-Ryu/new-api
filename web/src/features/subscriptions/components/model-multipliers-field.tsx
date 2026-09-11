@@ -45,10 +45,10 @@ export function ModelMultipliersField() {
     <div className='space-y-3'>
       <div className='flex items-start justify-between gap-3'>
         <div>
-          <FormLabel>{t('Model consumption multipliers')}</FormLabel>
+          <FormLabel>{t('Subscription model group overrides')}</FormLabel>
           <FormDescription>
             {t(
-              'Multiply the normal charge when using this subscription, including all quota windows. Unlisted models use 1×; wallet charges keep normal prices.'
+              'When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.'
             )}
             <span className='mt-1 block'>
               {t(
@@ -92,7 +92,7 @@ export function ModelMultipliersField() {
               name={`model_multipliers.${index}.multiplier`}
               render={({ field }) => (
                 <FormItem className='flex-1'>
-                  <FormLabel>{t('Consumption multiplier')}</FormLabel>
+                  <FormLabel>{t('Override group ratio')}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}

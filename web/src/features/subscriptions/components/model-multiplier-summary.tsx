@@ -29,10 +29,13 @@ export function ModelMultiplierSummary(props: { value?: string }) {
 
   return (
     <div className='space-y-1 text-xs'>
-      <p className='font-medium'>{t('Model consumption multipliers')}</p>
+      <p className='font-medium'>{t('Subscription model group overrides')}</p>
       {rows.map((row) => (
         <p key={row.model} className='text-muted-foreground break-words'>
-          {t('{{model}} consumes {{multiplier}}× subscription quota', row)}
+          {t(
+            '{{model}}: group ratio {{multiplier}}× with this subscription',
+            row
+          )}
         </p>
       ))}
     </div>

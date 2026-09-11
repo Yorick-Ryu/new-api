@@ -239,6 +239,7 @@ export interface LogOtherData {
   subscription_pre_consumed?: number
   subscription_post_delta?: number
   subscription_model_multiplier?: number
+  subscription_group_ratio?: number
   subscription_consumed?: number
   subscription_remain?: number
   subscription_total?: number

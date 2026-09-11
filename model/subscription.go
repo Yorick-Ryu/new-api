@@ -185,7 +185,7 @@ type SubscriptionPlan struct {
 	// into independent counter rows only when a new subscription is created.
 	QuotaWindows string `json:"quota_windows" gorm:"type:text"`
 
-	// Live plan policy; captured per request before consuming subscription quota.
+	// Per-model group ratio overrides, captured after selecting subscription funding.
 	ModelMultipliers string `json:"model_multipliers" gorm:"type:text"`
 
 	// Quota reset period for plan
@@ -1207,6 +1207,7 @@ func AdminResetPlanSubscriptionsWindow(planId int, advanceResetTime bool, resetW
 
 type SubscriptionPreConsumeResult struct {
 	ModelMultiplier    float64
+	GroupRatio         float64
 	UserSubscriptionId int
 	PreConsumed        int64
 	AmountTotal        int64
@@ -1315,6 +1316,7 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 // SubscriptionPreConsumeRecord stores idempotent pre-consume operations per request.
 type SubscriptionPreConsumeRecord struct {
 	ModelMultiplier    float64 `json:"model_multiplier" gorm:"type:double precision"`
+	GroupRatio         float64 `json:"group_ratio" gorm:"type:double precision"`
 	Id                 int     `json:"id"`
 	RequestId          string  `json:"request_id" gorm:"type:varchar(64);uniqueIndex"`
 	UserId             int     `json:"user_id" gorm:"index"`
@@ -1374,7 +1376,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 }
 
 // PreConsumeUserSubscription pre-consumes from any active subscription total quota.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64, quotaForGroupRatio ...func(float64) (int64, error)) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1405,6 +1407,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.UserSubscriptionId = sub.Id
 			returnValue.PreConsumed = existing.PreConsumed
 			returnValue.ModelMultiplier = existing.ModelMultiplier
+			returnValue.GroupRatio = existing.GroupRatio
 			if returnValue.ModelMultiplier == 0 {
 				returnValue.ModelMultiplier = 1
 			}
@@ -1437,13 +1440,20 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err != nil {
 				return err
 			}
-			multiplier := 1.0
+			groupRatio := 0.0 // No override: retain the selected group's price.
+			charge := amount
 			if configured, ok := multipliers[modelName]; ok {
-				multiplier = configured
+				if len(quotaForGroupRatio) == 0 || quotaForGroupRatio[0] == nil {
+					return errors.New("subscription group ratio requires pricing context")
+				}
+				groupRatio = configured
+				charge, err = quotaForGroupRatio[0](groupRatio)
+				if err != nil {
+					return err
+				}
 			}
-			charge, err := SubscriptionQuotaWithMultiplier(amount, multiplier)
-			if err != nil {
-				return err
+			if charge <= 0 || charge > common.MaxQuota {
+				return errors.New("invalid subscription pre-consume quota")
 			}
 			usedBefore := sub.AmountUsed
 			if sub.AmountTotal > 0 {
@@ -1467,7 +1477,8 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 				UserId:             userId,
 				UserSubscriptionId: sub.Id,
 				PreConsumed:        charge,
-				ModelMultiplier:    multiplier,
+				ModelMultiplier:    1, // New charges already include the effective group ratio.
+				GroupRatio:         groupRatio,
 				Status:             "consumed",
 			}
 			if err := tx.Create(record).Error; err != nil {
@@ -1479,6 +1490,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 					returnValue.UserSubscriptionId = sub.Id
 					returnValue.PreConsumed = dup.PreConsumed
 					returnValue.ModelMultiplier = dup.ModelMultiplier
+					returnValue.GroupRatio = dup.GroupRatio
 					if returnValue.ModelMultiplier == 0 {
 						returnValue.ModelMultiplier = 1
 					}
@@ -1498,7 +1510,8 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			returnValue.UserSubscriptionId = sub.Id
 			returnValue.PreConsumed = charge
-			returnValue.ModelMultiplier = multiplier
+			returnValue.ModelMultiplier = 1
+			returnValue.GroupRatio = groupRatio
 			returnValue.AmountTotal = sub.AmountTotal
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed

@@ -161,7 +161,11 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 		if multiplier == 0 {
 			multiplier = 1
 		}
-		other["subscription_model_multiplier"] = multiplier
+		if task.PrivateData.SubscriptionGroupRatio > 0 {
+			other["subscription_group_ratio"] = task.PrivateData.SubscriptionGroupRatio
+		} else {
+			other["subscription_model_multiplier"] = multiplier
+		}
 	}
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
@@ -355,6 +359,9 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 		finalGroupRatio = userGroupRatio
 	} else {
 		finalGroupRatio = groupRatio
+	}
+	if taskIsSubscription(task) && task.PrivateData.SubscriptionGroupRatio > 0 {
+		finalGroupRatio = task.PrivateData.SubscriptionGroupRatio
 	}
 
 	// 计算 OtherRatios 乘积（视频折扣、时长等）

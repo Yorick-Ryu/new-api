@@ -5392,6 +5392,10 @@
     "Remove model multiplier": "Remove model multiplier",
     "Enter an exact model name": "Enter an exact model name",
     "Model names must be unique": "Model names must be unique",
-    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota"
+    "{{model}} consumes {{multiplier}}× subscription quota": "{{model}} consumes {{multiplier}}× subscription quota",
+    "Subscription model group overrides": "模型分組倍率覆蓋",
+    "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "使用此訂閱呼叫指定模型時，以此處的倍率取代分組倍率。模型原有定價不變，其他模型及錢包付款繼續使用原分組倍率。",
+    "Override group ratio": "覆蓋倍率",
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}：訂閱內分組倍率 {{multiplier}}×"
   }
 }

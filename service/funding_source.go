@@ -1,9 +1,13 @@
 package service
 
 import (
+	"errors"
+	"math"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
 // ---------------------------------------------------------------------------
@@ -77,6 +81,8 @@ type SubscriptionFunding struct {
 	baseConsumed    int64 // Normal model charge before the subscription multiplier
 	consumed        int64 // Current subscription charge after the multiplier
 	ModelMultiplier float64
+	GroupRatio      float64
+	relayInfo       *relaycommon.RelayInfo
 	// 以下字段在 PreConsume 成功后填充，供 RelayInfo 同步使用
 	AmountTotal     int64
 	AmountUsedAfter int64
@@ -88,15 +94,21 @@ func (s *SubscriptionFunding) Source() string { return BillingSourceSubscription
 
 func (s *SubscriptionFunding) PreConsume(_ int) error {
 	// amount 参数被忽略，使用内部 s.amount（已在构造时根据 preConsumedQuota 计算）
-	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, 0, s.amount)
+	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, 0, s.amount, func(ratio float64) (int64, error) {
+		return subscriptionPreConsumeQuota(s.relayInfo, s.amount, ratio)
+	})
 	if err != nil {
 		return err
 	}
 	s.subscriptionId = res.UserSubscriptionId
 	s.preConsumed = res.PreConsumed
 	s.baseConsumed = s.amount
+	if res.GroupRatio > 0 {
+		s.baseConsumed = res.PreConsumed
+	}
 	s.consumed = res.PreConsumed
 	s.ModelMultiplier = res.ModelMultiplier
+	s.GroupRatio = res.GroupRatio
 	s.AmountTotal = res.AmountTotal
 	s.AmountUsedAfter = res.AmountUsedAfter
 	// 获取订阅计划信息
@@ -105,6 +117,43 @@ func (s *SubscriptionFunding) PreConsume(_ int) error {
 		s.PlanTitle = planInfo.PlanTitle
 	}
 	return nil
+}
+
+// subscriptionPreConsumeQuota replaces the group ratio on the unrounded model
+// estimate. It never divides a rounded charge in normal request paths.
+func subscriptionPreConsumeQuota(info *relaycommon.RelayInfo, normalQuota int64, ratio float64) (int64, error) {
+	if info == nil || math.IsNaN(ratio) || math.IsInf(ratio, 0) || ratio < 0.001 || ratio > 1000 {
+		return 0, errors.New("invalid subscription group ratio")
+	}
+	var base float64
+	if info.TieredBillingSnapshot != nil {
+		base = info.TieredBillingSnapshot.EstimatedQuotaBeforeGroup
+	} else if info.PriceData.QuotaBeforeGroup != nil {
+		base = info.PriceData.ApplyOtherRatiosToFloat(*info.PriceData.QuotaBeforeGroup)
+	} else {
+		// Compatibility for callers that only supply a quota estimate.
+		groupRatio := info.PriceData.GroupRatioInfo.GroupRatio
+		if groupRatio <= 0 || math.IsNaN(groupRatio) || math.IsInf(groupRatio, 0) {
+			return 0, errors.New("subscription pricing requires a quota estimate before the group ratio")
+		}
+		base = float64(normalQuota) / groupRatio
+	}
+	if base < 0 {
+		return 0, errors.New("negative subscription quota estimate")
+	}
+	var quota int
+	var err error
+	if info.TieredBillingSnapshot != nil {
+		quota, err = common.QuotaRoundStrict(base * ratio)
+	} else {
+		quota, err = common.QuotaFromFloatStrict(base * ratio)
+	}
+	if err != nil {
+		return 0, err
+	}
+	// Even a zero estimate needs a reservation record; settlement refunds it
+	// when actual usage is zero.
+	return int64(max(quota, 1)), nil
 }
 
 func (s *SubscriptionFunding) Settle(delta int) error {

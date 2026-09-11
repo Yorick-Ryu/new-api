@@ -46,7 +46,7 @@ func TestSubscriptionQuotaMultiplierRejectsOverflowAndInvalidInputs(t *testing.T
 	}
 }
 
-func TestSubscriptionSelectionChecksEachPlansMultipliedQuota(t *testing.T) {
+func TestSubscriptionSelectionChecksEachPlansGroupOverride(t *testing.T) {
 	truncateTables(t)
 	first := &SubscriptionPlan{Title: "Plus", DurationUnit: SubscriptionDurationMonth, DurationValue: 1, TotalAmount: 150, ModelMultipliers: `{"gpt-6-astra":2}`}
 	second := &SubscriptionPlan{Title: "Ultra", DurationUnit: SubscriptionDurationMonth, DurationValue: 2, TotalAmount: 500, ModelMultipliers: `{"gpt-6-astra":1.5}`}
@@ -62,19 +62,19 @@ func TestSubscriptionSelectionChecksEachPlansMultipliedQuota(t *testing.T) {
 	require.NoError(t, err)
 	sub2, err := CreateUserSubscriptionFromPlanTx(DB, 701, second, "test")
 	require.NoError(t, err)
-	result, err := PreConsumeUserSubscription(t.Name(), 701, "gpt-6-astra", 0, 100)
+	result, err := PreConsumeUserSubscription(t.Name(), 701, "gpt-6-astra", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
 	require.NoError(t, err)
 	assert.Equal(t, sub2.Id, result.UserSubscriptionId)
 	assert.EqualValues(t, 150, result.PreConsumed)
-	assert.Equal(t, 1.5, result.ModelMultiplier)
+	assert.Equal(t, 1.5, result.GroupRatio)
 	require.NoError(t, DB.First(sub1, sub1.Id).Error)
 	assert.Zero(t, sub1.AmountUsed)
 
 	require.NoError(t, DB.Model(second).Update("model_multipliers", `{"gpt-6-astra":3}`).Error)
 	InvalidateSubscriptionPlanCache(second.Id)
-	replayed, err := PreConsumeUserSubscription(t.Name(), 701, "gpt-6-astra", 0, 100)
+	replayed, err := PreConsumeUserSubscription(t.Name(), 701, "gpt-6-astra", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
 	require.NoError(t, err)
-	assert.Equal(t, 1.5, replayed.ModelMultiplier)
+	assert.Equal(t, 1.5, replayed.GroupRatio)
 	assert.EqualValues(t, 150, replayed.PreConsumed)
 	require.NoError(t, RefundSubscriptionPreConsume(t.Name()))
 	require.NoError(t, RefundSubscriptionPreConsume(t.Name()))

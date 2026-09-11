@@ -81,7 +81,7 @@ describe('subscription model multiplier editor', () => {
     expect(
       (
         screen.getByRole('spinbutton', {
-          name: 'Consumption multiplier',
+          name: 'Override group ratio',
         }) as HTMLInputElement
       ).value
     ).toBe('2')
@@ -109,20 +109,20 @@ describe('subscription model multiplier editor', () => {
     )
   })
 
-  it('shows buyers the extra consumption and hides the section for an unconfigured plan', () => {
+  it('shows buyers the subscription group override and hides the section for an unconfigured plan', () => {
     const view = render(
       <I18nextProvider i18n={i18n}>
         <ModelMultiplierSummary value='{"gpt-6-astra":2}' />
       </I18nextProvider>
     )
     expect(
-      screen.getByText('gpt-6-astra consumes 2× subscription quota')
+      screen.getByText('gpt-6-astra: group ratio 2× with this subscription')
     ).toBeTruthy()
     view.rerender(
       <I18nextProvider i18n={i18n}>
         <ModelMultiplierSummary value='{}' />
       </I18nextProvider>
     )
-    expect(screen.queryByText('Model consumption multipliers')).toBeNull()
+    expect(screen.queryByText('Subscription model group overrides')).toBeNull()
   })
 })

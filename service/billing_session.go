@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	hosttypes "github.com/QuantumNous/new-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -172,7 +173,7 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 // PreConsume — 统一预扣费入口（含信任额度旁路）
 // ---------------------------------------------------------------------------
 
-// preConsume 执行预扣费：信任检查 -> 令牌预扣 -> 资金来源预扣。
+// preConsume 执行预扣费：信任检查 -> 资金来源和有效倍率 -> 令牌预扣。
 // 任一步骤失败时原子回滚已完成的步骤。
 func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIError {
 	effectiveQuota := quota
@@ -186,30 +187,38 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		logger.LogInfo(c, fmt.Sprintf("用户 %d 需要预扣费 %s (funding=%s)", s.relayInfo.UserId, logger.FormatQuota(effectiveQuota), s.funding.Source()))
 	}
 
-	// ---- 1) 预扣令牌额度 ----
-	if effectiveQuota > 0 {
-		if err := PreConsumeTokenQuota(s.relayInfo, effectiveQuota); err != nil {
-			return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
-		}
-		s.tokenConsumed = effectiveQuota
-	}
-
-	// ---- 2) 预扣资金来源 ----
+	// Select and reserve funding first: the selected subscription determines
+	// the effective group ratio and therefore the token reservation too.
 	if err := s.funding.PreConsume(effectiveQuota); err != nil {
-		// 预扣费失败，回滚令牌额度
-		if s.tokenConsumed > 0 && !s.relayInfo.IsPlayground {
-			if rollbackErr := model.IncreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, s.tokenConsumed); rollbackErr != nil {
-				common.SysLog(fmt.Sprintf("error rolling back token quota (userId=%d, tokenId=%d, amount=%d, fundingErr=%s): %s",
-					s.relayInfo.UserId, s.relayInfo.TokenId, s.tokenConsumed, err.Error(), rollbackErr.Error()))
-			}
-			s.tokenConsumed = 0
-		}
 		// TODO: model 层应定义哨兵错误（如 ErrNoActiveSubscription），用 errors.Is 替代字符串匹配
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "no active subscription") || strings.Contains(errMsg, "subscription quota insufficient") {
 			return types.NewErrorWithStatusCode(fmt.Errorf("订阅额度不足或未配置订阅: %s", errMsg), types.ErrorCodeInsufficientUserQuota, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
+	}
+
+	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.GroupRatio > 0 {
+		effectiveQuota = int(sub.preConsumed)
+	}
+	if effectiveQuota > 0 {
+		if err := PreConsumeTokenQuota(s.relayInfo, effectiveQuota); err != nil {
+			if refundErr := s.funding.Refund(); refundErr != nil {
+				common.SysLog("error rolling back funding after token reservation failed: " + refundErr.Error())
+			}
+			return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
+		s.tokenConsumed = effectiveQuota
+	}
+	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.GroupRatio > 0 {
+		s.relayInfo.PriceData.GroupRatioInfo = hosttypes.GroupRatioInfo{GroupRatio: sub.GroupRatio, GroupSpecialRatio: -1}
+		s.relayInfo.PriceData.FreeModel = false
+		s.relayInfo.PriceData.QuotaToPreConsume = effectiveQuota
+		s.relayInfo.PriceData.Quota = effectiveQuota
+		if snap := s.relayInfo.TieredBillingSnapshot; snap != nil {
+			snap.GroupRatio = sub.GroupRatio
+			snap.EstimatedQuotaAfterGroup = effectiveQuota
+		}
 	}
 
 	s.preConsumedQuota = effectiveQuota
@@ -324,10 +333,12 @@ func (s *BillingSession) syncRelayInfo() {
 		info.SubscriptionPlanId = sub.PlanId
 		info.SubscriptionPlanTitle = sub.PlanTitle
 		info.SubscriptionModelMultiplier = sub.ModelMultiplier
+		info.SubscriptionGroupRatio = sub.GroupRatio
 	} else {
 		info.SubscriptionId = 0
 		info.SubscriptionPreConsumed = 0
 		info.SubscriptionModelMultiplier = 0
+		info.SubscriptionGroupRatio = 0
 	}
 }
 
@@ -385,6 +396,7 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 				userId:    relayInfo.UserId,
 				modelName: relayInfo.OriginModelName,
 				amount:    subConsume,
+				relayInfo: relayInfo,
 			},
 		}
 		// 必须传 subConsume 而非 preConsumedQuota，保证 SubscriptionFunding.amount、
