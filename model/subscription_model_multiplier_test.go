@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestSubscriptionModelMultiplierValidation(t *testing.T) {
@@ -78,4 +80,31 @@ func TestSubscriptionSelectionChecksEachPlansMultipliedQuota(t *testing.T) {
 	require.NoError(t, RefundSubscriptionPreConsume(t.Name()))
 	require.NoError(t, DB.First(sub2, sub2.Id).Error)
 	assert.Zero(t, sub2.AmountUsed)
+}
+
+func TestSubscriptionModelMultiplierSQLiteStartupMigration(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "new_database", true: "existing_database"}[existing], func(t *testing.T) {
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+			require.NoError(t, err)
+			original := DB
+			DB = db
+			t.Cleanup(func() { DB = original; sqlDB, _ := db.DB(); sqlDB.Close() })
+			if existing {
+				require.NoError(t, db.Exec("CREATE TABLE subscription_plans (id integer PRIMARY KEY, title varchar(128) NOT NULL, price_amount decimal(10,6) NOT NULL)").Error)
+				require.NoError(t, db.Exec("INSERT INTO subscription_plans (id,title,price_amount) VALUES (1, 'Plus', 99)").Error)
+			}
+			require.NoError(t, ensureSubscriptionPlanTableSQLite())
+			require.NoError(t, ensureSubscriptionPlanTableSQLite())
+			if !existing {
+				require.NoError(t, db.Create(&SubscriptionPlan{Id: 1, Title: "Plus", PriceAmount: 99}).Error)
+			}
+			require.NoError(t, db.Model(&SubscriptionPlan{}).Where("id = ?", 1).Update("model_multipliers", `{"gpt-6-astra":2}`).Error)
+			var plan SubscriptionPlan
+			require.NoError(t, db.First(&plan, 1).Error)
+			assert.Equal(t, "Plus", plan.Title)
+			assert.Equal(t, float64(99), plan.PriceAmount)
+			assert.JSONEq(t, `{"gpt-6-astra":2}`, plan.ModelMultipliers)
+		})
+	}
 }
