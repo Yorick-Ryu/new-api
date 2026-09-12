@@ -169,6 +169,9 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	if relayInfo.BillingSource == "subscription" {
 		if relayInfo.SubscriptionGroupRatio > 0 {
 			other["subscription_group_ratio"] = relayInfo.SubscriptionGroupRatio
+			if relayInfo.SubscriptionOriginalGroupRatio != nil {
+				other["subscription_original_group_ratio"] = *relayInfo.SubscriptionOriginalGroupRatio
+			}
 		} else if relayInfo.SubscriptionModelMultiplier > 0 {
 			other["subscription_model_multiplier"] = relayInfo.SubscriptionModelMultiplier
 		}

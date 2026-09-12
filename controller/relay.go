@@ -544,6 +544,7 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.SubscriptionModelMultiplier = relayInfo.SubscriptionModelMultiplier
 		task.PrivateData.SubscriptionGroupRatio = relayInfo.SubscriptionGroupRatio
+		task.PrivateData.SubscriptionOriginalGroupRatio = relayInfo.SubscriptionOriginalGroupRatio
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.NodeName = common.NodeName
 		task.PrivateData.BillingContext = &model.TaskBillingContext{

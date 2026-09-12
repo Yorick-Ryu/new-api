@@ -13,8 +13,34 @@ import (
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestHandleGroupRatioSnapshotsOriginalRatioAfterSubscriptionRetry(t *testing.T) {
+	groups := ratio_setting.GroupRatio2JSONString()
+	specialGroups := ratio_setting.GroupGroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(groups))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(specialGroups))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"first":3,"retry":4}`))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"member":{"retry":1.5}}`))
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	info := &relaycommon.RelayInfo{
+		UserGroup: "member", UsingGroup: "first", BillingSource: "subscription", SubscriptionGroupRatio: 2,
+	}
+	first := HandleGroupRatio(ctx, info)
+	require.NotNil(t, info.SubscriptionOriginalGroupRatio)
+	assert.Equal(t, 3.0, *info.SubscriptionOriginalGroupRatio)
+	assert.Equal(t, 2.0, first.GroupRatio)
+	ctx.Set("auto_group", "retry")
+	retry := HandleGroupRatio(ctx, info)
+	require.NotNil(t, info.SubscriptionOriginalGroupRatio)
+	assert.Equal(t, 1.5, *info.SubscriptionOriginalGroupRatio)
+	assert.Equal(t, 2.0, retry.GroupRatio)
+	assert.False(t, retry.HasSpecialRatio)
+}
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)

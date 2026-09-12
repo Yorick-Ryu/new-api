@@ -247,6 +247,21 @@ func TestSubscriptionGroupRatioOverridesInsteadOfMultiplying(t *testing.T) {
 			assert.Equal(t, tc.want, summary.Quota)
 			require.NoError(t, session.Settle(summary.Quota))
 			assertSubscriptionConsumption(t, sub.Id, int64(tc.want))
+			other := map[string]interface{}{}
+			appendBillingInfo(info, other)
+			assert.Equal(t, tc.group, other["subscription_original_group_ratio"])
+			assert.Equal(t, tc.override, other["subscription_group_ratio"])
+			privateData, err := common.Marshal(model.TaskPrivateData{
+				BillingSource: BillingSourceSubscription, SubscriptionId: sub.Id,
+				SubscriptionGroupRatio:         info.SubscriptionGroupRatio,
+				SubscriptionOriginalGroupRatio: info.SubscriptionOriginalGroupRatio,
+			})
+			require.NoError(t, err)
+			var task model.Task
+			require.NoError(t, common.Unmarshal(privateData, &task.PrivateData))
+			taskOther := taskBillingOther(&task)
+			assert.Equal(t, tc.group, taskOther["subscription_original_group_ratio"])
+			assert.Equal(t, tc.override, taskOther["subscription_group_ratio"])
 		})
 	}
 }

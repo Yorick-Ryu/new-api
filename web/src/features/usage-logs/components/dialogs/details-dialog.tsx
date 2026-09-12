@@ -282,7 +282,11 @@ function BillingBreakdown(props: {
 
   const userGR = other.user_group_ratio
   const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
-  const effectiveGR = isUserGR ? userGR : other.group_ratio
+  let effectiveGR = isUserGR ? userGR : other.group_ratio
+  if (other.subscription_group_ratio != null) {
+    // Older override logs did not snapshot the original group ratio.
+    effectiveGR = other.subscription_original_group_ratio
+  }
   if (effectiveGR != null && Number.isFinite(effectiveGR)) {
     rows.push({
       label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
@@ -489,6 +493,8 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const isTopup = props.log.type === 1
   const isManage = props.log.type === 3
   const isSubscription = other?.billing_source === 'subscription'
+  const subscriptionMultiplier =
+    other?.subscription_group_ratio ?? other?.subscription_model_multiplier
   const isTieredBilling =
     isConsume &&
     !isViolation &&
@@ -1164,16 +1170,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {other.subscription_group_ratio != null && (
-              <DetailRow
-                label={t('Override group ratio')}
-                value={`${other.subscription_group_ratio}×`}
-              />
-            )}
-            {other.subscription_model_multiplier != null && (
+            {subscriptionMultiplier != null && (
               <DetailRow
                 label={t('Consumption multiplier')}
-                value={`${other.subscription_model_multiplier}×`}
+                value={`${subscriptionMultiplier}×`}
               />
             )}
             {other.subscription_pre_consumed != null && (

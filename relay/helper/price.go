@@ -54,11 +54,6 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 		logger.LogDebug(ctx, "final group: %s", autoGroup)
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
-	if relayInfo.BillingSource == "subscription" && relayInfo.SubscriptionGroupRatio > 0 {
-		groupRatioInfo.GroupRatio = relayInfo.SubscriptionGroupRatio
-		return groupRatioInfo
-	}
-
 	// check user group special ratio
 	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
 	if ok {
@@ -69,6 +64,11 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 	} else {
 		// normal group ratio
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
+	}
+	if relayInfo.BillingSource == "subscription" && relayInfo.SubscriptionGroupRatio > 0 {
+		originalGroupRatio := groupRatioInfo.GroupRatio
+		relayInfo.SubscriptionOriginalGroupRatio = &originalGroupRatio
+		return hosttypes.GroupRatioInfo{GroupRatio: relayInfo.SubscriptionGroupRatio, GroupSpecialRatio: -1}
 	}
 
 	return groupRatioInfo

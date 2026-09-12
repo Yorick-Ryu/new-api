@@ -92,11 +92,7 @@ function QuotaBadge(props: { quota: number }) {
   )
 }
 
-function SubscriptionBadge(props: {
-  quota: number
-  multiplier?: number
-  hasGroupOverride?: boolean
-}) {
+function SubscriptionBadge(props: { quota: number }) {
   const { t } = useTranslation()
 
   return (
@@ -104,12 +100,7 @@ function SubscriptionBadge(props: {
       <TooltipTrigger
         render={
           <StatusBadge
-            label={
-              props.multiplier &&
-              (props.hasGroupOverride || props.multiplier !== 1)
-                ? `${t('Subscription')} ${props.multiplier}×`
-                : t('Subscription')
-            }
+            label={t('Subscription')}
             variant='success'
             size='sm'
             copyable={false}
@@ -144,11 +135,6 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
         {isSubscription ? (
           <SubscriptionBadge
             quota={props.other?.subscription_consumed ?? props.quota}
-            multiplier={
-              props.other?.subscription_group_ratio ??
-              props.other?.subscription_model_multiplier
-            }
-            hasGroupOverride={props.other?.subscription_group_ratio != null}
           />
         ) : (
           <QuotaBadge quota={props.quota} />
