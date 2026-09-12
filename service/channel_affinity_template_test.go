@@ -186,7 +186,7 @@ func TestExtractChannelAffinityValue_RequestHeader(t *testing.T) {
 	value := extractChannelAffinityValue(ctx, operation_setting.ChannelAffinityKeySource{
 		Type: "request_header",
 		Key:  "X-Affinity-Key",
-	})
+	}, nil)
 
 	require.Equal(t, "tenant-123", value)
 }

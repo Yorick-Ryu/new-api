@@ -288,7 +288,7 @@ func matchAnyIncludeFold(patterns []string, s string) bool {
 	return false
 }
 
-func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAffinityKeySource) string {
+func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAffinityKeySource, body []byte) string {
 	switch src.Type {
 	case "context_int":
 		if src.Key == "" {
@@ -313,12 +313,17 @@ func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAf
 		if src.Path == "" {
 			return ""
 		}
-		storage, err := common.GetBodyStorage(c)
-		if err != nil {
-			return ""
+		if body == nil {
+			storage, err := common.GetBodyStorage(c)
+			if err != nil {
+				return ""
+			}
+			body, err = storage.Bytes()
+			if err != nil {
+				return ""
+			}
 		}
-		body, err := storage.Bytes()
-		if err != nil || len(body) == 0 {
+		if len(body) == 0 {
 			return ""
 		}
 		res := gjson.GetBytes(body, src.Path)
@@ -554,6 +559,24 @@ func ApplyChannelAffinityOverrideTemplate(c *gin.Context, paramOverride map[stri
 }
 
 func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup string) (int, bool) {
+	return GetPreferredChannelByAffinityWithBody(c, modelName, usingGroup, nil)
+}
+
+// GetPreferredChannelByAffinityWithBody evaluates the current request's rules.
+// WebSocket callers supply the normalized response.create body; nil uses the
+// HTTP body. Do not retain a frame's potentially large input on the connection.
+func GetPreferredChannelByAffinityWithBody(c *gin.Context, modelName string, usingGroup string, body []byte) (int, bool) {
+	if c == nil {
+		return 0, false
+	}
+	// A WebSocket context spans many requests. A missing or changed key must
+	// not inherit the previous request's binding, log info or retry policy.
+	c.Set(ginKeyChannelAffinityCacheKey, nil)
+	c.Set(ginKeyChannelAffinityTTLSeconds, nil)
+	c.Set(ginKeyChannelAffinityMeta, nil)
+	c.Set(ginKeyChannelAffinityLogInfo, nil)
+	c.Set(ginKeyChannelAffinitySkipRetry, false)
+
 	setting := operation_setting.GetChannelAffinitySetting()
 	if setting == nil || !setting.Enabled {
 		return 0, false
@@ -580,7 +603,7 @@ func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup 
 		var affinityValue string
 		var usedSource operation_setting.ChannelAffinityKeySource
 		for _, src := range rule.KeySources {
-			affinityValue = extractChannelAffinityValue(c, src)
+			affinityValue = extractChannelAffinityValue(c, src, body)
 			if affinityValue != "" {
 				usedSource = src
 				break

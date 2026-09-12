@@ -314,7 +314,7 @@ func TestSelectResponsesWSChannelPrefersPreviousChannelForNewModel(t *testing.T)
 		Retry:              common.GetPointer(0),
 	}
 
-	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4)
+	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4, nil)
 	require.Nil(t, apiErr)
 	require.NotNil(t, channel)
 	assert.Equal(t, 4, channel.Id)
@@ -335,7 +335,7 @@ func TestSelectResponsesWSChannelFallsBackWhenPreviousChannelLacksNewModel(t *te
 		Retry:              common.GetPointer(0),
 	}
 
-	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4)
+	channel, apiErr := selectResponsesWSChannel(c, "gpt-new", retryParam, 4, nil)
 	require.Nil(t, apiErr)
 	require.NotNil(t, channel)
 	assert.Equal(t, 13, channel.Id)
