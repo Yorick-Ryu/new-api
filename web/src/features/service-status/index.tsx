@@ -90,7 +90,7 @@ export function ServiceStatusPage() {
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
         <div
-          className='max-w-5xl space-y-4 pt-1 pb-3'
+          className='w-full space-y-4 pt-1 pb-3'
           aria-busy={query.isFetching}
         >
           {query.isError && (
