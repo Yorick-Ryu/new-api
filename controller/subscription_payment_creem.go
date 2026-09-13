@@ -17,7 +17,8 @@ import (
 )
 
 type SubscriptionCreemPayRequest struct {
-	PlanId int `json:"plan_id"`
+	RenewalSubscriptionId int `json:"renewal_subscription_id"`
+	PlanId                int `json:"plan_id"`
 }
 
 func SubscriptionRequestCreemPay(c *gin.Context) {
@@ -36,7 +37,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
-	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
+	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 || req.RenewalSubscriptionId < 0 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "参数错误"})
 		return
 	}
@@ -70,16 +71,9 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		return
 	}
 
-	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if count >= int64(plan.MaxPurchasePerUser) {
-			common.ApiErrorMsg(c, "已达到该套餐购买上限")
-			return
-		}
+	if err := model.ValidateSubscriptionPurchase(userId, plan, req.RenewalSubscriptionId); err != nil {
+		common.ApiError(c, err)
+		return
 	}
 
 	reference := "sub-creem-ref-" + randstr.String(6)
@@ -87,14 +81,15 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 
 	// create pending order first
 	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodCreem,
-		PaymentProvider: model.PaymentProviderCreem,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:                userId,
+		PlanId:                plan.Id,
+		RenewalSubscriptionId: req.RenewalSubscriptionId,
+		Money:                 plan.PriceAmount,
+		TradeNo:               referenceId,
+		PaymentMethod:         model.PaymentMethodCreem,
+		PaymentProvider:       model.PaymentProviderCreem,
+		CreateTime:            time.Now().Unix(),
+		Status:                common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})

@@ -52,7 +52,7 @@ import {
   formatResetPeriod,
   parseQuotaWindows,
 } from '../../lib'
-import type { PlanRecord } from '../../types'
+import type { PlanRecord, UserSubscription } from '../../types'
 import { ModelMultiplierSummary } from '../model-multiplier-summary'
 
 interface PaymentMethod {
@@ -69,6 +69,7 @@ interface Props {
   enableWaffoPancake?: boolean
   enableOnlineTopUp?: boolean
   epayMethods?: PaymentMethod[]
+  renewalSubscription?: UserSubscription
   purchaseLimit?: number
   purchaseCount?: number
   userQuota?: number
@@ -118,14 +119,20 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const userQuota = Math.max(0, Number(props.userQuota || 0))
   const allowBalancePay = plan.allow_balance_pay !== false
   const insufficientBalance = userQuota < balanceCost
+  const isRenewal = !!props.renewalSubscription
+  const purchaseRequest = {
+    plan_id: plan.id,
+    renewal_subscription_id: props.renewalSubscription?.id,
+  }
   const limitReached =
+    !isRenewal &&
     (props.purchaseLimit || 0) > 0 &&
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
 
   const handlePayStripe = async () => {
     setPaying(true)
     try {
-      const res = await paySubscriptionStripe({ plan_id: plan.id })
+      const res = await paySubscriptionStripe(purchaseRequest)
       if (res.message === 'success' && res.data?.pay_link) {
         window.open(res.data.pay_link, '_blank')
         toast.success(t('Payment page opened'))
@@ -147,7 +154,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const handlePayCreem = async () => {
     setPaying(true)
     try {
-      const res = await paySubscriptionCreem({ plan_id: plan.id })
+      const res = await paySubscriptionCreem(purchaseRequest)
       if (res.message === 'success' && res.data?.checkout_url) {
         window.open(res.data.checkout_url, '_blank')
         toast.success(t('Payment page opened'))
@@ -171,7 +178,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const handlePayWaffoPancake = async () => {
     setPaying(true)
     try {
-      const res = await paySubscriptionWaffoPancake({ plan_id: plan.id })
+      const res = await paySubscriptionWaffoPancake(purchaseRequest)
       if (res.message === 'success' && res.data?.checkout_url) {
         toast.success(t('Redirecting to payment page...'))
         window.location.href = res.data.checkout_url
@@ -201,7 +208,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
     setPaying(true)
     try {
       const res = await paySubscriptionEpay({
-        plan_id: plan.id,
+        ...purchaseRequest,
         payment_method: selectedEpayMethod,
       })
       if (res.message === 'success' && res.url) {
@@ -244,9 +251,13 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
     setPaying(true)
     try {
-      const res = await paySubscriptionBalance({ plan_id: plan.id })
+      const res = await paySubscriptionBalance(purchaseRequest)
       if (res.success) {
-        toast.success(t('Subscription purchased successfully'))
+        toast.success(
+          isRenewal
+            ? t('Subscription renewed successfully')
+            : t('Subscription purchased successfully')
+        )
         void props.onPurchaseSuccess?.()
         props.onOpenChange(false)
       } else {
@@ -270,7 +281,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
       title={
         <>
           <Crown className='h-5 w-5' />
-          {t('Purchase Subscription')}
+          {isRenewal ? t('Renew Subscription') : t('Purchase Subscription')}
         </>
       }
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
@@ -343,6 +354,27 @@ export function SubscriptionPurchaseDialog(props: Props) {
             <span className='text-primary text-lg font-bold'>¥{price}</span>
           </div>
         </div>
+
+        {isRenewal && (
+          <Alert>
+            <AlertDescription>
+              <p>
+                {t(
+                  'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
+                )}
+              </p>
+              <p>
+                {plan.quota_reset_period === 'never'
+                  ? t(
+                      'Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.'
+                    )
+                  : t(
+                      'Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.'
+                    )}
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {limitReached && (
           <Alert variant='destructive'>

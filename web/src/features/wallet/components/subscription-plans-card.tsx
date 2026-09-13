@@ -59,6 +59,7 @@ import {
 import type {
   PlanRecord,
   UserSubscriptionRecord,
+  UserSubscription,
 } from '@/features/subscriptions/types'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -120,6 +121,9 @@ export function SubscriptionPlansCard({
 
   const [purchaseOpen, setPurchaseOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanRecord | null>(null)
+
+  const [renewalSubscription, setRenewalSubscription] =
+    useState<UserSubscription>()
 
   const enableStripe = !!topupInfo?.enable_stripe_topup
   const enableCreem = !!topupInfo?.enable_creem_topup
@@ -209,6 +213,28 @@ export function SubscriptionPlansCard({
       const planId = sub?.subscription?.plan_id
       if (!planId) continue
       map.set(planId, (map.get(planId) || 0) + 1)
+    }
+    return map
+  }, [allSubscriptions])
+
+  const renewalByPlan = useMemo(() => {
+    const map = new Map<number, UserSubscription>()
+    for (const record of allSubscriptions) {
+      const sub = record.subscription
+      if (sub.status !== 'active' && sub.status !== 'expired') continue
+      const previous = map.get(sub.plan_id)
+      const active = sub.status === 'active' && sub.end_time > Date.now() / 1000
+      const previousActive =
+        previous?.status === 'active' && previous.end_time > Date.now() / 1000
+      if (
+        !previous ||
+        (active && !previousActive) ||
+        (active === !!previousActive &&
+          (sub.end_time > previous.end_time ||
+            (sub.end_time === previous.end_time && sub.id > previous.id)))
+      ) {
+        map.set(sub.plan_id, sub)
+      }
     }
     return map
   }, [allSubscriptions])
@@ -448,6 +474,22 @@ export function SubscriptionPlansCard({
                           isCancelled={isCancelled}
                         />
                       </div>
+                      {subscriptionPlan &&
+                        (subscription.status === 'active' ||
+                          subscription.status === 'expired') && (
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            className='mt-2'
+                            onClick={() => {
+                              setSelectedPlan({ plan: subscriptionPlan })
+                              setRenewalSubscription(subscription)
+                              setPurchaseOpen(true)
+                            }}
+                          >
+                            {t('Renew Subscription')}
+                          </Button>
+                        )}
                       <SubscriptionQuotaUsage
                         label={primaryQuotaLabel}
                         amountUsed={usedAmount}
@@ -490,7 +532,8 @@ export function SubscriptionPlansCard({
               const isPopular = index === 0 && plans.length > 1
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
-              const reached = limit > 0 && count >= limit
+              const renewal = renewalByPlan.get(plan.id)
+              const reached = !renewal && limit > 0 && count >= limit
               const quotaWindows = parseQuotaWindows(plan)
 
               const benefits = [
@@ -578,10 +621,11 @@ export function SubscriptionPlansCard({
                         className='w-full'
                         onClick={() => {
                           setSelectedPlan(p)
+                          setRenewalSubscription(renewal)
                           setPurchaseOpen(true)
                         }}
                       >
-                        {t('Subscribe Now')}
+                        {renewal ? t('Renew Subscription') : t('Subscribe Now')}
                       </Button>
                     )}
                   </CardContent>
@@ -605,6 +649,7 @@ export function SubscriptionPlansCard({
           }
         }}
         plan={selectedPlan}
+        renewalSubscription={renewalSubscription}
         enableStripe={enableStripe}
         enableCreem={enableCreem}
         enableWaffoPancake={enableWaffoPancake}

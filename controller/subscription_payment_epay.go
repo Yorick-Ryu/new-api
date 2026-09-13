@@ -17,8 +17,9 @@ import (
 )
 
 type SubscriptionEpayPayRequest struct {
-	PlanId        int    `json:"plan_id"`
-	PaymentMethod string `json:"payment_method"`
+	RenewalSubscriptionId int    `json:"renewal_subscription_id"`
+	PlanId                int    `json:"plan_id"`
+	PaymentMethod         string `json:"payment_method"`
 }
 
 func SubscriptionRequestEpay(c *gin.Context) {
@@ -27,7 +28,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	var req SubscriptionEpayPayRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
+	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 || req.RenewalSubscriptionId < 0 {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
@@ -51,16 +52,9 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	userId := c.GetInt("id")
-	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if count >= int64(plan.MaxPurchasePerUser) {
-			common.ApiErrorMsg(c, "已达到该套餐购买上限")
-			return
-		}
+	if err := model.ValidateSubscriptionPurchase(userId, plan, req.RenewalSubscriptionId); err != nil {
+		common.ApiError(c, err)
+		return
 	}
 
 	callBackAddress := service.GetCallbackAddress()
@@ -85,14 +79,15 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         tradeNo,
-		PaymentMethod:   req.PaymentMethod,
-		PaymentProvider: model.PaymentProviderEpay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:                userId,
+		PlanId:                plan.Id,
+		RenewalSubscriptionId: req.RenewalSubscriptionId,
+		Money:                 plan.PriceAmount,
+		TradeNo:               tradeNo,
+		PaymentMethod:         req.PaymentMethod,
+		PaymentProvider:       model.PaymentProviderEpay,
+		CreateTime:            time.Now().Unix(),
+		Status:                common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		common.ApiErrorMsg(c, "创建订单失败")

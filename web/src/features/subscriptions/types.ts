@@ -127,6 +127,7 @@ export interface PlanPayload {
 
 export interface SubscriptionPayRequest {
   plan_id: number
+  renewal_subscription_id?: number
   payment_method?: string
 }
 

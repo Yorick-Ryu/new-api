@@ -17,7 +17,8 @@ import (
 )
 
 type SubscriptionWaffoPancakePayRequest struct {
-	PlanId int `json:"plan_id"`
+	RenewalSubscriptionId int `json:"renewal_subscription_id"`
+	PlanId                int `json:"plan_id"`
 }
 
 func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
@@ -26,7 +27,7 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 	}
 
 	var req SubscriptionWaffoPancakePayRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
+	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 || req.RenewalSubscriptionId < 0 {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
@@ -63,16 +64,9 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 
-	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if count >= int64(plan.MaxPurchasePerUser) {
-			common.ApiErrorMsg(c, "已达到该套餐购买上限")
-			return
-		}
+	if err := model.ValidateSubscriptionPurchase(userId, plan, req.RenewalSubscriptionId); err != nil {
+		common.ApiError(c, err)
+		return
 	}
 
 	// WAFFO_PANCAKE_SUB- prefix (vs. wallet's WAFFO_PANCAKE-) drives webhook
@@ -80,14 +74,15 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 	tradeNo := fmt.Sprintf("WAFFO_PANCAKE_SUB-%d-%d-%s", userId, time.Now().UnixMilli(), randstr.String(6))
 
 	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         tradeNo,
-		PaymentMethod:   model.PaymentMethodWaffoPancake,
-		PaymentProvider: model.PaymentProviderWaffoPancake,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:                userId,
+		PlanId:                plan.Id,
+		RenewalSubscriptionId: req.RenewalSubscriptionId,
+		Money:                 plan.PriceAmount,
+		TradeNo:               tradeNo,
+		PaymentMethod:         model.PaymentMethodWaffoPancake,
+		PaymentProvider:       model.PaymentProviderWaffoPancake,
+		CreateTime:            time.Now().Unix(),
+		Status:                common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 订阅订单创建失败 user_id=%d plan_id=%d trade_no=%s error=%q", userId, plan.Id, tradeNo, err.Error()))

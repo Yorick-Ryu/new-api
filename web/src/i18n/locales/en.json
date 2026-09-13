@@ -5396,6 +5396,11 @@
     "Subscription model group overrides": "Subscription model group overrides",
     "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.",
     "Override group ratio": "Override group ratio",
-    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: group ratio {{multiplier}}× with this subscription"
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: group ratio {{multiplier}}× with this subscription",
+    "Renew Subscription": "Renew Subscription",
+    "Subscription renewed successfully": "Subscription renewed successfully",
+    "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.",
+    "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.",
+    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately."
   }
 }

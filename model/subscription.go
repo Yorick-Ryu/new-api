@@ -224,6 +224,9 @@ type SubscriptionOrder struct {
 	PlanId int     `json:"plan_id" gorm:"index"`
 	Money  float64 `json:"money"`
 
+	// Original subscription selected at checkout; zero means a new purchase.
+	RenewalSubscriptionId int `json:"renewal_subscription_id" gorm:"index;default:0"`
+
 	TradeNo         string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string `json:"payment_provider" gorm:"type:varchar(50);default:''"`
@@ -500,18 +503,15 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if userId <= 0 {
 		return nil, errors.New("invalid user id")
 	}
-	if plan.MaxPurchasePerUser > 0 {
-		var count int64
-		if err := tx.Model(&UserSubscription{}).
-			Where("user_id = ? AND plan_id = ?", userId, plan.Id).
-			Count(&count).Error; err != nil {
-			return nil, err
-		}
-		if count >= int64(plan.MaxPurchasePerUser) {
-			return nil, errors.New("已达到该套餐购买上限")
-		}
+	if err := validateSubscriptionPurchaseTx(tx, userId, plan, 0); err != nil {
+		return nil, err
 	}
-	nowUnix := GetDBTimestamp()
+	return createUserSubscriptionFromPlanTx(tx, userId, plan, source)
+}
+
+// Caller validates the purchase limit or an owned subscription renewal first.
+func createUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
+	nowUnix := getDBTimestampTx(tx)
 	now := time.Unix(nowUnix, 0)
 	endUnix, err := calcPlanEndTime(now, plan)
 	if err != nil {
@@ -575,7 +575,7 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 	}
 }
 
-// Complete a subscription order (idempotent). Creates a UserSubscription snapshot from the plan.
+// Complete a subscription order (idempotent). Creates or renews the subscription selected at checkout.
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).
 func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string) error {
@@ -590,6 +590,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
+	var logRenewalSubscriptionId int
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
@@ -605,14 +606,14 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if order.Status != common.TopUpStatusPending {
 			return ErrSubscriptionOrderStatusInvalid
 		}
-		plan, err := GetSubscriptionPlanById(order.PlanId)
+		plan, err := getSubscriptionPlanByIdTx(tx, order.PlanId)
 		if err != nil {
 			return err
 		}
 		if !plan.Enabled {
 			// still allow completion for already purchased orders
 		}
-		subscription, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
+		subscription, err := fulfillSubscriptionPurchaseTx(tx, order.UserId, plan, "order", order.RenewalSubscriptionId)
 		if err != nil {
 			return err
 		}
@@ -637,6 +638,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
+		logRenewalSubscriptionId = order.RenewalSubscriptionId
 		return nil
 	})
 	if err != nil {
@@ -647,6 +649,9 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
+		if logRenewalSubscriptionId > 0 {
+			msg = fmt.Sprintf("订阅续费成功，原订阅: %d，套餐: %s，支付金额: %.2f，支付方式: %s", logRenewalSubscriptionId, logPlanTitle, logMoney, logPaymentMethod)
+		}
 		RecordLog(logUserId, LogTypeTopup, msg)
 	}
 	return nil
@@ -754,8 +759,8 @@ func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 	return int(quota), nil
 }
 
-// PurchaseSubscriptionWithBalance creates a subscription by deducting the user's wallet quota.
-func PurchaseSubscriptionWithBalance(userId int, planId int) error {
+// PurchaseSubscriptionWithBalance purchases or renews a subscription using wallet quota.
+func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscriptionId int) error {
 	if userId <= 0 || planId <= 0 {
 		return errors.New("invalid userId or planId")
 	}
@@ -798,7 +803,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			}
 		}
 
-		subscription, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, PaymentMethodBalance)
+		subscription, err := fulfillSubscriptionPurchaseTx(tx, userId, plan, PaymentMethodBalance, renewalSubscriptionId)
 		if err != nil {
 			return err
 		}
@@ -806,16 +811,17 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 		now := common.GetTimestamp()
 		tradeNo := fmt.Sprintf("SUBBALUSR%dNO%s%d", userId, common.GetRandomString(6), time.Now().UnixNano())
 		order := &SubscriptionOrder{
-			UserId:          userId,
-			PlanId:          plan.Id,
-			Money:           plan.PriceAmount,
-			TradeNo:         tradeNo,
-			PaymentMethod:   PaymentMethodBalance,
-			PaymentProvider: PaymentProviderBalance,
-			Status:          common.TopUpStatusSuccess,
-			CreateTime:      now,
-			CompleteTime:    now,
-			ProviderPayload: fmt.Sprintf("charged_quota=%d", requiredQuota),
+			UserId:                userId,
+			PlanId:                plan.Id,
+			Money:                 plan.PriceAmount,
+			TradeNo:               tradeNo,
+			PaymentMethod:         PaymentMethodBalance,
+			PaymentProvider:       PaymentProviderBalance,
+			Status:                common.TopUpStatusSuccess,
+			CreateTime:            now,
+			CompleteTime:          now,
+			ProviderPayload:       fmt.Sprintf("charged_quota=%d", requiredQuota),
+			RenewalSubscriptionId: renewalSubscriptionId,
 		}
 		if err := tx.Create(order).Error; err != nil {
 			return err
@@ -842,6 +848,9 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 		refreshSubscriptionUserGroupCache(userId, "subscription balance purchase")
 	}
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
+	if renewalSubscriptionId > 0 {
+		msg = fmt.Sprintf("使用余额续费订阅成功，原订阅: %d，套餐: %s，支付金额: %.2f，扣除额度: %d", renewalSubscriptionId, logPlanTitle, logMoney, chargedQuota)
+	}
 	RecordLog(userId, LogTypeTopup, msg)
 	return nil
 }

@@ -5396,6 +5396,11 @@
     "Subscription model group overrides": "Ghi đè hệ số nhóm theo mô hình",
     "When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.": "Khi gói đăng ký này thanh toán cho mô hình đã chỉ định, giá trị này thay thế hệ số nhóm. Giá mô hình, hệ số của các mô hình khác và thanh toán bằng ví không thay đổi.",
     "Override group ratio": "Hệ số ghi đè",
-    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: hệ số nhóm {{multiplier}}× trong gói đăng ký này"
+    "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: hệ số nhóm {{multiplier}}× trong gói đăng ký này",
+    "Renew Subscription": "Gia hạn gói",
+    "Subscription renewed successfully": "Gia hạn gói thành công",
+    "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "Gói còn hiệu lực được gia hạn từ ngày hết hạn hiện tại. Nếu đã hết hạn, gói mới bắt đầu khi thanh toán hoàn tất.",
+    "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "Hạn mức không đặt lại được cộng vào phần còn lại. Mức sử dụng hiện tại và các khoảng hạn mức bổ sung được giữ nguyên.",
+    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "Giữ nguyên mức sử dụng hiện tại và chu kỳ đặt lại. Gia hạn không đặt lại hạn mức ngay lập tức."
   }
 }
