@@ -167,7 +167,7 @@ export function AccountCreditsCard() {
             aria-label={t('My Subscriptions')}
             tabIndex={0}
             style={{ maxHeight: firstSubscriptionHeight }}
-            className='focus-visible:ring-ring mt-3 max-h-64 space-y-3 overflow-y-auto overscroll-contain rounded-xl pr-1 outline-none focus-visible:ring-2'
+            className='focus-visible:ring-ring mt-3 max-h-64 space-y-3 overflow-y-auto rounded-xl pr-1 outline-none focus-visible:ring-2'
           >
             {activeSubscriptions.map((record) => {
               const subscription = record.subscription
