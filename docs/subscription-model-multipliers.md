@@ -26,6 +26,8 @@ new override snapshot. Older records/tasks retain their historical multiplier
 semantics for settlement/refunds. No existing balance or quota counter changes.
 Usage logs identify new overrides with `subscription_group_ratio` and retain
 `subscription_consumed` as the actual deduction.
+In log details, Total Cost uses the captured original group ratio when available;
+Final Consumed shows the actual subscription deduction after the override.
 
 Validation: affected Go packages and subscription/frontend unit tests;
 frontend typecheck, changed-file lint and production build.

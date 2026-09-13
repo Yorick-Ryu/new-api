@@ -391,9 +391,28 @@ function BillingBreakdown(props: {
     })
   }
 
+  let totalQuota = log.quota
+  const subscriptionGR = other.subscription_group_ratio
+  const originalGR = other.subscription_original_group_ratio
+  if (
+    other.billing_source === 'subscription' &&
+    subscriptionGR != null &&
+    Number.isFinite(subscriptionGR) &&
+    subscriptionGR > 0 &&
+    originalGR != null &&
+    Number.isFinite(originalGR) &&
+    originalGR >= 0
+  ) {
+    // The recorded charge already includes the subscription group override.
+    // Reconstruct this display amount using the original group snapshot; keep
+    // the persisted deduction in Subscription Billing below.
+    const originalQuota = (log.quota / subscriptionGR) * originalGR
+    if (Number.isFinite(originalQuota)) totalQuota = originalQuota
+  }
+
   rows.push({
     label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    value: formatLogQuota(totalQuota),
   })
 
   if (rows.length === 0) return null

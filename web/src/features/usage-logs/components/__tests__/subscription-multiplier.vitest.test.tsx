@@ -137,10 +137,10 @@ it.each([1, 2, 0.5])(
 )
 
 it.each([
-  { group: 1, override: 2 },
-  { group: 3, override: 0.5 },
-  { group: 0.5, override: 2 },
-  { group: 0, override: 2 },
+  { group: 1, override: 2, originalQuota: 537 },
+  { group: 3, override: 0.5, originalQuota: 6444 },
+  { group: 0.5, override: 2, originalQuota: 268.5 },
+  { group: 0, override: 2, originalQuota: 0 },
 ])(
   'shows original group $group and subscription consumption $override with matching monospace typography',
   (ratios) => {
@@ -181,11 +181,113 @@ it.each([
         .nextElementSibling?.classList.contains('font-mono')
     ).toBe(true)
     expect(screen.queryByText('Override group ratio')).toBeNull()
+    expect(screen.getByText('Total Cost').parentElement?.textContent).toBe(
+      `Total Cost${formatLogQuota(ratios.originalQuota)}`
+    )
     expect(
       screen.getByText('Final Consumed').parentElement?.textContent
     ).toContain(formatLogQuota(1074))
   }
 )
+
+it('shows the original group cost above the doubled subscription deduction for cached dynamic pricing', () => {
+  const log = usageLogSchema.parse({
+    id: 1,
+    user_id: 1,
+    created_at: 1789144580,
+    type: 2,
+    content: '',
+    model_name: 'gpt-6-astra',
+    prompt_tokens: 59995,
+    completion_tokens: 148,
+    quota: 69366,
+    other: JSON.stringify({
+      billing_mode: 'tiered_expr',
+      expr_b64: btoa(
+        'len <= 272000 ? tier("standard", p * 10 + c * 50 + cr * 1 + cc * 12.5) : tier("long_context", p * 20 + c * 75 + cr * 2 + cc * 25)'
+      ),
+      matched_tier: 'standard',
+      cache_tokens: 59776,
+      billing_source: 'subscription',
+      group_ratio: 2,
+      user_group_ratio: -1,
+      subscription_original_group_ratio: 1,
+      subscription_group_ratio: 2,
+      subscription_consumed: 69366,
+      subscription_pre_consumed: 522390,
+      subscription_post_delta: -453024,
+    }),
+  })
+  render(
+    <I18nextProvider i18n={i18n}>
+      <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+    </I18nextProvider>
+  )
+  expect(screen.getByText('Group Ratio').parentElement?.textContent).toBe(
+    'Group Ratio1.0000×'
+  )
+  expect(screen.getByText('Total Cost').parentElement?.textContent).toBe(
+    'Total Cost$0.069366'
+  )
+  expect(
+    screen.getByText('Consumption multiplier').parentElement?.textContent
+  ).toBe('Consumption multiplier2.0000×')
+  expect(screen.getByText('Final Consumed').parentElement?.textContent).toBe(
+    'Final Consumed$0.138732'
+  )
+})
+
+it.each([
+  {
+    name: 'wallet payments',
+    other: { billing_source: 'wallet', group_ratio: 2 },
+  },
+  {
+    name: 'legacy subscription multipliers',
+    other: {
+      billing_source: 'subscription',
+      group_ratio: 1,
+      subscription_model_multiplier: 2,
+      subscription_consumed: 138732,
+    },
+  },
+  {
+    name: 'historical overrides without the original group snapshot',
+    other: {
+      billing_source: 'subscription',
+      group_ratio: 2,
+      subscription_group_ratio: 2,
+      subscription_consumed: 69366,
+    },
+  },
+  {
+    name: 'invalid override snapshots',
+    other: {
+      billing_source: 'subscription',
+      subscription_original_group_ratio: 1,
+      subscription_group_ratio: 0,
+      subscription_consumed: 69366,
+    },
+  },
+])('preserves recorded total cost for $name', ({ other }) => {
+  const log = usageLogSchema.parse({
+    id: 1,
+    user_id: 1,
+    created_at: 1789144580,
+    type: 2,
+    content: '',
+    quota: 69366,
+    other: JSON.stringify(other),
+  })
+  render(
+    <I18nextProvider i18n={i18n}>
+      <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+    </I18nextProvider>
+  )
+  expect(screen.getByText('Total Cost').parentElement?.textContent).toBe(
+    'Total Cost$0.138732'
+  )
+})
 
 it('does not present a historical subscription override as the original group ratio when its snapshot is absent', () => {
   const log = usageLogSchema.parse({
