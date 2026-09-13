@@ -48,8 +48,6 @@ import {
 import {
   formatDuration,
   formatPrimaryQuotaLabel,
-  formatQuotaWindowPeriod,
-  formatResetPeriod,
   parseQuotaWindows,
 } from '../../lib'
 import type { PlanRecord, UserSubscription } from '../../types'
@@ -311,20 +309,12 @@ export function SubscriptionPurchaseDialog(props: Props) {
               {formatDuration(plan, t)}
             </span>
           </div>
-          {formatResetPeriod(plan, t) !== t('No Reset') && (
-            <div className='flex justify-between'>
-              <span className='text-muted-foreground text-sm'>
-                {t('Reset Period')}
-              </span>
-              <span className='text-sm'>{formatResetPeriod(plan, t)}</span>
-            </div>
-          )}
           <div className='flex items-center justify-between'>
             <span className='text-muted-foreground text-sm'>
               {formatPrimaryQuotaLabel(plan, t)}
             </span>
             <span className='flex items-center gap-1 text-sm'>
-              <Package className='h-3.5 w-3.5' />
+              <Package aria-hidden='true' className='h-3.5 w-3.5' />
               {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
             </span>
           </div>
@@ -336,9 +326,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <span className='text-muted-foreground min-w-0 truncate text-sm'>
                 {window.name}
               </span>
-              <span className='shrink-0 text-sm'>
-                {formatQuota(window.amount_total)} /{' '}
-                {formatQuotaWindowPeriod(window, t)}
+              <span className='flex shrink-0 items-center gap-1 text-sm'>
+                <Package aria-hidden='true' className='h-3.5 w-3.5' />
+                {formatQuota(window.amount_total)}
               </span>
             </div>
           ))}
