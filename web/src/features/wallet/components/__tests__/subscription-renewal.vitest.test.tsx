@@ -35,6 +35,7 @@ import {
 import { api } from '@/lib/api'
 
 import { SubscriptionPlansCard } from '../subscription-plans-card'
+import { UserSubscriptionCard } from '../user-subscription-card'
 
 const i18n = createInstance()
 await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
@@ -88,7 +89,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
         <SubscriptionPlansCard topupInfo={null} userQuota={10000000} />
       </I18nextProvider>
     )
-    await screen.findByText('Monthly Pro')
+    await screen.findByRole('heading', { name: 'Monthly Pro', level: 4 })
     if (status === 'cancelled') {
       expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
       expect(
@@ -116,12 +117,20 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
     const header = article.querySelector('header')
     if (!header) throw new Error('Subscription header is missing')
-    const title = within(header).getByText('Monthly Pro · Subscription #7')
-    expect(title.classList.contains('text-sm')).toBe(true)
+    const title = within(header).getByRole('heading', {
+      name: 'Monthly Pro',
+      level: 3,
+    })
+    expect(title.classList.contains('text-[13px]')).toBe(true)
+    expect(
+      within(header)
+        .getByText('Subscription #7')
+        .classList.contains('text-[11px]')
+    ).toBe(true)
     expect(
       header
         .querySelector('[data-slot="status-badge"]')
-        ?.classList.contains('text-sm')
+        ?.classList.contains('text-[11px]')
     ).toBe(true)
     const renewalButton = within(header).getByRole('button', { name: 'Renew' })
     expect(renewalButton.classList.contains('bg-primary')).toBe(true)
@@ -188,7 +197,7 @@ it.each([undefined, false])(
         <SubscriptionPlansCard topupInfo={null} userQuota={10000000} />
       </I18nextProvider>
     )
-    await screen.findByText('Monthly Pro')
+    await screen.findByRole('heading', { name: 'Monthly Pro', level: 4 })
     expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
     expect(
       screen
@@ -207,3 +216,62 @@ it.each([undefined, false])(
     })
   }
 )
+
+it('keeps a long subscription title readable and lays out quota windows responsively', async () => {
+  const title =
+    'Monthly Pro with extended model access and additional hourly quota'
+  const onRenew = vi.fn()
+  const user = userEvent.setup()
+  const subscription: UserSubscription = {
+    id: 7,
+    user_id: 2,
+    plan_id: 1,
+    status: 'active',
+    start_time: 1700000000,
+    end_time: 2100000000,
+    amount_total: 1000,
+    amount_used: 350,
+  }
+  render(
+    <I18nextProvider i18n={i18n}>
+      <UserSubscriptionCard
+        plan={{ ...plan, title }}
+        record={{
+          subscription,
+          quota_windows: [
+            {
+              id: 3,
+              user_subscription_id: 7,
+              window_key: 'hourly',
+              name: 'Hourly quota',
+              period_unit: 'hour',
+              period_value: 1,
+              amount_total: 200,
+              amount_used: 50,
+              window_start: 1700000000,
+            },
+          ],
+        }}
+        onRenew={onRenew}
+      />
+    </I18nextProvider>
+  )
+  expect(
+    screen
+      .getByRole('heading', { name: title })
+      .classList.contains('wrap-anywhere')
+  ).toBe(true)
+  const hourly = screen.getByRole('progressbar', { name: 'Hourly quota' })
+  expect(hourly.getAttribute('aria-valuenow')).toBe('25')
+  expect(screen.getAllByRole('progressbar')).toHaveLength(2)
+  const quotaPanel = hourly.closest(
+    '[data-slot="subscription-quota-usage"]'
+  )?.parentElement
+  expect(quotaPanel?.classList.contains('grid-cols-1')).toBe(true)
+  expect(quotaPanel?.classList.contains('@xl:grid-cols-2')).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'Renew' }))
+  expect(onRenew).toHaveBeenCalledWith(
+    expect.objectContaining({ title }),
+    subscription
+  )
+})
