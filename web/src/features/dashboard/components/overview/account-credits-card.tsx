@@ -34,6 +34,7 @@ import {
 } from '@/features/subscriptions/lib/format'
 import { SubscriptionExpiry } from '@/features/wallet/components/subscription-expiry'
 import { SubscriptionQuotaUsage } from '@/features/wallet/components/subscription-quota-usage'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 export function AccountCreditsCard() {
@@ -176,41 +177,54 @@ export function AccountCreditsCard() {
               return (
                 <li
                   key={subscription.id}
-                  className='bg-background/60 min-w-0 rounded-xl border p-3 text-xs'
+                  className='bg-background/60 @container min-w-0 rounded-xl border p-3 text-xs'
                 >
                   <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1'>
-                    <h4 className='min-w-0 font-semibold wrap-anywhere'>
+                    <h4 className='min-w-0 text-[13px] font-semibold wrap-anywhere'>
                       {title}
                     </h4>
                     <SubscriptionExpiry
+                      className='text-[12px]'
                       endTime={subscription.end_time}
                       isActive
                     />
                   </div>
-                  <SubscriptionQuotaUsage
-                    label={
-                      plan ? formatPrimaryQuotaLabel(plan, t) : t('Main quota')
-                    }
-                    amountUsed={subscription.amount_used}
-                    amountTotal={subscription.amount_total}
-                    nextResetTime={subscription.next_reset_time}
-                    isActive
-                  />
-                  {(record.quota_windows ?? []).map((window) => (
+                  <div
+                    className={cn(
+                      'mt-3 grid grid-cols-1 gap-x-6 gap-y-3',
+                      (record.quota_windows?.length || 0) > 0 &&
+                        '@xl:grid-cols-2'
+                    )}
+                  >
                     <SubscriptionQuotaUsage
-                      key={window.window_key}
+                      variant='remaining'
                       label={
-                        window.name ||
-                        t('{{period}} quota', {
-                          period: formatQuotaWindowPeriod(window, t),
-                        })
+                        plan
+                          ? formatPrimaryQuotaLabel(plan, t)
+                          : t('Main quota')
                       }
-                      amountUsed={window.amount_used}
-                      amountTotal={window.amount_total}
-                      nextResetTime={window.next_reset_time}
+                      amountUsed={subscription.amount_used}
+                      amountTotal={subscription.amount_total}
+                      nextResetTime={subscription.next_reset_time}
                       isActive
                     />
-                  ))}
+                    {(record.quota_windows ?? []).map((window) => (
+                      <SubscriptionQuotaUsage
+                        variant='remaining'
+                        key={window.window_key}
+                        label={
+                          window.name ||
+                          t('{{period}} quota', {
+                            period: formatQuotaWindowPeriod(window, t),
+                          })
+                        }
+                        amountUsed={window.amount_used}
+                        amountTotal={window.amount_total}
+                        nextResetTime={window.next_reset_time}
+                        isActive
+                      />
+                    ))}
+                  </div>
                 </li>
               )
             })}
