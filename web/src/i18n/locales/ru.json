@@ -3885,6 +3885,7 @@
     "Require login to view rankings": "Требовать вход для просмотра рейтингов",
     "required": "обязателен",
     "Required": "Обязательно",
+    "Payable": "К оплате",
     "Required events:": "Обязательные события:",
     "Required provider, authentication, model, and group settings": "Обязательные настройки провайдера, аутентификации, моделей и групп",
     "Required to expose MjProxy-style image generation to end users.": "Необходимо для предоставления генерации изображений в стиле MjProxy конечным пользователям.",

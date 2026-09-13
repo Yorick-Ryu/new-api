@@ -50,6 +50,7 @@ import {
   formatPrimaryQuotaLabel,
   parseQuotaWindows,
 } from '../../lib'
+import { parseModelMultipliers } from '../../lib/model-multipliers'
 import type { PlanRecord, UserSubscription } from '../../types'
 import { ModelMultiplierSummary } from '../model-multiplier-summary'
 
@@ -118,6 +119,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const allowBalancePay = plan.allow_balance_pay !== false
   const insufficientBalance = userQuota < balanceCost
   const isRenewal = !!props.renewalSubscription
+  const hasModelMultipliers =
+    parseModelMultipliers(plan.model_multipliers).length > 0
   const renewalUnavailable = isRenewal && plan.allow_renewal !== true
   const purchaseRequest = {
     plan_id: plan.id,
@@ -340,7 +343,6 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <GroupBadge group={plan.upgrade_group} />
             </div>
           )}
-          <ModelMultiplierSummary value={plan.model_multipliers} />
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
@@ -348,23 +350,24 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </div>
         </div>
 
-        {isRenewal && (
+        {(isRenewal || hasModelMultipliers) && (
           <Alert>
-            <AlertDescription>
-              <p>
-                {t(
-                  'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
-                )}
-              </p>
-              <p>
-                {plan.quota_reset_period === 'never'
-                  ? t(
-                      'Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.'
-                    )
-                  : t(
-                      'Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.'
-                    )}
-              </p>
+            <AlertDescription className='space-y-2 [&_p:not(:last-child)]:mb-0'>
+              <ModelMultiplierSummary value={plan.model_multipliers} />
+              {isRenewal && (
+                <p>
+                  {t(
+                    'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
+                  )}{' '}
+                  {plan.quota_reset_period === 'never'
+                    ? t(
+                        'Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.'
+                      )
+                    : t(
+                        'Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.'
+                      )}
+                </p>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -386,38 +389,30 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </Alert>
         )}
 
-        <div className='flex flex-col gap-2 rounded-md border p-3'>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Required')}</span>
-            <span>{formatQuota(balanceCost)}</span>
-          </div>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Available')}</span>
-            <span>{formatQuota(userQuota)}</span>
-          </div>
-          {!allowBalancePay ? (
-            <Alert variant='destructive'>
-              <AlertDescription>
-                {t('This plan does not allow balance redemption')}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            insufficientBalance && (
+        {allowBalancePay && (
+          <div className='flex flex-col gap-2 rounded-md border p-3'>
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Payable')}</span>
+              <span>{formatQuota(balanceCost)}</span>
+            </div>
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Available')}</span>
+              <span>{formatQuota(userQuota)}</span>
+            </div>
+            {insufficientBalance && (
               <Alert variant='destructive'>
                 <AlertDescription>{t('Insufficient balance')}</AlertDescription>
               </Alert>
-            )
-          )}
-          <Button
-            variant='outline'
-            onClick={handlePayBalance}
-            disabled={
-              paymentDisabled || !allowBalancePay || insufficientBalance
-            }
-          >
-            {t('Pay with Balance')}
-          </Button>
-        </div>
+            )}
+            <Button
+              variant='outline'
+              onClick={handlePayBalance}
+              disabled={paymentDisabled || insufficientBalance}
+            >
+              {t('Pay with Balance')}
+            </Button>
+          </div>
+        )}
 
         {hasAnyPayment && (
           <div className='space-y-3'>

@@ -176,6 +176,31 @@ it('keeps balance renewal disabled when funds are insufficient', () => {
   expect(screen.getByRole('dialog').textContent).toContain(
     'Insufficient balance'
   )
+  expect(screen.getByText('Payable')).toBeDefined()
+})
+
+it('hides the balance payment section when the plan only allows online payment', () => {
+  render(
+    <I18nextProvider i18n={i18n}>
+      <SubscriptionPurchaseDialog
+        open
+        onOpenChange={() => {}}
+        plan={{ plan: { ...plan, allow_balance_pay: false } }}
+        renewalSubscription={subscription}
+        userQuota={10000000}
+        enableStripe
+      />
+    </I18nextProvider>
+  )
+  expect(screen.queryByText('Payable')).toBeNull()
+  expect(screen.queryByText('Available')).toBeNull()
+  expect(
+    screen.queryByText('This plan does not allow balance redemption')
+  ).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Pay with Balance' })).toBeNull()
+  expect(
+    screen.getByRole('button', { name: 'Stripe' }).hasAttribute('disabled')
+  ).toBe(false)
 })
 
 it('disables payment in an already-open renewal dialog when renewal is no longer allowed', () => {
