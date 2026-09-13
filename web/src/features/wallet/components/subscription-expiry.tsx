@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { formatSubscriptionTime } from '@/features/subscriptions/lib/format'
 import { cn } from '@/lib/utils'
 
 interface SubscriptionExpiryProps {
@@ -47,7 +48,7 @@ export function SubscriptionExpiry(props: SubscriptionExpiryProps) {
       <span className='whitespace-nowrap'>
         {label}{' '}
         <time dateTime={new Date(props.endTime * 1000).toISOString()}>
-          {new Date(props.endTime * 1000).toLocaleString()}
+          {formatSubscriptionTime(props.endTime)}
         </time>
       </span>
       {props.isActive && (

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Progress } from '@/components/ui/progress'
+import { formatSubscriptionTime } from '@/features/subscriptions/lib/format'
 import { formatQuota } from '@/lib/format'
 
 interface SubscriptionQuotaUsageProps {
@@ -83,7 +84,7 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
                   Number(props.nextResetTime) * 1000
                 ).toISOString()}
               >
-                {new Date(Number(props.nextResetTime) * 1000).toLocaleString()}
+                {formatSubscriptionTime(Number(props.nextResetTime))}
               </time>
             </span>
           )}
@@ -105,7 +106,7 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
       {props.isActive && Number(props.nextResetTime) > 0 && (
         <div className='text-muted-foreground mt-1'>
           {t('Next reset')}:{' '}
-          {new Date(Number(props.nextResetTime) * 1000).toLocaleString()}
+          {formatSubscriptionTime(Number(props.nextResetTime))}
         </div>
       )}
       {props.isActive && props.amountTotal > 0 && (

@@ -157,6 +157,11 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     expect(details.classList.contains('flex-wrap')).toBe(false)
     const expiry = details.querySelector('time')
     if (!expiry) throw new Error('Expiry must share the renewal button row')
+    expect(expiry.textContent).toMatch(/\d{1,2}:\d{2}/)
+    expect(expiry.textContent).not.toMatch(/\d{1,2}:\d{2}:\d{2}/)
+    expect(expiry.getAttribute('datetime')).toBe(
+      new Date(subscription.end_time * 1000).toISOString()
+    )
     expect(expiry.closest('p')?.classList.contains('text-[12px]')).toBe(true)
     expect(expiry.closest('p')?.classList.contains('text-[11px]')).toBe(false)
     expect(

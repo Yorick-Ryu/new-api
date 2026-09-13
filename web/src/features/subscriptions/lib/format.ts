@@ -82,6 +82,16 @@ export function formatTimestamp(ts: number): string {
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
 }
 
+export function formatSubscriptionTime(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function parseQuotaWindows(
   plan: Partial<SubscriptionPlan>
 ): SubscriptionQuotaWindowConfig[] {

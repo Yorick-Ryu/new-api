@@ -59,6 +59,8 @@ it.each([
         ?.classList.contains('bg-primary')
     ).toBe(true)
     const reset = screen.getByText(/Next reset:/)
+    expect(reset.textContent).toMatch(/\d{1,2}:\d{2}/)
+    expect(reset.textContent).not.toMatch(/\d{1,2}:\d{2}:\d{2}/)
     expect(
       progress.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
