@@ -50,7 +50,6 @@ import {
   formatPrimaryQuotaLabel,
   parseQuotaWindows,
 } from '../../lib'
-import { parseModelMultipliers } from '../../lib/model-multipliers'
 import type { PlanRecord, UserSubscription } from '../../types'
 import { ModelMultiplierSummary } from '../model-multiplier-summary'
 
@@ -119,8 +118,6 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const allowBalancePay = plan.allow_balance_pay !== false
   const insufficientBalance = userQuota < balanceCost
   const isRenewal = !!props.renewalSubscription
-  const hasModelMultipliers =
-    parseModelMultipliers(plan.model_multipliers).length > 0
   const renewalUnavailable = isRenewal && plan.allow_renewal !== true
   const purchaseRequest = {
     plan_id: plan.id,
@@ -343,6 +340,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <GroupBadge group={plan.upgrade_group} />
             </div>
           )}
+          <ModelMultiplierSummary value={plan.model_multipliers} />
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
@@ -350,24 +348,21 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </div>
         </div>
 
-        {(isRenewal || hasModelMultipliers) && (
+        {isRenewal && (
           <Alert>
-            <AlertDescription className='space-y-2 [&_p:not(:last-child)]:mb-0'>
-              <ModelMultiplierSummary value={plan.model_multipliers} />
-              {isRenewal && (
-                <p>
-                  {t(
-                    'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
-                  )}{' '}
-                  {plan.quota_reset_period === 'never'
-                    ? t(
-                        'Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.'
-                      )
-                    : t(
-                        'Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.'
-                      )}
-                </p>
-              )}
+            <AlertDescription>
+              <p>
+                {t(
+                  'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
+                )}{' '}
+                {plan.quota_reset_period === 'never'
+                  ? t(
+                      'Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.'
+                    )
+                  : t(
+                      'Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.'
+                    )}
+              </p>
             </AlertDescription>
           </Alert>
         )}
