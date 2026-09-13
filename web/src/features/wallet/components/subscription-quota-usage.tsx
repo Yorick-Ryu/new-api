@@ -43,7 +43,10 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
 
   if (props.variant === 'remaining') {
     return (
-      <div data-slot='subscription-quota-usage' className='min-w-0'>
+      <div
+        data-slot='subscription-quota-usage'
+        className='border-border/60 rounded-xl border p-3'
+      >
         <p className='text-muted-foreground text-[12px] font-medium'>
           {props.label}
         </p>

@@ -49,10 +49,6 @@ it.each([
     expect(screen.getByText(`${remaining}%`)).toBeTruthy()
     expect(screen.getByText('Remaining')).toBeTruthy()
     const progress = screen.getByRole('progressbar', { name: 'Weekly quota' })
-    const quota = progress.closest('[data-slot="subscription-quota-usage"]')
-    expect(quota?.classList.contains('border')).toBe(false)
-    expect(quota?.classList.contains('rounded-xl')).toBe(false)
-    expect(quota?.classList.contains('p-3')).toBe(false)
     expect(progress.getAttribute('aria-valuenow')).toBe(String(remaining))
     expect(progress.getAttribute('aria-valuetext')).toBe(
       `${remaining}% Remaining`
