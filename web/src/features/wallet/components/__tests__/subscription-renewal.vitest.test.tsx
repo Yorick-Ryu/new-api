@@ -132,6 +132,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     })
     const planCard = planButton.closest('[data-slot="card"]')
     if (!planCard) throw new Error('Subscription plan card is missing')
+    expect(planCard.classList.contains('py-0')).toBe(true)
     expect(planCard.querySelector('[data-slot="separator"]')).toBeNull()
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
     const header = article.querySelector('header')
