@@ -5405,6 +5405,8 @@
     "Renew": "Renew",
     "Allow renewal": "Allow renewal",
     "Refresh subscriptions": "Refresh subscriptions",
-    "This plan does not allow renewal": "This plan does not allow renewal"
+    "This plan does not allow renewal": "This plan does not allow renewal",
+    "With this subscription, {{multipliers}}": "With this subscription, {{multipliers}}",
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} multiplier is {{multiplier}}×"
   }
 }

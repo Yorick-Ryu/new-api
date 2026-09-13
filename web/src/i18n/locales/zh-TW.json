@@ -5405,6 +5405,8 @@
     "Renew": "續費",
     "Allow renewal": "允許續費",
     "Refresh subscriptions": "重新整理訂閱",
-    "This plan does not allow renewal": "此方案不允許續費"
+    "This plan does not allow renewal": "此方案不允許續費",
+    "With this subscription, {{multipliers}}": "訂閱內 {{multipliers}}",
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} 倍率為 {{multiplier}}×"
   }
 }

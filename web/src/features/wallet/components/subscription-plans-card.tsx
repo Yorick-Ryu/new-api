@@ -462,7 +462,7 @@ export function SubscriptionPlansCard({
                   >
                     <header className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
                       <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                        <span className='font-semibold wrap-anywhere'>
+                        <span className='text-sm font-semibold wrap-anywhere'>
                           {planTitle
                             ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
                             : `${t('Subscription')} #${subscription?.id}`}

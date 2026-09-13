@@ -5405,6 +5405,8 @@
     "Renew": "更新",
     "Allow renewal": "更新を許可",
     "Refresh subscriptions": "プランを更新表示",
-    "This plan does not allow renewal": "このプランは更新できません"
+    "This plan does not allow renewal": "このプランは更新できません",
+    "With this subscription, {{multipliers}}": "このサブスクリプションでは、{{multipliers}}",
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} の倍率は {{multiplier}}×"
   }
 }

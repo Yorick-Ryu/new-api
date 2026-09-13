@@ -26,18 +26,13 @@ export function ModelMultiplierSummary(props: { value?: string }) {
   if (rows.length === 0) {
     return null
   }
+  const multipliers = rows
+    .map((row) => t('{{model}} multiplier is {{multiplier}}×', row))
+    .join(t('，'))
 
   return (
-    <div className='space-y-1 text-xs'>
-      <p className='font-medium'>{t('Subscription model group overrides')}</p>
-      {rows.map((row) => (
-        <p key={row.model} className='text-muted-foreground break-words'>
-          {t(
-            '{{model}}: group ratio {{multiplier}}× with this subscription',
-            row
-          )}
-        </p>
-      ))}
-    </div>
+    <p className='text-muted-foreground text-xs break-words'>
+      {t('With this subscription, {{multipliers}}', { multipliers })}
+    </p>
   )
 }

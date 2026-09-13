@@ -5405,6 +5405,8 @@
     "Renew": "Продлить",
     "Allow renewal": "Разрешить продление",
     "Refresh subscriptions": "Обновить подписки",
-    "This plan does not allow renewal": "Этот план нельзя продлить"
+    "This plan does not allow renewal": "Этот план нельзя продлить",
+    "With this subscription, {{multipliers}}": "В этой подписке {{multipliers}}",
+    "{{model}} multiplier is {{multiplier}}×": "{{model}}: множитель {{multiplier}}×"
   }
 }

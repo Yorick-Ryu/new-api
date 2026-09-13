@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
 import { useForm, type Resolver } from 'react-hook-form'
@@ -25,6 +25,8 @@ import { I18nextProvider } from 'react-i18next'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Form } from '@/components/ui/form'
+import en from '@/i18n/locales/en.json'
+import zh from '@/i18n/locales/zh.json'
 
 import {
   formValuesToPlanPayload,
@@ -109,20 +111,38 @@ describe('subscription model multiplier editor', () => {
     )
   })
 
-  it('shows buyers the subscription group override and hides the section for an unconfigured plan', () => {
+  it('summarizes single and multiple model rates in one localized sentence and hides empty settings', async () => {
+    const summaryI18n = createInstance()
+    await summaryI18n.init({
+      lng: 'en',
+      resources: { en, zh },
+      interpolation: { escapeValue: false },
+    })
     const view = render(
-      <I18nextProvider i18n={i18n}>
+      <I18nextProvider i18n={summaryI18n}>
         <ModelMultiplierSummary value='{"gpt-6-astra":2}' />
       </I18nextProvider>
     )
     expect(
-      screen.getByText('gpt-6-astra: group ratio 2× with this subscription')
+      screen.getByText('With this subscription, gpt-6-astra multiplier is 2×')
     ).toBeTruthy()
+    expect(screen.queryByText('Subscription model group overrides')).toBeNull()
+    await act(() => summaryI18n.changeLanguage('zh'))
+    expect(screen.getByText('订阅内 gpt-6-astra 倍率为 2×')).toBeTruthy()
     view.rerender(
-      <I18nextProvider i18n={i18n}>
+      <I18nextProvider i18n={summaryI18n}>
+        <ModelMultiplierSummary value='{"gpt-6-astra":2,"gpt-5.6-sol":1.2}' />
+      </I18nextProvider>
+    )
+    expect(
+      screen.getByText('订阅内 gpt-6-astra 倍率为 2×，gpt-5.6-sol 倍率为 1.2×')
+    ).toBeTruthy()
+    expect(screen.queryByText('模型分组倍率覆盖')).toBeNull()
+    view.rerender(
+      <I18nextProvider i18n={summaryI18n}>
         <ModelMultiplierSummary value='{}' />
       </I18nextProvider>
     )
-    expect(screen.queryByText('Subscription model group overrides')).toBeNull()
+    expect(view.container.textContent).toBe('')
   })
 })

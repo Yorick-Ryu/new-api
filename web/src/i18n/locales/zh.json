@@ -5405,6 +5405,8 @@
     "Renew": "续费",
     "Allow renewal": "允许续费",
     "Refresh subscriptions": "刷新订阅",
-    "This plan does not allow renewal": "该套餐不允许续费"
+    "This plan does not allow renewal": "该套餐不允许续费",
+    "With this subscription, {{multipliers}}": "订阅内 {{multipliers}}",
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} 倍率为 {{multiplier}}×"
   }
 }

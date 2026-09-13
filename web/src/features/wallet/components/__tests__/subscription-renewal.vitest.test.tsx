@@ -116,6 +116,13 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
     const header = article.querySelector('header')
     if (!header) throw new Error('Subscription header is missing')
+    const title = within(header).getByText('Monthly Pro · Subscription #7')
+    expect(title.classList.contains('text-sm')).toBe(true)
+    expect(
+      header
+        .querySelector('[data-slot="status-badge"]')
+        ?.classList.contains('text-sm')
+    ).toBe(true)
     const renewalButton = within(header).getByRole('button', { name: 'Renew' })
     expect(renewalButton.classList.contains('bg-primary')).toBe(true)
     expect(header.classList.contains('flex')).toBe(true)
