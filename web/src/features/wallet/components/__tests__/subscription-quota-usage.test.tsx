@@ -103,8 +103,8 @@ describe('subscription quota usage', () => {
     assert.match(rows[0].textContent || '', /5 小时额度.*0%/s)
     assert.match(rows[1].textContent || '', /每周额度.*0%/s)
     assert.doesNotMatch(rows[1].textContent || '', /1 周/)
-    assert.match(rows[0].textContent || '', /下次重置/)
-    assert.doesNotMatch(container.textContent || '', /下一次重置/)
+    assert.match(rows[0].textContent || '', /重置时间/)
+    assert.doesNotMatch(container.textContent || '', /下次重置|下一次重置/)
     assert.equal(rows[1].classList.contains('border-t'), false)
     assert.equal(container.querySelectorAll('[role="progressbar"]').length, 2)
 
