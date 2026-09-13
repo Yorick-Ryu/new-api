@@ -285,10 +285,7 @@ export function SubscriptionPlansCard({
         contentClassName='space-y-4 sm:space-y-5'
       >
         {/* My subscriptions & billing preference */}
-        <section
-          aria-label={t('My Subscriptions')}
-          className='rounded-xl border p-3 sm:p-4'
-        >
+        <section aria-label={t('My Subscriptions')} className='min-w-0'>
           <div className='flex flex-wrap items-center justify-between gap-2.5 sm:gap-3'>
             <div className='flex min-w-0 flex-wrap items-center gap-2'>
               <span className='text-sm font-medium'>
@@ -415,7 +412,7 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
-            <div className='mt-3 max-h-64 space-y-3 overflow-y-auto pr-1'>
+            <div className='mt-3 max-h-[32rem] divide-y overflow-y-auto rounded-xl border'>
               {allSubscriptions.map((sub) => {
                 const subscription = sub.subscription
                 const totalAmount = Number(subscription?.amount_total || 0)
@@ -464,7 +461,7 @@ export function SubscriptionPlansCard({
                   <article
                     key={subscription?.id}
                     aria-label={`${planTitle || t('Subscription')} #${subscription.id}`}
-                    className='bg-background @container rounded-md border p-3 text-xs'
+                    className='bg-background @container p-3 text-xs sm:p-4'
                   >
                     <header className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
                       <div className='flex min-w-0 flex-wrap items-center gap-2'>

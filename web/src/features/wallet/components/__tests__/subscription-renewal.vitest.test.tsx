@@ -135,6 +135,9 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     expect(planCard.classList.contains('py-0')).toBe(true)
     expect(planCard.querySelector('[data-slot="separator"]')).toBeNull()
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
+    expect(article.classList.contains('border')).toBe(false)
+    expect(article.parentElement?.classList.contains('border')).toBe(true)
+    expect(article.parentElement?.classList.contains('rounded-xl')).toBe(true)
     const header = article.querySelector('header')
     if (!header) throw new Error('Subscription header is missing')
     const title = within(header).getByText('Monthly Pro')
@@ -173,6 +176,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
       '[data-slot="subscription-quota-usage"]'
     )
     expect(quotaRows).toHaveLength(2)
+    expect(quotaRows[0].classList.contains('border')).toBe(true)
     const quotaLayout = quotaRows[0].parentElement
     expect(quotaLayout?.classList.contains('grid-cols-1')).toBe(true)
     expect(quotaLayout?.classList.contains('@xl:grid-cols-2')).toBe(true)
@@ -185,6 +189,8 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     }
     // Neither the summary nor the plan action needs a separator.
     const summary = screen.getByRole('region', { name: 'My Subscriptions' })
+    expect(summary.classList.contains('border')).toBe(false)
+    expect(summary.classList.contains('p-3')).toBe(false)
     expect(summary?.querySelector('[data-slot="separator"]')).toBeNull()
     await user.click(planButton)
     const dialog = await screen.findByRole('dialog')
