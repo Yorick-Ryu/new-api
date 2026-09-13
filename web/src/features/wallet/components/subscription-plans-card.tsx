@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TitledCard } from '@/components/ui/titled-card'
 import {
@@ -461,7 +460,7 @@ export function SubscriptionPlansCard({
                     aria-label={`${planTitle || t('Subscription')} #${subscription.id}`}
                     className='bg-background rounded-md border p-3 text-xs'
                   >
-                    <header className='grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1'>
+                    <header className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
                       <div className='flex min-w-0 flex-wrap items-center gap-2'>
                         <span className='font-semibold wrap-anywhere'>
                           {planTitle
@@ -470,28 +469,28 @@ export function SubscriptionPlansCard({
                         </span>
                         {statusBadge}
                       </div>
-                      {subscriptionPlan &&
-                        subscriptionPlan.allow_renewal === true &&
-                        (subscription.status === 'active' ||
-                          subscription.status === 'expired') && (
-                          <Button
-                            size='sm'
-                            className='col-start-2 row-start-1 justify-self-end'
-                            onClick={() => {
-                              setSelectedPlan({ plan: subscriptionPlan })
-                              setRenewalSubscription(subscription)
-                              setPurchaseOpen(true)
-                            }}
-                          >
-                            {t('Renew')}
-                          </Button>
-                        )}
-                      <div className='col-span-2 flex justify-end'>
+                      <div className='ml-auto flex min-w-0 items-center gap-3'>
                         <SubscriptionExpiry
                           endTime={subscription.end_time}
                           isActive={isActive}
                           isCancelled={isCancelled}
                         />
+                        {subscriptionPlan &&
+                          subscriptionPlan.allow_renewal === true &&
+                          (subscription.status === 'active' ||
+                            subscription.status === 'expired') && (
+                            <Button
+                              size='sm'
+                              className='shrink-0'
+                              onClick={() => {
+                                setSelectedPlan({ plan: subscriptionPlan })
+                                setRenewalSubscription(subscription)
+                                setPurchaseOpen(true)
+                              }}
+                            >
+                              {t('Renew')}
+                            </Button>
+                          )}
                       </div>
                     </header>
                     <SubscriptionQuotaUsage
@@ -608,7 +607,6 @@ export function SubscriptionPlansCard({
                     <div className='mb-3'>
                       <ModelMultiplierSummary value={plan.model_multipliers} />
                     </div>
-                    <Separator className='mb-3' />
 
                     {reached ? (
                       <Tooltip>
@@ -631,7 +629,7 @@ export function SubscriptionPlansCard({
                           setPurchaseOpen(true)
                         }}
                       >
-                        {renewal ? t('Renew') : t('Subscribe Now')}
+                        {renewal ? t('Renew Subscription') : t('Subscribe Now')}
                       </Button>
                     )}
                   </CardContent>

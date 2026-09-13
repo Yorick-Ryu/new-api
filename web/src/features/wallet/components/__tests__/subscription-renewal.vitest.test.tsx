@@ -90,7 +90,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     )
     await screen.findByText('Monthly Pro')
     if (status === 'cancelled') {
-      expect(screen.queryByRole('button', { name: 'Renew' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
       expect(
         screen
           .getByRole('button', { name: 'Limit Reached' })
@@ -107,21 +107,34 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
       return
     }
     // The existing subscription and plan card both expose renewal.
-    const buttons = screen.getAllByRole('button', {
-      name: 'Renew',
+    const planButton = screen.getByRole('button', {
+      name: 'Renew Subscription',
     })
-    expect(buttons).toHaveLength(2)
+    const planCard = planButton.closest('[data-slot="card"]')
+    if (!planCard) throw new Error('Subscription plan card is missing')
+    expect(planCard.querySelector('[data-slot="separator"]')).toBeNull()
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
     const header = article.querySelector('header')
     if (!header) throw new Error('Subscription header is missing')
     const renewalButton = within(header).getByRole('button', { name: 'Renew' })
     expect(renewalButton.classList.contains('bg-primary')).toBe(true)
-    expect(renewalButton.classList.contains('col-start-2')).toBe(true)
-    expect(renewalButton.classList.contains('row-start-1')).toBe(true)
-    // The subscription summary has no separator; plan cards retain theirs.
+    expect(header.classList.contains('flex')).toBe(true)
+    expect(header.classList.contains('items-center')).toBe(true)
+    const details = renewalButton.parentElement
+    if (!details) throw new Error('Subscription details are missing')
+    expect(details.classList.contains('flex')).toBe(true)
+    expect(details.classList.contains('items-center')).toBe(true)
+    expect(details.classList.contains('flex-wrap')).toBe(false)
+    const expiry = details.querySelector('time')
+    if (!expiry) throw new Error('Expiry must share the renewal button row')
+    expect(
+      expiry.compareDocumentPosition(renewalButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    // Neither the summary nor the plan action needs a separator.
     const summary = screen.getByRole('region', { name: 'My Subscriptions' })
     expect(summary?.querySelector('[data-slot="separator"]')).toBeNull()
-    await user.click(buttons[1])
+    await user.click(planButton)
     const dialog = await screen.findByRole('dialog')
     expect(dialog.textContent).toContain('Renew Subscription')
     await user.click(
@@ -169,7 +182,7 @@ it.each([undefined, false])(
       </I18nextProvider>
     )
     await screen.findByText('Monthly Pro')
-    expect(screen.queryByRole('button', { name: 'Renew' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
     expect(
       screen
         .getByRole('button', { name: 'Limit Reached' })
@@ -179,8 +192,11 @@ it.each([undefined, false])(
     await user.click(
       screen.getByRole('button', { name: 'Refresh subscriptions' })
     )
-    await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: 'Renew' })).toHaveLength(2)
-    )
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Renew' })).toBeTruthy()
+      expect(
+        screen.getByRole('button', { name: 'Renew Subscription' })
+      ).toBeTruthy()
+    })
   }
 )
