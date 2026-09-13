@@ -216,7 +216,11 @@ func RequestEpay(c *gin.Context) {
 	}
 
 	callBackAddress := service.GetCallbackAddress()
-	returnUrl, _ := url.Parse(paymentReturnPath("/usage-logs"))
+	returnUrl, err := paymentReturnURLForRequest(c, "/usage-logs")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "回调地址配置错误"})
+		return
+	}
 	notifyUrl, _ := url.Parse(callBackAddress + "/api/user/epay/notify")
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)

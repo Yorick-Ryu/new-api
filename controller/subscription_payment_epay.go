@@ -58,7 +58,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	callBackAddress := service.GetCallbackAddress()
-	returnUrl, err := url.Parse(callBackAddress + "/api/subscription/epay/return")
+	returnUrl, err := paymentReturnURLForRequest(c, "/api/subscription/epay/return")
 	if err != nil {
 		common.ApiErrorMsg(c, "回调地址配置错误")
 		return
@@ -171,7 +171,7 @@ func SubscriptionEpayReturn(c *gin.Context) {
 	if c.Request.Method == "POST" {
 		// POST 请求：从 POST body 解析参数
 		if err := c.Request.ParseForm(); err != nil {
-			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+			c.Redirect(http.StatusFound, "/wallet?pay=fail")
 			return
 		}
 		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
@@ -187,29 +187,29 @@ func SubscriptionEpayReturn(c *gin.Context) {
 	}
 
 	if len(params) == 0 {
-		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		c.Redirect(http.StatusFound, "/wallet?pay=fail")
 		return
 	}
 
 	client := GetEpayClient()
 	if client == nil {
-		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		c.Redirect(http.StatusFound, "/wallet?pay=fail")
 		return
 	}
 	verifyInfo, err := client.Verify(params)
 	if err != nil || !verifyInfo.VerifyStatus {
-		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		c.Redirect(http.StatusFound, "/wallet?pay=fail")
 		return
 	}
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
 		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type); err != nil {
-			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+			c.Redirect(http.StatusFound, "/wallet?pay=fail")
 			return
 		}
-		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=success"))
+		c.Redirect(http.StatusFound, "/wallet?pay=success")
 		return
 	}
-	c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=pending"))
+	c.Redirect(http.StatusFound, "/wallet?pay=pending")
 }
