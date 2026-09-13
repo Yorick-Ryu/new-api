@@ -211,6 +211,8 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		s.tokenConsumed = effectiveQuota
 	}
 	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.GroupRatio > 0 {
+		originalGroupRatio := s.relayInfo.PriceData.GroupRatioInfo.GroupRatio
+		s.relayInfo.SubscriptionOriginalGroupRatio = &originalGroupRatio
 		s.relayInfo.PriceData.GroupRatioInfo = hosttypes.GroupRatioInfo{GroupRatio: sub.GroupRatio, GroupSpecialRatio: -1}
 		s.relayInfo.PriceData.FreeModel = false
 		s.relayInfo.PriceData.QuotaToPreConsume = effectiveQuota
@@ -339,6 +341,7 @@ func (s *BillingSession) syncRelayInfo() {
 		info.SubscriptionPreConsumed = 0
 		info.SubscriptionModelMultiplier = 0
 		info.SubscriptionGroupRatio = 0
+		info.SubscriptionOriginalGroupRatio = nil
 	}
 }
 

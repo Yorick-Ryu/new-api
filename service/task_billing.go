@@ -163,6 +163,9 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 		}
 		if task.PrivateData.SubscriptionGroupRatio > 0 {
 			other["subscription_group_ratio"] = task.PrivateData.SubscriptionGroupRatio
+			if task.PrivateData.SubscriptionOriginalGroupRatio != nil {
+				other["subscription_original_group_ratio"] = *task.PrivateData.SubscriptionOriginalGroupRatio
+			}
 		} else {
 			other["subscription_model_multiplier"] = multiplier
 		}

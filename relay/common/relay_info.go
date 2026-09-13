@@ -141,6 +141,8 @@ type RelayInfo struct {
 	// Exact per-model group ratio override captured from the selected plan.
 	// Zero means no override. Model prices and other models remain unchanged.
 	SubscriptionGroupRatio float64
+	// Original effective group ratio before the subscription override, for log display.
+	SubscriptionOriginalGroupRatio *float64
 	// RequestId is used for idempotent pre-consume/refund
 	RequestId string
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.

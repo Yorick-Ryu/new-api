@@ -103,6 +103,8 @@ type responsesWSCreateEvent struct {
 type responsesWSCreateRequest struct {
 	Request  dto.OpenAIResponsesRequest
 	Generate common.RawMessage
+	// Preserve original JSON fields for configurable affinity key paths.
+	Body common.RawMessage
 }
 
 type responsesWSErrorEvent struct {
@@ -356,6 +358,7 @@ func normalizeResponsesWSCreateEvent(message []byte) (responsesWSCreateRequest, 
 	return responsesWSCreateRequest{
 		Request:  req,
 		Generate: generate,
+		Body:     payload,
 	}, event.EventID, nil
 }
 
@@ -379,6 +382,25 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 	if !s.hasTarget() {
 		return s.connectAndSendFirst(create, commitRate, previousChannelID)
 	}
+
+	// Keep the existing upstream connection (and its credential), but refresh
+	// per-request affinity metadata and templates from this frame's key.
+	usingGroup := common.GetContextKeyString(s.c, appconstant.ContextKeyUsingGroup)
+	if usingGroup == "" {
+		usingGroup = common.GetContextKeyString(s.c, appconstant.ContextKeyTokenGroup)
+	}
+	if _, specific := common.GetContextKey(s.c, appconstant.ContextKeyTokenSpecificChannelId); !specific {
+		preferredID, found := service.GetPreferredChannelByAffinityWithBody(s.c, req.Model, usingGroup, create.Body)
+		if found && preferredID == s.lockedChannel.Id {
+			selectedGroup := usingGroup
+			if usingGroup == "auto" {
+				selectedGroup = common.GetContextKeyString(s.c, appconstant.ContextKeyAutoGroup)
+			}
+			service.MarkChannelAffinityUsed(s.c, selectedGroup, preferredID)
+		}
+	}
+	paramOverride, _ := service.ApplyChannelAffinityOverrideTemplate(s.c, s.lockedChannel.GetParamOverride())
+	common.SetContextKey(s.c, appconstant.ContextKeyChannelParamOverride, paramOverride)
 
 	state, payload, apiErr := s.prepareCall(create, commitRate)
 	if apiErr != nil {
@@ -454,7 +476,7 @@ func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest
 
 	var lastErr *types.NewAPIError
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-		channel, apiErr := selectResponsesWSChannel(s.c, req.Model, retryParam, previousChannelID)
+		channel, apiErr := selectResponsesWSChannel(s.c, req.Model, retryParam, previousChannelID, create.Body)
 		if apiErr != nil {
 			lastErr = apiErr
 			break
@@ -522,7 +544,6 @@ func (s *responsesWSSession) connectAndSendFirst(create responsesWSCreateRequest
 		s.lockedModel = req.Model
 		s.lockedChannel = channel
 		s.registerChannelClose(channel.Id)
-		service.RecordChannelAffinity(s.c, channel.Id)
 		s.startTargetReader()
 		return nil
 	}
@@ -809,6 +830,12 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) bool {
 		// failed, so settle on it instead of discarding what upstream generated
 		// and already billed us for.
 		s.applyTerminalResponseUsage(state, streamResponse.Response)
+		if (streamResponse.Type == "response.completed" || streamResponse.Type == "response.done") &&
+			streamResponse.Response != nil && streamResponse.Response.Error == nil && !relaycommon.IsNonBillableResponsesStatus(streamResponse.Response.Status) {
+			// Refresh on each successful turn, including reuse of an open socket.
+			// A successful dial/write alone must not bind a failed upstream.
+			service.RecordChannelAffinity(s.c, state.info.ChannelId)
+		}
 		return s.finishCall(state, responsesWSCallSettled, false)
 	case "response.output_text.delta":
 		state.mu.Lock()
@@ -1298,7 +1325,7 @@ func checkResponsesWSModelAccess(c *gin.Context, modelName string) *types.NewAPI
 	return nil
 }
 
-func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *service.RetryParam, previousChannelID int) (*appmodel.Channel, *types.NewAPIError) {
+func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *service.RetryParam, previousChannelID int, body []byte) (*appmodel.Channel, *types.NewAPIError) {
 	if channelIdRaw, ok := common.GetContextKey(c, appconstant.ContextKeyTokenSpecificChannelId); ok {
 		channelID, ok := channelIdRaw.(string)
 		if !ok {
@@ -1330,7 +1357,7 @@ func selectResponsesWSChannel(c *gin.Context, modelName string, retryParam *serv
 	}
 
 	if retryParam.GetRetry() == 0 {
-		affinityChannelID, hasAffinity := service.GetPreferredChannelByAffinity(c, modelName, usingGroup)
+		affinityChannelID, hasAffinity := service.GetPreferredChannelByAffinityWithBody(c, modelName, usingGroup, body)
 		if previousChannelID > 0 {
 			previous, err := appmodel.CacheGetChannel(previousChannelID)
 			if err == nil && previous != nil && previous.Status == common.ChannelStatusEnabled &&
