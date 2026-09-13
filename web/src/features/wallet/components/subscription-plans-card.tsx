@@ -433,6 +433,8 @@ export function SubscriptionPlansCard({
                   <StatusBadge
                     label={t('Expired')}
                     variant='neutral'
+                    type='badge'
+                    className='bg-muted h-auto shrink-0 px-2 py-0.5 text-[11px]'
                     copyable={false}
                   />
                 )
@@ -441,6 +443,8 @@ export function SubscriptionPlansCard({
                     <StatusBadge
                       label={t('Active')}
                       variant='success'
+                      type='badge'
+                      className='bg-success/10 h-auto shrink-0 px-2 py-0.5 text-[11px]'
                       copyable={false}
                     />
                   )
@@ -449,6 +453,8 @@ export function SubscriptionPlansCard({
                     <StatusBadge
                       label={t('Cancelled')}
                       variant='neutral'
+                      type='badge'
+                      className='bg-muted h-auto shrink-0 px-2 py-0.5 text-[11px]'
                       copyable={false}
                     />
                   )
@@ -458,19 +464,25 @@ export function SubscriptionPlansCard({
                   <article
                     key={subscription?.id}
                     aria-label={`${planTitle || t('Subscription')} #${subscription.id}`}
-                    className='bg-background rounded-md border p-3 text-xs'
+                    className='bg-background @container rounded-md border p-3 text-xs'
                   >
                     <header className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
                       <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                        <span className='text-sm font-semibold wrap-anywhere'>
+                        <span className='text-[13px] font-semibold wrap-anywhere'>
                           {planTitle
-                            ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
+                            ? planTitle
                             : `${t('Subscription')} #${subscription?.id}`}
                         </span>
+                        {planTitle && (
+                          <span className='text-muted-foreground text-[12px] font-normal'>
+                            · {t('Subscription')} #{subscription.id}
+                          </span>
+                        )}
                         {statusBadge}
                       </div>
                       <div className='ml-auto flex min-w-0 items-center gap-3'>
                         <SubscriptionExpiry
+                          className='text-[12px]'
                           endTime={subscription.end_time}
                           isActive={isActive}
                           isCancelled={isCancelled}
@@ -493,23 +505,31 @@ export function SubscriptionPlansCard({
                           )}
                       </div>
                     </header>
-                    <SubscriptionQuotaUsage
-                      label={primaryQuotaLabel}
-                      amountUsed={usedAmount}
-                      amountTotal={totalAmount}
-                      nextResetTime={subscription?.next_reset_time}
-                      isActive={isActive}
-                    />
-                    {(sub.quota_windows || []).map((window) => (
+                    <div
+                      className={cn(
+                        'mt-3 grid grid-cols-1 gap-x-6 gap-y-3 [&>[data-slot=subscription-quota-usage]]:mt-0',
+                        (sub.quota_windows?.length || 0) > 0 &&
+                          '@xl:grid-cols-2'
+                      )}
+                    >
                       <SubscriptionQuotaUsage
-                        key={window.window_key}
-                        label={window.name}
-                        amountUsed={Number(window.amount_used || 0)}
-                        amountTotal={Number(window.amount_total || 0)}
-                        nextResetTime={window.next_reset_time}
+                        label={primaryQuotaLabel}
+                        amountUsed={usedAmount}
+                        amountTotal={totalAmount}
+                        nextResetTime={subscription?.next_reset_time}
                         isActive={isActive}
                       />
-                    ))}
+                      {(sub.quota_windows || []).map((window) => (
+                        <SubscriptionQuotaUsage
+                          key={window.window_key}
+                          label={window.name}
+                          amountUsed={Number(window.amount_used || 0)}
+                          amountTotal={Number(window.amount_total || 0)}
+                          nextResetTime={window.next_reset_time}
+                          isActive={isActive}
+                        />
+                      ))}
+                    </div>
                   </article>
                 )
               })}

@@ -66,7 +66,27 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
       amount_total: 1000,
       amount_used: 350,
     }
-    const records = status === 'none' ? [] : [{ subscription }]
+    const records =
+      status === 'none'
+        ? []
+        : [
+            {
+              subscription,
+              quota_windows: [
+                {
+                  id: 3,
+                  user_subscription_id: 7,
+                  window_key: 'hourly',
+                  name: 'Hourly quota',
+                  period_unit: 'hour',
+                  period_value: 1,
+                  amount_total: 200,
+                  amount_used: 50,
+                  window_start: 1700000000,
+                },
+              ],
+            },
+          ]
     vi.spyOn(api, 'get').mockImplementation(async (url) => ({
       data: {
         success: true,
@@ -88,7 +108,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
         <SubscriptionPlansCard topupInfo={null} userQuota={10000000} />
       </I18nextProvider>
     )
-    await screen.findByText('Monthly Pro')
+    await screen.findByRole('heading', { name: 'Monthly Pro', level: 4 })
     if (status === 'cancelled') {
       expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
       expect(
@@ -116,12 +136,15 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
     const header = article.querySelector('header')
     if (!header) throw new Error('Subscription header is missing')
-    const title = within(header).getByText('Monthly Pro · Subscription #7')
-    expect(title.classList.contains('text-sm')).toBe(true)
+    const title = within(header).getByText('Monthly Pro')
+    expect(title.classList.contains('text-[13px]')).toBe(true)
+    const identifier = within(header).getByText('· Subscription #7')
+    expect(identifier.classList.contains('text-muted-foreground')).toBe(true)
+    expect(identifier.classList.contains('font-normal')).toBe(true)
     expect(
       header
         .querySelector('[data-slot="status-badge"]')
-        ?.classList.contains('text-sm')
+        ?.classList.contains('text-[11px]')
     ).toBe(true)
     const renewalButton = within(header).getByRole('button', { name: 'Renew' })
     expect(renewalButton.classList.contains('bg-primary')).toBe(true)
@@ -134,10 +157,26 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     expect(details.classList.contains('flex-wrap')).toBe(false)
     const expiry = details.querySelector('time')
     if (!expiry) throw new Error('Expiry must share the renewal button row')
+    expect(expiry.closest('p')?.classList.contains('text-[12px]')).toBe(true)
+    expect(expiry.closest('p')?.classList.contains('text-[11px]')).toBe(false)
     expect(
       expiry.compareDocumentPosition(renewalButton) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+    const quotaRows = article.querySelectorAll(
+      '[data-slot="subscription-quota-usage"]'
+    )
+    expect(quotaRows).toHaveLength(2)
+    const quotaLayout = quotaRows[0].parentElement
+    expect(quotaLayout?.classList.contains('grid-cols-1')).toBe(true)
+    expect(quotaLayout?.classList.contains('@xl:grid-cols-2')).toBe(true)
+    if (status === 'active') {
+      expect(
+        within(article)
+          .getByRole('progressbar', { name: 'Hourly quota' })
+          .getAttribute('aria-valuenow')
+      ).toBe('25')
+    }
     // Neither the summary nor the plan action needs a separator.
     const summary = screen.getByRole('region', { name: 'My Subscriptions' })
     expect(summary?.querySelector('[data-slot="separator"]')).toBeNull()
@@ -188,7 +227,7 @@ it.each([undefined, false])(
         <SubscriptionPlansCard topupInfo={null} userQuota={10000000} />
       </I18nextProvider>
     )
-    await screen.findByText('Monthly Pro')
+    await screen.findByRole('heading', { name: 'Monthly Pro', level: 4 })
     expect(screen.queryByRole('button', { name: /^Renew/ })).toBeNull()
     expect(
       screen

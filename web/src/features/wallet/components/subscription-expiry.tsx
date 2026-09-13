@@ -18,10 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { cn } from '@/lib/utils'
+
 interface SubscriptionExpiryProps {
   endTime: number
   isActive: boolean
   isCancelled?: boolean
+  className?: string
 }
 
 export function SubscriptionExpiry(props: SubscriptionExpiryProps) {
@@ -35,7 +38,12 @@ export function SubscriptionExpiry(props: SubscriptionExpiryProps) {
   else if (props.isCancelled) label = t('Cancelled at')
 
   return (
-    <p className='text-muted-foreground ml-auto flex min-w-0 flex-wrap justify-end gap-x-1 text-right text-[11px]'>
+    <p
+      className={cn(
+        'text-muted-foreground ml-auto flex min-w-0 flex-wrap justify-end gap-x-1 text-right text-[11px]',
+        props.className
+      )}
+    >
       <span className='whitespace-nowrap'>
         {label}{' '}
         <time dateTime={new Date(props.endTime * 1000).toISOString()}>
