@@ -64,7 +64,8 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { PaymentMethod, TopupInfo } from '../types'
-import { UserSubscriptionCard } from './user-subscription-card'
+import { SubscriptionExpiry } from './subscription-expiry'
+import { SubscriptionQuotaUsage } from './subscription-quota-usage'
 
 interface SubscriptionPlansCardProps {
   topupInfo: TopupInfo | null
@@ -286,7 +287,7 @@ export function SubscriptionPlansCard({
         {/* My subscriptions & billing preference */}
         <section
           aria-label={t('My Subscriptions')}
-          className='bg-muted/25 rounded-xl p-3 sm:p-4'
+          className='rounded-xl border p-3 sm:p-4'
         >
           <div className='flex flex-wrap items-center justify-between gap-2.5 sm:gap-3'>
             <div className='flex min-w-0 flex-wrap items-center gap-2'>
@@ -414,19 +415,104 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
-            <div className='mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1'>
-              {allSubscriptions.map((sub) => (
-                <UserSubscriptionCard
-                  key={sub.subscription.id}
-                  record={sub}
-                  plan={planMap.get(sub.subscription.plan_id)}
-                  onRenew={(plan, subscription) => {
-                    setSelectedPlan({ plan })
-                    setRenewalSubscription(subscription)
-                    setPurchaseOpen(true)
-                  }}
-                />
-              ))}
+            <div className='mt-3 max-h-64 space-y-3 overflow-y-auto pr-1'>
+              {allSubscriptions.map((sub) => {
+                const subscription = sub.subscription
+                const totalAmount = Number(subscription?.amount_total || 0)
+                const usedAmount = Number(subscription?.amount_used || 0)
+                const subscriptionPlan = planMap.get(subscription?.plan_id)
+                const planTitle = subscriptionPlan?.title || ''
+                const primaryQuotaLabel = subscriptionPlan
+                  ? formatPrimaryQuotaLabel(subscriptionPlan, t)
+                  : t('Main quota')
+                const now = Date.now() / 1000
+                const isExpired = (subscription?.end_time || 0) < now
+                const isCancelled = subscription?.status === 'cancelled'
+                const isActive = subscription?.status === 'active' && !isExpired
+                let statusBadge = (
+                  <StatusBadge
+                    label={t('Expired')}
+                    variant='neutral'
+                    copyable={false}
+                  />
+                )
+                if (isActive) {
+                  statusBadge = (
+                    <StatusBadge
+                      label={t('Active')}
+                      variant='success'
+                      copyable={false}
+                    />
+                  )
+                } else if (isCancelled) {
+                  statusBadge = (
+                    <StatusBadge
+                      label={t('Cancelled')}
+                      variant='neutral'
+                      copyable={false}
+                    />
+                  )
+                }
+
+                return (
+                  <article
+                    key={subscription?.id}
+                    aria-label={`${planTitle || t('Subscription')} #${subscription.id}`}
+                    className='bg-background rounded-md border p-3 text-xs'
+                  >
+                    <header className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
+                      <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                        <span className='text-sm font-semibold wrap-anywhere'>
+                          {planTitle
+                            ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
+                            : `${t('Subscription')} #${subscription?.id}`}
+                        </span>
+                        {statusBadge}
+                      </div>
+                      <div className='ml-auto flex min-w-0 items-center gap-3'>
+                        <SubscriptionExpiry
+                          endTime={subscription.end_time}
+                          isActive={isActive}
+                          isCancelled={isCancelled}
+                        />
+                        {subscriptionPlan &&
+                          subscriptionPlan.allow_renewal === true &&
+                          (subscription.status === 'active' ||
+                            subscription.status === 'expired') && (
+                            <Button
+                              size='sm'
+                              className='shrink-0'
+                              onClick={() => {
+                                setSelectedPlan({ plan: subscriptionPlan })
+                                setRenewalSubscription(subscription)
+                                setPurchaseOpen(true)
+                              }}
+                            >
+                              {t('Renew')}
+                            </Button>
+                          )}
+                      </div>
+                    </header>
+                    <SubscriptionQuotaUsage
+                      label={primaryQuotaLabel}
+                      amountUsed={usedAmount}
+                      amountTotal={totalAmount}
+                      nextResetTime={subscription?.next_reset_time}
+                      isActive={isActive}
+                    />
+                    {(sub.quota_windows || []).map((window) => (
+                      <SubscriptionQuotaUsage
+                        key={window.window_key}
+                        label={window.name}
+                        amountUsed={Number(window.amount_used || 0)}
+                        amountTotal={Number(window.amount_total || 0)}
+                        nextResetTime={window.next_reset_time}
+                        isActive={isActive}
+                      />
+                    ))}
+                  </article>
+                )
+              })}
             </div>
           )}
 
