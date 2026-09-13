@@ -534,11 +534,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
           },
         ].filter(Boolean) as Array<{ label: string; value: string }>)
       : []
-  const showLegacyTopupWarning = isTopup && props.isAdmin && !adminInfo
+  const showMissingTopupAuditWarning = isTopup && props.isAdmin && !adminInfo
   const showTopupAuditSection =
     isTopup &&
     props.isAdmin &&
-    (topupAuditFields.length > 0 || showLegacyTopupWarning)
+    (topupAuditFields.length > 0 || showMissingTopupAuditWarning)
   const manageOperator = (() => {
     if (!isManage || !props.isAdmin || !adminInfo) return null
     const username = adminInfo.admin_username
@@ -887,12 +887,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             ))}
-            {showLegacyTopupWarning && (
+            {showMissingTopupAuditWarning && (
               <div className='flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400'>
                 <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
                 <span>
                   {t(
-                    'This historical record predates audit-info tracking and cannot be backfilled. The current instance already records server IP, callback IP, payment method, and system version for new top-ups going forward.'
+                    'No audit information was recorded for this transaction. Missing details cannot be recovered from this log.'
                   )}
                 </span>
               </div>

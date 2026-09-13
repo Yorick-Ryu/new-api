@@ -32,8 +32,8 @@ func TestSubscriptionRenewalBalancePreservesUsageAndBypassesOnlyRenewalLimit(t *
 	user, plan, sub := seedSubscriptionRenewal(t)
 	require.ErrorContains(t, ValidateSubscriptionPurchase(user.Id, plan, 0), "购买上限")
 	require.NoError(t, ValidateSubscriptionPurchase(user.Id, plan, sub.Id))
-	require.ErrorContains(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, 0), "购买上限")
-	require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id))
+	require.ErrorContains(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, 0, "203.0.113.10"), "购买上限")
+	require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10"))
 	updated := getSubscriptionResetSub(t, sub.Id)
 	assert.Equal(t, sub.EndTime+30*86400, updated.EndTime)
 	assert.Equal(t, sub.StartTime, updated.StartTime)
@@ -63,7 +63,7 @@ func TestSubscriptionRenewalExpiredOpensFreshCountersAndPreservesOldHistory(t *t
 			user, plan, sub := seedSubscriptionRenewal(t)
 			require.NoError(t, DB.Model(sub).Updates(map[string]interface{}{"end_time": GetDBTimestamp() - 1, "status": status}).Error)
 			before := GetDBTimestamp()
-			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id))
+			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10"))
 			after := GetDBTimestamp()
 			var renewed UserSubscription
 			require.NoError(t, DB.Where("user_id = ? AND id <> ?", user.Id, sub.Id).First(&renewed).Error)
@@ -77,7 +77,7 @@ func TestSubscriptionRenewalExpiredOpensFreshCountersAndPreservesOldHistory(t *t
 			require.NoError(t, DB.Where("user_subscription_id = ?", renewed.Id).First(&window).Error)
 			assert.Zero(t, window.AmountUsed)
 			// A second pending renewal of the old record extends the new period.
-			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id))
+			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10"))
 			assert.EqualValues(t, 2, countUserSubscriptionsForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, renewed.EndTime+30*86400, getSubscriptionResetSub(t, renewed.Id).EndTime)
 		})
@@ -90,9 +90,12 @@ func TestSubscriptionRenewalCallbacksAreIdempotentAcrossGateways(t *testing.T) {
 			user, plan, sub := seedSubscriptionRenewal(t)
 			order := &SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, RenewalSubscriptionId: sub.Id, Money: plan.PriceAmount, TradeNo: "renew-" + provider, PaymentProvider: provider, PaymentMethod: provider, Status: common.TopUpStatusPending}
 			require.NoError(t, order.Insert())
-			require.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "", "wrong-provider", ""), ErrPaymentMethodMismatch)
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, ""))
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, ""))
+			require.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "", "wrong-provider", "", "203.0.113.10"), ErrPaymentMethodMismatch)
+			var failedLogs int64
+			require.NoError(t, DB.Model(&Log{}).Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Count(&failedLogs).Error)
+			assert.Zero(t, failedLogs)
+			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, "", "203.0.113.10"))
+			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, "", "203.0.113.11"))
 			assert.Equal(t, sub.EndTime+30*86400, getSubscriptionResetSub(t, sub.Id).EndTime)
 			assert.EqualValues(t, 1, countUserSubscriptionsForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, user.Quota, getUserQuotaForPaymentGuardTest(t, user.Id))
@@ -100,6 +103,22 @@ func TestSubscriptionRenewalCallbacksAreIdempotentAcrossGateways(t *testing.T) {
 			require.NoError(t, DB.Model(&TopUp{}).Where("trade_no = ?", order.TradeNo).Count(&count).Error)
 			assert.EqualValues(t, 1, count)
 			assert.Equal(t, common.TopUpStatusSuccess, GetSubscriptionOrderByTradeNo(order.TradeNo).Status)
+			var logs []*Log
+			require.NoError(t, DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Find(&logs).Error)
+			require.Len(t, logs, 1)
+			assert.Equal(t, "203.0.113.10", logs[0].Ip)
+			var details struct {
+				AdminInfo map[string]string `json:"admin_info"`
+			}
+			require.NoError(t, common.UnmarshalJsonStr(logs[0].Other, &details))
+			assert.Equal(t, map[string]string{
+				"server_ip": common.GetIp(), "node_name": common.NodeName, "version": common.Version,
+				"caller_ip": "203.0.113.10", "payment_method": provider, "callback_payment_method": provider,
+			}, details.AdminInfo)
+			formatUserLogs(logs, 0)
+			userDetails, err := common.StrToMap(logs[0].Other)
+			require.NoError(t, err)
+			assert.NotContains(t, userDetails, "admin_info")
 		})
 	}
 }
@@ -122,7 +141,7 @@ func TestSubscriptionRenewalRejectsInvalidTargetsWithoutCharging(t *testing.T) {
 				id = -1
 			}
 			require.Error(t, ValidateSubscriptionPurchase(user.Id, plan, id))
-			require.Error(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, id))
+			require.Error(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, id, "203.0.113.10"))
 			assert.Equal(t, user.Quota, getUserQuotaForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, sub.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
 			var count int64
@@ -140,7 +159,7 @@ func TestSubscriptionRenewalRestoresSuppressedResetTimesWithoutResettingUsage(t 
 	start := now - 1800
 	require.NoError(t, DB.Model(sub).Updates(map[string]interface{}{"start_time": start, "end_time": now + 1200, "last_reset_time": start, "next_reset_time": 0}).Error)
 	require.NoError(t, DB.Model(&UserSubscriptionQuotaWindow{}).Where("user_subscription_id = ?", sub.Id).Updates(map[string]interface{}{"window_start": start, "next_reset_time": 0}).Error)
-	require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id))
+	require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10"))
 	updated := getSubscriptionResetSub(t, sub.Id)
 	assert.EqualValues(t, 350, updated.AmountUsed)
 	assert.Equal(t, start, updated.LastResetTime)
@@ -166,7 +185,7 @@ func TestSubscriptionRenewalNonResettingQuotaAddsPackAndRejectsOverflow(t *testi
 			require.NoError(t, DB.Model(plan).Update("quota_reset_period", SubscriptionResetNever).Error)
 			InvalidateSubscriptionPlanCache(plan.Id)
 			require.NoError(t, DB.Model(sub).Update("amount_total", tc.total).Error)
-			err := PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id)
+			err := PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10")
 			if tc.fails {
 				require.ErrorContains(t, err, "超出范围")
 				assert.Equal(t, user.Quota, getUserQuotaForPaymentGuardTest(t, user.Id))
@@ -187,7 +206,7 @@ func TestSubscriptionRenewalFailureRollsBackDurationAndOrder(t *testing.T) {
 	require.NoError(t, order.Insert())
 	// A conflicting accounting record must roll the whole fulfillment back.
 	require.NoError(t, DB.Create(&TopUp{TradeNo: order.TradeNo, PaymentMethod: PaymentMethodCreem}).Error)
-	require.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "", PaymentProviderStripe, ""), ErrPaymentMethodMismatch)
+	require.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "", PaymentProviderStripe, "", "203.0.113.10"), ErrPaymentMethodMismatch)
 	assert.Equal(t, sub.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
 	assert.Equal(t, common.TopUpStatusPending, GetSubscriptionOrderByTradeNo(order.TradeNo).Status)
 }
@@ -204,7 +223,7 @@ func TestSubscriptionRenewalSeparateOrdersAccumulateAfterExpiry(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		go func(i int) {
 			<-start
-			results <- CompleteSubscriptionOrder(fmt.Sprintf("renew-expired-%d", i), "", PaymentProviderStripe, "")
+			results <- CompleteSubscriptionOrder(fmt.Sprintf("renew-expired-%d", i), "", PaymentProviderStripe, "", "203.0.113.10")
 		}(i)
 	}
 	close(start)
@@ -231,7 +250,7 @@ func TestSubscriptionRenewalPlanPolicyControlsNewPayments(t *testing.T) {
 			require.NoError(t, DB.Model(plan).Update("allow_renewal", tc.allowed).Error)
 			InvalidateSubscriptionPlanCache(plan.Id)
 			checkoutErr := ValidateSubscriptionPurchase(user.Id, plan, sub.Id)
-			paymentErr := PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id)
+			paymentErr := PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10")
 			if tc.wantAllowed {
 				require.NoError(t, checkoutErr)
 				require.NoError(t, paymentErr)
@@ -259,7 +278,7 @@ func TestSubscriptionRenewalPendingOrderCompletesAfterRenewalIsDisabled(t *testi
 	require.NoError(t, order.Insert())
 	require.NoError(t, DB.Model(plan).Update("allow_renewal", false).Error)
 	InvalidateSubscriptionPlanCache(plan.Id)
-	require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", PaymentProviderEpay, ""))
+	require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", PaymentProviderEpay, "", "203.0.113.10"))
 	assert.Equal(t, sub.EndTime+30*86400, getSubscriptionResetSub(t, sub.Id).EndTime)
 	assert.Equal(t, common.TopUpStatusSuccess, GetSubscriptionOrderByTradeNo(order.TradeNo).Status)
 }

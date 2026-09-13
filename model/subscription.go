@@ -584,7 +584,7 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 // Complete a subscription order (idempotent). Creates or renews the subscription selected at checkout.
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).
-func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string) error {
+func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, callerIp string) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -596,6 +596,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
+	var logPaymentProvider string
 	var logRenewalSubscriptionId int
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
@@ -644,6 +645,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
+		logPaymentProvider = order.PaymentProvider
 		logRenewalSubscriptionId = order.RenewalSubscriptionId
 		return nil
 	})
@@ -658,7 +660,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if logRenewalSubscriptionId > 0 {
 			msg = fmt.Sprintf("订阅续费成功，原订阅: %d，套餐: %s，支付金额: %.2f，支付方式: %s", logRenewalSubscriptionId, logPlanTitle, logMoney, logPaymentMethod)
 		}
-		RecordLog(logUserId, LogTypeTopup, msg)
+		RecordTopupLog(logUserId, msg, callerIp, logPaymentMethod, logPaymentProvider)
 	}
 	return nil
 }
@@ -766,7 +768,7 @@ func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 }
 
 // PurchaseSubscriptionWithBalance purchases or renews a subscription using wallet quota.
-func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscriptionId int) error {
+func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscriptionId int, callerIp string) error {
 	if userId <= 0 || planId <= 0 {
 		return errors.New("invalid userId or planId")
 	}
@@ -860,7 +862,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscription
 	if renewalSubscriptionId > 0 {
 		msg = fmt.Sprintf("使用余额续费订阅成功，原订阅: %d，套餐: %s，支付金额: %.2f，扣除额度: %d", renewalSubscriptionId, logPlanTitle, logMoney, chargedQuota)
 	}
-	RecordLog(userId, LogTypeTopup, msg)
+	RecordTopupLog(userId, msg, callerIp, PaymentMethodBalance, PaymentProviderBalance)
 	return nil
 }
 

@@ -4630,7 +4630,7 @@
     "This FAQ entry will be removed from the list.": "此 FAQ 条目将从列表中移除。",
     "This feature is experimental. Configuration format and behavior may change.": "此功能为实验性功能。配置格式和行为可能会发生变化。",
     "This field does not support wildcards or regular expressions.": "这里不支持通配符或正则表达式。",
-    "This historical record predates audit-info tracking and cannot be backfilled. The current instance already records server IP, callback IP, payment method, and system version for new top-ups going forward.": "该条历史记录缺少审计字段。当前版本已支持记录服务器 IP、回调 IP、支付方式与系统版本等审计信息；这些字段仅会写入后续新产生的记录，历史记录无法自动补齐。",
+    "No audit information was recorded for this transaction. Missing details cannot be recovered from this log.": "该笔交易未记录审计信息，无法从这条日志中恢复缺失的详情。",
     "This identifier is sent to the payment backend when creating an order. Use alipay for Alipay, wxpay for WeChat Pay, stripe for Stripe. Custom values must be supported by your payment provider.": "创建订单时会把这个标识提交给支付后端。支付宝填 alipay，微信填 wxpay，Stripe 填 stripe。自定义值必须是支付服务支持的标识。",
     "This instance is using an automatic hostname. Set NODE_NAME to a stable unique value for multi-instance management.": "该实例正在使用自动主机名。请设置稳定且唯一的 NODE_NAME，以便进行多实例管理。",
     "This may cause cache failures.": "这可能导致缓存故障。",

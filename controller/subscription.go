@@ -110,7 +110,7 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 		return
 	}
 
-	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId, req.RenewalSubscriptionId); err != nil {
+	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId, req.RenewalSubscriptionId, c.ClientIP()); err != nil {
 		common.ApiError(c, err)
 		return
 	}
