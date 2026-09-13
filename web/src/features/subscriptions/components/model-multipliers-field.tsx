@@ -43,18 +43,8 @@ export function ModelMultipliersField() {
 
   return (
     <div className='space-y-3'>
-      <div className='flex items-start justify-between gap-3'>
-        <div>
-          <FormLabel>{t('Subscription model group overrides')}</FormLabel>
-          <FormDescription>
-            {t(
-              'When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.'
-            )}{' '}
-            {t(
-              'Changes apply to new requests on existing and future subscriptions.'
-            )}
-          </FormDescription>
-        </div>
+      <div className='flex items-center justify-between gap-3'>
+        <FormLabel>{t('Subscription model group overrides')}</FormLabel>
         <Button
           type='button'
           variant='outline'
@@ -132,6 +122,14 @@ export function ModelMultipliersField() {
           ))}
         </div>
       ) : null}
+      <FormDescription>
+        {t(
+          'When this subscription pays for the specified model, use this value instead of the group ratio. Other models and wallet payments keep their existing group ratios.'
+        )}{' '}
+        {t(
+          'Changes apply to new requests on existing and future subscriptions.'
+        )}
+      </FormDescription>
     </div>
   )
 }

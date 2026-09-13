@@ -1174,6 +1174,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
               <DetailRow
                 label={t('Consumption multiplier')}
                 value={`${formatRatio(subscriptionMultiplier)}×`}
+                mono
               />
             )}
             {other.subscription_pre_consumed != null && (

@@ -142,7 +142,7 @@ it.each([
   { group: 0.5, override: 2 },
   { group: 0, override: 2 },
 ])(
-  'shows original group $group separately from subscription consumption $override',
+  'shows original group $group and subscription consumption $override with matching monospace typography',
   (ratios) => {
     const log = usageLogSchema.parse({
       id: 1,
@@ -170,6 +170,16 @@ it.each([
     expect(
       screen.getByText('Consumption multiplier').parentElement?.textContent
     ).toBe(`Consumption multiplier${ratios.override.toFixed(4)}×`)
+    expect(
+      screen
+        .getByText('Group Ratio')
+        .nextElementSibling?.classList.contains('font-mono')
+    ).toBe(true)
+    expect(
+      screen
+        .getByText('Consumption multiplier')
+        .nextElementSibling?.classList.contains('font-mono')
+    ).toBe(true)
     expect(screen.queryByText('Override group ratio')).toBeNull()
     expect(
       screen.getByText('Final Consumed').parentElement?.textContent

@@ -76,18 +76,8 @@ export function QuotaWindowsField() {
 
   return (
     <div className='space-y-3'>
-      <div className='flex items-start justify-between gap-3'>
-        <div>
-          <FormLabel>{t('Additional quota windows')}</FormLabel>
-          <FormDescription>
-            {t(
-              'Each request consumes the main quota and every additional window. Reaching any limit stops subscription usage.'
-            )}{' '}
-            {t(
-              'Additional windows reset on rolling periods anchored to the subscription start time.'
-            )}
-          </FormDescription>
-        </div>
+      <div className='flex items-center justify-between gap-3'>
+        <FormLabel>{t('Additional quota windows')}</FormLabel>
         <Button
           type='button'
           variant='outline'
@@ -213,6 +203,14 @@ export function QuotaWindowsField() {
           </div>
         </div>
       ))}
+      <FormDescription>
+        {t(
+          'Each request consumes the main quota and every additional window. Reaching any limit stops subscription usage.'
+        )}{' '}
+        {t(
+          'Additional windows reset on rolling periods anchored to the subscription start time.'
+        )}
+      </FormDescription>
     </div>
   )
 }
