@@ -139,6 +139,7 @@ it.each([1, 2, 0.5])(
 it.each([
   { group: 1, override: 2 },
   { group: 3, override: 0.5 },
+  { group: 0.5, override: 2 },
   { group: 0, override: 2 },
 ])(
   'shows original group $group separately from subscription consumption $override',
@@ -163,12 +164,12 @@ it.each([
         <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
       </I18nextProvider>
     )
-    expect(
-      screen.getByText('Group Ratio').parentElement?.textContent
-    ).toContain(`${ratios.group.toFixed(4)}x`)
+    expect(screen.getByText('Group Ratio').parentElement?.textContent).toBe(
+      `Group Ratio${ratios.group.toFixed(4)}×`
+    )
     expect(
       screen.getByText('Consumption multiplier').parentElement?.textContent
-    ).toContain(`${ratios.override}×`)
+    ).toBe(`Consumption multiplier${ratios.override.toFixed(4)}×`)
     expect(screen.queryByText('Override group ratio')).toBeNull()
     expect(
       screen.getByText('Final Consumed').parentElement?.textContent
@@ -197,5 +198,5 @@ it('does not present a historical subscription override as the original group ra
   expect(screen.queryByText('Group Ratio')).toBeNull()
   expect(
     screen.getByText('Consumption multiplier').parentElement?.textContent
-  ).toContain('2×')
+  ).toBe('Consumption multiplier2.0000×')
 })

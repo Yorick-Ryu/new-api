@@ -290,7 +290,7 @@ function BillingBreakdown(props: {
   if (effectiveGR != null && Number.isFinite(effectiveGR)) {
     rows.push({
       label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
-      value: `${formatRatio(effectiveGR)}x`,
+      value: `${formatRatio(effectiveGR)}×`,
     })
   }
 
@@ -1173,7 +1173,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {subscriptionMultiplier != null && (
               <DetailRow
                 label={t('Consumption multiplier')}
-                value={`${subscriptionMultiplier}×`}
+                value={`${formatRatio(subscriptionMultiplier)}×`}
               />
             )}
             {other.subscription_pre_consumed != null && (
