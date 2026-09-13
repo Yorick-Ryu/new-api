@@ -5400,6 +5400,7 @@
     "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}: множитель группы {{multiplier}}× в этой подписке",
     "Renew Subscription": "Продлить подписку",
     "Subscription renewed successfully": "Подписка продлена",
+    "Renewal notes:": "Условия продления:",
     "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "Действующая подписка продлевается с даты окончания. Если она истекла, новая подписка начинается после оплаты.",
     "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "Квота без сброса добавляется к оставшейся квоте. Использованный объём и дополнительные окна квоты сохраняются.",
     "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "Текущее использование и циклы сброса сохраняются. Продление не сбрасывает квоту немедленно.",

@@ -352,6 +352,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
           <Alert>
             <AlertDescription>
               <p>
+                {t('Renewal notes:')}{' '}
                 {t(
                   'Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.'
                 )}{' '}

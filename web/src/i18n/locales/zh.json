@@ -5400,6 +5400,7 @@
     "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}：订阅内分组倍率 {{multiplier}}×",
     "Renew Subscription": "续费套餐",
     "Subscription renewed successfully": "套餐续费成功",
+    "Renewal notes:": "续费说明：",
     "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "未到期的套餐从原到期时间延长；已到期的套餐在付款成功后开始新的订阅。",
     "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "不重置的套餐额度将累加到剩余额度中，保留已有用量和额外额度窗口。",
     "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "保留当前额度用量和重置周期，续费不会立即重置额度。",

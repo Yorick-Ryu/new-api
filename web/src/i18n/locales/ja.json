@@ -5400,6 +5400,7 @@
     "{{model}}: group ratio {{multiplier}}× with this subscription": "{{model}}：このサブスクリプションのグループ倍率 {{multiplier}}倍",
     "Renew Subscription": "プランを更新",
     "Subscription renewed successfully": "プランを更新しました",
+    "Renewal notes:": "更新について：",
     "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "有効なプランは現在の有効期限から延長されます。期限切れの場合は、支払い完了時に新しいプランが開始されます。",
     "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "リセットされない割り当ては残量に加算されます。現在の使用量と追加の割り当て期間は維持されます。",
     "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "現在の使用量とリセット周期は維持されます。更新しても割り当ては即座にリセットされません。",
