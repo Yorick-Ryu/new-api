@@ -120,6 +120,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const allowBalancePay = plan.allow_balance_pay !== false
   const insufficientBalance = userQuota < balanceCost
   const isRenewal = !!props.renewalSubscription
+  const renewalUnavailable = isRenewal && plan.allow_renewal !== true
   const purchaseRequest = {
     plan_id: plan.id,
     renewal_subscription_id: props.renewalSubscription?.id,
@@ -128,6 +129,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
     !isRenewal &&
     (props.purchaseLimit || 0) > 0 &&
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
+
+  const paymentDisabled = paying || limitReached || renewalUnavailable
 
   const handlePayStripe = async () => {
     setPaying(true)
@@ -376,6 +379,14 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </Alert>
         )}
 
+        {renewalUnavailable && (
+          <Alert variant='destructive'>
+            <AlertDescription>
+              {t('This plan does not allow renewal')}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {limitReached && (
           <Alert variant='destructive'>
             <AlertDescription>
@@ -411,7 +422,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
             variant='outline'
             onClick={handlePayBalance}
             disabled={
-              paying || limitReached || !allowBalancePay || insufficientBalance
+              paymentDisabled || !allowBalancePay || insufficientBalance
             }
           >
             {t('Pay with Balance')}
@@ -430,7 +441,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayStripe}
-                    disabled={paying || limitReached}
+                    disabled={paymentDisabled}
                   >
                     Stripe
                   </Button>
@@ -440,7 +451,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayCreem}
-                    disabled={paying || limitReached}
+                    disabled={paymentDisabled}
                   >
                     Creem
                   </Button>
@@ -450,7 +461,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayWaffoPancake}
-                    disabled={paying || limitReached}
+                    disabled={paymentDisabled}
                   >
                     Waffo Pancake
                   </Button>
@@ -466,7 +477,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                   }))}
                   value={selectedEpayMethod}
                   onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
-                  disabled={limitReached}
+                  disabled={paymentDisabled}
                 >
                   <SelectTrigger className='flex-1'>
                     <SelectValue>{selectedEpayMethodLabel}</SelectValue>
@@ -483,7 +494,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                 </Select>
                 <Button
                   onClick={handlePayEpay}
-                  disabled={paying || !selectedEpayMethod || limitReached}
+                  disabled={paymentDisabled || !selectedEpayMethod}
                 >
                   {t('Pay')}
                 </Button>

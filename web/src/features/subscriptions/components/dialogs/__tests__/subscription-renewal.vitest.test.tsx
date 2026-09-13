@@ -34,6 +34,7 @@ afterEach(cleanup)
 const plan = subscriptionPlanSchema.parse({
   id: 1,
   title: 'Monthly Pro',
+  allow_renewal: true,
   price_amount: 2,
   duration_unit: 'day',
   duration_value: 30,
@@ -66,11 +67,9 @@ it.each([
 ])(
   'sends the renewal target through %s even when the purchase limit is reached',
   async (button, endpoint) => {
-    const post = vi
-      .spyOn(api, 'post')
-      .mockResolvedValue({
-        data: { success: false, message: 'Payment rejected' },
-      })
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: { success: false, message: 'Payment rejected' },
+    })
     const user = userEvent.setup()
     render(
       <I18nextProvider i18n={i18n}>
@@ -177,4 +176,30 @@ it('keeps balance renewal disabled when funds are insufficient', () => {
   expect(screen.getByRole('dialog').textContent).toContain(
     'Insufficient balance'
   )
+})
+
+it('disables payment in an already-open renewal dialog when renewal is no longer allowed', () => {
+  render(
+    <I18nextProvider i18n={i18n}>
+      <SubscriptionPurchaseDialog
+        open
+        onOpenChange={() => {}}
+        plan={{ plan: { ...plan, allow_renewal: false } }}
+        renewalSubscription={subscription}
+        userQuota={10000000}
+        enableStripe
+      />
+    </I18nextProvider>
+  )
+  expect(screen.getByRole('dialog').textContent).toContain(
+    'This plan does not allow renewal'
+  )
+  expect(
+    screen
+      .getByRole('button', { name: 'Pay with Balance' })
+      .hasAttribute('disabled')
+  ).toBe(true)
+  expect(
+    screen.getByRole('button', { name: 'Stripe' }).hasAttribute('disabled')
+  ).toBe(true)
 })

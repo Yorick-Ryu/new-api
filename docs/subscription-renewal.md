@@ -1,7 +1,14 @@
 # Same-plan subscription renewal
 
-The wallet offers **Renew Subscription** for active or expired subscriptions
-whose plan is still available. Cancelled subscriptions cannot be renewed.
+The wallet offers **Renew** for active or expired subscriptions
+whose plan is still available and allows renewal. Cancelled subscriptions cannot
+be renewed. **Subscriptions → Edit plan → Allow renewal** controls new renewal
+checkouts. Renewal requires explicit opt-in. New plans default to disabled, and
+older plans with no stored value remain non-renewable.
+The nullable `subscription_plans.allow_renewal` column has no enabled default;
+only an explicitly stored `true` permits new renewals.
+Disabling it hides renewal actions and rejects new renewal payment requests;
+already-created gateway orders still settle normally.
 
 - Payment requests accept optional `renewal_subscription_id`; the order stores
   that ID. Omitting it preserves the existing new-purchase behavior.
@@ -30,4 +37,5 @@ orders require the new fulfillment code; do not revert it until they settle or
 are explicitly reconciled.
 
 Local checks: `go test ./model ./controller`, and from `web/`, `bun run typecheck`
-and `bun run test:unit` with the two `subscription-renewal.vitest.test.tsx` files.
+and `bun run test:unit` with the two `subscription-renewal.vitest.test.tsx` files
+and `renewal-setting.vitest.test.tsx`.

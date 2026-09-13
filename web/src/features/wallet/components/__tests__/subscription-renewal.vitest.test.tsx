@@ -42,6 +42,7 @@ afterEach(cleanup)
 const plan = subscriptionPlanSchema.parse({
   id: 1,
   title: 'Monthly Pro',
+  allow_renewal: true,
   price_amount: 2,
   duration_unit: 'day',
   duration_value: 30,
@@ -78,11 +79,9 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
             },
       },
     }))
-    const post = vi
-      .spyOn(api, 'post')
-      .mockResolvedValue({
-        data: { success: false, message: 'Payment rejected' },
-      })
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: { success: false, message: 'Payment rejected' },
+    })
     const user = userEvent.setup()
     render(
       <I18nextProvider i18n={i18n}>
@@ -91,9 +90,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     )
     await screen.findByText('Monthly Pro')
     if (status === 'cancelled') {
-      expect(
-        screen.queryByRole('button', { name: 'Renew Subscription' })
-      ).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Renew' })).toBeNull()
       expect(
         screen
           .getByRole('button', { name: 'Limit Reached' })
@@ -111,9 +108,19 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     }
     // The existing subscription and plan card both expose renewal.
     const buttons = screen.getAllByRole('button', {
-      name: 'Renew Subscription',
+      name: 'Renew',
     })
     expect(buttons).toHaveLength(2)
+    const article = screen.getByRole('article', { name: 'Monthly Pro #7' })
+    const header = article.querySelector('header')
+    if (!header) throw new Error('Subscription header is missing')
+    const renewalButton = within(header).getByRole('button', { name: 'Renew' })
+    expect(renewalButton.classList.contains('bg-primary')).toBe(true)
+    expect(renewalButton.classList.contains('col-start-2')).toBe(true)
+    expect(renewalButton.classList.contains('row-start-1')).toBe(true)
+    // The subscription summary has no separator; plan cards retain theirs.
+    const summary = screen.getByRole('region', { name: 'My Subscriptions' })
+    expect(summary?.querySelector('[data-slot="separator"]')).toBeNull()
     await user.click(buttons[1])
     const dialog = await screen.findByRole('dialog')
     expect(dialog.textContent).toContain('Renew Subscription')
@@ -125,6 +132,55 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
         plan_id: 1,
         renewal_subscription_id: 7,
       })
+    )
+  }
+)
+
+it.each([undefined, false])(
+  'hides renewal actions for renewal setting %s and restores them after enabling and refreshing',
+  async (initialValue) => {
+    let allowRenewal: boolean | undefined = initialValue
+    const subscription: UserSubscription = {
+      id: 7,
+      user_id: 2,
+      plan_id: 1,
+      status: 'active',
+      start_time: 1700000000,
+      end_time: 2100000000,
+      amount_total: 1000,
+      amount_used: 350,
+    }
+    vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+      data: {
+        success: true,
+        data: String(url).endsWith('/plans')
+          ? [{ plan: { ...plan, allow_renewal: allowRenewal } }]
+          : {
+              billing_preference: 'wallet_first',
+              subscriptions: [{ subscription }],
+              all_subscriptions: [{ subscription }],
+            },
+      },
+    }))
+    const user = userEvent.setup()
+    render(
+      <I18nextProvider i18n={i18n}>
+        <SubscriptionPlansCard topupInfo={null} userQuota={10000000} />
+      </I18nextProvider>
+    )
+    await screen.findByText('Monthly Pro')
+    expect(screen.queryByRole('button', { name: 'Renew' })).toBeNull()
+    expect(
+      screen
+        .getByRole('button', { name: 'Limit Reached' })
+        .hasAttribute('disabled')
+    ).toBe(true)
+    allowRenewal = true
+    await user.click(
+      screen.getByRole('button', { name: 'Refresh subscriptions' })
+    )
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Renew' })).toHaveLength(2)
     )
   }
 )

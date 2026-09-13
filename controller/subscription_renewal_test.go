@@ -17,7 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestSubscriptionBalancePayAcceptsRenewalTargetAtPurchaseLimit(t *testing.T) {
+func setupSubscriptionRenewalControllerTest(t *testing.T) (*gorm.DB, model.User, model.SubscriptionPlan, *model.UserSubscription) {
+	t.Helper()
 	previousDB, previousLogDB := model.DB, model.LOG_DB
 	previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
 	previousRedis := common.RedisEnabled
@@ -43,12 +44,17 @@ func TestSubscriptionBalancePayAcceptsRenewalTargetAtPurchaseLimit(t *testing.T)
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.SubscriptionPlan{}, &model.SubscriptionOrder{}, &model.UserSubscription{}, &model.UserSubscriptionQuotaWindow{}))
 	user := model.User{Username: "renewal-controller", Quota: 10000000}
 	require.NoError(t, db.Create(&user).Error)
-	plan := model.SubscriptionPlan{Title: "Renew", Enabled: true, PriceAmount: 1, DurationUnit: model.SubscriptionDurationDay, DurationValue: 30, MaxPurchasePerUser: 1, QuotaResetPeriod: model.SubscriptionResetDaily, TotalAmount: 1000}
+	plan := model.SubscriptionPlan{Title: "Renew", AllowRenewal: common.GetPointer(true), Enabled: true, PriceAmount: 1, DurationUnit: model.SubscriptionDurationDay, DurationValue: 30, MaxPurchasePerUser: 1, QuotaResetPeriod: model.SubscriptionResetDaily, TotalAmount: 1000}
 	require.NoError(t, db.Create(&plan).Error)
 	model.InvalidateSubscriptionPlanCache(plan.Id)
 	t.Cleanup(func() { model.InvalidateSubscriptionPlanCache(plan.Id) })
 	sub, err := model.CreateUserSubscriptionFromPlanTx(db, user.Id, &plan, "order")
 	require.NoError(t, err)
+	return db, user, plan, sub
+}
+
+func TestSubscriptionBalancePayAcceptsRenewalTargetAtPurchaseLimit(t *testing.T) {
+	db, user, plan, sub := setupSubscriptionRenewalControllerTest(t)
 	writer := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(writer)
 	ctx.Set("id", user.Id)
@@ -70,4 +76,65 @@ func TestSubscriptionBalancePayAcceptsRenewalTargetAtPurchaseLimit(t *testing.T)
 	var count int64
 	require.NoError(t, db.Model(&model.UserSubscription{}).Count(&count).Error)
 	assert.EqualValues(t, 1, count)
+}
+
+func TestSubscriptionPlanRenewalSettingPersistsExplicitFalseAndPreservesOmittedUpdates(t *testing.T) {
+	db, user, plan, _ := setupSubscriptionRenewalControllerTest(t)
+	expected := true
+	for _, value := range []*bool{common.GetPointer(false), nil, common.GetPointer(true), nil} {
+		plan.AllowRenewal = value
+		body, err := common.Marshal(map[string]interface{}{"plan": plan})
+		require.NoError(t, err)
+		writer := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(writer)
+		ctx.Set("id", user.Id)
+		ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(plan.Id)}}
+		ctx.Request = httptest.NewRequest(http.MethodPut, "/api/subscription/admin/plans/1", strings.NewReader(string(body)))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		AdminUpdateSubscriptionPlan(ctx)
+		var response struct {
+			Success bool `json:"success"`
+		}
+		require.NoError(t, common.Unmarshal(writer.Body.Bytes(), &response))
+		require.True(t, response.Success, writer.Body.String())
+		var updated model.SubscriptionPlan
+		require.NoError(t, db.First(&updated, plan.Id).Error)
+		require.NotNil(t, updated.AllowRenewal)
+		if value != nil {
+			expected = *value
+		}
+		assert.Equal(t, expected, *updated.AllowRenewal)
+		cached, err := model.GetSubscriptionPlanById(plan.Id)
+		require.NoError(t, err)
+		require.NotNil(t, cached.AllowRenewal)
+		assert.Equal(t, expected, *cached.AllowRenewal)
+	}
+}
+
+func TestSubscriptionPlanCreateRequiresExplicitRenewalOptIn(t *testing.T) {
+	for _, value := range []*bool{nil, common.GetPointer(false), common.GetPointer(true)} {
+		t.Run(fmt.Sprint(value != nil, value != nil && *value), func(t *testing.T) {
+			db, user, plan, _ := setupSubscriptionRenewalControllerTest(t)
+			plan.Id = 0
+			plan.Title = "New plan"
+			plan.AllowRenewal = value
+			body, err := common.Marshal(map[string]interface{}{"plan": plan})
+			require.NoError(t, err)
+			writer := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(writer)
+			ctx.Set("id", user.Id)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/api/subscription/admin/plans", strings.NewReader(string(body)))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+			AdminCreateSubscriptionPlan(ctx)
+			var response struct {
+				Success bool `json:"success"`
+			}
+			require.NoError(t, common.Unmarshal(writer.Body.Bytes(), &response))
+			require.True(t, response.Success, writer.Body.String())
+			var created model.SubscriptionPlan
+			require.NoError(t, db.Where("title = ?", plan.Title).First(&created).Error)
+			require.NotNil(t, created.AllowRenewal)
+			assert.Equal(t, value != nil && *value, *created.AllowRenewal)
+		})
+	}
 }

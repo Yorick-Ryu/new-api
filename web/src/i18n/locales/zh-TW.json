@@ -5401,6 +5401,10 @@
     "Subscription renewed successfully": "方案續費成功",
     "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "未到期的方案從原到期時間延長；已到期的方案在付款成功後開始新的訂閱。",
     "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "不重置的方案額度將累加至剩餘額度，保留已有用量和額外額度視窗。",
-    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "保留目前額度用量和重置週期，續費不會立即重置額度。"
+    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "保留目前額度用量和重置週期，續費不會立即重置額度。",
+    "Renew": "續費",
+    "Allow renewal": "允許續費",
+    "Refresh subscriptions": "重新整理訂閱",
+    "This plan does not allow renewal": "此方案不允許續費"
   }
 }

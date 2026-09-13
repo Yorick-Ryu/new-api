@@ -172,7 +172,7 @@ export function SubscriptionPlansCard({
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await fetchSelfSubscription()
+      await Promise.all([fetchPlans(), fetchSelfSubscription()])
     } finally {
       setRefreshing(false)
     }
@@ -286,7 +286,10 @@ export function SubscriptionPlansCard({
         contentClassName='space-y-4 sm:space-y-5'
       >
         {/* My subscriptions & billing preference */}
-        <div className='rounded-xl border p-3 sm:p-4'>
+        <section
+          aria-label={t('My Subscriptions')}
+          className='rounded-xl border p-3 sm:p-4'
+        >
           <div className='flex flex-wrap items-center justify-between gap-2.5 sm:gap-3'>
             <div className='flex min-w-0 flex-wrap items-center gap-2'>
               <span className='text-sm font-medium'>
@@ -387,6 +390,7 @@ export function SubscriptionPlansCard({
                 variant='ghost'
                 size='icon'
                 className='h-8 w-8'
+                aria-label={t('Refresh subscriptions')}
                 onClick={handleRefresh}
                 disabled={refreshing}
               >
@@ -412,106 +416,105 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
-            <>
-              <Separator className='my-3' />
-              <div className='max-h-64 space-y-3 overflow-y-auto pr-1'>
-                {allSubscriptions.map((sub) => {
-                  const subscription = sub.subscription
-                  const totalAmount = Number(subscription?.amount_total || 0)
-                  const usedAmount = Number(subscription?.amount_used || 0)
-                  const subscriptionPlan = planMap.get(subscription?.plan_id)
-                  const planTitle = subscriptionPlan?.title || ''
-                  const primaryQuotaLabel = subscriptionPlan
-                    ? formatPrimaryQuotaLabel(subscriptionPlan, t)
-                    : t('Main quota')
-                  const now = Date.now() / 1000
-                  const isExpired = (subscription?.end_time || 0) < now
-                  const isCancelled = subscription?.status === 'cancelled'
-                  const isActive =
-                    subscription?.status === 'active' && !isExpired
-                  let statusBadge = (
+            <div className='mt-3 max-h-64 space-y-3 overflow-y-auto pr-1'>
+              {allSubscriptions.map((sub) => {
+                const subscription = sub.subscription
+                const totalAmount = Number(subscription?.amount_total || 0)
+                const usedAmount = Number(subscription?.amount_used || 0)
+                const subscriptionPlan = planMap.get(subscription?.plan_id)
+                const planTitle = subscriptionPlan?.title || ''
+                const primaryQuotaLabel = subscriptionPlan
+                  ? formatPrimaryQuotaLabel(subscriptionPlan, t)
+                  : t('Main quota')
+                const now = Date.now() / 1000
+                const isExpired = (subscription?.end_time || 0) < now
+                const isCancelled = subscription?.status === 'cancelled'
+                const isActive = subscription?.status === 'active' && !isExpired
+                let statusBadge = (
+                  <StatusBadge
+                    label={t('Expired')}
+                    variant='neutral'
+                    copyable={false}
+                  />
+                )
+                if (isActive) {
+                  statusBadge = (
                     <StatusBadge
-                      label={t('Expired')}
+                      label={t('Active')}
+                      variant='success'
+                      copyable={false}
+                    />
+                  )
+                } else if (isCancelled) {
+                  statusBadge = (
+                    <StatusBadge
+                      label={t('Cancelled')}
                       variant='neutral'
                       copyable={false}
                     />
                   )
-                  if (isActive) {
-                    statusBadge = (
-                      <StatusBadge
-                        label={t('Active')}
-                        variant='success'
-                        copyable={false}
-                      />
-                    )
-                  } else if (isCancelled) {
-                    statusBadge = (
-                      <StatusBadge
-                        label={t('Cancelled')}
-                        variant='neutral'
-                        copyable={false}
-                      />
-                    )
-                  }
+                }
 
-                  return (
-                    <div
-                      key={subscription?.id}
-                      className='bg-background rounded-md border p-3 text-xs'
-                    >
-                      <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1'>
-                        <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                          <span className='font-semibold wrap-anywhere'>
-                            {planTitle
-                              ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
-                              : `${t('Subscription')} #${subscription?.id}`}
-                          </span>
-                          {statusBadge}
-                        </div>
-                        <SubscriptionExpiry
-                          endTime={subscription.end_time}
-                          isActive={isActive}
-                          isCancelled={isCancelled}
-                        />
+                return (
+                  <article
+                    key={subscription?.id}
+                    aria-label={`${planTitle || t('Subscription')} #${subscription.id}`}
+                    className='bg-background rounded-md border p-3 text-xs'
+                  >
+                    <header className='grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1'>
+                      <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                        <span className='font-semibold wrap-anywhere'>
+                          {planTitle
+                            ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
+                            : `${t('Subscription')} #${subscription?.id}`}
+                        </span>
+                        {statusBadge}
                       </div>
                       {subscriptionPlan &&
+                        subscriptionPlan.allow_renewal === true &&
                         (subscription.status === 'active' ||
                           subscription.status === 'expired') && (
                           <Button
-                            variant='outline'
                             size='sm'
-                            className='mt-2'
+                            className='col-start-2 row-start-1 justify-self-end'
                             onClick={() => {
                               setSelectedPlan({ plan: subscriptionPlan })
                               setRenewalSubscription(subscription)
                               setPurchaseOpen(true)
                             }}
                           >
-                            {t('Renew Subscription')}
+                            {t('Renew')}
                           </Button>
                         )}
+                      <div className='col-span-2 flex justify-end'>
+                        <SubscriptionExpiry
+                          endTime={subscription.end_time}
+                          isActive={isActive}
+                          isCancelled={isCancelled}
+                        />
+                      </div>
+                    </header>
+                    <SubscriptionQuotaUsage
+                      label={primaryQuotaLabel}
+                      amountUsed={usedAmount}
+                      amountTotal={totalAmount}
+                      nextResetTime={subscription?.next_reset_time}
+                      isActive={isActive}
+                    />
+                    {(sub.quota_windows || []).map((window) => (
                       <SubscriptionQuotaUsage
-                        label={primaryQuotaLabel}
-                        amountUsed={usedAmount}
-                        amountTotal={totalAmount}
-                        nextResetTime={subscription?.next_reset_time}
+                        key={window.window_key}
+                        label={window.name}
+                        amountUsed={Number(window.amount_used || 0)}
+                        amountTotal={Number(window.amount_total || 0)}
+                        nextResetTime={window.next_reset_time}
                         isActive={isActive}
                       />
-                      {(sub.quota_windows || []).map((window) => (
-                        <SubscriptionQuotaUsage
-                          key={window.window_key}
-                          label={window.name}
-                          amountUsed={Number(window.amount_used || 0)}
-                          amountTotal={Number(window.amount_total || 0)}
-                          nextResetTime={window.next_reset_time}
-                          isActive={isActive}
-                        />
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
+                    ))}
+                  </article>
+                )
+              })}
+            </div>
           )}
 
           {!hasAny && (
@@ -519,7 +522,7 @@ export function SubscriptionPlansCard({
               {t('Subscribe to a plan for model access')}
             </p>
           )}
-        </div>
+        </section>
 
         {/* Available plans grid */}
         {plans.length > 0 ? (
@@ -532,7 +535,10 @@ export function SubscriptionPlansCard({
               const isPopular = index === 0 && plans.length > 1
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
-              const renewal = renewalByPlan.get(plan.id)
+              const renewal =
+                plan.allow_renewal === true
+                  ? renewalByPlan.get(plan.id)
+                  : undefined
               const reached = !renewal && limit > 0 && count >= limit
               const quotaWindows = parseQuotaWindows(plan)
 
@@ -617,7 +623,7 @@ export function SubscriptionPlansCard({
                       </Tooltip>
                     ) : (
                       <Button
-                        variant='outline'
+                        variant={renewal ? 'default' : 'outline'}
                         className='w-full'
                         onClick={() => {
                           setSelectedPlan(p)
@@ -625,7 +631,7 @@ export function SubscriptionPlansCard({
                           setPurchaseOpen(true)
                         }}
                       >
-                        {renewal ? t('Renew Subscription') : t('Subscribe Now')}
+                        {renewal ? t('Renew') : t('Subscribe Now')}
                       </Button>
                     )}
                   </CardContent>

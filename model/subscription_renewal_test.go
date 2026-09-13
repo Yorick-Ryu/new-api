@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func seedSubscriptionRenewal(t *testing.T) (User, *SubscriptionPlan, *UserSubscription) {
@@ -15,7 +17,7 @@ func seedSubscriptionRenewal(t *testing.T) (User, *SubscriptionPlan, *UserSubscr
 	truncateTables(t)
 	user := User{Username: "renewal-user", Quota: 10000000, Group: "default", Status: common.UserStatusEnabled}
 	require.NoError(t, DB.Create(&user).Error)
-	plan := &SubscriptionPlan{Title: "Renewable", PriceAmount: 2, DurationUnit: SubscriptionDurationDay, DurationValue: 30, Enabled: true, MaxPurchasePerUser: 1, TotalAmount: 1000, QuotaResetPeriod: SubscriptionResetDaily, UpgradeGroup: "pro", QuotaWindows: `[{"key":"hourly","name":"Hourly","period_unit":"hour","period_value":1,"amount_total":100}]`}
+	plan := &SubscriptionPlan{Title: "Renewable", AllowRenewal: common.GetPointer(true), PriceAmount: 2, DurationUnit: SubscriptionDurationDay, DurationValue: 30, Enabled: true, MaxPurchasePerUser: 1, TotalAmount: 1000, QuotaResetPeriod: SubscriptionResetDaily, UpgradeGroup: "pro", QuotaWindows: `[{"key":"hourly","name":"Hourly","period_unit":"hour","period_value":1,"amount_total":100}]`}
 	require.NoError(t, DB.Create(plan).Error)
 	InvalidateSubscriptionPlanCache(plan.Id)
 	t.Cleanup(func() { InvalidateSubscriptionPlanCache(plan.Id) })
@@ -213,4 +215,78 @@ func TestSubscriptionRenewalSeparateOrdersAccumulateAfterExpiry(t *testing.T) {
 	require.NoError(t, DB.Where("user_id = ? AND id <> ?", user.Id, sub.Id).First(&renewed).Error)
 	assert.Equal(t, renewed.StartTime+60*86400, renewed.EndTime)
 	assert.EqualValues(t, 2, countUserSubscriptionsForPaymentGuardTest(t, user.Id))
+}
+
+func TestSubscriptionRenewalPlanPolicyControlsNewPayments(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		allowed     *bool
+		wantAllowed bool
+	}{
+		{"legacy plan", nil, false}, {"enabled", common.GetPointer(true), true}, {"disabled", common.GetPointer(false), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			user, plan, sub := seedSubscriptionRenewal(t)
+			plan.AllowRenewal = tc.allowed
+			require.NoError(t, DB.Model(plan).Update("allow_renewal", tc.allowed).Error)
+			InvalidateSubscriptionPlanCache(plan.Id)
+			checkoutErr := ValidateSubscriptionPurchase(user.Id, plan, sub.Id)
+			paymentErr := PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id)
+			if tc.wantAllowed {
+				require.NoError(t, checkoutErr)
+				require.NoError(t, paymentErr)
+				assert.Equal(t, sub.EndTime+30*86400, getSubscriptionResetSub(t, sub.Id).EndTime)
+			} else {
+				require.ErrorContains(t, checkoutErr, "不允许续费")
+				require.ErrorContains(t, paymentErr, "不允许续费")
+				assert.Equal(t, user.Quota, getUserQuotaForPaymentGuardTest(t, user.Id))
+				assert.Equal(t, sub.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
+				var orderCount int64
+				require.NoError(t, DB.Model(&SubscriptionOrder{}).Count(&orderCount).Error)
+				assert.Zero(t, orderCount)
+				// The renewal switch does not prohibit ordinary purchases.
+				plan.MaxPurchasePerUser = 0
+				require.NoError(t, ValidateSubscriptionPurchase(user.Id, plan, 0))
+			}
+		})
+	}
+}
+
+func TestSubscriptionRenewalPendingOrderCompletesAfterRenewalIsDisabled(t *testing.T) {
+	user, plan, sub := seedSubscriptionRenewal(t)
+	require.NoError(t, ValidateSubscriptionPurchase(user.Id, plan, sub.Id))
+	order := &SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, RenewalSubscriptionId: sub.Id, Money: 2, TradeNo: "renewal-policy-pending", PaymentProvider: PaymentProviderEpay, PaymentMethod: "alipay", Status: common.TopUpStatusPending}
+	require.NoError(t, order.Insert())
+	require.NoError(t, DB.Model(plan).Update("allow_renewal", false).Error)
+	InvalidateSubscriptionPlanCache(plan.Id)
+	require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", PaymentProviderEpay, ""))
+	assert.Equal(t, sub.EndTime+30*86400, getSubscriptionResetSub(t, sub.Id).EndTime)
+	assert.Equal(t, common.TopUpStatusSuccess, GetSubscriptionOrderByTradeNo(order.TradeNo).Status)
+}
+
+func TestSubscriptionRenewalSQLiteMigrationDefaultsOffAndPreservesSettings(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	original := DB
+	DB = db
+	t.Cleanup(func() { DB = original; sqlDB, _ := db.DB(); _ = sqlDB.Close() })
+	require.NoError(t, db.Exec("CREATE TABLE subscription_plans (id integer PRIMARY KEY, title varchar(128) NOT NULL, price_amount decimal(10,6) NOT NULL)").Error)
+	require.NoError(t, db.Exec("INSERT INTO subscription_plans (id,title,price_amount) VALUES (1, 'Existing plan', 2)").Error)
+	require.NoError(t, ensureSubscriptionPlanTableSQLite())
+	var plan SubscriptionPlan
+	require.NoError(t, db.First(&plan, 1).Error)
+	assert.Nil(t, plan.AllowRenewal)
+	plan.NormalizeDefaults()
+	require.NotNil(t, plan.AllowRenewal)
+	assert.False(t, *plan.AllowRenewal)
+	for _, enabled := range []bool{false, true} {
+		require.NoError(t, db.Model(&plan).Update("allow_renewal", enabled).Error)
+		require.NoError(t, ensureSubscriptionPlanTableSQLite())
+		require.NoError(t, db.First(&plan, 1).Error)
+		plan.NormalizeDefaults()
+		require.NotNil(t, plan.AllowRenewal)
+		assert.Equal(t, enabled, *plan.AllowRenewal)
+	}
+	assert.Equal(t, "Existing plan", plan.Title)
+	assert.Equal(t, float64(2), plan.PriceAmount)
 }

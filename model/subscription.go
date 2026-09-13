@@ -162,6 +162,9 @@ type SubscriptionPlan struct {
 
 	AllowBalancePay *bool `json:"allow_balance_pay"`
 
+	// Renewal requires explicit opt-in, including plans created before this field.
+	AllowRenewal *bool `json:"allow_renewal"`
+
 	// Allow falling back to wallet balance after subscription quota is exhausted (empty = true)
 	AllowWalletOverflow *bool `json:"allow_wallet_overflow"`
 
@@ -209,6 +212,9 @@ func (p *SubscriptionPlan) BeforeUpdate(tx *gorm.DB) error {
 }
 
 func (p *SubscriptionPlan) NormalizeDefaults() {
+	if p.AllowRenewal == nil {
+		p.AllowRenewal = common.GetPointer(false)
+	}
 	if p.AllowBalancePay == nil {
 		p.AllowBalancePay = common.GetPointer(true)
 	}
@@ -782,6 +788,9 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscription
 		}
 		if plan.AllowBalancePay != nil && !*plan.AllowBalancePay {
 			return errors.New("该套餐不允许使用余额兑换")
+		}
+		if renewalSubscriptionId > 0 && (plan.AllowRenewal == nil || !*plan.AllowRenewal) {
+			return errors.New("该套餐不允许续费")
 		}
 
 		requiredQuota, err := calcSubscriptionBalanceQuota(plan.PriceAmount)

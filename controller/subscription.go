@@ -166,6 +166,9 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		req.Plan.Currency = "USD"
 	}
 	req.Plan.Currency = "USD"
+	if req.Plan.AllowRenewal == nil {
+		req.Plan.AllowRenewal = common.GetPointer(false)
+	}
 	if req.Plan.AllowBalancePay == nil {
 		req.Plan.AllowBalancePay = common.GetPointer(true)
 	}
@@ -327,6 +330,9 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_windows":              normalizedQuotaWindows,
 			"model_multipliers":          normalizedMultipliers,
 			"updated_at":                 common.GetTimestamp(),
+		}
+		if req.Plan.AllowRenewal != nil {
+			updateMap["allow_renewal"] = *req.Plan.AllowRenewal
 		}
 		if req.Plan.AllowBalancePay != nil {
 			updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay

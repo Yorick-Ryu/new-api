@@ -5401,6 +5401,10 @@
     "Subscription renewed successfully": "Subscription renewed successfully",
     "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.": "Renewal extends an active subscription from its expiry date. If expired, a new subscription starts when payment completes.",
     "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.": "Non-resetting quota is added to the remaining quota. Existing usage and additional quota windows are preserved.",
-    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately."
+    "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.": "Current quota usage and reset cycles are preserved. Renewal does not reset quota immediately.",
+    "Renew": "Renew",
+    "Allow renewal": "Allow renewal",
+    "Refresh subscriptions": "Refresh subscriptions",
+    "This plan does not allow renewal": "This plan does not allow renewal"
   }
 }

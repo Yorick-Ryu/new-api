@@ -19,6 +19,9 @@ func validateSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionP
 		return errors.New("invalid subscription purchase")
 	}
 	if renewalSubscriptionId > 0 {
+		if plan.AllowRenewal == nil || !*plan.AllowRenewal {
+			return errors.New("该套餐不允许续费")
+		}
 		var count int64
 		if err := tx.Model(&UserSubscription{}).
 			Where("id = ? AND user_id = ? AND plan_id = ? AND status IN ?", renewalSubscriptionId, userId, plan.Id, []string{"active", "expired"}).
