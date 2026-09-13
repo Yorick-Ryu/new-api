@@ -513,6 +513,7 @@ export function SubscriptionPlansCard({
                       )}
                     >
                       <SubscriptionQuotaUsage
+                        variant='remaining'
                         label={primaryQuotaLabel}
                         amountUsed={usedAmount}
                         amountTotal={totalAmount}
@@ -521,6 +522,7 @@ export function SubscriptionPlansCard({
                       />
                       {(sub.quota_windows || []).map((window) => (
                         <SubscriptionQuotaUsage
+                          variant='remaining'
                           key={window.window_key}
                           label={window.name}
                           amountUsed={Number(window.amount_used || 0)}

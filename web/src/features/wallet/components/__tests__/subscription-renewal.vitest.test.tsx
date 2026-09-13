@@ -175,7 +175,7 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
         within(article)
           .getByRole('progressbar', { name: 'Hourly quota' })
           .getAttribute('aria-valuenow')
-      ).toBe('25')
+      ).toBe('75')
     }
     // Neither the summary nor the plan action needs a separator.
     const summary = screen.getByRole('region', { name: 'My Subscriptions' })

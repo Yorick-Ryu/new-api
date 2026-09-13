@@ -27,6 +27,7 @@ interface SubscriptionQuotaUsageProps {
   amountTotal: number
   nextResetTime?: number
   isActive: boolean
+  variant?: 'usage' | 'remaining'
 }
 
 export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
@@ -38,6 +39,58 @@ export function SubscriptionQuotaUsage(props: SubscriptionQuotaUsageProps) {
           Math.max(0, Math.round((props.amountUsed / props.amountTotal) * 100))
         )
       : 0
+
+  if (props.variant === 'remaining') {
+    return (
+      <div
+        data-slot='subscription-quota-usage'
+        className='border-border/60 rounded-xl border p-3'
+      >
+        <p className='text-muted-foreground text-[12px] font-medium'>
+          {props.label}
+        </p>
+        {props.amountTotal <= 0 && (
+          <p className='mt-2 text-[20px] leading-7 font-semibold'>
+            {t('Unlimited')}
+          </p>
+        )}
+        {props.amountTotal > 0 && props.isActive && (
+          <p className='mt-2 flex items-baseline gap-1.5'>
+            <span className='text-[22px] leading-7 font-semibold tabular-nums'>
+              {100 - usagePercent}%
+            </span>
+            <span className='text-[12px]'>{t('Remaining')}</span>
+          </p>
+        )}
+        {props.isActive && props.amountTotal > 0 && (
+          <Progress
+            aria-label={props.label}
+            value={100 - usagePercent}
+            aria-valuetext={`${100 - usagePercent}% ${t('Remaining')}`}
+            className='mt-3 [&_[data-slot=progress-indicator]]:rounded-full [&_[data-slot=progress-track]]:h-2'
+          />
+        )}
+        <div className='text-muted-foreground mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px]'>
+          <span>
+            {t('Used')} {formatQuota(props.amountUsed)}
+            {props.amountTotal > 0 && ` / ${formatQuota(props.amountTotal)}`}
+          </span>
+          {props.isActive && Number(props.nextResetTime) > 0 && (
+            <span>
+              {t('Next reset')}:{' '}
+              <time
+                dateTime={new Date(
+                  Number(props.nextResetTime) * 1000
+                ).toISOString()}
+              >
+                {new Date(Number(props.nextResetTime) * 1000).toLocaleString()}
+              </time>
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div data-slot='subscription-quota-usage' className='mt-2'>
