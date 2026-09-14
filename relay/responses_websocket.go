@@ -296,7 +296,7 @@ func responsesWSEventType(message []byte) (string, error) {
 }
 
 func newResponsesWSInvalidRequestError(err error) *types.NewAPIError {
-	return types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithStatusCode(http.StatusBadRequest), types.ErrOptionWithSkipRetry())
 }
 
 func normalizeResponsesWSCreateEvent(message []byte) (responsesWSCreateRequest, string, error) {

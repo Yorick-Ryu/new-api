@@ -130,10 +130,9 @@ func exceedsMaxTokensLimit(values ...*uint) bool {
 	return false
 }
 
-// ValidateResponsesRequest enforces the bounds that protect pre-consume quota
-// math for a Responses call. Every transport that builds one — HTTP and the
-// WebSocket relay alike — must run it before pricing, so an unvalidated
-// max_output_tokens can never reach the billing multiplication.
+// ValidateResponsesRequest checks image inputs and the bounds that protect
+// pre-consume quota math. HTTP and WebSocket must both run it before pricing
+// and before sending the request upstream.
 func ValidateResponsesRequest(request *dto.OpenAIResponsesRequest) error {
 	if request.Model == "" {
 		return errors.New("model is required")
@@ -141,7 +140,7 @@ func ValidateResponsesRequest(request *dto.OpenAIResponsesRequest) error {
 	if exceedsMaxTokensLimit(request.MaxOutputTokens) {
 		return errors.New("max_output_tokens is invalid")
 	}
-	return nil
+	return validateResponsesImageInputs(request.Input)
 }
 
 func GetAndValidateResponsesRequest(c *gin.Context) (*dto.OpenAIResponsesRequest, error) {
@@ -188,6 +187,9 @@ func GetAndValidateResponsesCompactionRequest(c *gin.Context) (*dto.OpenAIRespon
 	}
 	if request.Model == "" {
 		return nil, errors.New("model is required")
+	}
+	if err := validateResponsesImageInputs(request.Input); err != nil {
+		return nil, err
 	}
 	return request, nil
 }
@@ -366,6 +368,9 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 		// It will be filled by provider-specific adaptors if needed (e.g., SiliconFlow)。Or it is allowed by model vendor(s) (e.g., DeepSeek)
 		if len(textRequest.Messages) == 0 && textRequest.Prefix == nil && textRequest.Suffix == nil {
 			return nil, errors.New("field messages is required")
+		}
+		if err := validateChatImageInputs(textRequest.Messages); err != nil {
+			return nil, err
 		}
 	case relayconstant.RelayModeEmbeddings:
 	case relayconstant.RelayModeModerations:
