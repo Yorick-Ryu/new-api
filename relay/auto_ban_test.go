@@ -8,6 +8,8 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +17,9 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func setupAutoBanRelayTest(t *testing.T) (*gorm.DB, model.User) {
@@ -39,7 +43,7 @@ func setupAutoBanRelayTest(t *testing.T) (*gorm.DB, model.User) {
 	return db, user
 }
 
-func TestAutoBanWebSocketErrorDisablesAndRejectsNextTurn(t *testing.T) {
+func TestAutoBanWebSocketErrorDisablesAccount(t *testing.T) {
 	db, user := setupAutoBanRelayTest(t)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/v1/responses", nil)
@@ -54,10 +58,61 @@ func TestAutoBanWebSocketErrorDisablesAndRejectsNextTurn(t *testing.T) {
 	require.True(t, s.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`)))
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusDisabled, user.Status)
-	s.current = nil
-	apiErr := s.handleResponseCreate(responsesWSCreateRequest{Request: dto.OpenAIResponsesRequest{Model: "chat"}}, "")
-	require.NotNil(t, apiErr)
-	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+}
+
+func TestAutoBanWebSocketExistingConnectionContinuesWithoutAccountStatusQueries(t *testing.T) {
+	db, user := setupAutoBanRelayTest(t)
+	require.NoError(t, db.AutoMigrate(&model.UserSubscription{}))
+	originalRatios := ratio_setting.ModelRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"gpt-auto-ban-test":0}`))
+	originalFreePreConsume := operation_setting.GetQuotaSetting().EnableFreeModelPreConsume
+	operation_setting.GetQuotaSetting().EnableFreeModelPreConsume = false
+	originalCountToken := constant.CountToken
+	constant.CountToken = false
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(originalRatios))
+		operation_setting.GetQuotaSetting().EnableFreeModelPreConsume = originalFreePreConsume
+		constant.CountToken = originalCountToken
+	})
+
+	upstream, target, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	c := newResponsesWSChannelSelectionContext()
+	c.Set("id", user.Id)
+	common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeOpenAI)
+	common.SetContextKey(c, constant.ContextKeyChannelId, 22)
+	common.SetContextKey(c, constant.ContextKeyChannelKey, "synthetic-test-key")
+	common.SetContextKey(c, constant.ContextKeyOriginalModel, "gpt-auto-ban-test")
+	session := &responsesWSSession{
+		c: c, target: target, lockedModel: "gpt-auto-ban-test",
+		lockedChannel: &model.Channel{Id: 22, Type: constant.ChannelTypeOpenAI},
+	}
+	create, _, err := normalizeResponsesWSCreateEvent([]byte(`{"type":"response.create","model":"gpt-auto-ban-test","input":"hello"}`))
+	require.NoError(t, err)
+	require.Nil(t, session.handleResponseCreate(create, ""))
+	require.NoError(t, upstream.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, _, err = upstream.ReadMessage()
+	require.NoError(t, err)
+	require.True(t, session.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`)))
+	session.markIdle()
+	require.NoError(t, db.First(&user, user.Id).Error)
+	require.Equal(t, common.UserStatusDisabled, user.Status)
+
+	var userQueries atomic.Int64
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:account_status_queries", func(tx *gorm.DB) {
+		if tx.Statement.Table == "users" {
+			userQueries.Add(1)
+		}
+	}))
+	// The already authenticated socket remains usable after an automatic ban.
+	require.Nil(t, session.handleResponseCreate(create, ""))
+	require.NoError(t, upstream.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, body, err := upstream.ReadMessage()
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"model":"gpt-auto-ban-test"`)
+	assert.Zero(t, userQueries.Load(), "normal turns must not re-query account status")
+	assert.False(t, service.AutoBanEnforced(c), "the previous error must not carry into the new turn")
+	require.True(t, session.observeUpstreamMessage([]byte(`{"type":"response.completed","response":{"status":"completed"}}`)))
 }
 
 func TestAutoBanWebSocketSupportedFailureEnvelopes(t *testing.T) {

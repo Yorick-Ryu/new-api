@@ -63,6 +63,7 @@ func TestAutoBanAllUserKeysDeniedAndManualEnableRestoresAccess(t *testing.T) {
 	require.NoError(t, db.Create(&user).Error)
 	router := gin.New()
 	router.GET("/relay", middleware.TokenAuth(), func(c *gin.Context) { c.Status(http.StatusOK) })
+	router.GET("/v1/responses", middleware.TokenAuth(), ResponsesWebSocket)
 	keys := []string{"autobantestkeyone", "autobantestkeytwo"}
 	for _, key := range keys {
 		require.NoError(t, db.Create(&model.Token{UserId: user.Id, Key: key, Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, CreatedTime: time.Now().Unix()}).Error)
@@ -81,6 +82,15 @@ func TestAutoBanAllUserKeysDeniedAndManualEnableRestoresAccess(t *testing.T) {
 	require.NoError(t, model.ApplyAutoBanEvent(&event))
 	for _, key := range keys {
 		assert.Equal(t, http.StatusForbidden, request(key))
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
+		req.Header.Set("Authorization", "Bearer sk-"+key)
+		req.Header.Set("Connection", "Upgrade")
+		req.Header.Set("Upgrade", "websocket")
+		req.Header.Set("Sec-WebSocket-Version", "13")
+		req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusForbidden, recorder.Code, "banned accounts must be rejected before a new WebSocket is upgraded")
 	}
 	events, err := model.ListAutoBanEvents(0, 30)
 	require.NoError(t, err)

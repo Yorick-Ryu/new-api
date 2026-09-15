@@ -373,10 +373,8 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 		)
 	}
 
-	user, userErr := appmodel.GetUserCache(s.c.GetInt("id"))
-	if userErr != nil || user.Status != common.UserStatusEnabled {
-		return types.NewErrorWithStatusCode(errors.New("user account is unavailable"), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
-	}
+	// TokenAuth checks account status when the client establishes the socket.
+	// Existing connections do not re-check account status on subsequent turns.
 	service.BeginAutoBanRequest(s.c)
 
 	commitRate, apiErr := middleware.CheckModelRequestRateLimit(s.c)
