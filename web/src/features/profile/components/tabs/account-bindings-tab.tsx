@@ -47,6 +47,7 @@ import {
   buildLinuxDOOAuthUrl,
   buildOIDCOAuthUrl,
 } from '@/lib/oauth'
+import { getBusinessOrigin } from '@/lib/site-address'
 
 import {
   getSelfOAuthBindings,
@@ -202,7 +203,7 @@ export function AccountBindingsTab({
 
   const handleBindCustomOAuth = async (provider: CustomOAuthProviderInfo) => {
     await startOAuthBinding(provider.slug, (state) => {
-      const redirectUri = `${window.location.origin}/oauth/${provider.slug}`
+      const redirectUri = `${getBusinessOrigin()}/oauth/${provider.slug}`
       const url = new URL(provider.authorization_endpoint)
       url.searchParams.set('client_id', provider.client_id)
       url.searchParams.set('redirect_uri', redirectUri)

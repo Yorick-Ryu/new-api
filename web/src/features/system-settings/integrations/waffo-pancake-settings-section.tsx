@@ -391,13 +391,13 @@ export function WaffoPancakeSettingsSection({
             <li>
               {t('Webhook URL (Test):')}{' '}
               <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                {'<ServerAddress>/api/waffo-pancake/webhook/test'}
+                {'<SiteAddress>/api/waffo-pancake/webhook/test'}
               </code>
             </li>
             <li>
               {t('Webhook URL (Production):')}{' '}
               <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                {'<ServerAddress>/api/waffo-pancake/webhook/prod'}
+                {'<SiteAddress>/api/waffo-pancake/webhook/prod'}
               </code>
             </li>
             <li>

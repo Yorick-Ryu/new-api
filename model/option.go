@@ -73,6 +73,8 @@ func InitOptionMap() {
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["ServerAddress"] = ""
+	common.OptionMap["SiteAddress"] = ""
+	common.OptionMap["SiteAllowedOrigins"] = ""
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
 	common.OptionMap["WorkerAllowHttpImageRequestEnabled"] = strconv.FormatBool(system_setting.WorkerAllowHttpImageRequestEnabled)
@@ -206,6 +208,17 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if key == "ServerAddress" || key == "SiteAddress" {
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		_, err := common.NormalizeOrigin(value)
+		return err
+	}
+	if key == "SiteAllowedOrigins" {
+		_, err := system_setting.ParseSiteOrigins(value)
+		return err
+	}
 	if key == ServiceStatusSettingsOptionKey {
 		_, err := ParseServiceStatusSettings(value)
 		return err
@@ -414,7 +427,11 @@ func updateOptionMap(key string, value string) (err error) {
 	case "SMTPToken":
 		common.SMTPToken = value
 	case "ServerAddress":
-		system_setting.ServerAddress = value
+		system_setting.ServerAddress = strings.TrimRight(strings.TrimSpace(value), "/")
+	case "SiteAddress":
+		system_setting.SiteAddress = strings.TrimRight(strings.TrimSpace(value), "/")
+	case "SiteAllowedOrigins":
+		system_setting.SiteAllowedOrigins = value
 	case "WorkerUrl":
 		system_setting.WorkerUrl = value
 	case "WorkerValidKey":

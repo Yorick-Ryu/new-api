@@ -12,7 +12,8 @@ Origin and X-Forwarded-Host headers do not choose a different return destination
 The scheme/host are validated before an order is created.
 
 Server-to-server `notify_url` continues to use CustomCallbackAddress, falling
-back to ServerAddress. Browser returns no longer use that configured API address.
+back to SiteAddress (or ServerAddress for legacy configurations). Browser returns
+follow the [business-origin policy](site-addresses.md).
 No schema migration, cookie change, order fulfillment change or gateway key
 change is required. Orders created before deployment retain the return_url that
 was already submitted to the gateway.

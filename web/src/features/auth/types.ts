@@ -93,6 +93,11 @@ export interface SystemStatus {
   success?: boolean
   message?: string
   data?: {
+    api_address?: string
+    server_address?: string
+    site_address?: string
+    site_address_configured?: boolean
+    site_allowed_origins?: string[]
     version?: string
     system_name?: string
     logo?: string
@@ -138,6 +143,11 @@ export interface SystemStatus {
     [key: string]: unknown
   }
   // Allow direct access to common properties
+  api_address?: string
+  server_address?: string
+  site_address?: string
+  site_address_configured?: boolean
+  site_allowed_origins?: string[]
   version?: string
   system_name?: string
   logo?: string

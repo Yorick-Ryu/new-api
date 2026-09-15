@@ -41,7 +41,9 @@ import {
   CardStaggerItem,
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
+import { useStatus } from '@/hooks/use-status'
 import { ROLE } from '@/lib/roles'
+import { getAPIAddress } from '@/lib/site-address'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -263,6 +265,7 @@ export function OverviewDashboard() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { items: apiInfoItems } = useApiInfo()
+  const { status } = useStatus()
   const {
     apiInfo: showApiInfoPanel,
     announcements: showAnnouncementsPanel,
@@ -375,14 +378,9 @@ export function OverviewDashboard() {
         }}
         key={user?.id}
         userId={user?.id ?? 0}
-        baseUrl={
-          apiInfoItems[0]?.url?.trim()
-            ? normalizeEndpoint(apiInfoItems[0].url).replace(
-                /\/chat\/completions$/,
-                ''
-              )
-            : ''
-        }
+        baseUrl={normalizeEndpoint(
+          getAPIAddress(status, apiInfoItems[0]?.url?.trim() || '')
+        ).replace(/\/chat\/completions$/, '')}
         hasCredits={remainQuota > 0}
         onConfirmed={() => {
           if (user) {

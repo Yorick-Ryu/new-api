@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGitHubCallbackURLUsesBrowserOrigin(t *testing.T) {
@@ -34,7 +35,9 @@ func TestGitHubCallbackURLUsesBrowserOrigin(t *testing.T) {
 			context, _ := gin.CreateTestContext(httptest.NewRecorder())
 			context.Request = request
 
-			assert.Equal(t, test.expected, githubCallbackURL(context))
+			actual, err := callbackURL(context, "github")
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, actual)
 		})
 	}
 }

@@ -1194,7 +1194,7 @@ export function PaymentSettingsSection({
                         </FormControl>
                         <FormDescription>
                           {t(
-                            'Only enter the site origin, for example https://api.example.com. Do not include any path such as /api/user/epay/notify. Leave blank to use the server address.'
+                            'Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address.'
                           )}
                         </FormDescription>
                         <FormMessage />
@@ -1270,7 +1270,7 @@ export function PaymentSettingsSection({
                     <li>
                       {t('Webhook URL:')}{' '}
                       <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                        {'<ServerAddress>/api/stripe/webhook'}
+                        {'<SiteAddress>/api/stripe/webhook'}
                       </code>
                     </li>
                     <li>
@@ -1462,7 +1462,7 @@ export function PaymentSettingsSection({
                     <li>
                       {t('Webhook URL:')}{' '}
                       <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                        {'<ServerAddress>/api/creem/webhook'}
+                        {'<SiteAddress>/api/creem/webhook'}
                       </code>
                     </li>
                     <li>{t('Configure in your Creem dashboard')}</li>

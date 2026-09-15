@@ -2097,7 +2097,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
     "Force a syntactically valid JSON response": "構文的に有効な JSON 応答を強制",
@@ -5409,6 +5409,15 @@
     "Refresh subscriptions": "プランを更新表示",
     "This plan does not allow renewal": "このプランは更新できません",
     "With this subscription, {{multipliers}}": "このサブスクリプションでは、{{multipliers}}",
-    "{{model}} multiplier is {{multiplier}}×": "{{model}} の倍率は {{multiplier}}×"
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} の倍率は {{multiplier}}×",
+    "API request address": "API request address",
+    "Business site address": "Business site address",
+    "Additional business origins": "Additional business origins",
+    "Enter an HTTP or HTTPS origin without a path, query, or fragment": "Enter an HTTP or HTTPS origin without a path, query, or fragment",
+    "Enter one valid HTTP or HTTPS origin per line": "Enter one valid HTTP or HTTPS origin per line",
+    "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.": "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.",
+    "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.": "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.",
+    "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.": "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.",
+    "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address.": "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address."
   }
 }

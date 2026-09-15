@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -38,16 +37,6 @@ type gitHubUser struct {
 	Email string `json:"email"`
 }
 
-func githubCallbackURL(c *gin.Context) string {
-	scheme := "http"
-	if forwardedProto := c.GetHeader("X-Forwarded-Proto"); forwardedProto != "" {
-		scheme = strings.ToLower(strings.TrimSpace(strings.Split(forwardedProto, ",")[0]))
-	} else if c.Request.TLS != nil {
-		scheme = "https"
-	}
-	return fmt.Sprintf("%s://%s/oauth/github", scheme, c.Request.Host)
-}
-
 func (p *GitHubProvider) GetName() string {
 	return "GitHub"
 }
@@ -63,11 +52,15 @@ func (p *GitHubProvider) ExchangeToken(ctx context.Context, code string, c *gin.
 
 	logger.LogDebug(ctx, "[OAuth-GitHub] ExchangeToken: code=%s...", code[:min(len(code), 10)])
 
+	redirectURI, err := callbackURL(c, "github")
+	if err != nil {
+		return nil, err
+	}
 	values := map[string]string{
 		"client_id":     common.GitHubClientId,
 		"client_secret": common.GitHubClientSecret,
 		"code":          code,
-		"redirect_uri":  githubCallbackURL(c),
+		"redirect_uri":  redirectURI,
 	}
 	jsonData, err := json.Marshal(values)
 	if err != nil {

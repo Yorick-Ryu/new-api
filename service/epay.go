@@ -7,7 +7,7 @@ import (
 
 func GetCallbackAddress() string {
 	if operation_setting.CustomCallbackAddress == "" {
-		return system_setting.ServerAddress
+		return system_setting.GetSiteAddress()
 	}
 	return operation_setting.CustomCallbackAddress
 }

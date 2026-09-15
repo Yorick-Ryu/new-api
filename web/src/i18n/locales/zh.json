@@ -2097,7 +2097,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "对于私有部署，格式为：https://fastgpt.run/api/openapi",
     "Force a syntactically valid JSON response": "强制返回语法合法的 JSON",
@@ -5409,6 +5409,15 @@
     "Refresh subscriptions": "刷新订阅",
     "This plan does not allow renewal": "该套餐不允许续费",
     "With this subscription, {{multipliers}}": "订阅内 {{multipliers}}",
-    "{{model}} multiplier is {{multiplier}}×": "{{model}} 倍率为 {{multiplier}}×"
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} 倍率为 {{multiplier}}×",
+    "API request address": "API 请求地址",
+    "Business site address": "业务站点地址",
+    "Additional business origins": "其他业务域名",
+    "Enter an HTTP or HTTPS origin without a path, query, or fragment": "请输入 HTTP 或 HTTPS 域名地址，不含路径、查询参数或锚点",
+    "Enter one valid HTTP or HTTPS origin per line": "每行填写一个有效的 HTTP 或 HTTPS 域名地址",
+    "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.": "用于模型 API 请求、客户端配置、代码示例和生成内容的访问地址。填写域名地址，不包含 /v1。",
+    "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.": "用于密码重置邮件、业务链接和支付回调的默认地址。留空时兼容旧行为，使用 API 请求地址。",
+    "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.": "选填，每行一个完整域名地址。用户从这些站点登录或支付后，会回到原站点。业务站点地址默认允许。OAuth 平台回调和 Passkey 允许来源仍需单独配置。",
+    "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address.": "仅填写业务站点域名，例如 https://example.com，不包含 /api/user/epay/notify。留空时使用业务站点地址。"
   }
 }

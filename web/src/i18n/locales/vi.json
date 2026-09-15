@@ -2097,7 +2097,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
     "Force a syntactically valid JSON response": "Buộc phản hồi JSON hợp lệ về cú pháp",
@@ -5409,6 +5409,15 @@
     "Refresh subscriptions": "Làm mới gói đăng ký",
     "This plan does not allow renewal": "Gói này không cho phép gia hạn",
     "With this subscription, {{multipliers}}": "Trong gói đăng ký, {{multipliers}}",
-    "{{model}} multiplier is {{multiplier}}×": "{{model}} có hệ số {{multiplier}}×"
+    "{{model}} multiplier is {{multiplier}}×": "{{model}} có hệ số {{multiplier}}×",
+    "API request address": "API request address",
+    "Business site address": "Business site address",
+    "Additional business origins": "Additional business origins",
+    "Enter an HTTP or HTTPS origin without a path, query, or fragment": "Enter an HTTP or HTTPS origin without a path, query, or fragment",
+    "Enter one valid HTTP or HTTPS origin per line": "Enter one valid HTTP or HTTPS origin per line",
+    "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.": "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.",
+    "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.": "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.",
+    "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.": "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.",
+    "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address.": "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address."
   }
 }

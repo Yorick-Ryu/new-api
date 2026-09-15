@@ -103,9 +103,9 @@ autoDetect:
 	// 优先使用请求的完整Host（包含端口）
 	host := r.Host
 
-	// 如果无法从请求获取Host，尝试从ServerAddress获取
-	if host == "" && system_setting.ServerAddress != "" {
-		if parsed, err := url.Parse(system_setting.ServerAddress); err == nil && parsed.Host != "" {
+	// 如果无法从请求获取Host，尝试从业务站点地址获取
+	if host == "" && system_setting.GetSiteAddress() != "" {
+		if parsed, err := url.Parse(system_setting.GetSiteAddress()); err == nil && parsed.Host != "" {
 			host = parsed.Host
 			if scheme == "" && parsed.Scheme != "" {
 				scheme = parsed.Scheme
@@ -113,7 +113,7 @@ autoDetect:
 		}
 	}
 	if host == "" {
-		return nil, fmt.Errorf("无法确定 Passkey 的 Origin，请在系统设置或 Passkey 设置中指定。当前 Host: '%s', ServerAddress: '%s'", r.Host, system_setting.ServerAddress)
+		return nil, fmt.Errorf("无法确定 Passkey 的 Origin，请在系统设置或 Passkey 设置中指定。当前 Host: '%s', SiteAddress: '%s'", r.Host, system_setting.GetSiteAddress())
 	}
 	if scheme == "" {
 		scheme = "https"

@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getBusinessOrigin } from '@/lib/site-address'
+
 // ============================================================================
 // OAuth URL Builders
 // ============================================================================
@@ -26,7 +28,7 @@ For commercial licensing, please contact support@quantumnous.com
 export function buildGitHubOAuthUrl(clientId: string, state: string): string {
   const url = new URL('https://github.com/login/oauth/authorize')
   url.searchParams.set('client_id', clientId)
-  url.searchParams.set('redirect_uri', `${window.location.origin}/oauth/github`)
+  url.searchParams.set('redirect_uri', `${getBusinessOrigin()}/oauth/github`)
   url.searchParams.set('state', state)
   url.searchParams.set('scope', 'user:email')
   return url.toString()
@@ -38,10 +40,7 @@ export function buildGitHubOAuthUrl(clientId: string, state: string): string {
 export function buildDiscordOAuthUrl(clientId: string, state: string): string {
   const url = new URL('https://discord.com/oauth2/authorize')
   url.searchParams.set('client_id', clientId)
-  url.searchParams.set(
-    'redirect_uri',
-    `${window.location.origin}/oauth/discord`
-  )
+  url.searchParams.set('redirect_uri', `${getBusinessOrigin()}/oauth/discord`)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', 'identify+openid')
   url.searchParams.set('state', state)
@@ -58,7 +57,7 @@ export function buildOIDCOAuthUrl(
 ): string {
   const url = new URL(authUrl)
   url.searchParams.set('client_id', clientId)
-  url.searchParams.set('redirect_uri', `${window.location.origin}/oauth/oidc`)
+  url.searchParams.set('redirect_uri', `${getBusinessOrigin()}/oauth/oidc`)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', 'openid profile email')
   url.searchParams.set('state', state)
@@ -69,5 +68,10 @@ export function buildOIDCOAuthUrl(
  * Build LinuxDO OAuth URL
  */
 export function buildLinuxDOOAuthUrl(clientId: string, state: string): string {
-  return `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${clientId}&state=${state}`
+  const url = new URL('https://connect.linux.do/oauth2/authorize')
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('client_id', clientId)
+  url.searchParams.set('state', state)
+  url.searchParams.set('redirect_uri', `${getBusinessOrigin()}/oauth/linuxdo`)
+  return url.toString()
 }

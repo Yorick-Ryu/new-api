@@ -114,6 +114,8 @@ export type SiteSettings = {
   About: string
   HomePageContent: string
   ServerAddress: string
+  SiteAddress: string
+  SiteAllowedOrigins: string
   'legal.user_agreement': string
   'legal.privacy_policy': string
   HeaderNavModules: string
@@ -129,6 +131,8 @@ export type AuthSettings = {
   EmailAliasRestrictionEnabled: boolean
   EmailDomainWhitelist: string
   ServerAddress: string
+  SiteAddress: string
+  SiteAllowedOrigins: string
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
   GitHubClientSecret: string

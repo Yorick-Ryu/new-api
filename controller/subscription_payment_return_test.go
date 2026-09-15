@@ -23,6 +23,9 @@ func setupEpayReturnSettings(t *testing.T) {
 	address, id, key := operation_setting.PayAddress, operation_setting.EpayId, operation_setting.EpayKey
 	callback, server := operation_setting.CustomCallbackAddress, system_setting.ServerAddress
 	methods := operation_setting.PayMethods
+	site, allowed := system_setting.SiteAddress, system_setting.SiteAllowedOrigins
+	system_setting.SiteAddress = "https://beiapi.cn"
+	system_setting.SiteAllowedOrigins = "https://www.beiapi.cn,https://novapi.cn,http://localhost:3000"
 	operation_setting.PayAddress = "https://pay.example.com"
 	operation_setting.EpayId = "test-merchant"
 	operation_setting.EpayKey = "test-only-signing-key"
@@ -33,6 +36,7 @@ func setupEpayReturnSettings(t *testing.T) {
 		operation_setting.PayAddress, operation_setting.EpayId, operation_setting.EpayKey = address, id, key
 		operation_setting.CustomCallbackAddress, system_setting.ServerAddress = callback, server
 		operation_setting.PayMethods = methods
+		system_setting.SiteAddress, system_setting.SiteAllowedOrigins = site, allowed
 	})
 }
 

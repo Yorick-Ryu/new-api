@@ -16,19 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getAPIAddress } from '@/lib/site-address'
+
 export function sendToFluent(apiKey: string, serverAddress?: string): boolean {
   if (typeof window === 'undefined') {
     return false
   }
 
-  const container = document.getElementById('fluent-new-api-container')
+  const container = document.querySelector('#fluent-new-api-container')
   if (!container) {
     return false
   }
 
   const payload = {
     id: 'new-api',
-    baseUrl: serverAddress || window.location.origin,
+    baseUrl: serverAddress || getAPIAddress(),
     apiKey: `sk-${apiKey}`,
   }
 

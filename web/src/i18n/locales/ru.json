@@ -2097,7 +2097,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Для частных развертываний, формат: https://fastgpt.run/api/openapi",
     "Force a syntactically valid JSON response": "Принудительно возвращать синтаксически корректный JSON",
@@ -5409,6 +5409,15 @@
     "Refresh subscriptions": "Обновить подписки",
     "This plan does not allow renewal": "Этот план нельзя продлить",
     "With this subscription, {{multipliers}}": "В этой подписке {{multipliers}}",
-    "{{model}} multiplier is {{multiplier}}×": "{{model}}: множитель {{multiplier}}×"
+    "{{model}} multiplier is {{multiplier}}×": "{{model}}: множитель {{multiplier}}×",
+    "API request address": "API request address",
+    "Business site address": "Business site address",
+    "Additional business origins": "Additional business origins",
+    "Enter an HTTP or HTTPS origin without a path, query, or fragment": "Enter an HTTP or HTTPS origin without a path, query, or fragment",
+    "Enter one valid HTTP or HTTPS origin per line": "Enter one valid HTTP or HTTPS origin per line",
+    "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.": "Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.",
+    "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.": "Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.",
+    "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.": "Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.",
+    "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address.": "Only enter the business site origin, for example https://example.com. Do not include /api/user/epay/notify. Leave blank to use the business site address."
   }
 }

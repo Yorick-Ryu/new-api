@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { isAddressOrigin } from '@/lib/site-address'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
@@ -48,6 +49,8 @@ import { useUpdateOption } from '../hooks/use-update-option'
 const _systemInfoSchema = z.object({
   SystemName: z.string().min(1),
   ServerAddress: z.string().optional(),
+  SiteAddress: z.string().optional(),
+  SiteAllowedOrigins: z.string().optional(),
   Logo: z.string().url().optional().or(z.literal('')),
   Footer: z.string().optional(),
   About: z.string().optional(),
@@ -76,6 +79,8 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
   const normalizedDefaults: SystemInfoFormValues = {
     SystemName: normalizeValue(defaultValues.SystemName),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
+    SiteAddress: normalizeValue(defaultValues.SiteAddress),
+    SiteAllowedOrigins: normalizeValue(defaultValues.SiteAllowedOrigins),
     Logo: normalizeValue(defaultValues.Logo),
     Footer: normalizeValue(defaultValues.Footer),
     About: normalizeValue(defaultValues.About),
@@ -90,7 +95,27 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     SystemName: z.string().min(1, {
       error: () => t('System name is required'),
     }),
-    ServerAddress: z.string().optional(),
+    ServerAddress: z
+      .string()
+      .refine(
+        isAddressOrigin,
+        t('Enter an HTTP or HTTPS origin without a path, query, or fragment')
+      )
+      .optional(),
+    SiteAddress: z
+      .string()
+      .refine(
+        isAddressOrigin,
+        t('Enter an HTTP or HTTPS origin without a path, query, or fragment')
+      )
+      .optional(),
+    SiteAllowedOrigins: z
+      .string()
+      .refine(
+        (value) => value.split(/[,\n\r]/).every(isAddressOrigin),
+        t('Enter one valid HTTP or HTTPS origin per line')
+      )
+      .optional(),
     Logo: z.string().url().optional().or(z.literal('')),
     Footer: z.string().optional(),
     About: z.string().optional(),
@@ -112,8 +137,8 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       onSubmit: async (_data, changedFields) => {
         for (const [key, value] of Object.entries(changedFields)) {
           let v = normalizeValue(value)
-          if (key === 'ServerAddress') {
-            v = v.replace(/\/+$/, '')
+          if (key === 'ServerAddress' || key === 'SiteAddress') {
+            v = v.trim().replace(/\/+$/, '')
           }
           await updateOption.mutateAsync({
             key,
@@ -160,13 +185,53 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                 name='ServerAddress'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Server Address')}</FormLabel>
+                    <FormLabel>{t('API request address')}</FormLabel>
                     <FormControl>
                       <Input placeholder='https://yourdomain.com' {...field} />
                     </FormControl>
                     <FormDescription>
                       {t(
-                        'The public URL of your server, used for OAuth callbacks, webhooks, and other external integrations'
+                        'Used for model API requests, client setup, code samples, and generated content URLs. Enter the origin without /v1.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='SiteAddress'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Business site address')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder='https://example.com' {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Default address for password reset emails, business links, and payment callbacks. Leave blank to preserve the legacy API address fallback.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='SiteAllowedOrigins'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Additional business origins')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder='https://www.example.com'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.'
                       )}
                     </FormDescription>
                     <FormMessage />
