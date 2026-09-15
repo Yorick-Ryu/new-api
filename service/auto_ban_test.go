@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
@@ -13,8 +14,48 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
+
+func TestAutoBanUnmatchedErrorsNeedNoDatabase(t *testing.T) {
+	previous, previousDB := auto_ban.CurrentSnapshot(), model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	model.DB = db
+	t.Cleanup(func() {
+		auto_ban.PublishSnapshot(previous)
+		model.DB = previousDB
+		_ = sqlDB.Close()
+	})
+	var queries atomic.Int64
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:unavailable_database", func(tx *gorm.DB) {
+		queries.Add(1)
+		tx.AddError(errors.New("database unavailable"))
+	}))
+	for _, tc := range []struct{ mode, body string }{
+		{"off", `{"error":{"code":"cyber_policy","message":"blocked"}}`},
+		{"observe", `{"error":{"code":"invalid_request","message":"missing model"}}`},
+		{"ban", `{"error":{"code":"invalid_request","message":"missing model"}}`},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			settings := auto_ban.Defaults()
+			settings.Mode = tc.mode
+			data, err := common.Marshal(settings)
+			require.NoError(t, err)
+			snapshot, err := auto_ban.ParseSnapshot(string(data))
+			require.NoError(t, err)
+			auto_ban.PublishSnapshot(snapshot)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Set("id", 1)
+			assert.False(t, ObserveUpstreamFailure(c, []byte(tc.body), 400))
+			assert.False(t, AutoBanEnforced(c))
+			assert.Zero(t, queries.Load(), "disabled or unmatched failures must not depend on database availability")
+		})
+	}
+}
 
 func TestAutoBanParseUpstreamFailures(t *testing.T) {
 	tests := []struct {
@@ -54,6 +95,8 @@ func TestAutoBanParseUpstreamFailures(t *testing.T) {
 }
 
 func TestAutoBanHTTPFailureBeforeMaskingAndLiveSettings(t *testing.T) {
+	previous := auto_ban.CurrentSnapshot()
+	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	oldDB, oldRedis := model.DB, common.RedisEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -84,8 +127,9 @@ func TestAutoBanHTTPFailureBeforeMaskingAndLiveSettings(t *testing.T) {
 	assert.False(t, AutoBanEnforced(c))
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusEnabled, user.Status)
+	observeVersion := s.Version
 	s.Mode = "ban"
-	_, err = model.SaveAutoBanSettings(s)
+	s, err = model.SaveAutoBanSettings(s)
 	require.NoError(t, err)
 	BeginAutoBanRequest(c)
 	RelayErrorHandler(c, response(), false)
@@ -97,5 +141,9 @@ func TestAutoBanHTTPFailureBeforeMaskingAndLiveSettings(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events, 2)
 	assert.Equal(t, "banned", events[0].Action)
+	assert.Equal(t, s.Version, events[0].Version)
+	assert.Equal(t, "ban", events[0].Mode)
+	assert.Equal(t, observeVersion, events[1].Version)
+	assert.Equal(t, "observe", events[1].Mode)
 	assert.NotContains(t, events[0].ErrorSummary, body)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,8 +18,16 @@ import (
 )
 
 func TestAutoBanEndpointsEnforceAdministratorPermission(t *testing.T) {
+	previous := auto_ban.CurrentSnapshot()
+	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	db := setupManageUserTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.AutoBanEvent{}, &model.Token{}))
+	audited := make(chan error, 1)
+	require.NoError(t, db.Callback().Create().After("gorm:commit_or_rollback_transaction").Register("test:auto_ban_audit_completed", func(tx *gorm.DB) {
+		if log, ok := tx.Statement.Dest.(*model.Log); ok && log.Type == model.LogTypeManage {
+			audited <- tx.Error
+		}
+	}))
 	router := gin.New()
 	group := router.Group("/api/auto-ban", middleware.AdminAuth())
 	group.GET("/", GetAutoBanSettings)
@@ -45,6 +54,16 @@ func TestAutoBanEndpointsEnforceAdministratorPermission(t *testing.T) {
 				assert.Equal(t, http.StatusConflict, rec.Code)
 			} else {
 				assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			}
+			// AdminAuth can write its audit asynchronously. Finish that write
+			// before another request or the fixture restores the global DB.
+			if role >= common.RoleAdminUser && (route.method == "PUT" || route.method == "POST") {
+				select {
+				case err := <-audited:
+					require.NoError(t, err)
+				case <-time.After(5 * time.Second):
+					t.Fatal("administrator write did not finish its audit log")
+				}
 			}
 		}
 	}
@@ -129,6 +148,8 @@ func TestAutoBanRecordsPreserveHistoryForDeletedAccounts(t *testing.T) {
 }
 
 func TestAutoBanPreviewReportsEachRulesOwnConditionsWithoutMutation(t *testing.T) {
+	previous := auto_ban.CurrentSnapshot()
+	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	db := setupManageUserTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.AutoBanEvent{}))
 	settings := auto_ban.Defaults()

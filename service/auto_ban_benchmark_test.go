@@ -6,14 +6,10 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // Measures only the additional branch on already decoded Responses/WS frames.
@@ -35,20 +31,12 @@ func BenchmarkAutoBanResponsesEventGate(b *testing.B) {
 	}
 }
 
-// SQLite timings exclude any production database/network latency. These cases
-// isolate configuration reads on ordinary upstream errors that do not ban users.
+// Measures snapshot reads and rule matching on ordinary upstream errors that
+// do not ban users. Configuration parsing happens outside the measured loop.
 func BenchmarkAutoBanUnmatchedUpstreamError(b *testing.B) {
-	oldDB, oldRedis, oldMode := model.DB, common.RedisEnabled, gin.Mode()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	require.NoError(b, err)
-	sqlDB, err := db.DB()
-	require.NoError(b, err)
-	sqlDB.SetMaxOpenConns(1)
-	model.DB = db
-	common.RedisEnabled = false
+	previous, oldMode := auto_ban.CurrentSnapshot(), gin.Mode()
 	gin.SetMode(gin.TestMode)
-	b.Cleanup(func() { model.DB = oldDB; common.RedisEnabled = oldRedis; gin.SetMode(oldMode); _ = sqlDB.Close() })
-	require.NoError(b, db.AutoMigrate(&model.Option{}))
+	b.Cleanup(func() { auto_ban.PublishSnapshot(previous); gin.SetMode(oldMode) })
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Set("id", 1)
 	body := []byte(`{"error":{"code":"invalid_request","message":"Invalid argument: the requested model is not available"}}`)
@@ -68,7 +56,9 @@ func BenchmarkAutoBanUnmatchedUpstreamError(b *testing.B) {
 			}
 			data, err := common.Marshal(s)
 			require.NoError(b, err)
-			require.NoError(b, db.Save(&model.Option{Key: auto_ban.OptionKey, Value: string(data)}).Error)
+			snapshot, err := auto_ban.ParseSnapshot(string(data))
+			require.NoError(b, err)
+			auto_ban.PublishSnapshot(snapshot)
 			require.False(b, ObserveUpstreamFailure(c, body, 400))
 			b.ReportAllocs()
 			b.ResetTimer()

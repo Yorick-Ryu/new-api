@@ -11,6 +11,8 @@ import (
 )
 
 func TestAutoBanSettingsAreAtomicAndRejectStaleEdits(t *testing.T) {
+	previous := auto_ban.CurrentSnapshot()
+	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	require.NoError(t, DB.AutoMigrate(&Option{}))
 	require.NoError(t, DB.Where(&Option{Key: auto_ban.OptionKey}).Delete(&Option{}).Error)
 	t.Cleanup(func() { DB.Where(&Option{Key: auto_ban.OptionKey}).Delete(&Option{}) })
@@ -22,6 +24,9 @@ func TestAutoBanSettingsAreAtomicAndRejectStaleEdits(t *testing.T) {
 	saved, err := SaveAutoBanSettings(edited)
 	require.NoError(t, err)
 	assert.NotEqual(t, initial.Version, saved.Version)
+	cached := auto_ban.CurrentSnapshot()
+	assert.Equal(t, saved.Version, cached.Version())
+	assert.Equal(t, "ban", cached.Mode())
 	_, err = SaveAutoBanSettings(initial)
 	assert.ErrorIs(t, err, ErrAutoBanSettingsConflict)
 	bad := saved
@@ -32,6 +37,12 @@ func TestAutoBanSettingsAreAtomicAndRejectStaleEdits(t *testing.T) {
 	live, err := GetAutoBanSettings()
 	require.NoError(t, err)
 	assert.Equal(t, saved, live)
+	assert.Same(t, cached, auto_ban.CurrentSnapshot(), "failed edits must keep the last committed snapshot")
+	// Neither the returned settings nor the caller's draft may mutate live rules.
+	saved.Rules[2].MatchGroups[1].Conditions[0].Value = "edited_without_saving"
+	matches := cached.Match(auto_ban.Evidence{Code: "cyber_policy"}, 0, "")
+	require.Len(t, matches, 1)
+	assert.Equal(t, "cybersecurity", matches[0].ID)
 }
 
 func TestAutoBanDisablesOnceAndFencesStaleCache(t *testing.T) {

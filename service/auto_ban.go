@@ -119,23 +119,19 @@ func ObserveUpstreamFailure(ctx context.Context, body []byte, httpStatus int) bo
 	if !ok || c == nil || c.GetInt("id") <= 0 {
 		return false
 	}
+	settings := auto_ban.CurrentSnapshot()
+	if settings.Mode() == "off" {
+		return false
+	}
 	evidence, failed := ParseUpstreamFailure(body, httpStatus)
 	if !failed {
 		return false
 	}
-	settings, err := model.GetAutoBanSettings()
-	if err != nil {
-		common.SysError("automatic ban settings could not be loaded")
-		return false
-	}
-	if settings.Mode == "off" {
-		return false
-	}
-	rules := auto_ban.Match(settings, evidence, c.GetInt("channel_id"), c.GetString("original_model"))
+	rules := settings.Match(evidence, c.GetInt("channel_id"), c.GetString("original_model"))
 	if len(rules) == 0 {
 		return false
 	}
-	if settings.Mode == "ban" {
+	if settings.Mode() == "ban" {
 		c.Set(autoBanEnforcedKey, true)
 	}
 	snapshot, err := common.Marshal(rules)
@@ -150,17 +146,17 @@ func ObserveUpstreamFailure(ctx context.Context, body []byte, httpStatus int) bo
 		}
 		c.Set(AutoBanRequestKey, requestKey)
 	}
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%s:%s", c.GetInt("id"), requestKey, settings.Version)))
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%s:%s", c.GetInt("id"), requestKey, settings.Version())))
 	event := model.AutoBanEvent{
 		EventKey: hex.EncodeToString(digest[:]), UserID: c.GetInt("id"),
 		RequestID: c.GetString(common.RequestIdKey), UpstreamRequestID: c.GetString(common.UpstreamRequestIdKey),
 		ChannelID: c.GetInt("channel_id"), Model: c.GetString("original_model"), TokenID: c.GetInt("token_id"),
-		Version: settings.Version, Mode: settings.Mode, Reason: rules[0].Reason, Rules: string(snapshot), HTTPStatus: httpStatus,
+		Version: settings.Version(), Mode: settings.Mode(), Reason: rules[0].Reason, Rules: string(snapshot), HTTPStatus: httpStatus,
 		ErrorSummary: fmt.Sprintf("Upstream failure matched %d configured rule(s); HTTP status %d", len(rules), httpStatus),
 	}
 	if err := model.ApplyAutoBanEvent(&event); err != nil {
 		// Error text can contain SQL bindings; log only the incident identifiers.
 		common.SysError(fmt.Sprintf("automatic ban processing failed for user %d, request %s", event.UserID, event.RequestID))
 	}
-	return settings.Mode == "ban"
+	return settings.Mode() == "ban"
 }

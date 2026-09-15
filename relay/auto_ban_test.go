@@ -24,6 +24,8 @@ import (
 
 func setupAutoBanRelayTest(t *testing.T) (*gorm.DB, model.User) {
 	t.Helper()
+	previous := auto_ban.CurrentSnapshot()
+	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	oldDB, oldRedis := model.DB, common.RedisEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -40,6 +42,13 @@ func setupAutoBanRelayTest(t *testing.T) (*gorm.DB, model.User) {
 	settings.Mode = "ban"
 	_, err = model.SaveAutoBanSettings(settings)
 	require.NoError(t, err)
+	var settingsReads atomic.Int64
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:auto_ban_settings_reads", func(tx *gorm.DB) {
+		if tx.Statement.Table == "options" {
+			settingsReads.Add(1)
+		}
+	}))
+	t.Cleanup(func() { assert.Zero(t, settingsReads.Load(), "HTTP and WebSocket failures must use cached rules") })
 	return db, user
 }
 

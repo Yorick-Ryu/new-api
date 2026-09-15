@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/auto_ban"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
@@ -190,7 +191,33 @@ func InitOptionMap() {
 }
 
 func loadOptionsFromDatabase() {
-	options, _ := AllOption()
+	autoBanSettingsUpdateMu.Lock()
+	options, err := AllOption()
+	if err != nil {
+		autoBanSettingsUpdateMu.Unlock()
+		common.SysError("options could not be loaded; keeping previous configuration")
+		return
+	}
+	foundAutoBan := false
+	for _, option := range options {
+		if option.Key != auto_ban.OptionKey {
+			continue
+		}
+		foundAutoBan = true
+		if !auto_ban.CurrentSnapshot().MatchesJSON(option.Value) {
+			snapshot, err := auto_ban.ParseSnapshot(option.Value)
+			if err != nil {
+				common.SysError("automatic ban settings are invalid; keeping previous configuration")
+			} else {
+				auto_ban.PublishSnapshot(snapshot)
+			}
+		}
+		break
+	}
+	if !foundAutoBan {
+		auto_ban.PublishSnapshot(nil)
+	}
+	autoBanSettingsUpdateMu.Unlock()
 	for _, option := range options {
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {

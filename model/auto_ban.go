@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -13,6 +14,11 @@ import (
 )
 
 var ErrAutoBanSettingsConflict = errors.New("automatic ban settings changed; reload before saving")
+
+// Serialize database reads/commits and snapshot publication so a background
+// refresh cannot overwrite a newer local save with a value it read earlier.
+// Request handlers only load the atomic snapshot and never take this lock.
+var autoBanSettingsUpdateMu sync.Mutex
 
 // Stored in the main database so the evidence and account update commit together.
 type AutoBanEvent struct {
@@ -51,12 +57,15 @@ func GetAutoBanSettings() (auto_ban.Settings, error) {
 	return settings, auto_ban.Validate(settings)
 }
 
-// Settings are read only when an upstream failure is observed. This keeps every
-// application instance current without a per-token query, polling or restarts.
+// The administrator reads the database for edit conflicts; upstream failures
+// use the immutable snapshot published only after this transaction commits.
 func SaveAutoBanSettings(settings auto_ban.Settings) (auto_ban.Settings, error) {
 	if err := auto_ban.Validate(settings); err != nil {
 		return settings, err
 	}
+	autoBanSettingsUpdateMu.Lock()
+	defer autoBanSettingsUpdateMu.Unlock()
+	var snapshot *auto_ban.Snapshot
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		initial, err := common.Marshal(auto_ban.Defaults())
 		if err != nil {
@@ -81,6 +90,10 @@ func SaveAutoBanSettings(settings auto_ban.Settings) (auto_ban.Settings, error) 
 		if err != nil {
 			return err
 		}
+		snapshot, err = auto_ban.ParseSnapshot(string(data))
+		if err != nil {
+			return err
+		}
 		result := tx.Model(&Option{}).Where(&Option{Key: auto_ban.OptionKey}).Where("value = ?", option.Value).Update("value", string(data))
 		if result.Error != nil {
 			return result.Error
@@ -90,6 +103,9 @@ func SaveAutoBanSettings(settings auto_ban.Settings) (auto_ban.Settings, error) 
 		}
 		return nil
 	})
+	if err == nil {
+		auto_ban.PublishSnapshot(snapshot)
+	}
 	return settings, err
 }
 

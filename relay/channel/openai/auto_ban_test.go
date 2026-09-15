@@ -21,7 +21,7 @@ import (
 )
 
 // These tests exercise real relay entry points: HTTP 200 can carry an upstream
-// failure, while successful responses must never query automatic-ban settings.
+// failure. Both successful and failing responses must use cached ban settings.
 func TestAutoBanOpenAIErrorBranches(t *testing.T) {
 	const cyber = `{"error":{"type":"invalid_request_error","code":"cyber_policy","message":"blocked"}}`
 	const event = `{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`
@@ -55,6 +55,8 @@ func TestAutoBanOpenAIErrorBranches(t *testing.T) {
 		{"successful image stream error null", `{"type":"image_generation.completed","b64_json":"image","error":null}`, true, false, OpenaiImageStreamHandler},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			previous := auto_ban.CurrentSnapshot()
+			t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 			oldDB, oldRedis, oldTimeout := model.DB, common.RedisEnabled, constant.StreamingTimeout
 			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 			require.NoError(t, err)
@@ -86,6 +88,7 @@ func TestAutoBanOpenAIErrorBranches(t *testing.T) {
 			c, recorder, resp, info := newResponsesChatTestContext(t, body, tc.stream)
 			c.Set("id", user.Id)
 			_, apiErr := tc.handle(c, info, resp)
+			assert.Zero(t, settingsReads.Load(), "relay responses must use cached automatic-ban rules, including errors")
 			require.NoError(t, db.First(&user, user.Id).Error)
 			events, err := model.ListAutoBanEvents(0, 30)
 			require.NoError(t, err)
@@ -96,7 +99,6 @@ func TestAutoBanOpenAIErrorBranches(t *testing.T) {
 				assert.Contains(t, events[0].Rules, "cybersecurity")
 			} else {
 				assert.Nil(t, apiErr)
-				assert.Equal(t, int64(0), settingsReads.Load(), "successful responses must not read ban settings")
 				assert.Equal(t, common.UserStatusEnabled, user.Status)
 				assert.Empty(t, events)
 				assert.NotEmpty(t, recorder.Body.String())
