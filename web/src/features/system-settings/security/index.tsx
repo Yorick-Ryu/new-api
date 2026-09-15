@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useParams } from '@tanstack/react-router'
+
+import { AutoBanPage } from '../auto-ban'
 import { SettingsPage } from '../components/settings-page'
 import type { SecuritySettings } from '../types'
 import {
@@ -45,6 +48,10 @@ const defaultSecuritySettings: SecuritySettings = {
 }
 
 export function SecuritySettings() {
+  const { section } = useParams({
+    from: '/_authenticated/system-settings/security/$section',
+  })
+  if (section === 'auto-ban') return <AutoBanPage />
   return (
     <SettingsPage
       routePath='/_authenticated/system-settings/security/$section'

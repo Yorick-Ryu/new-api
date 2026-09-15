@@ -19,7 +19,7 @@ func TestCollectStreamFunctionCallNamesDedupesSameIndex(t *testing.T) {
 		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"{}"}}]}}]}`,
 	}
 	for _, chunk := range chunks {
-		collectStreamFunctionCallNames(chunk, seen, &names)
+		inspectChatStreamChunk(chunk, seen, &names)
 	}
 
 	require.Len(t, names, 2)

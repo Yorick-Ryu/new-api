@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/auto_ban"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -129,6 +130,10 @@ func UpdateOption(c *gin.Context) {
 			"success": false,
 			"message": "无效的参数",
 		})
+		return
+	}
+	if option.Key == auto_ban.OptionKey {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Use the automatic ban settings endpoint"})
 		return
 	}
 	switch option.Value.(type) {

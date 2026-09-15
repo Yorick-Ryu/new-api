@@ -77,9 +77,15 @@ function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
         },
         {
           title: t('Security & Limits'),
-          requiredRole: ROLE.SUPER_ADMIN,
+          requiredRole: ROLE.ADMIN,
           icon: ShieldAlert,
-          items: getSecuritySectionNavItems(t),
+          items: getSecuritySectionNavItems(t).map((item) => ({
+            ...item,
+            requiredRole:
+              item.url === '/system-settings/security/auto-ban'
+                ? ROLE.ADMIN
+                : ROLE.SUPER_ADMIN,
+          })),
         },
         {
           title: t('Console Content'),

@@ -90,6 +90,13 @@ func TestResponsesWSAffinityRecordsOnlyCompletedRequests(t *testing.T) {
 func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 	setupResponsesWSChannelSelectionTest(t)
 	setupResponsesWSAffinityTest(t)
+	newAuthenticatedContext := func() *gin.Context {
+		c := newResponsesWSAffinityContext()
+		c.Set("id", 1)
+		return c
+	}
+	require.NoError(t, appmodel.DB.AutoMigrate(&appmodel.User{}, &appmodel.UserSubscription{}))
+	require.NoError(t, appmodel.DB.Create(&appmodel.User{Id: 1, Username: "ws-affinity-user", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}).Error)
 	// Exercise the real prepare/dial/send path without charging an account or
 	// making model requests. The mock returns completed, zero-usage responses.
 	originalRatios := ratio_setting.ModelRatio2JSONString()
@@ -146,12 +153,12 @@ func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 
 	peer, client, cleanup := newTestWebSocketPair(t)
 	defer cleanup()
-	session := &responsesWSSession{c: newResponsesWSAffinityContext(), client: client}
+	session := &responsesWSSession{c: newAuthenticatedContext(), client: client}
 	defer session.closeTarget()
 	create, _, err := normalizeResponsesWSCreateEvent([]byte(`{"type":"response.create","model":"gpt-test","prompt_cache_key":"thread-a","input":"hi"}`))
 	require.NoError(t, err)
 	require.Nil(t, session.handleResponseCreate(create, ""))
-	_, boundBeforeCompletion := service.GetPreferredChannelByAffinityWithBody(newResponsesWSAffinityContext(), "gpt-test", "default", create.Body)
+	_, boundBeforeCompletion := service.GetPreferredChannelByAffinityWithBody(newAuthenticatedContext(), "gpt-test", "default", create.Body)
 	assert.False(t, boundBeforeCompletion, "dialing and sending must not bind a channel before upstream success")
 	close(firstResponse)
 	require.NoError(t, peer.SetReadDeadline(time.Now().Add(5*time.Second)))
@@ -169,7 +176,7 @@ func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 
 	peer2, client2, cleanup2 := newTestWebSocketPair(t)
 	defer cleanup2()
-	reconnected := &responsesWSSession{c: newResponsesWSAffinityContext(), client: client2}
+	reconnected := &responsesWSSession{c: newAuthenticatedContext(), client: client2}
 	defer reconnected.closeTarget()
 	wrapped, _, err := normalizeResponsesWSCreateEvent([]byte(`{"type":"response.create","response":{"model":"gpt-test","prompt_cache_key":"thread-a","input":"again"}}`))
 	require.NoError(t, err)
@@ -188,7 +195,7 @@ func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 
 	target := reconnected.getTarget()
 	credential := common.GetContextKeyString(reconnected.c, appconstant.ContextKeyChannelKey)
-	otherContext := newResponsesWSAffinityContext()
+	otherContext := newAuthenticatedContext()
 	service.GetPreferredChannelByAffinityWithBody(otherContext, "gpt-test", "default", []byte(`{"prompt_cache_key":"thread-b"}`))
 	service.RecordChannelAffinity(otherContext, 13)
 	for _, tc := range []struct {
@@ -220,7 +227,7 @@ func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 				assert.NotContains(t, sent, "metadata", "a frame without a key must not inherit the prior template")
 			}
 			if tc.name == "different conversation" {
-				bound, found := service.GetPreferredChannelByAffinityWithBody(newResponsesWSAffinityContext(), "gpt-test", "default", frame.Body)
+				bound, found := service.GetPreferredChannelByAffinityWithBody(newAuthenticatedContext(), "gpt-test", "default", frame.Body)
 				require.True(t, found)
 				assert.Equal(t, 4, bound, "successful reuse updates this frame's binding to the actual channel")
 			}
@@ -240,7 +247,7 @@ func TestResponsesWSAffinityAcrossConnectionsAndFrames(t *testing.T) {
 	assert.NotSame(t, target, reconnected.getTarget())
 	require.NoError(t, appmodel.DB.Model(first).Update("status", common.ChannelStatusManuallyDisabled).Error)
 	appmodel.InitChannelCache()
-	c := newResponsesWSAffinityContext()
+	c := newAuthenticatedContext()
 	retry := &service.RetryParam{Ctx: c, TokenGroup: "default", ModelName: "gpt-test", ResponsesTransport: appconstant.ResponsesTransportWebSocket}
 	selected, apiErr := selectResponsesWSChannel(c, "gpt-test", retry, 0, create.Body)
 	require.Nil(t, apiErr)

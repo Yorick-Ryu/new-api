@@ -31,6 +31,9 @@ func OaiChatToResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	if err := common.Unmarshal(body, &chatResp); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	if chatResp.Error != nil {
+		service.ObserveUpstreamFailure(c, body, resp.StatusCode)
+	}
 	if oaiError := chatResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
@@ -96,6 +99,9 @@ func OaiChatToResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 
 		var errorResp dto.OpenAITextResponse
 		if err := common.UnmarshalJsonStr(data, &errorResp); err == nil {
+			if errorResp.Error != nil {
+				service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
+			}
 			if oaiError := errorResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 				streamErr = types.WithOpenAIError(*oaiError, resp.StatusCode)
 				sr.Stop(streamErr)

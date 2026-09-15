@@ -37,6 +37,9 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
+	if responsesResp.Error != nil {
+		service.ObserveUpstreamFailure(c, body, resp.StatusCode)
+	}
 	if oaiError := responsesResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
@@ -109,6 +112,9 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			break
 		}
+		if service.IsResponsesFailure(&streamResp) {
+			service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
+		}
 		accumulator.ProcessEvent(&streamResp)
 		switch streamResp.Type {
 		case "response.completed", "response.done", "response.incomplete":
@@ -121,7 +127,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 					finalResponse.Status = []byte(`"incomplete"`)
 				}
 			}
-		case "response.failed", "response.error":
+		case "error", "response.failed", "response.error":
 			if streamResp.Response != nil {
 				if oaiErr := streamResp.Response.GetOpenAIError(); oaiErr != nil && oaiErr.Type != "" {
 					streamErr = types.WithOpenAIError(*oaiErr, http.StatusInternalServerError)
@@ -280,7 +286,10 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			return
 		}
 
-		if streamResp.Type == "response.error" || streamResp.Type == "response.failed" {
+		if service.IsResponsesFailure(&streamResp) {
+			service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
+		}
+		if streamResp.Type == "error" || streamResp.Type == "response.error" || streamResp.Type == "response.failed" {
 			if streamResp.Response != nil {
 				if oaiErr := streamResp.Response.GetOpenAIError(); oaiErr != nil && oaiErr.Type != "" {
 					streamErr = types.WithOpenAIError(*oaiErr, http.StatusInternalServerError)

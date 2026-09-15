@@ -39,12 +39,18 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 
+	if resp.StatusCode >= http.StatusBadRequest {
+		service.ObserveUpstreamFailure(c, responseBody, resp.StatusCode)
+	}
 	var usageResp dto.SimpleResponse
 	err = common.Unmarshal(responseBody, &usageResp)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
+	if usageResp.Error != nil && resp.StatusCode < http.StatusBadRequest {
+		service.ObserveUpstreamFailure(c, responseBody, resp.StatusCode)
+	}
 	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
@@ -117,6 +123,7 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		raw := common.StringToByteSlice(data)
 		lastStreamData = raw
 		if isOpenAIImageStreamErrorEvent(raw) {
+			service.ObserveUpstreamFailure(c, raw, resp.StatusCode)
 			// Record the error as a soft error; the scanner drives the final
 			// EndReason. HasErrors() flags the failure for logging/handling.
 			sr.Error(fmt.Errorf("%s", extractOpenAIImageStreamErrorMessage(raw)))
@@ -198,7 +205,7 @@ func isOpenAIImageStreamErrorEvent(data []byte) bool {
 		return false
 	}
 	payloadType := strings.ToLower(strings.TrimSpace(payload.Type))
-	return payloadType == "error" || payloadType == "upstream_error" || len(payload.Error) > 0
+	return payloadType == "error" || payloadType == "upstream_error" || (len(payload.Error) > 0 && string(payload.Error) != "null")
 }
 
 func extractOpenAIImageStreamErrorMessage(data []byte) string {
@@ -245,6 +252,9 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 	var usageResp dto.SimpleResponse
 	if err := common.Unmarshal(responseBody, &usageResp); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	if usageResp.Error != nil {
+		service.ObserveUpstreamFailure(c, responseBody, resp.StatusCode)
 	}
 	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)

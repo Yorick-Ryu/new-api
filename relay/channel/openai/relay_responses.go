@@ -30,6 +30,9 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	if responsesResponse.Error != nil {
+		service.ObserveUpstreamFailure(c, responseBody, resp.StatusCode)
+	}
 	if oaiError := responsesResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
@@ -87,6 +90,9 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
 			sr.Error(err)
 			return
+		}
+		if service.IsResponsesFailure(&streamResponse) {
+			service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
 		}
 		sendResponsesStreamData(c, streamResponse, data)
 		switch streamResponse.Type {

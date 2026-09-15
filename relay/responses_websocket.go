@@ -373,6 +373,12 @@ func (s *responsesWSSession) handleResponseCreate(create responsesWSCreateReques
 		)
 	}
 
+	user, userErr := appmodel.GetUserCache(s.c.GetInt("id"))
+	if userErr != nil || user.Status != common.UserStatusEnabled {
+		return types.NewErrorWithStatusCode(errors.New("user account is unavailable"), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	service.BeginAutoBanRequest(s.c)
+
 	commitRate, apiErr := middleware.CheckModelRequestRateLimit(s.c)
 	if apiErr != nil {
 		return apiErr
@@ -737,6 +743,13 @@ func dialResponsesWebSocketUpstream(c *gin.Context, adaptor relaychannel.Adaptor
 		statusCode := http.StatusInternalServerError
 		if resp != nil {
 			statusCode = resp.StatusCode
+			if resp.Body != nil {
+				body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+				service.CloseResponseBodyGracefully(resp)
+				if readErr == nil {
+					service.ObserveUpstreamFailure(c, body, statusCode)
+				}
+			}
 		}
 		return nil, types.NewErrorWithStatusCode(fmt.Errorf("dial failed to %s: %w", relaycommon.SanitizeURLForLog(fullRequestURL), err), types.ErrorCodeDoRequestFailed, statusCode)
 	}
@@ -821,6 +834,9 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) bool {
 	var streamResponse dto.ResponsesStreamResponse
 	if err := common.Unmarshal(message, &streamResponse); err != nil {
 		return false
+	}
+	if service.IsResponsesFailure(&streamResponse) {
+		service.ObserveUpstreamFailure(s.c, message, http.StatusSwitchingProtocols)
 	}
 
 	switch streamResponse.Type {

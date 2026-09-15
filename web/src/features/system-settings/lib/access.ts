@@ -25,6 +25,9 @@ export function canAccessSystemSettings(
   if (role === ROLE.SUPER_ADMIN) return true
   return (
     role === ROLE.ADMIN &&
-    pathname.replace(/\/$/, '') === '/system-settings/operations/service-status'
+    [
+      '/system-settings/operations/service-status',
+      '/system-settings/security/auto-ban',
+    ].includes(pathname.replace(/\/$/, ''))
   )
 }

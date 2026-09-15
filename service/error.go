@@ -94,6 +94,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 	CloseResponseBodyGracefully(resp)
 	var errResponse dto.GeneralErrorResponse
 	responseBodyText := string(responseBody)
+	ObserveUpstreamFailure(ctx, responseBody, resp.StatusCode)
 	responseBodyPreview := common.LocalLogPreview(responseBodyText)
 	buildErrWithBody := func(message string) error {
 		if message == "" {

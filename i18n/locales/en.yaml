@@ -284,3 +284,12 @@ custom_oauth.name_empty: "Provider name cannot be empty"
 custom_oauth.has_bindings: "Cannot delete provider with existing user bindings"
 custom_oauth.binding_not_found: "OAuth binding not found"
 custom_oauth.provider_id_field_invalid: "Could not extract user ID from provider response"
+
+# Automatic banning
+auto_ban.load_failed: "Unable to load automatic ban settings"
+auto_ban.save_failed: "Unable to save automatic ban settings"
+auto_ban.invalid_settings: "Invalid automatic ban settings"
+auto_ban.invalid_test: "Invalid rule test"
+auto_ban.invalid_sample: "Invalid error sample or HTTP status"
+auto_ban.records_failed: "Unable to load automatic ban records"
+auto_ban.conflict: "Automatic ban settings changed; reload before saving"

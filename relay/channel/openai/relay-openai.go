@@ -139,7 +139,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 
 			lastStreamData = data
-			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
+			if inspectChatStreamChunk(data, seenStreamToolCalls, &streamFunctionCallNames) {
+				service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
+			}
 			if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
 				logger.LogError(c, "error processing stream token data: "+err.Error())
 				sr.Error(err)
@@ -194,10 +196,19 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	return usage, nil
 }
 
-func collectStreamFunctionCallNames(data string, seen map[string]struct{}, names *[]string) {
-	var streamResponse dto.ChatCompletionsStreamResponse
+// inspectChatStreamChunk collects billable tool names and identifies errors in
+// the same decode. Its return value selects the upstream-error branch only.
+func inspectChatStreamChunk(data string, seen map[string]struct{}, names *[]string) bool {
+	var streamResponse struct {
+		Choices []dto.ChatCompletionsStreamResponseChoice `json:"choices"`
+		Type    string                                    `json:"type"`
+		Error   any                                       `json:"error"`
+	}
 	if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
-		return
+		return false
+	}
+	if streamResponse.Type == "error" || (streamResponse.Type == "" && streamResponse.Error != nil) {
+		return true
 	}
 	for _, choice := range streamResponse.Choices {
 		for i, tc := range choice.Delta.ToolCalls {
@@ -217,6 +228,7 @@ func collectStreamFunctionCallNames(data string, seen map[string]struct{}, names
 			*names = append(*names, name)
 		}
 	}
+	return false
 }
 
 func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -249,6 +261,9 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
+	if simpleResponse.Error != nil {
+		service.ObserveUpstreamFailure(c, responseBody, resp.StatusCode)
+	}
 	if oaiError := simpleResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}

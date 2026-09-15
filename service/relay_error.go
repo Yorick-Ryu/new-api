@@ -16,7 +16,7 @@ import (
 )
 
 func ShouldRetryRelayError(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {
-	if openaiErr == nil {
+	if openaiErr == nil || AutoBanEnforced(c) {
 		return false
 	}
 	if ShouldSkipRetryAfterChannelAffinityFailure(c) {
@@ -54,7 +54,7 @@ func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		return
 	}
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.MaskSensitiveErrorWithStatusCode())))
-	if ShouldDisableChannel(err) && channelError.AutoBan {
+	if !AutoBanEnforced(c) && ShouldDisableChannel(err) && channelError.AutoBan {
 		gopool.Go(func() {
 			DisableChannel(channelError, err.ErrorWithStatusCode())
 		})

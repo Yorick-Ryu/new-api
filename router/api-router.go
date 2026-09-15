@@ -191,6 +191,14 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", anonymousRequestBodyLimit, controller.SubscriptionEpayReturn)
+		autoBanRoute := apiRouter.Group("/auto-ban")
+		autoBanRoute.Use(middleware.AdminAuth())
+		{
+			autoBanRoute.GET("/", controller.GetAutoBanSettings)
+			autoBanRoute.PUT("/", controller.UpdateAutoBanSettings)
+			autoBanRoute.POST("/test", controller.TestAutoBanRules)
+			autoBanRoute.GET("/events", controller.GetAutoBanEvents)
+		}
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

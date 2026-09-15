@@ -90,6 +90,9 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		common.SysLog("error unmarshalling stream response: " + err.Error())
 		return types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
+	if claudeResponse.Error != nil {
+		service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), http.StatusOK)
+	}
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
 		return types.WithClaudeError(*claudeError, http.StatusInternalServerError)
 	}
@@ -219,6 +222,9 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	err := common.Unmarshal(data, &claudeResponse)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	if claudeResponse.Error != nil {
+		service.ObserveUpstreamFailure(c, data, httpResp.StatusCode)
 	}
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
 		return types.WithClaudeError(*claudeError, http.StatusInternalServerError)
