@@ -50,6 +50,8 @@ func TestSubscriptionRenewalBalancePreservesUsageAndBypassesOnlyRenewalLimit(t *
 	var order SubscriptionOrder
 	require.NoError(t, DB.Where("user_id = ?", user.Id).First(&order).Error)
 	assert.Equal(t, sub.Id, order.RenewalSubscriptionId)
+	assert.Equal(t, sub.Id, order.RenewalSourceId)
+	assert.Equal(t, sub.EndTime, order.RenewalDueTime)
 	assert.Equal(t, common.TopUpStatusSuccess, order.Status)
 	assert.Equal(t, PaymentProviderBalance, order.PaymentProvider)
 	cost, err := calcSubscriptionBalanceQuota(plan.PriceAmount)
@@ -76,10 +78,18 @@ func TestSubscriptionRenewalExpiredOpensFreshCountersAndPreservesOldHistory(t *t
 			var window UserSubscriptionQuotaWindow
 			require.NoError(t, DB.Where("user_subscription_id = ?", renewed.Id).First(&window).Error)
 			assert.Zero(t, window.AmountUsed)
+			var firstOrder SubscriptionOrder
+			require.NoError(t, DB.Where("user_id = ?", user.Id).First(&firstOrder).Error)
+			assert.Equal(t, sub.Id, firstOrder.RenewalSourceId)
+			assert.Equal(t, getSubscriptionResetSub(t, sub.Id).EndTime, firstOrder.RenewalDueTime)
 			// A second pending renewal of the old record extends the new period.
 			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, sub.Id, "203.0.113.10"))
 			assert.EqualValues(t, 2, countUserSubscriptionsForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, renewed.EndTime+30*86400, getSubscriptionResetSub(t, renewed.Id).EndTime)
+			var secondOrder SubscriptionOrder
+			require.NoError(t, DB.Where("user_id = ?", user.Id).Last(&secondOrder).Error)
+			assert.Equal(t, renewed.Id, secondOrder.RenewalSourceId)
+			assert.Equal(t, renewed.EndTime, secondOrder.RenewalDueTime)
 		})
 	}
 }
@@ -102,7 +112,10 @@ func TestSubscriptionRenewalCallbacksAreIdempotentAcrossGateways(t *testing.T) {
 			var count int64
 			require.NoError(t, DB.Model(&TopUp{}).Where("trade_no = ?", order.TradeNo).Count(&count).Error)
 			assert.EqualValues(t, 1, count)
-			assert.Equal(t, common.TopUpStatusSuccess, GetSubscriptionOrderByTradeNo(order.TradeNo).Status)
+			completed := GetSubscriptionOrderByTradeNo(order.TradeNo)
+			assert.Equal(t, common.TopUpStatusSuccess, completed.Status)
+			assert.Equal(t, sub.Id, completed.RenewalSourceId)
+			assert.Equal(t, sub.EndTime, completed.RenewalDueTime)
 			var logs []*Log
 			require.NoError(t, DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Find(&logs).Error)
 			require.Len(t, logs, 1)

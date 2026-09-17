@@ -21,7 +21,6 @@ import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getUptimeStatus } from '@/features/dashboard/api'
 import type {
@@ -96,14 +95,9 @@ export function UptimePanel() {
 
   return (
     <PanelWrapper
-      title={
-        <span className='flex items-center gap-2'>
-          <IconBadge tone='success' size='sm'>
-            <Activity />
-          </IconBadge>
-          {t('Uptime')}
-        </span>
-      }
+      title={t('Uptime')}
+      icon={Activity}
+      iconTone='success'
       description={t('Grouped monitor status from Uptime Kuma')}
       loading={loading}
       empty={!groups.length}

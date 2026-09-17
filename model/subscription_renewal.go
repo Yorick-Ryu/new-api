@@ -48,7 +48,7 @@ func validateSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionP
 // Called inside the payment transaction, so quota, duration and order settlement
 // commit together. The user lock also serializes separate orders renewing an
 // expired subscription, including payments from different gateways.
-func fulfillSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string, renewalSubscriptionId int) (*UserSubscription, error) {
+func fulfillSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string, renewalSubscriptionId int, order *SubscriptionOrder) (*UserSubscription, error) {
 	if tx == nil || userId <= 0 || plan == nil || plan.Id <= 0 || renewalSubscriptionId < 0 {
 		return nil, errors.New("invalid subscription purchase")
 	}
@@ -91,6 +91,8 @@ func fulfillSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionPl
 					return nil, err
 				}
 			}
+			order.RenewalSourceId = sub.Id
+			order.RenewalDueTime = sub.EndTime
 			return renewed, nil
 		}
 		sub = active
@@ -102,6 +104,8 @@ func fulfillSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionPl
 	if endTime <= sub.EndTime {
 		return nil, errors.New("续费时长无效")
 	}
+	order.RenewalSourceId = sub.Id
+	order.RenewalDueTime = sub.EndTime
 	sub.EndTime = endTime
 	// A non-resetting quota pack grants another pack's quota; periodic quotas
 	// keep the current allowance and all used counters unchanged.

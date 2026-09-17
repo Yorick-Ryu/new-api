@@ -34,6 +34,7 @@ import {
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
 import { cn } from '@/lib/utils'
 
+import { PanelTitle } from '../ui/panel-title'
 import { performanceHealthMetricGridClass } from './performance-health-panel-layout'
 
 const PERFORMANCE_WINDOW_HOURS = 24
@@ -97,10 +98,11 @@ export function PerformanceHealthPanel() {
   return (
     <section className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
       <div className='flex items-center gap-2 border-b px-4 py-3 sm:px-5'>
-        <IconBadge tone='success' size='sm'>
-          <HeartPulse />
-        </IconBadge>
-        <h3 className='text-sm font-semibold'>{t('Performance health')}</h3>
+        <PanelTitle
+          title={t('Performance health')}
+          icon={HeartPulse}
+          iconTone='success'
+        />
         <span className='text-muted-foreground ml-auto text-xs'>
           {t('Performance metrics for the last 24 hours')}
         </span>

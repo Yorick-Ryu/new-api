@@ -37,6 +37,8 @@ import { SubscriptionQuotaUsage } from '@/features/wallet/components/subscriptio
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { PanelTitle } from '../ui/panel-title'
+
 export function AccountCreditsCard() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
@@ -104,13 +106,11 @@ export function AccountCreditsCard() {
       <div className='min-w-0'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <h3 className='flex items-center gap-2 text-sm font-semibold'>
-              <Crown
-                className='text-muted-foreground size-4'
-                aria-hidden='true'
-              />
-              {t('Subscription Plans')}
-            </h3>
+            <PanelTitle
+              title={t('Subscription Plans')}
+              icon={Crown}
+              iconTone='chart-4'
+            />
             {subscriptionsQuery.isSuccess && activeSubscriptions.length > 0 && (
               <span className='bg-success/10 text-success rounded-full px-2 py-0.5 text-[11px] font-medium'>
                 {activeSubscriptions.length} {t('active')}

@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
@@ -37,6 +36,8 @@ import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
+
+import { StatTitle } from '../ui/stat-title'
 
 interface LogStatCardsProps {
   filters?: DashboardFilters
@@ -146,7 +147,6 @@ export function LogStatCards(props: LogStatCardsProps) {
     <div className='overflow-hidden rounded-lg border'>
       <div className='divide-border/60 grid min-w-0 grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5'>
         {items.map((it, idx) => {
-          const Icon = it.icon
           let valueContent
           if (loading) {
             valueContent = (
@@ -192,18 +192,11 @@ export function LogStatCards(props: LogStatCardsProps) {
                   'col-span-2 sm:col-span-1'
               )}
             >
-              <div className='flex min-w-0 items-center gap-1.5 sm:gap-2'>
-                <IconBadge
-                  tone={it.iconTone}
-                  size='stat'
-                  className='size-4 rounded-sm sm:size-7 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
-                >
-                  <Icon />
-                </IconBadge>
-                <div className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'>
-                  {it.title}
-                </div>
-              </div>
+              <StatTitle
+                title={it.title}
+                icon={it.icon}
+                iconTone={it.iconTone}
+              />
 
               {valueContent}
             </div>

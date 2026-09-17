@@ -51,6 +51,7 @@ import {
   useApiInfo,
   useDashboardContentVisibility,
 } from '../../hooks/use-status-data'
+import { BusinessOverview } from '../business/business-overview'
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { DesktopSetupCard } from './desktop-setup-card'
@@ -497,6 +498,8 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
+
+      {isAdmin && <BusinessOverview />}
 
       <SummaryCards />
 

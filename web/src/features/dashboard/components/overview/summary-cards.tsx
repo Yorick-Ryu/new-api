@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, ChartColumn } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -33,6 +33,7 @@ import { formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { PanelTitle } from '../ui/panel-title'
 import { StatCard } from '../ui/stat-card'
 import { AccountCreditsCard } from './account-credits-card'
 
@@ -200,9 +201,11 @@ export function SummaryCards() {
         <div className='flex min-w-0 flex-col gap-2.5 p-3 sm:gap-3 sm:p-5'>
           <div className='flex flex-col gap-1'>
             <div className='flex flex-wrap items-center justify-between gap-3'>
-              <h3 className='text-sm font-semibold sm:text-base'>
-                {t('Usage at a glance')}
-              </h3>
+              <PanelTitle
+                title={t('Usage at a glance')}
+                icon={ChartColumn}
+                iconTone='info'
+              />
               <div className='ml-auto flex flex-wrap items-center justify-end gap-2'>
                 <span className='text-muted-foreground text-sm font-normal'>
                   {t('Account balance')}
@@ -222,7 +225,7 @@ export function SummaryCards() {
                 </Button>
               </div>
             </div>
-            <p className='text-muted-foreground text-xs sm:text-sm'>
+            <p className='text-muted-foreground text-xs'>
               {t('Monitor balance, usage, and request volume')}
             </p>
           </div>

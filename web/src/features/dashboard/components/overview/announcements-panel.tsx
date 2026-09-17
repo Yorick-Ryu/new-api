@@ -20,7 +20,6 @@ import { Megaphone } from 'lucide-react'
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/components/ui/icon-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAnnouncements } from '@/features/dashboard/hooks/use-status-data'
 import { getPreviewText } from '@/features/dashboard/lib'
@@ -59,14 +58,9 @@ export function AnnouncementsPanel() {
 
   return (
     <PanelWrapper
-      title={
-        <span className='flex items-center gap-2'>
-          <IconBadge tone='warning' size='sm'>
-            <Megaphone />
-          </IconBadge>
-          {t('Announcements')}
-        </span>
-      }
+      title={t('Announcements')}
+      icon={Megaphone}
+      iconTone='warning'
       description={t('Latest platform updates and notices')}
       loading={loading}
       empty={!list.length}

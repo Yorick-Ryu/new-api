@@ -25,7 +25,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { Markdown } from '@/components/ui/markdown'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFAQ } from '@/features/dashboard/hooks/use-status-data'
@@ -39,14 +38,9 @@ export function FAQPanel() {
 
   return (
     <PanelWrapper
-      title={
-        <span className='flex items-center gap-2'>
-          <IconBadge tone='chart-4' size='sm'>
-            <HelpCircle />
-          </IconBadge>
-          {t('FAQ')}
-        </span>
-      }
+      title={t('FAQ')}
+      icon={HelpCircle}
+      iconTone='chart-4'
       description={t('Answers for common access and billing questions')}
       loading={loading}
       empty={!list.length}

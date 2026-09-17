@@ -91,3 +91,15 @@ export async function getUptimeStatus() {
   )
   return res.data
 }
+
+export async function getBusinessDashboard(days: number, offset = 0) {
+  const res = await api.get<{
+    success: boolean
+    data: import('./components/business/types').BusinessDashboardData
+    message?: string
+  }>('/api/data/business', { params: { days, offset } })
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to load business overview')
+  }
+  return res.data.data
+}

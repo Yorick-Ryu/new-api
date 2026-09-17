@@ -20,7 +20,6 @@ import { Route } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/components/ui/icon-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApiInfo } from '@/features/dashboard/hooks/use-status-data'
 import {
@@ -49,14 +48,9 @@ export function ApiInfoPanel() {
 
   return (
     <PanelWrapper
-      title={
-        <span className='flex items-center gap-2'>
-          <IconBadge tone='info' size='sm'>
-            <Route />
-          </IconBadge>
-          {t('API Info')}
-        </span>
-      }
+      title={t('API Info')}
+      icon={Route}
+      iconTone='info'
       description={t('Configured routes and latency checks')}
       loading={loading}
       empty={!list.length}

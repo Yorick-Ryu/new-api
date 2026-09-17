@@ -232,13 +232,16 @@ type SubscriptionOrder struct {
 
 	// Original subscription selected at checkout; zero means a new purchase.
 	RenewalSubscriptionId int `json:"renewal_subscription_id" gorm:"index;default:0"`
+	// Immutable expiry snapshot captured under the same lock as fulfillment.
+	RenewalSourceId int   `json:"renewal_source_id" gorm:"default:0"`
+	RenewalDueTime  int64 `json:"renewal_due_time" gorm:"default:0;index"`
 
 	TradeNo         string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	Status          string `json:"status"`
+	Status          string `json:"status" gorm:"index:idx_subscription_order_status_completed,priority:1"`
 	CreateTime      int64  `json:"create_time"`
-	CompleteTime    int64  `json:"complete_time"`
+	CompleteTime    int64  `json:"complete_time" gorm:"index:idx_subscription_order_status_completed,priority:2"`
 
 	ProviderPayload string `json:"provider_payload" gorm:"type:text"`
 }
@@ -620,7 +623,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if !plan.Enabled {
 			// still allow completion for already purchased orders
 		}
-		subscription, err := fulfillSubscriptionPurchaseTx(tx, order.UserId, plan, "order", order.RenewalSubscriptionId)
+		subscription, err := fulfillSubscriptionPurchaseTx(tx, order.UserId, plan, "order", order.RenewalSubscriptionId, &order)
 		if err != nil {
 			return err
 		}
@@ -814,7 +817,8 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscription
 			}
 		}
 
-		subscription, err := fulfillSubscriptionPurchaseTx(tx, userId, plan, PaymentMethodBalance, renewalSubscriptionId)
+		renewalSnapshot := &SubscriptionOrder{}
+		subscription, err := fulfillSubscriptionPurchaseTx(tx, userId, plan, PaymentMethodBalance, renewalSubscriptionId, renewalSnapshot)
 		if err != nil {
 			return err
 		}
@@ -833,6 +837,8 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, renewalSubscription
 			CompleteTime:          now,
 			ProviderPayload:       fmt.Sprintf("charged_quota=%d", requiredQuota),
 			RenewalSubscriptionId: renewalSubscriptionId,
+			RenewalSourceId:       renewalSnapshot.RenewalSourceId,
+			RenewalDueTime:        renewalSnapshot.RenewalDueTime,
 		}
 		if err := tx.Create(order).Error; err != nil {
 			return err

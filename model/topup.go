@@ -20,8 +20,8 @@ type TopUp struct {
 	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
 	CreateTime      int64   `json:"create_time"`
-	CompleteTime    int64   `json:"complete_time"`
-	Status          string  `json:"status"`
+	CompleteTime    int64   `json:"complete_time" gorm:"index:idx_topup_status_completed,priority:2"`
+	Status          string  `json:"status" gorm:"index:idx_topup_status_completed,priority:1"`
 }
 
 const (
