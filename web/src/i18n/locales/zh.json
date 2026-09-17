@@ -5579,6 +5579,7 @@
     "Business trends": "经营趋势",
     "Subscription revenue": "套餐收入",
     "Average revenue per paying user": "客单价",
-    "{{change}} vs previous period": "较上期 {{change}}"
+    "{{change}} vs previous period": "较上期 {{change}}",
+    "User growth, revenue, and subscriptions.": "用户增长、收入与套餐订阅。"
   }
 }

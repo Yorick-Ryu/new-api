@@ -23,9 +23,6 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 import { StartStepItem } from '../overview-dashboard'
 
-// Setup-step tests do not render dashboard charts or their browser canvas.
-vi.mock('@visactor/react-vchart', () => ({ VChart: () => null }))
-
 afterEach(cleanup)
 
 it('keeps each status marker centered in its own card track and preserves step actions', async () => {

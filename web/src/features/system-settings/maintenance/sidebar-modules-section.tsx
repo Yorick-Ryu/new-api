@@ -142,6 +142,10 @@ export function SidebarModulesSection({
       },
     },
     admin: {
+      business: {
+        title: t('Business overview'),
+        description: t('User growth, revenue, and subscriptions.'),
+      },
       channel: {
         title: t('Channels'),
         description: t('Configure upstream providers and routing.'),

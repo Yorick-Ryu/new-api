@@ -31,6 +31,12 @@ export const Route = createFileRoute('/_authenticated/dashboard/$section')({
   beforeLoad: ({ params }) => {
     const validSections = DASHBOARD_SECTION_IDS as unknown as string[]
     const role = useAuthStore.getState().auth.user?.role ?? 0
+    if (params.section === 'business') {
+      throw redirect({
+        to: role >= ROLE.ADMIN ? '/business' : '/403',
+        replace: true,
+      })
+    }
     if (
       !validSections.includes(params.section) ||
       (isAdminDashboardSection(params.section) && role < ROLE.ADMIN)

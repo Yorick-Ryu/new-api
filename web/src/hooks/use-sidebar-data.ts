@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Activity,
   Box,
+  ChartNoAxesCombined,
   CreditCard,
   Crown,
   FileText,
@@ -163,6 +164,12 @@ export function useSidebarData(): SidebarData {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
+          },
+          {
+            title: t('Business overview'),
+            url: '/business',
+            icon: ChartNoAxesCombined,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Info'),

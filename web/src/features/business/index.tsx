@@ -16,6 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export function isAdminDashboardSection(section: string): boolean {
-  return section === 'users'
+import { useTranslation } from 'react-i18next'
+
+import { SectionPageLayout } from '@/components/layout/components/section-page-layout'
+import { BusinessOverview } from '@/features/dashboard/components/business/business-overview'
+
+export function BusinessPage() {
+  const { t } = useTranslation()
+
+  return (
+    <SectionPageLayout>
+      <SectionPageLayout.Title>
+        {t('Business overview')}
+      </SectionPageLayout.Title>
+      <SectionPageLayout.Content>
+        <BusinessOverview />
+      </SectionPageLayout.Content>
+    </SectionPageLayout>
+  )
 }

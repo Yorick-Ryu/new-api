@@ -66,10 +66,15 @@ function mount(role: number) {
     </I18nextProvider>
   )
 }
-it('shows only service status settings in the nested menu for an administrator', async () => {
+it('shows only automatic banning and service status settings for an administrator', async () => {
   mount(ROLE.ADMIN)
   await screen.findByRole('link', { name: 'Service status' })
-  expect(screen.getAllByRole('link')).toHaveLength(1)
+  expect(
+    screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+  ).toEqual([
+    '/system-settings/security/auto-ban',
+    '/system-settings/operations/service-status',
+  ])
 })
 it('keeps the other Operations settings available in the nested menu for root', async () => {
   mount(ROLE.SUPER_ADMIN)

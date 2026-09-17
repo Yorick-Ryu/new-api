@@ -35,7 +35,6 @@ import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { BusinessOverview } from './components/business/business-overview'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
@@ -191,9 +190,6 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
   },
   users: {
     titleKey: 'User Analytics',
-  },
-  business: {
-    titleKey: 'Business overview',
   },
 }
 
@@ -352,7 +348,6 @@ export function Dashboard() {
               )}
             </div>
           )}
-          {activeSection === 'business' && isAdmin && <BusinessOverview />}
           {activeSection === 'overview' && <OverviewDashboard />}
           {activeSection === 'models' && (
             <>

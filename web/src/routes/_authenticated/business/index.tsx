@@ -16,6 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export function isAdminDashboardSection(section: string): boolean {
-  return section === 'users'
-}
+import { createFileRoute, redirect } from '@tanstack/react-router'
+
+import { BusinessPage } from '@/features/business'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
+
+export const Route = createFileRoute('/_authenticated/business/')({
+  beforeLoad: () => {
+    const { auth } = useAuthStore.getState()
+    if (!auth.user || auth.user.role < ROLE.ADMIN) {
+      throw redirect({ to: '/403' })
+    }
+  },
+  component: BusinessPage,
+})

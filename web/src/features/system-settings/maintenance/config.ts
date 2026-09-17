@@ -77,6 +77,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   },
   admin: {
     enabled: true,
+    business: true,
     channel: true,
     models: true,
     redemption: true,
