@@ -41,7 +41,7 @@ export function BusinessOverview() {
 function AdminBusinessOverview() {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
-  const [period, setPeriod] = useState('7')
+  const [period, setPeriod] = useState('1')
   const days = period === 'yesterday' ? 1 : Number(period)
   const offset = period === 'yesterday' ? 1 : 0
   const query = useQuery({
