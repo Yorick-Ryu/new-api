@@ -34,6 +34,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { IconBadgeTone } from '@/components/ui/icon-badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { StatTitle } from '../ui/stat-title'
 import { formatBusinessMoney, type BusinessDashboardData } from './types'
@@ -63,7 +64,10 @@ function PeriodComparison(props: { current: number; previous: number }) {
   return <span className='block tabular-nums'>{change}</span>
 }
 
-export function BusinessMetrics(props: { data: BusinessDashboardData }) {
+export function BusinessMetrics(props: {
+  data: BusinessDashboardData
+  loading?: boolean
+}) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
   const data = props.data
@@ -267,19 +271,31 @@ export function BusinessMetrics(props: { data: BusinessDashboardData }) {
               iconTone={metric.iconTone}
             />
           </dt>
-          <motion.dd
-            key={metric.valueKey ?? String(metric.value)}
-            initial={reduceMotion ? false : { opacity: 0.45, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
-            className='text-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight break-words tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
-          >
-            {metric.value}
-          </motion.dd>
-          {metric.description && (
-            <dd className='text-muted-foreground/60 mt-1 text-[11px] leading-relaxed sm:text-xs'>
-              {metric.description}
+          {props.loading ? (
+            <dd className='mt-1 flex flex-col gap-1 sm:mt-2 sm:gap-1.5'>
+              <Skeleton className='h-5 w-20 sm:h-7 sm:w-24' />
+              <Skeleton className='h-3.5 w-28' />
             </dd>
+          ) : (
+            <>
+              <motion.dd
+                key={metric.valueKey ?? String(metric.value)}
+                initial={reduceMotion ? false : { opacity: 0.45, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.25,
+                  ease: 'easeOut',
+                }}
+                className='text-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight break-words tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
+              >
+                {metric.value}
+              </motion.dd>
+              {metric.description && (
+                <dd className='text-muted-foreground/60 mt-1 text-[11px] leading-relaxed sm:text-xs'>
+                  {metric.description}
+                </dd>
+              )}
+            </>
           )}
         </div>
       ))}

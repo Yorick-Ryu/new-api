@@ -175,7 +175,7 @@ it('shows loading and disables refresh while the request is pending', async () =
   expect(screen.queryByRole('status')).toBeNull()
 })
 
-it('keeps the current metrics and chart selection while a new period loads, then shows the new values', async () => {
+it('replaces old metrics with skeletons while a new period loads and preserves the chart selection', async () => {
   let resolve!: (value: {
     data: { success: boolean; data: BusinessDashboardData }
   }) => void
@@ -194,10 +194,11 @@ it('keeps the current metrics and chart selection while a new period loads, then
   await screen.findByText('0 of 12 new users topped up')
   await user.click(screen.getByRole('button', { name: 'Area Chart' }))
   await user.click(screen.getByRole('tab', { name: 'Yesterday' }))
-  expect(screen.getByText('0 of 12 new users topped up')).toBeTruthy()
+  expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
   expect(
-    screen.queryByRole('status', { name: 'Loading business data' })
-  ).toBeNull()
+    screen.getByRole('status', { name: 'Loading business data' })
+  ).toBeTruthy()
+  expect(screen.queryByText('No business activity in this period')).toBeNull()
   expect(
     screen
       .getByRole('region', { name: 'Business overview' })

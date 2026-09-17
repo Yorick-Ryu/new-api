@@ -21,6 +21,7 @@ import { AreaChart, BarChart3 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Skeleton } from '@/components/ui/skeleton'
 import { useTheme } from '@/context/theme-provider'
 import { CONSUMPTION_DISTRIBUTION_CHART_OPTIONS } from '@/features/dashboard/constants'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,7 @@ import type { BusinessDashboardData } from './types'
 
 export function BusinessDetails(props: {
   data: Pick<BusinessDashboardData, 'daily' | 'plans'>
+  loading?: boolean
 }) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
@@ -67,7 +69,8 @@ export function BusinessDetails(props: {
           })}
         </div>
       </div>
-      {chart.hasActivity ? (
+      {props.loading && <Skeleton className='h-[300px] w-full sm:h-96' />}
+      {!props.loading && chart.hasActivity && (
         <div
           role='img'
           aria-label={t('Business trends')}
@@ -79,7 +82,8 @@ export function BusinessDetails(props: {
             option={VCHART_OPTION}
           />
         </div>
-      ) : (
+      )}
+      {!props.loading && !chart.hasActivity && (
         <div className='text-muted-foreground flex h-64 items-center justify-center text-sm'>
           {t('No business activity in this period')}
         </div>

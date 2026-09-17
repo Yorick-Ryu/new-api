@@ -176,8 +176,17 @@ function AdminBusinessOverview() {
       )}
       {data && (
         <>
-          <BusinessMetrics data={data} />
-          <BusinessDetails data={data} />
+          {query.isFetching && (
+            <span
+              role='status'
+              aria-label={t('Loading business data')}
+              className='sr-only'
+            >
+              {t('Loading business data')}
+            </span>
+          )}
+          <BusinessMetrics data={data} loading={query.isFetching} />
+          <BusinessDetails data={data} loading={query.isFetching} />
         </>
       )}
     </section>
