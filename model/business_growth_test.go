@@ -27,20 +27,20 @@ func setupBusinessDatabase(t *testing.T) *gorm.DB {
 func TestBusinessSalesCashAndFirstPayersAcrossLedgers(t *testing.T) {
 	db := setupBusinessDatabase(t)
 	require.NoError(t, db.Create(&[]SubscriptionOrder{
-		{UserId: 1, TradeNo: "prior-sub", Money: 20, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 50},
-		{UserId: 2, TradeNo: "sub", Money: 30, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 110},
-		{UserId: 3, TradeNo: "balance", Money: 80, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CompleteTime: 110},
-		{UserId: 4, TradeNo: "pending", Money: 80, PaymentProvider: "epay", Status: common.TopUpStatusPending, CompleteTime: 110},
-		{UserId: 5, TradeNo: "free", Money: 0, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 110},
-		{UserId: 6, TradeNo: "stripe-sub", Money: 10, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CompleteTime: 110},
+		{UserId: 1, TradeNo: "prior-sub", Money: 20, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 50},
+		{UserId: 2, TradeNo: "sub", Money: 30, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 110},
+		{UserId: 3, TradeNo: "balance", Money: 80, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CreateTime: 110},
+		{UserId: 4, TradeNo: "pending", Money: 80, PaymentProvider: "epay", Status: common.TopUpStatusPending, CreateTime: 110},
+		{UserId: 5, TradeNo: "free", Money: 0, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 110},
+		{UserId: 6, TradeNo: "stripe-sub", Money: 10, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CreateTime: 110},
 	}).Error)
 	require.NoError(t, db.Create(&[]TopUp{
-		{UserId: 1, TradeNo: "wallet", Money: 10, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 100},
-		{UserId: 1, TradeNo: "wallet-repeat", Money: 5, PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CompleteTime: 150},
-		{UserId: 2, TradeNo: "sub", Money: 30, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 110},
-		{UserId: 7, TradeNo: "prior-wallet", Money: 10, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 99},
-		{UserId: 7, TradeNo: "now-wallet", Money: 7, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 199},
-		{UserId: 8, TradeNo: "future", Money: 100, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: 200},
+		{UserId: 1, TradeNo: "wallet", Money: 10, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 100},
+		{UserId: 1, TradeNo: "wallet-repeat", Money: 5, PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CreateTime: 150},
+		{UserId: 2, TradeNo: "sub", Money: 30, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 110},
+		{UserId: 7, TradeNo: "prior-wallet", Money: 10, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 99},
+		{UserId: 7, TradeNo: "now-wallet", Money: 7, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 199},
+		{UserId: 8, TradeNo: "future", Money: 100, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: 200},
 	}).Error)
 	sales, err := getBusinessSales(db, 100, 200)
 	require.NoError(t, err)
@@ -205,17 +205,17 @@ func TestBusinessDashboardDailyRevenueMatchesTotalWithoutInternalTransfers(t *te
 	now := time.Date(2026, 9, 17, 4, 0, 0, 0, time.UTC)
 	start := time.Date(2026, 9, 15, 0, 0, 0, 0, time.FixedZone("UTC+8", 28800)).Unix()
 	require.NoError(t, db.Create(&[]SubscriptionOrder{
-		{TradeNo: "subscription", UserId: 1, Money: 30.25, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: start + 86399},
-		{TradeNo: "renewal", UserId: 1, Money: 40.5, RenewalSubscriptionId: 1, PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CompleteTime: start + 86400},
-		{TradeNo: "internal", UserId: 1, Money: 500, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CompleteTime: start + 1},
-		{TradeNo: "unknown-currency", UserId: 1, Money: 700, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CompleteTime: start + 1},
-		{TradeNo: "unpaid", UserId: 1, Money: 800, PaymentProvider: "epay", Status: common.TopUpStatusPending, CompleteTime: start + 1},
-		{TradeNo: "outside", UserId: 1, Money: 900, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: now.Unix() + 1},
+		{TradeNo: "subscription", UserId: 1, Money: 30.25, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: start + 86399},
+		{TradeNo: "renewal", UserId: 1, Money: 40.5, RenewalSubscriptionId: 1, PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CreateTime: start + 86400},
+		{TradeNo: "internal", UserId: 1, Money: 500, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CreateTime: start + 1},
+		{TradeNo: "unknown-currency", UserId: 1, Money: 700, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CreateTime: start + 1},
+		{TradeNo: "unpaid", UserId: 1, Money: 800, PaymentProvider: "epay", Status: common.TopUpStatusPending, CreateTime: start + 1},
+		{TradeNo: "outside", UserId: 1, Money: 900, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: now.Unix() + 1},
 	}).Error)
 	require.NoError(t, db.Create(&[]TopUp{
-		{TradeNo: "wallet", UserId: 1, Money: 12.5, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: start - 100, CompleteTime: start},
-		{TradeNo: "subscription", UserId: 1, Money: 30.25, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CompleteTime: start + 86399},
-		{TradeNo: "wallet-stripe", UserId: 1, Money: 500, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CompleteTime: start + 1},
+		{TradeNo: "wallet", UserId: 1, Money: 12.5, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: start, CompleteTime: start + 100},
+		{TradeNo: "subscription", UserId: 1, Money: 30.25, PaymentProvider: "epay", Status: common.TopUpStatusSuccess, CreateTime: start + 86399},
+		{TradeNo: "wallet-stripe", UserId: 1, Money: 500, PaymentProvider: "stripe", Status: common.TopUpStatusSuccess, CreateTime: start + 1},
 	}).Error)
 	data, err := GetBusinessDashboard(context.Background(), 3, 0, now)
 	require.NoError(t, err)
@@ -257,13 +257,13 @@ func TestBusinessDashboardSubscriptionsFollowEnabledCatalogAndStableIDs(t *testi
 	}).Error)
 	require.NoError(t, db.Model(&SubscriptionPlan{}).Where("id = ?", 105).Update("enabled", false).Error)
 	require.NoError(t, db.Create(&[]SubscriptionOrder{
-		{TradeNo: "new-starter", PlanId: 41, Status: common.TopUpStatusSuccess, CompleteTime: start},
-		{TradeNo: "new-team", PlanId: 99, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CompleteTime: start},
-		{TradeNo: "renew-starter", PlanId: 41, RenewalSubscriptionId: 1, Status: common.TopUpStatusSuccess, CompleteTime: start},
-		{TradeNo: "renew-team", PlanId: 99, RenewalSubscriptionId: 2, Status: common.TopUpStatusSuccess, CompleteTime: start + 86399},
-		{TradeNo: "disabled-plan", PlanId: 105, Status: common.TopUpStatusSuccess, CompleteTime: start},
-		{TradeNo: "unknown-plan", PlanId: 999, Status: common.TopUpStatusSuccess, CompleteTime: start},
-		{TradeNo: "pending-team", PlanId: 99, Status: common.TopUpStatusPending, CompleteTime: start},
+		{TradeNo: "new-starter", PlanId: 41, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{TradeNo: "new-team", PlanId: 99, PaymentProvider: "balance", Status: common.TopUpStatusSuccess, CreateTime: start},
+		{TradeNo: "renew-starter", PlanId: 41, RenewalSubscriptionId: 1, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{TradeNo: "renew-team", PlanId: 99, RenewalSubscriptionId: 2, Status: common.TopUpStatusSuccess, CreateTime: start + 86399},
+		{TradeNo: "disabled-plan", PlanId: 105, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{TradeNo: "unknown-plan", PlanId: 999, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{TradeNo: "pending-team", PlanId: 99, Status: common.TopUpStatusPending, CreateTime: start},
 	}).Error)
 	data, err := GetBusinessDashboard(context.Background(), 3, 0, now)
 	require.NoError(t, err)

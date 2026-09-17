@@ -57,11 +57,11 @@ type businessPlanRenewal struct {
 // wallet transfers. A positive external payment establishes a payer even when
 // its gateway did not persist a verifiable cash amount/currency.
 func businessPayments(db *gorm.DB, start, end int64) *gorm.DB {
-	wallet := businessTopUps(db, start, end).Select("t.user_id, t.complete_time, t.money, " + businessProviderSQL + " AS provider, 'wallet' AS payment_kind")
+	wallet := businessTopUps(db, start, end).Select("t.user_id, t.create_time, t.money, " + businessProviderSQL + " AS provider, 'wallet' AS payment_kind")
 	subscriptions := db.Table("subscription_orders AS t").
-		Where("t.status = ? AND t.money > 0 AND t.complete_time >= ? AND t.complete_time < ?", common.TopUpStatusSuccess, start, end).
+		Where("t.status = ? AND t.money > 0 AND t.create_time >= ? AND t.create_time < ?", common.TopUpStatusSuccess, start, end).
 		Where("COALESCE(t.payment_provider, '') <> ? AND COALESCE(t.payment_method, '') <> ?", PaymentProviderBalance, PaymentMethodBalance).
-		Select("t.user_id, t.complete_time, t.money, " + businessProviderSQL + " AS provider, 'subscription' AS payment_kind")
+		Select("t.user_id, t.create_time, t.money, " + businessProviderSQL + " AS provider, 'subscription' AS payment_kind")
 	return db.Table("(? UNION ALL ?) AS payments", wallet, subscriptions)
 }
 
@@ -81,7 +81,7 @@ func getBusinessSales(db *gorm.DB, start, end int64) (*BusinessSales, error) {
 		return nil, err
 	}
 	candidates := businessPayments(db, start, end).Select("DISTINCT user_id")
-	firstPayments := businessPayments(db, 1, end).Where("user_id IN (?)", candidates).Select("user_id").Group("user_id").Having("MIN(complete_time) >= ?", start)
+	firstPayments := businessPayments(db, 1, end).Where("user_id IN (?)", candidates).Select("user_id").Group("user_id").Having("MIN(create_time) >= ?", start)
 	if err := db.Table("(?) AS first_payments", firstPayments).Count(&result.FirstPayingUsers).Error; err != nil {
 		return nil, err
 	}

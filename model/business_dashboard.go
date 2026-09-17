@@ -48,6 +48,7 @@ type BusinessTopUp struct {
 	Money        float64 `json:"money"`
 	Provider     string  `json:"provider"`
 	CompleteTime int64   `json:"complete_time"`
+	CreateTime   int64   `json:"create_time"`
 }
 
 type BusinessPlan struct {
@@ -96,13 +97,14 @@ const businessProviderSQL = `CASE
 // Wallet top-ups only. Subscription checkouts mirror their order in top_ups;
 // excluding that mirror avoids both misclassifying subscribers and double counts.
 func businessTopUps(db *gorm.DB, start, end int64) *gorm.DB {
-	return db.Table("top_ups AS t").Where("t.status = ? AND t.money > 0 AND t.complete_time >= ? AND t.complete_time < ?", common.TopUpStatusSuccess, start, end).
+	return db.Table("top_ups AS t").Where("t.status = ? AND t.money > 0 AND t.create_time >= ? AND t.create_time < ?", common.TopUpStatusSuccess, start, end).
 		Where("COALESCE(t.payment_provider, '') <> ? AND COALESCE(t.payment_method, '') <> ?", PaymentProviderBalance, PaymentMethodBalance).
 		Where("NOT EXISTS (?)", db.Model(&SubscriptionOrder{}).Select("1").Where("subscription_orders.trade_no = t.trade_no"))
 }
 
 // Calendar days in UTC+8, including the partial current day. All financial
-// events use completion time, never checkout creation time. No user secrets or
+// events use successful orders' creation time, including historical wallet
+// top-ups without a completion timestamp. No user secrets or
 // payment payloads are loaded by this read-only aggregate.
 func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) (*BusinessDashboard, error) {
 	if (days != 1 && days != 3 && days != 7 && days != 30 && days != 90) || offset < 0 || offset > 1 || (offset == 1 && days != 1) {
@@ -187,7 +189,7 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 		return nil, err
 	}
 	if err := db.Table("subscription_orders AS o").Joins("LEFT JOIN subscription_plans AS p ON p.id = o.plan_id").
-		Where("o.status = ? AND o.complete_time >= ? AND o.complete_time < ?", common.TopUpStatusSuccess, start, end).
+		Where("o.status = ? AND o.create_time >= ? AND o.create_time < ?", common.TopUpStatusSuccess, start, end).
 		Select("o.plan_id, COALESCE(p.title, '') AS title, SUM(CASE WHEN COALESCE(o.renewal_subscription_id, 0) = 0 THEN 1 ELSE 0 END) AS activations, SUM(CASE WHEN o.renewal_subscription_id > 0 THEN 1 ELSE 0 END) AS renewals").
 		Group("o.plan_id, p.title").Order("activations DESC, renewals DESC, o.plan_id").Scan(&result.Plans).Error; err != nil {
 		return nil, err
@@ -204,7 +206,7 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 	}
 	var previousPlans []BusinessPlan
 	if err := db.Model(&SubscriptionOrder{}).
-		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, result.PreviousStartTimestamp, result.PreviousEndTimestamp).
+		Where("status = ? AND create_time >= ? AND create_time < ?", common.TopUpStatusSuccess, result.PreviousStartTimestamp, result.PreviousEndTimestamp).
 		Select("plan_id, COUNT(*) AS previous_orders").Group("plan_id").Scan(&previousPlans).Error; err != nil {
 		return nil, err
 	}
@@ -245,7 +247,7 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 		return nil, err
 	}
 	if err := businessTopUps(db, start, end).Joins("LEFT JOIN users AS u ON u.id = t.user_id").
-		Select("t.id, t.user_id, COALESCE(u.username, '') AS username, t.money, " + businessProviderSQL + " AS provider, t.complete_time").Order("t.complete_time DESC, t.id DESC").Limit(8).Scan(&result.RecentTopUps).Error; err != nil {
+		Select("t.id, t.user_id, COALESCE(u.username, '') AS username, t.money, " + businessProviderSQL + " AS provider, t.complete_time, t.create_time").Order("t.create_time DESC, t.id DESC").Limit(8).Scan(&result.RecentTopUps).Error; err != nil {
 		return nil, err
 	}
 	// Integer buckets avoid database-specific date functions; MySQL uses DIV.
@@ -259,7 +261,7 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 		kind   int
 	}{
 		{db.Unscoped().Model(&User{}).Where("created_at >= ? AND created_at < ?", start, end), "created_at", 0},
-		{businessTopUps(db, start, end), "t.complete_time", 1},
+		{businessTopUps(db, start, end), "t.create_time", 1},
 	} {
 		var rows []struct {
 			Bucket int
@@ -287,9 +289,9 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 		Activations int64
 		Renewals    int64
 	}
-	subscriptionBucket := fmt.Sprintf("(complete_time - %d) %s 86400", bucketStart, division)
+	subscriptionBucket := fmt.Sprintf("(create_time - %d) %s 86400", bucketStart, division)
 	if err := db.Model(&SubscriptionOrder{}).
-		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, start, end).
+		Where("status = ? AND create_time >= ? AND create_time < ?", common.TopUpStatusSuccess, start, end).
 		Select(subscriptionBucket + " AS bucket, plan_id, SUM(CASE WHEN COALESCE(renewal_subscription_id, 0) = 0 THEN 1 ELSE 0 END) AS activations, SUM(CASE WHEN renewal_subscription_id > 0 THEN 1 ELSE 0 END) AS renewals").
 		Group(subscriptionBucket + ", plan_id").Scan(&subscriptionDays).Error; err != nil {
 		return nil, err
@@ -313,7 +315,7 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 		WalletRevenue       float64
 		SubscriptionRevenue float64
 	}
-	revenueBucket := fmt.Sprintf("(complete_time - %d) %s 86400", bucketStart, division)
+	revenueBucket := fmt.Sprintf("(create_time - %d) %s 86400", bucketStart, division)
 	if err := businessPayments(db, start, end).Where("provider = ?", PaymentProviderEpay).
 		Select(revenueBucket + " AS bucket, SUM(CASE WHEN payment_kind = 'wallet' THEN money ELSE 0 END) AS wallet_revenue, SUM(CASE WHEN payment_kind = 'subscription' THEN money ELSE 0 END) AS subscription_revenue").
 		Group(revenueBucket).Scan(&revenueDays).Error; err != nil {
