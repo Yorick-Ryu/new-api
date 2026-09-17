@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { ChartNoAxesCombined, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ChartNoAxesCombined, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -58,18 +58,12 @@ function AdminBusinessOverview() {
       className='bg-card overflow-hidden rounded-lg border'
     >
       <div className='flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5'>
-        <div className='flex flex-wrap items-center gap-2'>
-          <PanelTitle
-            as='h2'
-            title={t('Business overview')}
-            icon={ChartNoAxesCombined}
-            iconTone='info'
-          />
-          <span className='bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs'>
-            <ShieldCheck className='size-3' aria-hidden='true' />
-            {t('Administrators only')}
-          </span>
-        </div>
+        <PanelTitle
+          as='h2'
+          title={t('Business overview')}
+          icon={ChartNoAxesCombined}
+          iconTone='info'
+        />
         <div className='flex max-w-full items-center gap-2'>
           <Tabs
             className='min-w-0 overflow-x-auto'

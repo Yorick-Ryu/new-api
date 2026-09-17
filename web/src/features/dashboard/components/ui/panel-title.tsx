@@ -31,7 +31,7 @@ export function PanelTitle(props: {
 
   return (
     <Heading className='flex min-w-0 items-center gap-2 text-sm font-semibold'>
-      <IconBadge tone={props.iconTone} size='sm' className='rounded-full'>
+      <IconBadge tone={props.iconTone} size='sm'>
         <Icon />
       </IconBadge>
       <span className='min-w-0 break-words'>{props.title}</span>

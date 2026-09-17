@@ -58,7 +58,7 @@ function PeriodComparison(props: { current: number; previous: number }) {
       })
     }
   }
-  return <span className='block font-mono tabular-nums'>{change}</span>
+  return <span className='block tabular-nums'>{change}</span>
 }
 
 export function BusinessMetrics(props: { data: BusinessDashboardData }) {
@@ -223,13 +223,13 @@ export function BusinessMetrics(props: { data: BusinessDashboardData }) {
         value: (
           <span className='flex flex-nowrap gap-4 overflow-x-auto'>
             <span className='inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap'>
-              <span className='text-muted-foreground font-sans text-[11px] font-normal tracking-normal sm:text-xs'>
+              <span className='text-muted-foreground [font-family:var(--font-body)] text-[11px] font-normal tracking-normal sm:text-xs'>
                 {t('New subscriptions')}
               </span>
               <span>{plan.activations.toLocaleString()}</span>
             </span>
             <span className='inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap'>
-              <span className='text-muted-foreground font-sans text-[11px] font-normal tracking-normal sm:text-xs'>
+              <span className='text-muted-foreground [font-family:var(--font-body)] text-[11px] font-normal tracking-normal sm:text-xs'>
                 {t('Subscription renewals')}
               </span>
               <span>{plan.renewals.toLocaleString()}</span>
@@ -237,7 +237,7 @@ export function BusinessMetrics(props: { data: BusinessDashboardData }) {
           </span>
         ),
         description: (
-          <span className='block font-mono tabular-nums'>
+          <span className='block tabular-nums'>
             {t('{{change}} vs previous period', {
               change: `${difference > 0 ? '+' : ''}${difference.toLocaleString()}`,
             })}
