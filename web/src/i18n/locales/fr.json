@@ -5493,6 +5493,13 @@
     "No rules configured. Add a rule to match upstream failures.": "No rules configured. Add a rule to match upstream failures.",
     "Ban reason": "Ban reason",
     "Content safety rejection": "Content safety rejection",
-    "Sexual safety rejection": "Sexual safety rejection"
+    "Sexual safety rejection": "Sexual safety rejection",
+    "Business Overview Filters": "Filtres du tableau de bord commercial",
+    "Choose a time range of up to 30 days (Beijing time).": "Choisissez une période de 30 jours maximum (heure de Pékin).",
+    "Select both start and end times": "Sélectionnez les heures de début et de fin",
+    "End time must be after start time": "La fin doit être postérieure au début",
+    "Select a time range of up to 30 days": "Sélectionnez une période de 30 jours maximum",
+    "End time cannot be in the future": "La fin ne peut pas être dans le futur",
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Période : {{start}} – {{end}} (heure de Pékin)"
   }
 }

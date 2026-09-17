@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,16 +13,34 @@ import (
 )
 
 func GetBusinessDashboard(c *gin.Context) {
-	days, err := strconv.Atoi(c.DefaultQuery("days", "7"))
-	offset, offsetErr := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	if err != nil || offsetErr != nil || (days != 1 && days != 3 && days != 7 && days != 30 && days != 90) || offset < 0 || offset > 1 || (offset == 1 && days != 1) {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid business reporting period"})
-		return
-	}
 	c.Header("Cache-Control", "no-store")
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
-	result, err := model.GetBusinessDashboard(ctx, days, offset, time.Now())
+	var result *model.BusinessDashboard
+	var err error
+	startText, hasStart := c.GetQuery("start_timestamp")
+	endText, hasEnd := c.GetQuery("end_timestamp")
+	if c.Request.URL.Query().Has("start_timestamp") || c.Request.URL.Query().Has("end_timestamp") {
+		start, startErr := strconv.ParseInt(startText, 10, 64)
+		end, endErr := strconv.ParseInt(endText, 10, 64)
+		if !hasStart || !hasEnd || startErr != nil || endErr != nil || c.Request.URL.Query().Has("days") || c.Request.URL.Query().Has("offset") {
+			err = model.ErrInvalidBusinessPeriod
+		} else {
+			result, err = model.GetBusinessDashboardRange(ctx, start, end, time.Now())
+		}
+	} else {
+		days, daysErr := strconv.Atoi(c.DefaultQuery("days", "7"))
+		offset, offsetErr := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		if daysErr != nil || offsetErr != nil {
+			err = model.ErrInvalidBusinessPeriod
+		} else {
+			result, err = model.GetBusinessDashboard(ctx, days, offset, time.Now())
+		}
+	}
+	if errors.Is(err, model.ErrInvalidBusinessPeriod) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
 	if err != nil {
 		common.SysError("business dashboard query failed: " + err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to load business overview"})

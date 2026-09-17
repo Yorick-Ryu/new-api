@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -27,7 +28,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
 
 import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
@@ -47,6 +48,28 @@ await i18n.init({
   interpolation: { escapeValue: false },
 })
 const clients: QueryClient[] = []
+// happy-dom does not implement the browser animation API used by ScrollArea.
+const animationsDescriptor = Object.getOwnPropertyDescriptor(
+  Element.prototype,
+  'getAnimations'
+)
+beforeAll(() => {
+  Object.defineProperty(Element.prototype, 'getAnimations', {
+    configurable: true,
+    value: () => [],
+  })
+})
+afterAll(() => {
+  if (animationsDescriptor) {
+    Object.defineProperty(
+      Element.prototype,
+      'getAnimations',
+      animationsDescriptor
+    )
+  } else {
+    Reflect.deleteProperty(Element.prototype, 'getAnimations')
+  }
+})
 afterEach(async () => {
   cleanup()
   clients.forEach((client) => client.clear())
@@ -150,6 +173,54 @@ it('shows loading and disables refresh while the request is pending', async () =
   resolve({ data: { success: true, data: fixture() } })
   await screen.findByText('No business activity in this period')
   expect(screen.queryByRole('status')).toBeNull()
+})
+
+it('keeps the current metrics and chart selection while a new period loads, then shows the new values', async () => {
+  let resolve!: (value: {
+    data: { success: boolean; data: BusinessDashboardData }
+  }) => void
+  vi.spyOn(api, 'get')
+    .mockResolvedValueOnce({
+      data: { success: true, data: { ...fixture(), new_users: 12 } },
+    })
+    .mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+  const user = userEvent.setup()
+  mount(ROLE.ADMIN)
+  await screen.findByText('0 of 12 new users topped up')
+  await user.click(screen.getByRole('button', { name: 'Area Chart' }))
+  await user.click(screen.getByRole('tab', { name: 'Yesterday' }))
+  expect(screen.getByText('0 of 12 new users topped up')).toBeTruthy()
+  expect(
+    screen.queryByRole('status', { name: 'Loading business data' })
+  ).toBeNull()
+  expect(
+    screen
+      .getByRole('region', { name: 'Business overview' })
+      .getAttribute('aria-busy')
+  ).toBe('true')
+  expect(
+    screen
+      .getByRole('button', { name: 'Area Chart' })
+      .getAttribute('aria-pressed')
+  ).toBe('true')
+  resolve({ data: { success: true, data: { ...fixture(), new_users: 5 } } })
+  await screen.findByText('0 of 5 new users topped up')
+  expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
+  expect(
+    screen
+      .getByRole('region', { name: 'Business overview' })
+      .getAttribute('aria-busy')
+  ).toBe('false')
+  expect(
+    screen
+      .getByRole('button', { name: 'Area Chart' })
+      .getAttribute('aria-pressed')
+  ).toBe('true')
 })
 
 it('shows empty states and an undefined conversion rate for a period without registrations', async () => {
@@ -610,5 +681,88 @@ it('places average spend before active subscriptions using only revenue-paying u
   expect(within(average).getByText('+33.3% vs previous period')).toBeTruthy()
   expect(subscription.parentElement?.classList.contains('lg:grid-cols-4')).toBe(
     true
+  )
+})
+
+it('applies a custom Beijing time range, preserves it on reopen, and resets to today', async () => {
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-17T12:00:00+08:00'))
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: fixture() },
+  })
+  const user = userEvent.setup()
+  mount(ROLE.ADMIN)
+  await screen.findByText('No business activity in this period')
+  expect(get).toHaveBeenLastCalledWith('/api/data/business', {
+    params: { days: 1, offset: 0 },
+  })
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  const start = screen.getByRole('group', { name: 'Start Time' })
+  const end = screen.getByRole('group', { name: 'End Time' })
+  fireEvent.change(within(start).getByDisplayValue('00:00'), {
+    target: { value: '08:00' },
+  })
+  fireEvent.change(within(end).getByDisplayValue('12:00'), {
+    target: { value: '11:00' },
+  })
+  expect(get).toHaveBeenCalledTimes(1)
+  await user.click(screen.getByRole('button', { name: 'Apply Filters' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith('/api/data/business', {
+      params: { start_timestamp: 1789603200, end_timestamp: 1789614000 },
+    })
+  )
+  expect(
+    screen.getByRole('tab', { name: 'Custom' }).getAttribute('aria-selected')
+  ).toBe('true')
+  expect(
+    screen.getByText(
+      'Selected period: 2026-09-17 08:00 – 2026-09-17 11:00 (Beijing time)'
+    )
+  ).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  expect(
+    within(screen.getByRole('group', { name: 'Start Time' })).getByDisplayValue(
+      '08:00'
+    )
+  ).toBeTruthy()
+  expect(
+    within(screen.getByRole('group', { name: 'End Time' })).getByDisplayValue(
+      '11:00'
+    )
+  ).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Reset' }))
+  expect(
+    screen.getByRole('tab', { name: 'Today' }).getAttribute('aria-selected')
+  ).toBe('true')
+  expect(screen.queryByRole('tab', { name: 'Custom' })).toBeNull()
+})
+
+it('keeps an invalid custom range in the dialog without fetching and allows a quick-range correction', async () => {
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-17T12:00:00+08:00'))
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: fixture() },
+  })
+  const user = userEvent.setup()
+  mount(ROLE.ADMIN)
+  await screen.findByText('No business activity in this period')
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  fireEvent.change(
+    within(screen.getByRole('group', { name: 'Start Time' })).getByDisplayValue(
+      '00:00'
+    ),
+    { target: { value: '13:00' } }
+  )
+  await user.click(screen.getByRole('button', { name: 'Apply Filters' }))
+  expect(screen.getByRole('alert').textContent).toBe(
+    'End time must be after start time'
+  )
+  expect(get).toHaveBeenCalledTimes(1)
+  await user.click(screen.getByRole('button', { name: 'Yesterday' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Apply Filters' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith('/api/data/business', {
+      params: { days: 1, offset: 1 },
+    })
   )
 })

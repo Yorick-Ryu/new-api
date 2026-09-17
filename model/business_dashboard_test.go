@@ -126,3 +126,42 @@ func TestBusinessDashboardPlanPreviousOrdersUseComparableWindow(t *testing.T) {
 		})
 	}
 }
+
+func TestBusinessDashboardCustomRangeUsesExactWindowAndBeijingDays(t *testing.T) {
+	db := setupBusinessDatabase(t)
+	now := time.Date(2026, 9, 17, 12, 0, 0, 0, time.FixedZone("UTC+8", 28800))
+	start := time.Date(2026, 9, 15, 10, 0, 0, 0, now.Location()).Unix()
+	midnight := time.Date(2026, 9, 16, 0, 0, 0, 0, now.Location()).Unix()
+	end := midnight + 12*3600
+	require.NoError(t, db.Create(&[]User{
+		{Id: 1, Username: "before", AffCode: "a", CreatedAt: start - 1},
+		{Id: 2, Username: "start", AffCode: "b", CreatedAt: start},
+		{Id: 3, Username: "midnight", AffCode: "c", CreatedAt: midnight},
+		{Id: 4, Username: "last", AffCode: "d", CreatedAt: end - 1},
+		{Id: 5, Username: "end", AffCode: "e", CreatedAt: end},
+	}).Error)
+	require.NoError(t, db.Create(&SubscriptionPlan{Id: 1, Title: "Monthly"}).Error)
+	require.NoError(t, db.Create(&[]TopUp{
+		{UserId: 1, TradeNo: "before", Money: 5, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CompleteTime: start - 1},
+		{UserId: 2, TradeNo: "start", Money: 10, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CompleteTime: start},
+		{UserId: 3, TradeNo: "midnight", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CompleteTime: midnight},
+		{UserId: 5, TradeNo: "end", Money: 100, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CompleteTime: end},
+	}).Error)
+	require.NoError(t, db.Create(&[]SubscriptionOrder{
+		{UserId: 2, PlanId: 1, TradeNo: "purchase", Money: 40, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CompleteTime: midnight - 1},
+		{UserId: 3, PlanId: 1, TradeNo: "renewal", Money: 40, PaymentProvider: PaymentProviderEpay, RenewalSubscriptionId: 1, Status: common.TopUpStatusSuccess, CompleteTime: end - 1},
+	}).Error)
+	data, err := GetBusinessDashboardRange(context.Background(), start, end, now)
+	require.NoError(t, err)
+	assert.Equal(t, start, data.StartTimestamp)
+	assert.Equal(t, end, data.EndTimestamp)
+	assert.Equal(t, start-(end-start), data.PreviousStartTimestamp)
+	assert.Equal(t, start, data.PreviousEndTimestamp)
+	assert.EqualValues(t, 3, data.NewUsers)
+	assert.EqualValues(t, 2, data.NewUserTopUpUsers)
+	assert.Equal(t, 110.0, data.Sales.Revenue)
+	assert.Equal(t, 5.0, data.PreviousSales.Revenue)
+	require.Len(t, data.Daily, 2)
+	assert.Equal(t, BusinessDay{Date: "2026-09-15", NewUsers: 1, TopUpOrders: 1, Subscriptions: 1, WalletRevenue: 10, SubscriptionRevenue: 40, Plans: []BusinessPlanDay{{PlanId: 1, Activations: 1}}}, data.Daily[0])
+	assert.Equal(t, BusinessDay{Date: "2026-09-16", NewUsers: 2, TopUpOrders: 1, Renewals: 1, WalletRevenue: 20, SubscriptionRevenue: 40, Plans: []BusinessPlanDay{{PlanId: 1, Renewals: 1}}}, data.Daily[1])
+}

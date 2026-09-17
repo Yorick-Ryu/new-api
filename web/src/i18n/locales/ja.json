@@ -5493,6 +5493,13 @@
     "No rules configured. Add a rule to match upstream failures.": "No rules configured. Add a rule to match upstream failures.",
     "Ban reason": "Ban reason",
     "Content safety rejection": "Content safety rejection",
-    "Sexual safety rejection": "Sexual safety rejection"
+    "Sexual safety rejection": "Sexual safety rejection",
+    "Business Overview Filters": "経営概要フィルター",
+    "Choose a time range of up to 30 days (Beijing time).": "最大30日間の期間を選択してください（北京時間）。",
+    "Select both start and end times": "開始時刻と終了時刻を選択してください",
+    "End time must be after start time": "終了時刻は開始時刻より後にしてください",
+    "Select a time range of up to 30 days": "期間は最大30日間にしてください",
+    "End time cannot be in the future": "終了時刻は現在より後にできません",
+    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）"
   }
 }

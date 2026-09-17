@@ -55,3 +55,39 @@ func TestBusinessDashboardRequiresAdminAndValidPeriod(t *testing.T) {
 		})
 	}
 }
+
+func TestBusinessDashboardCustomPeriodValidation(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.TopUp{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.Option{}))
+	engine := gin.New()
+	engine.GET("/business", GetBusinessDashboard)
+	for _, tc := range []struct {
+		name, query string
+		status      int
+	}{
+		{"custom period", "start_timestamp=1700000000&end_timestamp=1700003600", http.StatusOK},
+		{"30 days", "start_timestamp=1700000000&end_timestamp=1702592000", http.StatusOK},
+		{"missing end", "start_timestamp=1700000000", http.StatusBadRequest},
+		{"missing start", "end_timestamp=1700003600", http.StatusBadRequest},
+		{"empty range", "start_timestamp=&end_timestamp=", http.StatusBadRequest},
+		{"malformed timestamp", "start_timestamp=oops&end_timestamp=1700003600", http.StatusBadRequest},
+		{"reversed", "start_timestamp=1700003600&end_timestamp=1700000000", http.StatusBadRequest},
+		{"over 30 days", "start_timestamp=1700000000&end_timestamp=1702592001", http.StatusBadRequest},
+		{"future", "start_timestamp=4102444800&end_timestamp=4102448400", http.StatusBadRequest},
+		{"overflow", "start_timestamp=-9223372036854775808&end_timestamp=9223372036854775807", http.StatusBadRequest},
+		{"mixed days", "days=1&start_timestamp=1700000000&end_timestamp=1700003600", http.StatusBadRequest},
+		{"mixed offset", "offset=0&start_timestamp=1700000000&end_timestamp=1700003600", http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/business?"+tc.query, nil))
+			require.Equal(t, tc.status, recorder.Code)
+			assert.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+			if tc.status == http.StatusOK {
+				assert.Contains(t, recorder.Body.String(), `"start_timestamp":1700000000`)
+			} else {
+				assert.NotContains(t, recorder.Body.String(), `"new_users"`)
+			}
+		})
+	}
+}

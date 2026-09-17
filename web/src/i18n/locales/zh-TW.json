@@ -5493,6 +5493,13 @@
     "No rules configured. Add a rule to match upstream failures.": "No rules configured. Add a rule to match upstream failures.",
     "Ban reason": "Ban reason",
     "Content safety rejection": "通用内容安全拦截",
-    "Sexual safety rejection": "色情类安全拦截"
+    "Sexual safety rejection": "色情类安全拦截",
+    "Business Overview Filters": "經營概覽篩選",
+    "Choose a time range of up to 30 days (Beijing time).": "選擇時間範圍，跨度最多 30 天（北京時間）。",
+    "Select both start and end times": "請選擇開始時間和結束時間",
+    "End time must be after start time": "結束時間必須晚於開始時間",
+    "Select a time range of up to 30 days": "時間範圍最多選擇 30 天",
+    "End time cannot be in the future": "結束時間不能晚於目前時間",
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）"
   }
 }

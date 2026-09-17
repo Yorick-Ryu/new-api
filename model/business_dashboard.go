@@ -2,12 +2,15 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
 )
+
+var ErrInvalidBusinessPeriod = errors.New("invalid business reporting period")
 
 type BusinessMoney struct {
 	Provider string  `json:"provider"`
@@ -103,7 +106,7 @@ func businessTopUps(db *gorm.DB, start, end int64) *gorm.DB {
 // payment payloads are loaded by this read-only aggregate.
 func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) (*BusinessDashboard, error) {
 	if (days != 1 && days != 3 && days != 7 && days != 30 && days != 90) || offset < 0 || offset > 1 || (offset == 1 && days != 1) {
-		return nil, fmt.Errorf("invalid business reporting period")
+		return nil, ErrInvalidBusinessPeriod
 	}
 	local := now.In(time.FixedZone("UTC+8", 8*3600))
 	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location()).AddDate(0, 0, 1-days).Unix()
@@ -112,15 +115,32 @@ func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) 
 		end = start
 		start -= 86400
 	}
+	return getBusinessDashboard(ctx, start, end, int64(days)*86400, now)
+}
+
+// Custom windows are [start, end), with an immediately preceding comparison
+// window of the same duration. Keep arbitrary queries bounded to 30 days.
+func GetBusinessDashboardRange(ctx context.Context, start, end int64, now time.Time) (*BusinessDashboard, error) {
+	if start <= 0 || end <= start || end > now.Unix()+1 || end-start > 30*86400 {
+		return nil, ErrInvalidBusinessPeriod
+	}
+	return getBusinessDashboard(ctx, start, end, end-start, now)
+}
+
+func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64, now time.Time) (*BusinessDashboard, error) {
+	local := time.Unix(start, 0).In(time.FixedZone("UTC+8", 8*3600))
+	// Custom windows may start mid-day; chart buckets still follow Beijing dates.
+	bucketStart := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location()).Unix()
+	days := int((end-1-bucketStart)/86400) + 1
 	result := &BusinessDashboard{StartTimestamp: start, EndTimestamp: end,
 		TopUpAmounts: []BusinessMoney{}, NewUserTopUpAmounts: []BusinessMoney{},
 		Daily: make([]BusinessDay, days), RecentUsers: []BusinessUser{}, RecentTopUps: []BusinessTopUp{}, Plans: []BusinessPlan{}}
 	for i := range result.Daily {
-		result.Daily[i].Date = time.Unix(start+int64(i)*86400, 0).In(local.Location()).Format("2006-01-02")
+		result.Daily[i].Date = time.Unix(bucketStart+int64(i)*86400, 0).In(local.Location()).Format("2006-01-02")
 	}
 	db := DB.WithContext(ctx)
-	result.PreviousStartTimestamp = start - int64(days)*86400
-	result.PreviousEndTimestamp = end - int64(days)*86400
+	result.PreviousStartTimestamp = start - comparisonShift
+	result.PreviousEndTimestamp = end - comparisonShift
 	var err error
 	result.Sales, err = getBusinessSales(db, start, end)
 	if err != nil {
@@ -245,7 +265,7 @@ func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) 
 			Bucket int
 			Total  int64
 		}
-		bucket := fmt.Sprintf("(%s - %d) %s 86400", series.column, start, division)
+		bucket := fmt.Sprintf("(%s - %d) %s 86400", series.column, bucketStart, division)
 		if err := series.query.Select(bucket + " AS bucket, COUNT(*) AS total").Group(bucket).Scan(&rows).Error; err != nil {
 			return nil, err
 		}
@@ -267,7 +287,7 @@ func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) 
 		Activations int64
 		Renewals    int64
 	}
-	subscriptionBucket := fmt.Sprintf("(complete_time - %d) %s 86400", start, division)
+	subscriptionBucket := fmt.Sprintf("(complete_time - %d) %s 86400", bucketStart, division)
 	if err := db.Model(&SubscriptionOrder{}).
 		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, start, end).
 		Select(subscriptionBucket + " AS bucket, plan_id, SUM(CASE WHEN COALESCE(renewal_subscription_id, 0) = 0 THEN 1 ELSE 0 END) AS activations, SUM(CASE WHEN renewal_subscription_id > 0 THEN 1 ELSE 0 END) AS renewals").
@@ -293,7 +313,7 @@ func GetBusinessDashboard(ctx context.Context, days, offset int, now time.Time) 
 		WalletRevenue       float64
 		SubscriptionRevenue float64
 	}
-	revenueBucket := fmt.Sprintf("(complete_time - %d) %s 86400", start, division)
+	revenueBucket := fmt.Sprintf("(complete_time - %d) %s 86400", bucketStart, division)
 	if err := businessPayments(db, start, end).Where("provider = ?", PaymentProviderEpay).
 		Select(revenueBucket + " AS bucket, SUM(CASE WHEN payment_kind = 'wallet' THEN money ELSE 0 END) AS wallet_revenue, SUM(CASE WHEN payment_kind = 'subscription' THEN money ELSE 0 END) AS subscription_revenue").
 		Group(revenueBucket).Scan(&revenueDays).Error; err != nil {

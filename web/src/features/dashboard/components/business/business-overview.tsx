@@ -24,13 +24,20 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import dayjs from '@/lib/dayjs'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getBusinessDashboard } from '../../api'
 import { PanelTitle } from '../ui/panel-title'
 import { BusinessDetails } from './business-details'
+import { BusinessFilterDialog } from './business-filter-dialog'
 import { BusinessMetrics } from './business-metrics'
+import {
+  toBusinessPickerDate,
+  type BusinessFilter,
+  type BusinessPreset,
+} from './business-period'
 
 export function BusinessOverview() {
   const role = useAuthStore((state) => state.auth.user?.role)
@@ -41,12 +48,23 @@ export function BusinessOverview() {
 function AdminBusinessOverview() {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
-  const [period, setPeriod] = useState('1')
-  const days = period === 'yesterday' ? 1 : Number(period)
-  const offset = period === 'yesterday' ? 1 : 0
+  const [filter, setFilter] = useState<BusinessFilter>({ period: '1' })
+  const period = filter.period
+  const params =
+    filter.period === 'custom'
+      ? {
+          start_timestamp: filter.start_timestamp,
+          end_timestamp: filter.end_timestamp,
+        }
+      : {
+          days: period === 'yesterday' ? 1 : Number(period),
+          offset: period === 'yesterday' ? 1 : 0,
+        }
   const query = useQuery({
-    queryKey: ['dashboard', 'business', userId, days, offset],
-    queryFn: () => getBusinessDashboard(days, offset),
+    queryKey: ['dashboard', 'business', userId, params],
+    queryFn: () => getBusinessDashboard(params),
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === userId ? previousData : undefined,
     staleTime: 60_000,
     gcTime: 0,
   })
@@ -55,6 +73,7 @@ function AdminBusinessOverview() {
   return (
     <section
       aria-label={t('Business overview')}
+      aria-busy={query.isFetching}
       className='bg-card overflow-hidden rounded-lg border'
     >
       <div className='flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5'>
@@ -64,13 +83,17 @@ function AdminBusinessOverview() {
           icon={ChartNoAxesCombined}
           iconTone='info'
         />
-        <div className='flex max-w-full items-center gap-2'>
+        <div className='flex max-w-full flex-wrap items-center gap-2'>
           <Tabs
             className='min-w-0 overflow-x-auto'
             value={period}
-            onValueChange={(value) => setPeriod(String(value))}
+            onValueChange={(value) => {
+              if (value !== 'custom') {
+                setFilter({ period: value as BusinessPreset })
+              }
+            }}
           >
-            <TabsList aria-label={t('Business reporting period')}>
+            <TabsList animated aria-label={t('Business reporting period')}>
               <TabsTrigger value='1' className='px-2.5 text-xs'>
                 {t('Today')}
               </TabsTrigger>
@@ -86,8 +109,14 @@ function AdminBusinessOverview() {
                   {t('Last {{days}} days', { days: value })}
                 </TabsTrigger>
               ))}
+              {period === 'custom' && (
+                <TabsTrigger value='custom' className='px-2.5 text-xs'>
+                  {t('Custom')}
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
+          <BusinessFilterDialog value={filter} onChange={setFilter} />
           <Button
             size='icon'
             className='shrink-0'
@@ -96,9 +125,28 @@ function AdminBusinessOverview() {
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
-            <RefreshCw className='size-4' aria-hidden='true' />
+            <RefreshCw
+              className={
+                query.isFetching
+                  ? 'size-4 animate-spin motion-reduce:animate-none'
+                  : 'size-4'
+              }
+              aria-hidden='true'
+            />
           </Button>
         </div>
+        {filter.period === 'custom' && (
+          <div className='text-muted-foreground basis-full text-xs'>
+            {t('Selected period: {{start}} – {{end}} (Beijing time)', {
+              start: dayjs(toBusinessPickerDate(filter.start_timestamp)).format(
+                'YYYY-MM-DD HH:mm'
+              ),
+              end: dayjs(toBusinessPickerDate(filter.end_timestamp)).format(
+                'YYYY-MM-DD HH:mm'
+              ),
+            })}
+          </div>
+        )}
       </div>
       {query.isError && (
         <div

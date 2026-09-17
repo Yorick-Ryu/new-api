@@ -5580,6 +5580,13 @@
     "Subscription revenue": "Subscription revenue",
     "Average revenue per paying user": "Average revenue per paying user",
     "{{change}} vs previous period": "{{change}} vs previous period",
-    "User growth, revenue, and subscriptions.": "User growth, revenue, and subscriptions."
+    "User growth, revenue, and subscriptions.": "User growth, revenue, and subscriptions.",
+    "Business Overview Filters": "Business Overview Filters",
+    "Choose a time range of up to 30 days (Beijing time).": "Choose a time range of up to 30 days (Beijing time).",
+    "Select both start and end times": "Select both start and end times",
+    "End time must be after start time": "End time must be after start time",
+    "Select a time range of up to 30 days": "Select a time range of up to 30 days",
+    "End time cannot be in the future": "End time cannot be in the future",
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Selected period: {{start}} – {{end}} (Beijing time)"
   }
 }

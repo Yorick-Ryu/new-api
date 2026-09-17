@@ -5493,6 +5493,13 @@
     "No rules configured. Add a rule to match upstream failures.": "No rules configured. Add a rule to match upstream failures.",
     "Ban reason": "Ban reason",
     "Content safety rejection": "Content safety rejection",
-    "Sexual safety rejection": "Sexual safety rejection"
+    "Sexual safety rejection": "Sexual safety rejection",
+    "Business Overview Filters": "Bộ lọc tổng quan kinh doanh",
+    "Choose a time range of up to 30 days (Beijing time).": "Chọn khoảng thời gian tối đa 30 ngày (giờ Bắc Kinh).",
+    "Select both start and end times": "Chọn cả thời gian bắt đầu và kết thúc",
+    "End time must be after start time": "Thời gian kết thúc phải sau thời gian bắt đầu",
+    "Select a time range of up to 30 days": "Chọn khoảng thời gian tối đa 30 ngày",
+    "End time cannot be in the future": "Thời gian kết thúc không thể ở tương lai",
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)"
   }
 }

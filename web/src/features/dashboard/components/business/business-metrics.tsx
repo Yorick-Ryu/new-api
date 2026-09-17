@@ -29,6 +29,7 @@ import {
   BadgeDollarSign,
   type LucideIcon,
 } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -42,6 +43,7 @@ type BusinessMetric = {
   icon: LucideIcon
   iconTone: IconBadgeTone
   value: ReactNode
+  valueKey?: string
   description: ReactNode
 }
 
@@ -63,6 +65,7 @@ function PeriodComparison(props: { current: number; previous: number }) {
 
 export function BusinessMetrics(props: { data: BusinessDashboardData }) {
   const { t } = useTranslation()
+  const reduceMotion = useReducedMotion()
   const data = props.data
   const health = data.subscription_health
   const averageRevenue =
@@ -220,6 +223,7 @@ export function BusinessMetrics(props: { data: BusinessDashboardData }) {
         label: plan.title || t('Plan #{{id}}', { id: plan.plan_id }),
         icon: PackageCheck,
         iconTone: 'chart-4',
+        valueKey: `${plan.activations}-${plan.renewals}`,
         value: (
           <span className='flex flex-nowrap gap-4 overflow-x-auto'>
             <span className='inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap'>
@@ -263,9 +267,15 @@ export function BusinessMetrics(props: { data: BusinessDashboardData }) {
               iconTone={metric.iconTone}
             />
           </dt>
-          <dd className='text-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight break-words tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'>
+          <motion.dd
+            key={metric.valueKey ?? String(metric.value)}
+            initial={reduceMotion ? false : { opacity: 0.45, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
+            className='text-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight break-words tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
+          >
             {metric.value}
-          </dd>
+          </motion.dd>
           {metric.description && (
             <dd className='text-muted-foreground/60 mt-1 text-[11px] leading-relaxed sm:text-xs'>
               {metric.description}
