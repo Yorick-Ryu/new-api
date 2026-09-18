@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.": "高度なカスタムチャネルの WebSocket には、プロトコル変換のないネイティブ /v1/responses ルートが必要です。",
     "I understand": "確認しました",
     "Important announcement": "重要なお知らせ",
     "Other architectures": "その他のアーキテクチャ",
@@ -4426,6 +4427,7 @@
     "succeeded": "成功",
     "Success": "成功",
     "Success rate": "成功率",
+    "Success rate excludes business rejections and includes the current partial hour.": "成功率は業務上の拒否を除外し、現在進行中の時間帯を含みます。",
     "Successfully created {{count}} API Key(s)": "{{count}}個のAPIキーが正常に作成されました",
     "Successfully created {{count}} redemption codes": "{{count}}件の引き換えコードが正常に作成されました",
     "Successfully deleted {{count}} API key(s)": "{{count}}個のAPIキーが正常に削除されました",

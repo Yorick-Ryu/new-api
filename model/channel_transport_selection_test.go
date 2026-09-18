@@ -33,6 +33,9 @@ func insertChannelTransportSelectionChannel(t *testing.T, channel *Channel, sett
 	} else {
 		channel.Key = fmt.Sprintf("key-%d", channel.Id)
 	}
+	if channel.Type == 0 {
+		channel.Type = constant.ChannelTypeOpenAI
+	}
 	channel.Status = common.ChannelStatusEnabled
 	channel.Group = "default"
 	channel.SetOtherSettings(settings)

@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.": "Le WebSocket des canaux personnalisés avancés nécessite une route native /v1/responses sans conversion de protocole.",
     "I understand": "J’ai compris",
     "Important announcement": "Annonce importante",
     "Other architectures": "Autres architectures",
@@ -4426,6 +4427,7 @@
     "succeeded": "réussi",
     "Success": "Succès",
     "Success rate": "Taux de réussite",
+    "Success rate excludes business rejections and includes the current partial hour.": "Le taux de réussite exclut les rejets métier et inclut l’heure en cours.",
     "Successfully created {{count}} API Key(s)": "{{count}} clé(s) API créée(s) avec succès",
     "Successfully created {{count}} redemption codes": "{{count}} codes de réduction créés avec succès",
     "Successfully deleted {{count}} API key(s)": "{{count}} clé(s) API supprimée(s) avec succès",

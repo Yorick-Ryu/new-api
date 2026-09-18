@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.": "WebSocket của kênh tùy chỉnh nâng cao cần tuyến /v1/responses gốc không chuyển đổi giao thức.",
     "I understand": "Tôi đã hiểu",
     "Important announcement": "Thông báo quan trọng",
     "Other architectures": "Kiến trúc khác",
@@ -4426,6 +4427,7 @@
     "succeeded": "thành công",
     "Success": "Thành công",
     "Success rate": "Tỷ lệ thành công",
+    "Success rate excludes business rejections and includes the current partial hour.": "Tỷ lệ thành công loại trừ các yêu cầu bị từ chối do quy tắc nghiệp vụ và bao gồm giờ hiện tại chưa kết thúc.",
     "Successfully created {{count}} API Key(s)": "Đã tạo thành công {{count}} khóa API",
     "Successfully created {{count}} redemption codes": "Đã tạo thành công {{count}} mã đổi thưởng",
     "Successfully deleted {{count}} API key(s)": "Đã xóa thành công {{count}} khóa API",

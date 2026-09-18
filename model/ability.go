@@ -214,7 +214,7 @@ func filterAbilitiesForRequest(abilities []Ability, requestPath string, model st
 		if !ok {
 			continue
 		}
-		if !channel.SupportsResponsesTransport(transport) {
+		if !channel.SupportsResponsesTransport(transport, model) {
 			continue
 		}
 		if channel.Type == constant.ChannelTypeAdvancedCustom && requestPath != "" {

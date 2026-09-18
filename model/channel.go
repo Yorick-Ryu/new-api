@@ -487,11 +487,45 @@ func (channel *Channel) GetPriority() int64 {
 	return *channel.Priority
 }
 
-func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesTransport) bool {
+func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesTransport, modelNames ...string) bool {
 	if channel == nil {
 		return false
 	}
-	return channel.GetOtherSettings().SupportsResponsesTransport(transport)
+	return channelSupportsResponsesTransport(channel.Type, channel.GetOtherSettings(), transport, modelNames...)
+}
+
+// Keep legacy OpenAI/Codex defaults, while additional WS channel types opt in.
+// Passing a model also checks the selected Advanced Custom route, so a converter
+// route cannot bypass the restriction through pinning, affinity or retries.
+func channelSupportsResponsesTransport(channelType int, settings dto.ChannelOtherSettings, transport constant.ResponsesTransport, modelNames ...string) bool {
+	if !settings.SupportsResponsesTransport(transport) {
+		return false
+	}
+	if transport != constant.ResponsesTransportWebSocket {
+		return true
+	}
+	switch channelType {
+	case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex:
+		return true
+	case constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
+		return settings.ResponsesWebSocketEnabled != nil && *settings.ResponsesWebSocketEnabled
+	case constant.ChannelTypeAdvancedCustom:
+		if settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled || settings.AdvancedCustom == nil {
+			return false
+		}
+		if len(modelNames) == 0 {
+			for _, route := range settings.AdvancedCustom.Routes {
+				if strings.TrimSpace(route.IncomingPath) == "/v1/responses" && route.IsNative() {
+					return true
+				}
+			}
+			return false
+		}
+		route, ok := settings.AdvancedCustom.MatchPathForModel("/v1/responses", modelNames[0])
+		return ok && route.IsNative()
+	default:
+		return false
+	}
 }
 
 func (channel *Channel) GetWeight() int {

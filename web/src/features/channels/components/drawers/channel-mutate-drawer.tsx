@@ -168,6 +168,10 @@ import {
   hasAdvancedSettingsErrors,
 } from '../../lib'
 import {
+  normalizeResponsesTransport,
+  supportsResponsesWebSocket,
+} from '../../lib/responses-websocket'
+import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
 } from '../../lib/status-code-risk-guard'
@@ -2000,6 +2004,16 @@ export function ChannelMutateDrawer({
                                             nextType > 0
                                           ) {
                                             field.onChange(nextType)
+                                            form.setValue(
+                                              'responses_transport',
+                                              normalizeResponsesTransport(
+                                                nextType,
+                                                form.getValues(
+                                                  'responses_transport'
+                                                )
+                                              ),
+                                              { shouldDirty: true }
+                                            )
                                           }
                                         }}
                                         placeholder={t('Select channel type')}
@@ -3710,13 +3724,27 @@ export function ChannelMutateDrawer({
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      <SelectItem value='both'>
+                                      <SelectItem
+                                        value='both'
+                                        disabled={
+                                          !supportsResponsesWebSocket(
+                                            currentType
+                                          )
+                                        }
+                                      >
                                         {t('HTTP and WebSocket')}
                                       </SelectItem>
                                       <SelectItem value='http'>
                                         {t('HTTP only')}
                                       </SelectItem>
-                                      <SelectItem value='websocket'>
+                                      <SelectItem
+                                        value='websocket'
+                                        disabled={
+                                          !supportsResponsesWebSocket(
+                                            currentType
+                                          )
+                                        }
+                                      >
                                         {t('WebSocket only')}
                                       </SelectItem>
                                       <SelectItem value='none'>
@@ -3727,6 +3755,15 @@ export function ChannelMutateDrawer({
                                   <FormDescription>
                                     {t(
                                       'Only matching /v1/responses requests can use this channel'
+                                    )}
+                                    {currentType ===
+                                      CHANNEL_TYPE_ADVANCED_CUSTOM && (
+                                      <>
+                                        {' '}
+                                        {t(
+                                          'Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.'
+                                        )}
+                                      </>
                                     )}
                                   </FormDescription>
                                   <FormMessage />

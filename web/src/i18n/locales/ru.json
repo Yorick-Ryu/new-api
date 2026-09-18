@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.": "WebSocket расширенного пользовательского канала требует нативный маршрут /v1/responses без преобразования протокола.",
     "I understand": "Понятно",
     "Important announcement": "Важное объявление",
     "Other architectures": "Другие архитектуры",
@@ -4426,6 +4427,7 @@
     "succeeded": "успешно",
     "Success": "Успешно",
     "Success rate": "Доля успешных запросов",
+    "Success rate excludes business rejections and includes the current partial hour.": "Доля успешных запросов не учитывает отказы по бизнес-правилам и включает текущий неполный час.",
     "Successfully created {{count}} API Key(s)": "Успешно создано {{count}} API-ключ(а/ей)",
     "Successfully created {{count}} redemption codes": "Успешно создано {{count}} кодов активации",
     "Successfully deleted {{count}} API key(s)": "Успешно удалено {{count}} API-ключ(а/ей)",

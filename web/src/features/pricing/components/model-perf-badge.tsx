@@ -27,6 +27,9 @@ export type ModelPerfBadgeData = {
   success_rate: number
   avg_tps: number
   recent_success_rates?: number[]
+  recent_success_series?: { ts: number; success_rate: number }[]
+  window_start?: number
+  window_end?: number
 }
 
 export interface ModelPerfBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -61,15 +64,22 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
 
   const { avg_latency_ms, avg_tps, success_rate } = props.perf
 
-  const recentRates =
-    props.perf.recent_success_rates?.filter((rate) => Number.isFinite(rate)) ??
-    []
-  const statusRates =
-    recentRates.length > 0 ? recentRates.slice(-3) : [success_rate]
-  const statusBars = [
-    ...Array(Math.max(0, 3 - statusRates.length)).fill(null),
-    ...statusRates,
-  ].slice(-3)
+  const windowEnd = props.perf.window_end
+  const currentHour =
+    windowEnd == null ? undefined : windowEnd - (windowEnd % 3600)
+  const ratesByHour = new Map(
+    props.perf.recent_success_series?.map((point) => [
+      point.ts,
+      point.success_rate,
+    ])
+  )
+  const statusBars = [2, 1, 0].map((offset) => ({
+    offset,
+    rate:
+      currentHour == null
+        ? undefined
+        : ratesByHour.get(currentHour - offset * 3600),
+  }))
 
   return (
     <div
@@ -101,19 +111,27 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         <div className='text-muted-foreground/55 truncate text-[10px] leading-4'>
           {t('Status short')}
         </div>
-        <div className='flex h-4 items-center justify-end gap-0.5'>
-          {statusBars.map((rate, index) => (
+        <div
+          role='img'
+          aria-label={t(
+            'Recent success-rate samples; gray bars indicate missing data.'
+          )}
+          title={t(
+            'Success rate excludes business rejections and includes the current partial hour.'
+          )}
+          className='flex h-4 items-center justify-end gap-0.5'
+        >
+          {statusBars.map(({ offset, rate }) => (
             <span
-              key={`${index}-${rate ?? 'empty'}`}
+              key={offset}
+              aria-hidden
               className={cn(
                 'w-1 rounded-full',
-                index === 0 && 'h-2',
-                index === 1 && 'h-2.5',
-                index === 2 && 'h-3',
-                rate == null
-                  ? index === 0
-                    ? 'bg-muted-foreground/10'
-                    : 'bg-muted-foreground/15'
+                offset === 2 && 'h-2',
+                offset === 1 && 'h-2.5',
+                offset === 0 && 'h-3',
+                rate == null || !Number.isFinite(rate) || rate < 0 || rate > 100
+                  ? 'bg-muted-foreground/15'
                   : getSuccessRateDotClass(rate)
               )}
             />

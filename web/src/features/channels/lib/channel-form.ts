@@ -33,6 +33,11 @@ import {
   stringifyAdvancedCustomConfig,
   validateAdvancedCustomConfig,
 } from './advanced-custom'
+import {
+  normalizeResponsesTransport,
+  responsesWebSocketDefaultEnabled,
+  supportsResponsesWebSocket,
+} from './responses-websocket'
 
 // ============================================================================
 // Form Validation Schema
@@ -505,7 +510,8 @@ export function transformChannelToFormDefaults(
   // Parse type-specific settings from settings field
   let vertexKeyType: 'json' | 'api_key' = 'json'
   let azureResponsesVersion = ''
-  let responsesTransport: 'both' | 'http' | 'websocket' | 'none' = 'both'
+  let responsesTransport: 'both' | 'http' | 'websocket' | 'none' =
+    responsesWebSocketDefaultEnabled(channel.type) ? 'both' : 'http'
   let isEnterpriseAccount = false
   let awsKeyType: 'ak_sk' | 'api_key' = 'ak_sk'
   let allowServiceTier = false
@@ -528,8 +534,12 @@ export function transformChannelToFormDefaults(
       azureResponsesVersion = parsed.azure_responses_version || ''
       const responsesHTTPEnabled = parsed.responses_http_enabled !== false
       const responsesWebSocketEnabled =
-        parsed.responses_websocket_enabled !== false
-      if (responsesHTTPEnabled && !responsesWebSocketEnabled) {
+        supportsResponsesWebSocket(channel.type) &&
+        (parsed.responses_websocket_enabled ??
+          responsesWebSocketDefaultEnabled(channel.type)) === true
+      if (responsesHTTPEnabled && responsesWebSocketEnabled) {
+        responsesTransport = 'both'
+      } else if (responsesHTTPEnabled && !responsesWebSocketEnabled) {
         responsesTransport = 'http'
       } else if (!responsesHTTPEnabled && responsesWebSocketEnabled) {
         responsesTransport = 'websocket'
@@ -672,7 +682,9 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     delete settingsObj.azure_responses_version
   }
 
-  switch (formData.responses_transport) {
+  switch (
+    normalizeResponsesTransport(formData.type, formData.responses_transport)
+  ) {
     case 'http':
       settingsObj.responses_http_enabled = true
       settingsObj.responses_websocket_enabled = false
@@ -687,7 +699,13 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       break
     default:
       delete settingsObj.responses_http_enabled
-      delete settingsObj.responses_websocket_enabled
+      if (responsesWebSocketDefaultEnabled(formData.type)) {
+        delete settingsObj.responses_websocket_enabled
+      } else {
+        settingsObj.responses_websocket_enabled = supportsResponsesWebSocket(
+          formData.type
+        )
+      }
   }
 
   // Add enterprise account setting for OpenRouter (type 20)

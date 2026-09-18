@@ -181,7 +181,7 @@ func channelSupportsRequest(channel *model.Channel, requestPath string, requestM
 	if channel == nil {
 		return false
 	}
-	if !channel.SupportsResponsesTransport(transport) {
+	if !channel.SupportsResponsesTransport(transport, requestModel) {
 		return false
 	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {

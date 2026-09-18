@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Advanced custom WebSocket requires a native /v1/responses route without protocol conversion.": "進階自訂渠道的 WebSocket 需要不進行協定轉換的原生 /v1/responses 路由。",
     "I understand": "我已知曉",
     "Important announcement": "重要公告",
     "Other architectures": "其他架構",
@@ -4426,6 +4427,7 @@
     "succeeded": "已成功",
     "Success": "成功",
     "Success rate": "成功率",
+    "Success rate excludes business rejections and includes the current partial hour.": "成功率排除業務拒絕，統計包含目前尚未結束的小時。",
     "Successfully created {{count}} API Key(s)": "成功建立了 {{count}} 個 API 金鑰",
     "Successfully created {{count}} redemption codes": "成功建立了 {{count}} 個兌換碼",
     "Successfully deleted {{count}} API key(s)": "成功刪除了 {{count}} 個 API 金鑰",

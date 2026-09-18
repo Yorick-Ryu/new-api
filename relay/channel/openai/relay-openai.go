@@ -139,7 +139,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 
 			lastStreamData = data
-			if inspectChatStreamChunk(data, seenStreamToolCalls, &streamFunctionCallNames) {
+			if inspectChatStreamChunk(info, data, seenStreamToolCalls, &streamFunctionCallNames) {
 				service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
 			}
 			if err := processTokenData(info, data, &responseTextBuilder, &toolCount); err != nil {
@@ -166,6 +166,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 	}
+	info.StreamStatus.RequireTerminal()
 
 	// 处理最后的响应
 	shouldSendLastResp := true
@@ -198,7 +199,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 
 // inspectChatStreamChunk collects billable tool names and identifies errors in
 // the same decode. Its return value selects the upstream-error branch only.
-func inspectChatStreamChunk(data string, seen map[string]struct{}, names *[]string) bool {
+func inspectChatStreamChunk(info *relaycommon.RelayInfo, data string, seen map[string]struct{}, names *[]string) bool {
 	var streamResponse struct {
 		Choices []dto.ChatCompletionsStreamResponseChoice `json:"choices"`
 		Type    string                                    `json:"type"`
@@ -208,9 +209,20 @@ func inspectChatStreamChunk(data string, seen map[string]struct{}, names *[]stri
 		return false
 	}
 	if streamResponse.Type == "error" || (streamResponse.Type == "" && streamResponse.Error != nil) {
+		if oaiErr := dto.GetOpenAIError(streamResponse.Error); oaiErr != nil {
+			info.StreamStatus.MarkFailed(fmt.Sprint(oaiErr.Code), oaiErr.Type, 0)
+		} else {
+			info.StreamStatus.MarkFailed("", "", 0)
+		}
 		return true
 	}
 	for _, choice := range streamResponse.Choices {
+		if choice.FinishReason != nil && *choice.FinishReason != "" {
+			if *choice.FinishReason == constant.FinishReasonContentFilter {
+				info.PerformanceBusinessRejection = true
+			}
+			info.StreamStatus.MarkCompleted()
+		}
 		for i, tc := range choice.Delta.ToolCalls {
 			name := tc.Function.Name
 			if name == "" {
@@ -271,6 +283,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	info.ObserveResponseModel(simpleResponse.Model)
 	for _, choice := range simpleResponse.Choices {
 		if choice.FinishReason == constant.FinishReasonContentFilter {
+			info.PerformanceBusinessRejection = true
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "openai_finish_reason=content_filter")
 			break
 		}

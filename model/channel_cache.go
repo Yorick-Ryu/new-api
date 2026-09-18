@@ -231,7 +231,7 @@ func filterChannelsForRequest(channels []int, requestPath string, model string, 
 			filtered = append(filtered, channelId)
 			continue
 		}
-		if !cachedChannelSupportsResponsesTransport(channel, transport) {
+		if !cachedChannelSupportsResponsesTransport(channel, transport, model) {
 			continue
 		}
 		if channel.Type != constant.ChannelTypeAdvancedCustom {
@@ -249,14 +249,14 @@ func filterChannelsForRequest(channels []int, requestPath string, model string, 
 	return filtered
 }
 
-func cachedChannelSupportsResponsesTransport(channel *Channel, transport constant.ResponsesTransport) bool {
+func cachedChannelSupportsResponsesTransport(channel *Channel, transport constant.ResponsesTransport, modelNames ...string) bool {
 	if channel == nil {
 		return false
 	}
 	if settings, ok := channel2ResponsesRoutingSettings[channel.Id]; ok {
-		return settings.SupportsResponsesTransport(transport)
+		return channelSupportsResponsesTransport(channel.Type, settings, transport, modelNames...)
 	}
-	return channel.SupportsResponsesTransport(transport)
+	return channel.SupportsResponsesTransport(transport, modelNames...)
 }
 
 func CacheGetChannel(id int) (*Channel, error) {

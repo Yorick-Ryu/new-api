@@ -72,7 +72,11 @@ func TestAutoBanWebSocketErrorDisablesAccount(t *testing.T) {
 
 func TestAutoBanWebSocketExistingConnectionContinuesWithoutAccountStatusQueries(t *testing.T) {
 	db, user := setupAutoBanRelayTest(t)
-	require.NoError(t, db.AutoMigrate(&model.UserSubscription{}))
+	require.NoError(t, db.AutoMigrate(&model.UserSubscription{}, &model.Channel{}))
+	oldMemoryCache := common.MemoryCacheEnabled
+	common.MemoryCacheEnabled = false
+	t.Cleanup(func() { common.MemoryCacheEnabled = oldMemoryCache })
+	require.NoError(t, db.Create(&model.Channel{Id: 22, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, BaseURL: common.GetPointer("http://upstream.test")}).Error)
 	originalRatios := ratio_setting.ModelRatio2JSONString()
 	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"gpt-auto-ban-test":0}`))
 	originalFreePreConsume := operation_setting.GetQuotaSetting().EnableFreeModelPreConsume
@@ -95,7 +99,7 @@ func TestAutoBanWebSocketExistingConnectionContinuesWithoutAccountStatusQueries(
 	common.SetContextKey(c, constant.ContextKeyOriginalModel, "gpt-auto-ban-test")
 	session := &responsesWSSession{
 		c: c, target: target, lockedModel: "gpt-auto-ban-test",
-		lockedChannel: &model.Channel{Id: 22, Type: constant.ChannelTypeOpenAI},
+		lockedChannel: &model.Channel{Id: 22, Type: constant.ChannelTypeOpenAI, BaseURL: common.GetPointer("http://upstream.test")},
 	}
 	create, _, err := normalizeResponsesWSCreateEvent([]byte(`{"type":"response.create","model":"gpt-auto-ban-test","input":"hello"}`))
 	require.NoError(t, err)
