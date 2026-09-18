@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { ChartNoAxesCombined, LoaderCircle, RefreshCw } from 'lucide-react'
+import { ChartNoAxesCombined, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import dayjs from '@/lib/dayjs'
 import { ROLE } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getBusinessDashboard } from '../../api'
@@ -125,14 +126,13 @@ function AdminBusinessOverview() {
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
-            {query.isFetching ? (
-              <LoaderCircle
-                className='size-4 animate-spin motion-reduce:animate-none'
-                aria-hidden='true'
-              />
-            ) : (
-              <RefreshCw className='size-4' aria-hidden='true' />
-            )}
+            <RefreshCw
+              className={cn(
+                'size-4',
+                query.isFetching && 'animate-spin motion-reduce:animate-none'
+              )}
+              aria-hidden='true'
+            />
           </Button>
         </div>
         {filter.period === 'custom' && (

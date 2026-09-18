@@ -201,8 +201,9 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
   expect(screen.queryByText('No business activity in this period')).toBeNull()
   const refresh = screen.getByRole('button', { name: 'Refresh business data' })
   expect(refresh.querySelectorAll('svg')).toHaveLength(1)
-  expect(refresh.querySelector('.lucide-refresh-cw')).toBeNull()
-  expect(refresh.querySelector('.lucide-loader-circle')).not.toBeNull()
+  const refreshIcon = refresh.querySelector('.lucide-refresh-cw')
+  expect(refreshIcon).not.toBeNull()
+  expect(refreshIcon?.classList.contains('animate-spin')).toBe(true)
   expect(
     screen
       .getByRole('region', { name: 'Business overview' })
@@ -216,8 +217,8 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
   resolve({ data: { success: true, data: { ...fixture(), new_users: 5 } } })
   await screen.findByText('0 of 5 new users topped up')
   expect(refresh.querySelectorAll('svg')).toHaveLength(1)
-  expect(refresh.querySelector('.lucide-loader-circle')).toBeNull()
-  expect(refresh.querySelector('.lucide-refresh-cw')).not.toBeNull()
+  expect(refresh.querySelector('.lucide-refresh-cw')).toBe(refreshIcon)
+  expect(refreshIcon?.classList.contains('animate-spin')).toBe(false)
   expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
   expect(
     screen
