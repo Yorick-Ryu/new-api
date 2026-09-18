@@ -5587,6 +5587,10 @@
     "End time must be after start time": "End time must be after start time",
     "Select a time range of up to 30 days": "Select a time range of up to 30 days",
     "End time cannot be in the future": "End time cannot be in the future",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Selected period: {{start}} – {{end}} (Beijing time)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Selected period: {{start}} – {{end}} (Beijing time)",
+    "Response Model": "Response Model",
+    "Response model: {{model}}": "Response model: {{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.",
+    "Upstream Model": "Upstream Model"
   }
 }

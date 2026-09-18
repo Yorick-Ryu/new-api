@@ -5500,6 +5500,10 @@
     "End time must be after start time": "La fin doit être postérieure au début",
     "Select a time range of up to 30 days": "Sélectionnez une période de 30 jours maximum",
     "End time cannot be in the future": "La fin ne peut pas être dans le futur",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Période : {{start}} – {{end}} (heure de Pékin)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Période : {{start}} – {{end}} (heure de Pékin)",
+    "Response Model": "Modèle de réponse",
+    "Response model: {{model}}": "Modèle de réponse : {{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "Le modèle renvoyé diffère du modèle demandé et de celui transmis en amont. Un alias ou une version datée peut aussi expliquer cet écart ; cet avertissement seul ne prouve pas une substitution de modèle.",
+    "Upstream Model": "Modèle demandé en amont"
   }
 }

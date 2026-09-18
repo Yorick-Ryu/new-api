@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Route } from 'lucide-react'
+import { AlertTriangle, Route } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
@@ -28,9 +28,12 @@ import {
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
+import type { LogOtherData } from '../types'
+
 interface ModelBadgeProps {
   modelName: string
   actualModel?: string
+  responseModel?: LogOtherData['response_model']
   className?: string
 }
 
@@ -122,12 +125,13 @@ function resolveModelProvider(modelName: string): ModelProvider | null {
   return null
 }
 
-function ModelBadgeContent(props: ModelBadgeProps) {
+function ModelBadgeContent(props: ModelBadgeProps & { copyable?: boolean }) {
   const provider = resolveModelProvider(props.modelName)
 
   return (
     <StatusBadge
       copyText={props.modelName}
+      copyable={props.copyable}
       size='sm'
       showDot={!provider}
       autoColor={provider ? undefined : props.modelName}
@@ -155,41 +159,126 @@ function ModelBadgeContent(props: ModelBadgeProps) {
 
 export function ModelBadge(props: ModelBadgeProps) {
   const { t } = useTranslation()
+  const observation = props.responseModel
+  const hasDetails =
+    !!props.actualModel ||
+    !!(
+      observation &&
+      (observation.mismatch ||
+        observation.returned_model !== observation.requested_model ||
+        (observation.upstream_model &&
+          observation.upstream_model !== observation.requested_model))
+    )
 
-  if (!props.actualModel) {
+  if (!hasDetails) {
     return <ModelBadgeContent {...props} />
   }
+
+  const warning = observation?.mismatch
+    ? t('Response model: {{model}}', { model: observation.returned_model })
+    : ''
 
   return (
     <Popover>
       <PopoverTrigger
         render={
-          <button type='button' className='inline-flex items-center gap-1' />
+          <button
+            type='button'
+            aria-label={`${t('Model')}: ${props.modelName}${warning ? `, ${warning}` : ''}`}
+            className='inline-flex max-w-full min-w-0 flex-wrap items-center gap-1 text-left'
+          />
         }
       >
-        <ModelBadgeContent {...props} />
-        <Route className='text-muted-foreground size-3 shrink-0' />
+        <ModelBadgeContent {...props} copyable={false} />
+        {warning ? (
+          <StatusBadge
+            icon={AlertTriangle}
+            label={warning}
+            variant='warning'
+            copyable={false}
+          />
+        ) : (
+          props.actualModel && (
+            <Route
+              className='text-muted-foreground size-3 shrink-0'
+              aria-hidden='true'
+            />
+          )
+        )}
       </PopoverTrigger>
-      <PopoverContent className='w-72'>
-        <div className='space-y-2'>
-          <div className='flex items-start justify-between gap-3'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Request Model:')}
-            </span>
-            <span className='truncate font-mono text-xs font-medium'>
-              {props.modelName}
-            </span>
+      <PopoverContent className='w-96 max-w-[calc(100vw-2rem)]'>
+        {observation ? (
+          <ResponseModelDetails observation={observation} />
+        ) : (
+          <div className='space-y-2'>
+            <div className='flex items-start justify-between gap-3'>
+              <span className='text-muted-foreground text-xs'>
+                {t('Request Model:')}
+              </span>
+              <span className='min-w-0 font-mono text-xs font-medium [overflow-wrap:anywhere]'>
+                {props.modelName}
+              </span>
+            </div>
+            <div className='flex items-start justify-between gap-3'>
+              <span className='text-muted-foreground text-xs'>
+                {t('Actual Model:')}
+              </span>
+              <span className='min-w-0 font-mono text-xs font-medium [overflow-wrap:anywhere]'>
+                {props.actualModel}
+              </span>
+            </div>
           </div>
-          <div className='flex items-start justify-between gap-3'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Actual Model:')}
-            </span>
-            <span className='truncate font-mono text-xs font-medium'>
-              {props.actualModel}
-            </span>
-          </div>
-        </div>
+        )}
       </PopoverContent>
     </Popover>
+  )
+}
+
+export function ResponseModelDetails(props: {
+  observation: NonNullable<LogOtherData['response_model']>
+}) {
+  const { t } = useTranslation()
+  const rows = [
+    { label: t('Request Model'), value: props.observation.requested_model },
+    {
+      label: t('Upstream Model'),
+      value:
+        props.observation.upstream_model || props.observation.requested_model,
+    },
+    { label: t('Response Model'), value: props.observation.returned_model },
+  ]
+  return (
+    <div className='min-w-0 space-y-2'>
+      {props.observation.mismatch && (
+        <StatusBadge
+          icon={AlertTriangle}
+          label={t('Response model: {{model}}', {
+            model: props.observation.returned_model,
+          })}
+          variant='warning'
+          copyable={false}
+        />
+      )}
+      <dl className='space-y-2 text-xs'>
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className='flex items-start justify-between gap-3'
+          >
+            <dt className='text-muted-foreground shrink-0'>{row.label}</dt>
+            <dd className='min-w-0 text-right font-mono font-medium [overflow-wrap:anywhere]'>
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {props.observation.mismatch && (
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.'
+          )}
+        </p>
+      )}
+    </div>
   )
 }

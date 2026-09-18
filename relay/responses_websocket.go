@@ -555,7 +555,7 @@ func (s *responsesWSSession) processChannelError(channel *appmodel.Channel, apiE
 			channel.ChannelInfo.IsMultiKey,
 			common.GetContextKeyString(s.c, appconstant.ContextKeyChannelKey),
 			channel.GetAutoBan(),
-		), apiErr)
+		), apiErr, nil)
 	}
 	if retryParam == nil {
 		return apiErr, false

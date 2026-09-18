@@ -34,6 +34,7 @@ func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse) 
 	a.started = true
 	var status string
 	if event.Response != nil {
+		a.info.ObserveResponseModel(event.Response.Model)
 		_ = common.Unmarshal(event.Response.Status, &status)
 	}
 	a.failed = a.failed || IsResponsesFailure(event) || status == "failed"

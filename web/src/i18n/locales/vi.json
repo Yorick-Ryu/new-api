@@ -5500,6 +5500,10 @@
     "End time must be after start time": "Thời gian kết thúc phải sau thời gian bắt đầu",
     "Select a time range of up to 30 days": "Chọn khoảng thời gian tối đa 30 ngày",
     "End time cannot be in the future": "Thời gian kết thúc không thể ở tương lai",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)",
+    "Response Model": "Mô hình trong phản hồi",
+    "Response model: {{model}}": "Mô hình phản hồi: {{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "Tên mô hình trả về khác cả mô hình được yêu cầu lẫn mô hình gửi đến nhà cung cấp. Bí danh hoặc phiên bản theo ngày cũng có thể gây ra khác biệt này; chỉ cảnh báo này chưa đủ để kết luận mô hình đã bị thay thế.",
+    "Upstream Model": "Mô hình gửi đến nhà cung cấp"
   }
 }

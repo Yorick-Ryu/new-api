@@ -5587,6 +5587,10 @@
     "End time must be after start time": "结束时间必须晚于开始时间",
     "Select a time range of up to 30 days": "时间范围最多选择 30 天",
     "End time cannot be in the future": "结束时间不能晚于当前时间",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）",
+    "Response Model": "响应模型",
+    "Response model: {{model}}": "响应模型：{{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "上游返回的模型名与请求模型、上游请求模型均不一致。模型别名或日期版本也可能导致差异，不能仅凭此警示认定模型被替换。",
+    "Upstream Model": "上游请求模型"
   }
 }

@@ -5500,6 +5500,10 @@
     "End time must be after start time": "終了時刻は開始時刻より後にしてください",
     "Select a time range of up to 30 days": "期間は最大30日間にしてください",
     "End time cannot be in the future": "終了時刻は現在より後にできません",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）",
+    "Response Model": "応答モデル",
+    "Response model: {{model}}": "応答モデル：{{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "上流が返したモデル名は、リクエストモデルおよび上流に指定したモデルのいずれとも一致しません。別名や日付付きバージョンによる違いもあるため、この警告だけではモデルの置き換えを断定できません。",
+    "Upstream Model": "上流へのリクエストモデル"
   }
 }

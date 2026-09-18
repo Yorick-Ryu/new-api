@@ -5500,6 +5500,10 @@
     "End time must be after start time": "Время окончания должно быть позже начала",
     "Select a time range of up to 30 days": "Выберите период не более 30 дней",
     "End time cannot be in the future": "Время окончания не может быть в будущем",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Период: {{start}} – {{end}} (пекинское время)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Период: {{start}} – {{end}} (пекинское время)",
+    "Response Model": "Модель в ответе",
+    "Response model: {{model}}": "Модель в ответе: {{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "Провайдер вернул имя модели, отличное и от запрошенного, и от переданного ему. Причиной также могут быть псевдонимы или версии с датой; само по себе это предупреждение не доказывает подмену модели.",
+    "Upstream Model": "Модель запроса провайдеру"
   }
 }

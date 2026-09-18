@@ -5500,6 +5500,10 @@
     "End time must be after start time": "結束時間必須晚於開始時間",
     "Select a time range of up to 30 days": "時間範圍最多選擇 30 天",
     "End time cannot be in the future": "結束時間不能晚於目前時間",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）",
+    "Response Model": "回應模型",
+    "Response model: {{model}}": "回應模型：{{model}}",
+    "The upstream returned a model name different from both the requested and upstream models. Aliases or dated versions may also cause this; this warning alone does not prove model substitution.": "上游回傳的模型名稱與請求模型、上游請求模型皆不一致。模型別名或日期版本也可能造成差異，不能僅憑此警示認定模型遭到替換。",
+    "Upstream Model": "上游請求模型"
   }
 }
