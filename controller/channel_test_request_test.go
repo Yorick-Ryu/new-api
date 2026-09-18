@@ -97,6 +97,10 @@ func TestChannelTestOpenAIChatCompatibility(t *testing.T) {
 			if tt.stream {
 				want["stream_options"] = map[string]any{"include_usage": true}
 			}
+			if tt.channelType == constant.ChannelTypeAli {
+				// Preserve this branch's existing Ali sampling default.
+				want["top_p"] = 0.001
+			}
 			wantJSON, err := common.Marshal(want)
 			require.NoError(t, err)
 			assert.JSONEq(t, string(wantJSON), string(encoded))
