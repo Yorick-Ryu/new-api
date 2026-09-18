@@ -65,8 +65,8 @@ function AdminBusinessOverview() {
     queryFn: () => getBusinessDashboard(params),
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[2] === userId ? previousData : undefined,
-    staleTime: 60_000,
-    gcTime: 0,
+    staleTime: 300_000,
+    gcTime: 300_000,
   })
   const data = query.data
 
