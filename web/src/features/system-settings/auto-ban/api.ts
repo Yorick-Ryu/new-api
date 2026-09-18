@@ -31,6 +31,10 @@ export type BanEvent = {
   id: number
   user_id: number
   user_status: number | null
+  lifted_at: number | null
+  lifted_by: number | null
+  ban_lifted: boolean
+  can_unban: boolean
   created_at: number
   request_id: string
   channel_id: number
@@ -85,6 +89,17 @@ function normalizeSettings(result: SettingsResponse): BanSettings {
 }
 
 export const autoBanApi = {
+  async lift(event: BanEvent): Promise<void> {
+    unwrap(
+      (
+        await api.post<Envelope<unknown>>('/api/user/manage', {
+          id: event.user_id,
+          action: 'enable',
+          auto_ban_event_id: event.id,
+        })
+      ).data
+    )
+  },
   async get(): Promise<BanSettings> {
     const result = unwrap(
       (await api.get<Envelope<SettingsResponse>>('/api/auto-ban/')).data

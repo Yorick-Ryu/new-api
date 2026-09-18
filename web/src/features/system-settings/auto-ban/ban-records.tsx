@@ -32,10 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { manageUser } from '@/features/users/api'
-import { USER_STATUS } from '@/features/users/constants'
 
-import { autoBanApi, type BanEvent } from './api'
+import { autoBanApi } from './api'
 import { BanRecordAction } from './ban-record-action'
 import { BanRecordDetails } from './ban-record-details'
 
@@ -48,23 +46,11 @@ export function BanRecords() {
     queryFn: () => autoBanApi.events(before),
   })
   const unban = useMutation({
-    mutationFn: (userId: number) => manageUser(userId, 'enable'),
-    onSuccess: async (result, userId) => {
-      if (!result.success) {
-        toast.error(result.message || t('Failed to lift ban'))
-        return
-      }
+    mutationFn: autoBanApi.lift,
+    onSuccess: async () => {
       toast.success(t('Ban lifted successfully'))
-      await queryClient.cancelQueries({ queryKey: ['auto-ban-events'] })
-      queryClient.setQueriesData<BanEvent[]>(
-        { queryKey: ['auto-ban-events'] },
-        (events) =>
-          events?.map((event) =>
-            event.user_id === userId
-              ? { ...event, user_status: USER_STATUS.ENABLED }
-              : event
-          )
-      )
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['auto-ban-events'] })
     },
   })
@@ -134,10 +120,14 @@ export function BanRecords() {
                   <TableCell className='whitespace-nowrap'>
                     <Badge
                       variant={
-                        event.action === 'banned' ? 'destructive' : 'secondary'
+                        event.action === 'banned' && !event.ban_lifted
+                          ? 'destructive'
+                          : 'secondary'
                       }
                     >
-                      {labels[event.action] ?? event.action}
+                      {event.ban_lifted
+                        ? t('Ban lifted')
+                        : (labels[event.action] ?? event.action)}
                     </Badge>
                   </TableCell>
                   <TableCell className='max-w-80 min-w-48 break-words whitespace-normal'>
@@ -145,7 +135,11 @@ export function BanRecords() {
                     <div>
                       <BanRecordDetails
                         event={event}
-                        resultLabel={labels[event.action] ?? event.action}
+                        resultLabel={
+                          event.ban_lifted
+                            ? t('Ban lifted')
+                            : (labels[event.action] ?? event.action)
+                        }
                       />
                     </div>
                   </TableCell>
@@ -153,7 +147,7 @@ export function BanRecords() {
                     <BanRecordAction
                       event={event}
                       pending={unban.isPending}
-                      pendingUserId={unban.variables}
+                      pendingEventId={unban.variables?.id}
                       onUnban={unban.mutate}
                     />
                   </TableCell>

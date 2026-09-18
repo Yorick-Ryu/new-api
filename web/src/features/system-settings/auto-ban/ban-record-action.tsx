@@ -19,38 +19,32 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { USER_STATUS } from '@/features/users/constants'
 
 import type { BanEvent } from './api'
 
 export function BanRecordAction(props: {
   event: BanEvent
   pending: boolean
-  pendingUserId: number | undefined
-  onUnban: (userId: number) => void
+  pendingEventId: number | undefined
+  onUnban: (event: BanEvent) => void
 }) {
   const { t } = useTranslation()
-  if (
-    props.event.action !== 'banned' &&
-    props.event.action !== 'already_disabled'
-  ) {
-    return '—'
-  }
-  if (props.event.user_status === USER_STATUS.ENABLED) {
+  if (props.event.action !== 'banned') return '—'
+  if (props.event.ban_lifted) {
     return (
       <span className='text-muted-foreground text-xs'>{t('Ban lifted')}</span>
     )
   }
-  if (props.event.user_status !== USER_STATUS.DISABLED) return '—'
+  if (!props.event.can_unban) return '—'
   return (
     <Button
       type='button'
       variant='outline'
       size='sm'
       disabled={props.pending}
-      onClick={() => props.onUnban(props.event.user_id)}
+      onClick={() => props.onUnban(props.event)}
     >
-      {props.pending && props.pendingUserId === props.event.user_id
+      {props.pending && props.pendingEventId === props.event.id
         ? t('Lifting ban...')
         : t('Lift ban')}
     </Button>

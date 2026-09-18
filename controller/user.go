@@ -1100,10 +1100,11 @@ func updateAdminPermissionsForUserInTx(c *gin.Context, tx *gorm.DB, userID int, 
 }
 
 type ManageRequest struct {
-	Id     int    `json:"id"`
-	Action string `json:"action"`
-	Value  int    `json:"value"`
-	Mode   string `json:"mode"`
+	AutoBanEventID int    `json:"auto_ban_event_id"`
+	Id             int    `json:"id"`
+	Action         string `json:"action"`
+	Value          int    `json:"value"`
+	Mode           string `json:"mode"`
 }
 
 // ManageUser Only admin user can do this
@@ -1235,7 +1236,18 @@ func ManageUser(c *gin.Context) {
 		return
 	}
 
-	if req.Action == "demote" {
+	if req.Action == "enable" {
+		enabled, err := model.EnableUserWithBanRecord(user.Id, req.AutoBanEventID, c.GetInt("id"), myRole)
+		if errors.Is(err, model.ErrAutoBanEventConflict) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": common.TranslateMessage(c, "auto_ban.event_conflict")})
+			return
+		}
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		user = *enabled
+	} else if req.Action == "demote" {
 		if err := model.DB.Transaction(func(tx *gorm.DB) error {
 			if err := user.UpdateWithTx(tx, false); err != nil {
 				return err
@@ -1271,9 +1283,10 @@ func ManageUser(c *gin.Context) {
 		common.SysLog(fmt.Sprintf("failed to invalidate tokens cache for user %d: %s", user.Id, err.Error()))
 	}
 	recordManageAuditFor(c, user.Id, "user.manage", map[string]interface{}{
-		"action":   req.Action,
-		"username": user.Username,
-		"id":       user.Id,
+		"action":            req.Action,
+		"auto_ban_event_id": req.AutoBanEventID,
+		"username":          user.Username,
+		"id":                user.Id,
 	})
 	clearUser := model.User{
 		Role:   user.Role,

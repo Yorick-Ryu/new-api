@@ -293,3 +293,5 @@ auto_ban.invalid_test: "Invalid rule test"
 auto_ban.invalid_sample: "Invalid error sample or HTTP status"
 auto_ban.records_failed: "Unable to load automatic ban records"
 auto_ban.conflict: "Automatic ban settings changed; reload before saving"
+
+auto_ban.event_conflict: "This ban is no longer active. Refresh the records before trying again."

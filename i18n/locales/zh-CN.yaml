@@ -294,3 +294,5 @@ auto_ban.invalid_test: "规则测试参数无效"
 auto_ban.invalid_sample: "错误样例或 HTTP 状态码无效"
 auto_ban.records_failed: "无法加载自动封禁记录"
 auto_ban.conflict: "其他管理员已修改自动封禁配置，请重新加载后再保存"
+
+auto_ban.event_conflict: "本次封禁已解除或已有新的封禁，请刷新记录后操作。"

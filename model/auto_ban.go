@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var ErrAutoBanEventConflict = errors.New("automatic ban record is no longer active")
+
 var ErrAutoBanSettingsConflict = errors.New("automatic ban settings changed; reload before saving")
 
 // Serialize database reads/commits and snapshot publication so a background
@@ -26,6 +28,10 @@ type AutoBanEvent struct {
 	EventKey          string `json:"-" gorm:"size:64;uniqueIndex"`
 	UserID            int    `json:"user_id" gorm:"index"`
 	UserStatus        *int   `json:"user_status" gorm:"-"`
+	LiftedAt          *int64 `json:"lifted_at"`
+	LiftedBy          *int   `json:"lifted_by"`
+	BanLifted         bool   `json:"ban_lifted"`
+	CanUnban          bool   `json:"can_unban" gorm:"-"`
 	CreatedAt         int64  `json:"created_at" gorm:"index"`
 	RequestID         string `json:"request_id" gorm:"size:100"`
 	UpstreamRequestID string `json:"upstream_request_id" gorm:"size:200"`
@@ -156,6 +162,53 @@ func ApplyAutoBanEvent(event *AutoBanEvent) error {
 	return errors.Join(PublishUserAuthCache(event.UserID), InvalidateUserTokensCache(event.UserID))
 }
 
+// EnableUserWithBanRecord resolves only the latest ban. An event ID fences stale
+// record-page actions; zero retains the user-management enable operation.
+func EnableUserWithBanRecord(userID, eventID, actorID, actorRole int) (*User, error) {
+	var user User
+	changed := false
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).First(&user, userID).Error; err != nil {
+			return err
+		}
+		if actorRole != common.RoleRootUser && actorRole <= user.Role {
+			return ErrAutoBanEventConflict
+		}
+		var latest AutoBanEvent
+		err := tx.Where("user_id = ? AND action = ?", userID, "banned").Order("id DESC").First(&latest).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if eventID != 0 && (latest.ID != eventID || latest.BanLifted || user.Status != common.UserStatusDisabled) {
+			return ErrAutoBanEventConflict
+		}
+		if user.Status == common.UserStatusEnabled {
+			return nil
+		}
+		user.Status = common.UserStatusEnabled
+		if err := user.UpdateWithTx(tx, false); err != nil {
+			return err
+		}
+		if latest.ID != 0 && !latest.BanLifted {
+			if err := tx.Model(&AutoBanEvent{}).Where("id = ?", latest.ID).Updates(map[string]interface{}{
+				"ban_lifted": true, "lifted_at": time.Now().Unix(), "lifted_by": actorID,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		changed = true
+		return nil
+	})
+	if err != nil || !changed {
+		return &user, err
+	}
+	if err := PublishUserAuthCache(userID); err != nil {
+		return &user, err
+	}
+	_, err = RevokeAllUserSessions(userID, "user_security_changed")
+	return &user, err
+}
+
 func ListAutoBanEvents(before int, limit int) ([]AutoBanEvent, error) {
 	if limit < 1 || limit > 100 {
 		limit = 30
@@ -177,11 +230,27 @@ func ListAutoBanEvents(before int, limit int) ([]AutoBanEvent, error) {
 	if err := DB.Select("id", "status").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
 		return nil, err
 	}
+	// Query across all pages so an older page cannot expose a stale unban action.
+	var latest []struct {
+		UserID int
+		ID     int
+	}
+	if err := DB.Model(&AutoBanEvent{}).Select("user_id, MAX(id) AS id").Where("user_id IN ? AND action = ?", userIDs, "banned").Group("user_id").Scan(&latest).Error; err != nil {
+		return nil, err
+	}
+	latestIDs := make(map[int]int, len(latest))
+	for _, event := range latest {
+		latestIDs[event.UserID] = event.ID
+	}
 	statuses := make(map[int]int, len(users))
 	for _, user := range users {
 		statuses[user.Id] = user.Status
 	}
 	for i := range events {
+		event := &events[i]
+		if event.Action == "banned" {
+			event.CanUnban = !event.BanLifted && latestIDs[event.UserID] == event.ID && statuses[event.UserID] == common.UserStatusDisabled
+		}
 		if status, exists := statuses[events[i].UserID]; exists {
 			events[i].UserStatus = &status
 		}

@@ -200,3 +200,102 @@ func TestAutoBanPreviewReportsEachRulesOwnConditionsWithoutMutation(t *testing.T
 	require.NoError(t, db.Model(&model.AutoBanEvent{}).Count(&count).Error)
 	assert.Zero(t, count)
 }
+
+func TestAutoBanLiftIsScopedToOneOccurrence(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Token{}))
+	user := model.User{Username: "repeat-ban", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1}
+	require.NoError(t, db.Create(&user).Error)
+	first := model.AutoBanEvent{EventKey: "first-ban", UserID: user.Id, Mode: "ban"}
+	require.NoError(t, model.ApplyAutoBanEvent(&first))
+	response := performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	require.Contains(t, response.Body.String(), `"success":true`)
+	require.NoError(t, db.First(&first, first.ID).Error)
+	require.NotNil(t, first.LiftedAt)
+	assert.True(t, first.BanLifted)
+	require.NotNil(t, first.LiftedBy)
+	assert.Equal(t, 9999, *first.LiftedBy)
+	second := model.AutoBanEvent{EventKey: "second-ban", UserID: user.Id, Mode: "ban"}
+	require.NoError(t, model.ApplyAutoBanEvent(&second))
+	already := model.AutoBanEvent{EventKey: "in-flight", UserID: user.Id, Mode: "ban"}
+	require.NoError(t, model.ApplyAutoBanEvent(&already))
+	events, err := model.ListAutoBanEvents(0, 30)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	assert.False(t, events[0].CanUnban, "in-flight errors did not cause the ban")
+	assert.True(t, events[1].CanUnban)
+	assert.False(t, events[1].BanLifted)
+	assert.False(t, events[2].CanUnban)
+	assert.True(t, events[2].BanLifted)
+	assert.Equal(t, first.LiftedAt, events[2].LiftedAt)
+	response = performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	assert.Equal(t, http.StatusConflict, response.Code)
+	require.NoError(t, db.First(&user, user.Id).Error)
+	assert.Equal(t, common.UserStatusDisabled, user.Status)
+	// User management must also persist the resolution.
+	response = performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable"}`, user.Id))
+	require.Contains(t, response.Body.String(), `"success":true`)
+	require.NoError(t, db.First(&second, second.ID).Error)
+	require.NotNil(t, second.LiftedAt)
+	assert.True(t, second.BanLifted)
+	require.NoError(t, db.First(&first, first.ID).Error)
+	assert.Equal(t, events[2].LiftedAt, first.LiftedAt)
+}
+
+func TestAutoBanResolvedRecordStaysResolvedOnOlderPage(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	user := model.User{Username: "resolved-banned", Role: common.RoleCommonUser, Status: common.UserStatusDisabled}
+	require.NoError(t, db.Create(&user).Error)
+	first := model.AutoBanEvent{EventKey: "resolved-first", UserID: user.Id, Action: "banned", BanLifted: true}
+	second := model.AutoBanEvent{EventKey: "new-ban", UserID: user.Id, Action: "banned"}
+	require.NoError(t, db.Create(&first).Error)
+	require.NoError(t, db.Create(&second).Error)
+	events, err := model.ListAutoBanEvents(second.ID, 30)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.True(t, events[0].BanLifted)
+	assert.False(t, events[0].CanUnban)
+	assert.Nil(t, events[0].LiftedAt, "a saved resolution does not require a fabricated timestamp")
+	response := performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	assert.Equal(t, http.StatusConflict, response.Code)
+	require.NoError(t, db.First(&user, user.Id).Error)
+	assert.Equal(t, common.UserStatusDisabled, user.Status)
+}
+
+func TestAutoBanLiftRollsBackWhenHistoryCannotBeSaved(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	user := model.User{Username: "rollback-ban", Role: common.RoleCommonUser, Status: common.UserStatusDisabled, AuthVersion: 2}
+	require.NoError(t, db.Create(&user).Error)
+	event := model.AutoBanEvent{EventKey: "rollback-event", UserID: user.Id, Action: "banned"}
+	require.NoError(t, db.Create(&event).Error)
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:reject_resolution", func(tx *gorm.DB) {
+		if tx.Statement.Table == "auto_ban_events" {
+			tx.AddError(fmt.Errorf("history unavailable"))
+		}
+	}))
+	_, err := model.EnableUserWithBanRecord(user.Id, event.ID, 9999, common.RoleRootUser)
+	require.ErrorContains(t, err, "history unavailable")
+	require.NoError(t, db.First(&user, user.Id).Error)
+	assert.Equal(t, common.UserStatusDisabled, user.Status)
+	assert.EqualValues(t, 2, user.AuthVersion)
+	require.NoError(t, db.First(&event, event.ID).Error)
+	assert.Nil(t, event.LiftedAt)
+	assert.False(t, event.BanLifted)
+}
+
+func TestAutoBanRecordStatusComesOnlyFromSavedResolution(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	user := model.User{Username: "record-state", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}
+	require.NoError(t, db.Create(&user).Error)
+	first := model.AutoBanEvent{EventKey: "stored-first", UserID: user.Id, Action: "banned"}
+	second := model.AutoBanEvent{EventKey: "stored-second", UserID: user.Id, Action: "banned"}
+	require.NoError(t, db.Create(&first).Error)
+	require.NoError(t, db.Create(&second).Error)
+	events, err := model.ListAutoBanEvents(0, 30)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	for _, event := range events {
+		assert.False(t, event.BanLifted, "neither an enabled user nor a later ban may infer resolution")
+		assert.False(t, event.CanUnban, "an enabled account cannot be enabled again from a record")
+	}
+}
