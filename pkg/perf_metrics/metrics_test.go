@@ -207,6 +207,17 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, 98.04, combined.Summary.SuccessRate)
 			assert.Equal(t, 99.01, combined.Models[0].SuccessRate)
+
+			RecordRelayResult(context.Background(), &relaycommon.RelayInfo{
+				OriginModelName: "cache-model", UsingGroup: "cache-group", StartTime: now,
+				PerformanceInputTokens: 200, PerformanceCacheReadTokens: 150, PerformanceOutputTokens: 30,
+			}, nil)
+			cached, err := QuerySummaryAll(24, []string{"cache-group"})
+			require.NoError(t, err)
+			require.NotNil(t, cached.Summary)
+			require.NotNil(t, cached.CacheHitRate)
+			assert.Equal(t, 75.0, *cached.CacheHitRate)
+			assert.Equal(t, 100.0, cached.Summary.SuccessRate)
 		})
 	}
 }
