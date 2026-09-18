@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 export function AutoBanSelect(props: {
   label: string
@@ -33,10 +34,11 @@ export function AutoBanSelect(props: {
   items: { value: string; label: string }[]
   onChange: (value: string) => void
   disabled?: boolean
+  fitContent?: boolean
 }) {
   const id = useId()
   return (
-    <Field>
+    <Field className={cn(props.fitContent && '*:w-fit')}>
       <FieldLabel htmlFor={id}>{props.label}</FieldLabel>
       <Select
         items={props.items}
@@ -46,10 +48,33 @@ export function AutoBanSelect(props: {
         }}
         disabled={props.disabled}
       >
-        <SelectTrigger id={id} className='w-full'>
-          <SelectValue />
+        <SelectTrigger
+          id={id}
+          className={cn('w-full', props.fitContent && 'w-fit max-w-full')}
+        >
+          {props.fitContent ? (
+            <span className='grid min-w-0 overflow-hidden'>
+              {/* Keep the width stable across selections and translated labels. */}
+              {props.items.map((item) => (
+                <span
+                  key={item.value}
+                  aria-hidden='true'
+                  className='invisible col-start-1 row-start-1'
+                >
+                  {item.label}
+                </span>
+              ))}
+              <SelectValue className='col-start-1 row-start-1 block truncate' />
+            </span>
+          ) : (
+            <SelectValue />
+          )}
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} portalOnMobile>
+        <SelectContent
+          alignItemWithTrigger={false}
+          portalOnMobile
+          className={cn(props.fitContent && 'min-w-0')}
+        >
           {props.items.map((item) => (
             <SelectItem key={item.value} value={item.value}>
               {item.label}

@@ -77,30 +77,27 @@ export function AutoBanEditor(props: {
           />
           <FormDirtyIndicator isDirty={form.formState.isDirty} />
           <div className='space-y-3'>
-            <div className='max-w-md'>
-              <AutoBanSelect
-                label={t('Automatic ban mode')}
-                value={draft.mode}
-                disabled={mutation.isPending}
-                onChange={(mode) =>
-                  form.setValue('mode', mode as BanSettings['mode'], {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                }
-                items={[
-                  { value: 'off', label: t('Off') },
-                  { value: 'observe', label: t('Record only') },
-                  { value: 'ban', label: t('Automatically disable account') },
-                ]}
-              />
-            </div>
+            <AutoBanSelect
+              fitContent
+              label={t('Automatic ban mode')}
+              value={draft.mode}
+              disabled={mutation.isPending}
+              onChange={(mode) =>
+                form.setValue('mode', mode as BanSettings['mode'], {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+              items={[
+                { value: 'off', label: t('Off') },
+                { value: 'observe', label: t('Record only') },
+                { value: 'ban', label: t('Automatically disable account') },
+              ]}
+            />
             <p className='text-muted-foreground text-sm'>
               {t(
                 'One matching upstream failure disables the account and blocks its API keys. Administrator accounts are recorded but never automatically disabled.'
-              )}
-            </p>
-            <p className='text-muted-foreground text-sm'>
+              )}{' '}
               {t(
                 'Rules apply to new upstream failures after saving. Changing rules does not reprocess history or enable disabled accounts.'
               )}
