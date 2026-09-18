@@ -3,6 +3,9 @@ package service
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+
 	"github.com/QuantumNous/new-api/relaykit/dto"
 
 	"github.com/stretchr/testify/assert"
@@ -78,4 +81,48 @@ func TestApplyResponsesUsageFallsBackToCompletionTokenDetails(t *testing.T) {
 	assert.Equal(t, 9, dst.CompletionTokenDetails.ReasoningTokens)
 	require.NotNil(t, dst.OutputTokensDetails)
 	assert.Equal(t, 9, dst.OutputTokensDetails.ReasoningTokens)
+}
+
+func TestResponsesUsageAccumulatorInterruptedAndFailedStreams(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		events             []string
+		prompt, completion int
+	}{
+		{name: "no upstream event"},
+		{name: "created then disconnected", events: []string{`{"type":"response.created"}`}, prompt: 100},
+		{name: "tool and reasoning interrupted", events: []string{`{"type":"response.reasoning_summary_text.delta","delta":"Inspect repository. "}`, `{"type":"response.function_call_arguments.delta","delta":"ls"}`}, prompt: 100, completion: CountTextToken("Inspect repository. ls", "gpt-4o")},
+		{name: "reasoning and refusal", events: []string{`{"type":"response.reasoning_text.delta","delta":"Reason. "}`, `{"type":"response.refusal.delta","delta":"Cannot comply."}`}, prompt: 100, completion: CountTextToken("Reason. Cannot comply.", "gpt-4o")},
+		{name: "terminal tool arguments", events: []string{`{"type":"response.completed","response":{"output":[{"type":"function_call","arguments":"ls"}]}}`}, prompt: 100, completion: CountTextToken("ls", "gpt-4o")},
+		{name: "terminal text", events: []string{`{"type":"response.completed","response":{"output":[{"type":"message","content":[{"type":"output_text","text":"answer"}]}]}}`}, prompt: 100, completion: CountTextToken("answer", "gpt-4o")},
+		{name: "incomplete prompt", events: []string{`{"type":"response.incomplete"}`}, prompt: 100},
+		{name: "cancelled reported usage", events: []string{`{"type":"response.cancelled","response":{"usage":{"input_tokens":12,"output_tokens":3}}}`}, prompt: 12, completion: 3},
+		{name: "reported zero success", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.completed","response":{"usage":{"input_tokens":0,"output_tokens":0}}}`}},
+		{name: "failure after output", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.failed"}`}},
+		{name: "flat error after output", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"error"}`}},
+		{name: "response error after output", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.error"}`}},
+		{name: "failed legacy done", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.done","response":{"status":"failed"}}`}},
+		{name: "reported zero failure", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.failed","response":{"usage":{"input_tokens":0,"output_tokens":0}}}`}},
+		{name: "reported partial failure", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.failed","response":{"usage":{"input_tokens":12}}}`}, prompt: 12},
+		{name: "reported complete failure", events: []string{`{"type":"response.failed","response":{"usage":{"input_tokens":12,"output_tokens":3,"total_tokens":15}}}`}, prompt: 12, completion: 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// No StreamStatus: accounting must remember protocol failure on its own.
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"}}
+			info.SetEstimatePromptTokens(100)
+			a := NewResponsesUsageAccumulator(info)
+			for _, raw := range tc.events {
+				var event dto.ResponsesStreamResponse
+				require.NoError(t, common.UnmarshalJsonStr(raw, &event))
+				a.Observe(&event)
+			}
+			usage := a.Finish()
+			assert.Equal(t, tc.prompt, usage.PromptTokens)
+			assert.Equal(t, tc.completion, usage.CompletionTokens)
+			assert.Equal(t, tc.prompt+tc.completion, usage.TotalTokens)
+			snapshot := *usage
+			a.Observe(&dto.ResponsesStreamResponse{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 999}}})
+			assert.Equal(t, snapshot, *a.Finish(), "late events must not change settled usage")
+		})
+	}
 }

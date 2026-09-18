@@ -76,7 +76,8 @@ func TestResponsesWSAffinityRecordsOnlyCompletedRequests(t *testing.T) {
 			session := &responsesWSSession{c: c, current: &responsesWSCallState{
 				info: &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 4}}, usage: &dto.Usage{},
 			}}
-			require.True(t, session.observeUpstreamMessage([]byte(tc.event)))
+			finished, _, _ := session.observeUpstreamMessage([]byte(tc.event))
+			require.True(t, finished)
 			reconnected := newResponsesWSAffinityContext()
 			channelID, found := service.GetPreferredChannelByAffinityWithBody(reconnected, "gpt-test", "default", body)
 			assert.Equal(t, tc.wantBound, found)

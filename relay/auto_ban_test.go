@@ -64,7 +64,8 @@ func TestAutoBanWebSocketErrorDisablesAccount(t *testing.T) {
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusEnabled, user.Status)
 	// A real terminal error is still forwarded and settled by the existing path.
-	require.True(t, s.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`)))
+	finished1, _, _ := s.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`))
+	require.True(t, finished1)
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusDisabled, user.Status)
 }
@@ -102,7 +103,8 @@ func TestAutoBanWebSocketExistingConnectionContinuesWithoutAccountStatusQueries(
 	require.NoError(t, upstream.SetReadDeadline(time.Now().Add(5*time.Second)))
 	_, _, err = upstream.ReadMessage()
 	require.NoError(t, err)
-	require.True(t, session.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`)))
+	finished2, _, _ := session.observeUpstreamMessage([]byte(`{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`))
+	require.True(t, finished2)
 	session.markIdle()
 	require.NoError(t, db.First(&user, user.Id).Error)
 	require.Equal(t, common.UserStatusDisabled, user.Status)
@@ -121,7 +123,8 @@ func TestAutoBanWebSocketExistingConnectionContinuesWithoutAccountStatusQueries(
 	assert.Contains(t, string(body), `"model":"gpt-auto-ban-test"`)
 	assert.Zero(t, userQueries.Load(), "normal turns must not re-query account status")
 	assert.False(t, service.AutoBanEnforced(c), "the previous error must not carry into the new turn")
-	require.True(t, session.observeUpstreamMessage([]byte(`{"type":"response.completed","response":{"status":"completed"}}`)))
+	finished3, _, _ := session.observeUpstreamMessage([]byte(`{"type":"response.completed","response":{"status":"completed"}}`))
+	require.True(t, finished3)
 }
 
 func TestAutoBanWebSocketSupportedFailureEnvelopes(t *testing.T) {
@@ -140,7 +143,8 @@ func TestAutoBanWebSocketSupportedFailureEnvelopes(t *testing.T) {
 			c.Set("id", user.Id)
 			state := &responsesWSCallState{info: &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}}
 			s := &responsesWSSession{c: c, current: state}
-			assert.True(t, s.observeUpstreamMessage([]byte(tc.body)))
+			finished4, _, _ := s.observeUpstreamMessage([]byte(tc.body))
+			assert.True(t, finished4)
 			require.NoError(t, db.First(&user, user.Id).Error)
 			assert.Equal(t, common.UserStatusDisabled, user.Status)
 			events, err := model.ListAutoBanEvents(0, 30)

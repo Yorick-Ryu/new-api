@@ -265,3 +265,40 @@ func TestOaiResponsesStreamHandlerDoesNotCountPartialImageEvent(t *testing.T) {
 
 	assert.Equal(t, 0, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolImageGeneration].CallCount)
 }
+
+func TestOaiResponsesStreamInterruptedAndFailedAccounting(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, tc := range []struct {
+		name, terminal     string
+		prompt, completion int
+	}{
+		{name: "ordinary disconnect", prompt: 100, completion: 1},
+		{name: "explicit failure", terminal: `{"type":"response.failed","response":{"status":"failed"}}`},
+		{name: "flat error", terminal: `{"type":"error","error":{"code":"server_error"}}`},
+		{name: "reported failure", terminal: `{"type":"response.failed","response":{"usage":{"input_tokens":12,"output_tokens":3}}}`, prompt: 12, completion: 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			info := &relaycommon.RelayInfo{DisablePing: true, ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"}}
+			info.SetEstimatePromptTokens(100)
+			body := "data: " + `{"type":"response.function_call_arguments.delta","delta":"ls"}` + "\n\n"
+			if tc.terminal != "" {
+				body += "data: " + tc.terminal + "\n\n"
+			}
+			resp := &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{"Content-Type": []string{"text/event-stream"}}}
+			usage, apiErr := OaiResponsesStreamHandler(c, info, resp)
+			require.Nil(t, apiErr, "a delivered stream must not retry or write a second error")
+			assert.Equal(t, tc.prompt, usage.PromptTokens)
+			assert.Equal(t, tc.completion, usage.CompletionTokens)
+			if tc.terminal != "" {
+				assert.Equal(t, 1, strings.Count(w.Body.String(), tc.terminal))
+			}
+			assert.NotContains(t, w.Body.String(), "[DONE]")
+			assert.NotContains(t, w.Body.String(), "response.completed")
+		})
+	}
+}

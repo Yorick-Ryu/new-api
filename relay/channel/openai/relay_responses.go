@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -77,90 +76,23 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	defer service.CloseResponseBodyGracefully(resp)
 
-	var usage = &dto.Usage{}
-	var responseTextBuilder strings.Builder
-	imageCounter := &relaycommon.ImageGenerationCallCounter{}
-	imageCommitted := false
-
+	accumulator := service.NewResponsesUsageAccumulator(info)
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
-
-		// 检查当前数据是否包含 completed 状态和 usage 信息
-		var streamResponse dto.ResponsesStreamResponse
-		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
+		var event dto.ResponsesStreamResponse
+		if err := common.UnmarshalJsonStr(data, &event); err != nil {
 			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
 			sr.Error(err)
 			return
 		}
-		if service.IsResponsesFailure(&streamResponse) {
+		if service.IsResponsesFailure(&event) {
 			service.ObserveUpstreamFailure(c, common.StringToByteSlice(data), resp.StatusCode)
 		}
-		sendResponsesStreamData(c, streamResponse, data)
-		switch streamResponse.Type {
-		case "response.completed", "response.done":
-			if streamResponse.Response != nil {
-				if streamResponse.Response.Usage != nil {
-					service.ApplyResponsesUsage(usage, streamResponse.Response.Usage)
-				}
-				if !imageCommitted {
-					if relaycommon.IsNonBillableResponsesStatus(streamResponse.Response.Status) {
-						imageCounter.Reset()
-						imageCounter.Commit(info)
-						imageCommitted = true
-					} else {
-						for i := range streamResponse.Response.Output {
-							idx := i
-							imageCounter.Observe(&streamResponse.Response.Output[i], &idx)
-						}
-						imageCounter.Commit(info)
-						imageCommitted = true
-					}
-				}
-			} else if !imageCommitted {
-				imageCounter.Commit(info)
-				imageCommitted = true
-			}
-		case "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
-			if !imageCommitted {
-				imageCounter.Reset()
-				imageCounter.Commit(info)
-				imageCommitted = true
-			}
-		case "response.output_text.delta":
-			// 处理输出文本
-			responseTextBuilder.WriteString(streamResponse.Delta)
-		case dto.ResponsesOutputTypeItemDone:
-			if streamResponse.Item != nil {
-				switch streamResponse.Item.Type {
-				case dto.BuildInCallWebSearchCall:
-					info.CountBillableToolCall(dto.BuildInCallWebSearchCall, "")
-				case dto.BuildInCallFileSearchCall:
-					info.CountBillableToolCall(dto.BuildInCallFileSearchCall, "")
-				case dto.BuildInCallFunctionCall:
-					info.CountBillableToolCall(dto.BuildInCallFunctionCall, streamResponse.Item.Name)
-				case dto.ResponsesOutputTypeImageGenerationCall:
-					if !imageCommitted {
-						imageCounter.Observe(streamResponse.Item, streamResponse.OutputIndex)
-					}
-				}
-			}
+		accumulator.Observe(&event)
+		sendResponsesStreamData(c, event, data)
+		switch event.Type {
+		case "response.completed", "response.done", "response.failed", "response.incomplete", "response.cancelled", "response.canceled", "error", "response.error":
+			sr.Done()
 		}
 	})
-
-	if usage.CompletionTokens == 0 {
-		// 计算输出文本的 token 数量
-		tempStr := responseTextBuilder.String()
-		if len(tempStr) > 0 {
-			// 非正常结束，使用输出文本的 token 数量
-			completionTokens := service.CountTextToken(tempStr, info.UpstreamModelName)
-			usage.CompletionTokens = completionTokens
-		}
-	}
-
-	if usage.PromptTokens == 0 && usage.CompletionTokens != 0 {
-		usage.PromptTokens = info.GetEstimatePromptTokens()
-	}
-
-	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-
-	return usage, nil
+	return accumulator.Finish(), nil
 }

@@ -82,7 +82,7 @@ func TestBuildResponsesWSCreateEventIsFlat(t *testing.T) {
 		"stream_options": {"include_usage": true}
 	}`)
 
-	got, err := buildResponsesWSCreateEvent(payload, common.RawMessage(`false`))
+	got, err := buildResponsesWSCreateEvent(payload, common.RawMessage(`false`), "")
 	require.NoError(t, err)
 	var data map[string]any
 	require.NoError(t, common.Unmarshal(got, &data))
@@ -107,7 +107,7 @@ func TestHTTPResponsesRequestDoesNotMarshalGenerate(t *testing.T) {
 }
 
 func TestBuildResponsesWSErrorPayloadIncludesStatus(t *testing.T) {
-	payload, err := buildResponsesWSErrorPayload("evt_err", types.NewErrorWithStatusCode(
+	payload, err := buildResponsesWSErrorPayload("evt_err", "", types.NewErrorWithStatusCode(
 		errors.New("model is required"),
 		types.ErrorCodeInvalidRequest,
 		http.StatusBadRequest,
@@ -129,7 +129,7 @@ func TestBuildResponsesWSErrorPayloadIncludesStatus(t *testing.T) {
 }
 
 func TestResponsesWSInvalidRequestErrorUsesBadRequestStatus(t *testing.T) {
-	payload, err := buildResponsesWSErrorPayload("", newResponsesWSInvalidRequestError(errors.New("bad event")))
+	payload, err := buildResponsesWSErrorPayload("", "", newResponsesWSInvalidRequestError(errors.New("bad event")))
 	require.NoError(t, err)
 	var data struct {
 		Status int `json:"status"`
@@ -371,7 +371,8 @@ func TestFinalizeResponsesWSUsageBillsInterruptedStream(t *testing.T) {
 	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-sonnet-4"}}
 	info.SetEstimatePromptTokens(123)
 	state := &responsesWSCallState{info: info, usage: &dto.Usage{}}
-	state.outputText.WriteString("partial answer streamed before the client vanished")
+	state.accumulator = service.NewResponsesUsageAccumulator(info)
+	state.accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: "partial answer streamed before the client vanished"})
 
 	require.True(t, finalizeResponsesWSUsage(state), "generated output must be billable")
 	assert.Positive(t, state.usage.CompletionTokens, "completion tokens should be counted from observed output")
@@ -401,7 +402,8 @@ func TestFinishCallAbortedRefundsDespiteObservedOutput(t *testing.T) {
 			committed = &success
 		},
 	}
-	state.outputText.WriteString("never sent upstream")
+	state.accumulator = service.NewResponsesUsageAccumulator(state.info)
+	state.accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: "never sent upstream"})
 	session.current = state
 
 	session.finishCall(state, responsesWSCallAborted, true)
@@ -415,17 +417,15 @@ func TestFinishCallAbortedRefundsDespiteObservedOutput(t *testing.T) {
 // terminal failure events: upstream reports real usage on response.failed, and
 // discarding it meant billing nothing for output the provider already charged.
 func TestApplyTerminalResponseUsageRecordsFailedResponseUsage(t *testing.T) {
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	session := &responsesWSSession{c: c}
 	state := &responsesWSCallState{
-		info:  &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-sonnet-4"}},
-		usage: &dto.Usage{},
+		info: &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-sonnet-4"}},
 	}
-
-	session.applyTerminalResponseUsage(state, &dto.OpenAIResponsesResponse{
-		Usage: &dto.Usage{InputTokens: 40, OutputTokens: 9, TotalTokens: 49},
+	state.accumulator = service.NewResponsesUsageAccumulator(state.info)
+	state.accumulator.Observe(&dto.ResponsesStreamResponse{
+		Type:     "response.failed",
+		Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 40, OutputTokens: 9, TotalTokens: 49}},
 	})
-
+	require.True(t, finalizeResponsesWSUsage(state))
 	assert.Equal(t, 40, state.usage.PromptTokens)
 	assert.Equal(t, 9, state.usage.CompletionTokens)
 }
@@ -546,7 +546,7 @@ func TestObserveUpstreamFailedReleasesCurrent(t *testing.T) {
 	}
 	session.current = state
 
-	finished := session.observeUpstreamMessage([]byte(`{"type":"response.failed"}`))
+	finished, _, _ := session.observeUpstreamMessage([]byte(`{"type":"response.failed"}`))
 
 	assert.True(t, finished)
 	assert.Nil(t, session.getCurrent(), "current response was not released")
@@ -769,4 +769,189 @@ func newTestWebSocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn, func(
 		server.Close()
 	}
 	return target, serverConn, cleanup
+}
+
+func TestResponsesWSStreamIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name, fields, want string
+		invalid            bool
+	}{
+		{name: "default", fields: `"model":"gpt-4o"`},
+		{name: "named", fields: `"model":"gpt-4o","stream_id":"planner.A-1_2"`, want: "planner.A-1_2"},
+		{name: "wrapped", fields: `"response":{"model":"gpt-4o","stream_id":"wrapped"}`, want: "wrapped"},
+		{name: "top-level-wins", fields: `"stream_id":"outer","response":{"model":"gpt-4o","stream_id":"inner"}`, want: "outer"},
+		{name: "maximum", fields: `"model":"gpt-4o","stream_id":"` + strings.Repeat("a", 256) + `"`, want: strings.Repeat("a", 256)},
+		{name: "too-long", fields: `"stream_id":"` + strings.Repeat("a", 257) + `"`, invalid: true},
+		{name: "empty", fields: `"stream_id":""`, invalid: true},
+		{name: "null", fields: `"stream_id":null`, invalid: true},
+		{name: "number", fields: `"stream_id":123`, invalid: true},
+		{name: "unicode", fields: `"stream_id":"计划"`, invalid: true},
+		{name: "spaces", fields: `"stream_id":"a b"`, invalid: true},
+		{name: "invalid-top-level", fields: `"stream_id":"","response":{"stream_id":"inner"}`, invalid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			create, eventID, err := normalizeResponsesWSCreateEvent([]byte(`{"type":"response.create","event_id":"test",` + tc.fields + `}`))
+			assert.Equal(t, "test", eventID)
+			if tc.invalid {
+				require.ErrorContains(t, err, "stream_id")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, create.StreamID)
+			assert.NotContains(t, string(create.Body), "stream_id")
+			for _, passthrough := range []bool{false, true} {
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(string(create.Body)))
+				common.SetContextKey(c, appconstant.ContextKeyOriginalModel, create.Request.Model)
+				common.SetContextKey(c, appconstant.ContextKeyChannelType, appconstant.ChannelTypeOpenAI)
+				common.SetContextKey(c, appconstant.ContextKeyChannelSetting, dto.ChannelSettings{PassThroughBodyEnabled: passthrough})
+				info := relaycommon.GenRelayInfoResponses(c, &create.Request)
+				payload, apiErr := buildResponsesWSCreatePayload(c, info, create.Request, create.Generate, create.StreamID)
+				require.Nil(t, apiErr)
+				var event map[string]any
+				require.NoError(t, common.Unmarshal(payload, &event))
+				if tc.want == "" {
+					assert.NotContains(t, event, "stream_id")
+				} else {
+					assert.Equal(t, tc.want, event["stream_id"])
+				}
+				if storage, err := common.GetBodyStorage(c); err == nil {
+					require.NoError(t, storage.Close())
+				}
+			}
+		})
+	}
+}
+
+func TestResponsesWSErrorAttribution(t *testing.T) {
+	for _, tc := range []struct {
+		name, payload, control            string
+		terminal, ambiguous, controlError bool
+	}{
+		{name: "active-server-failure", payload: `{"status":500,"error":{"type":"server_error"}}`, terminal: true},
+		{name: "other-stream", payload: `{"stream_id":"other","status":500}`},
+		{name: "previous-response", payload: `{"response_id":"previous","status":500}`},
+		{name: "cancel-event-id", payload: `{"event_id":"cancel","status":500}`, control: `{"event_id":"cancel"}`, controlError: true},
+		{name: "cancel-target", payload: `{"response_id":"missing","status":400}`, control: `{"response_id":"missing"}`, controlError: true},
+		{name: "cancel-code", payload: `{"error":{"type":"invalid_request_error","code":"response_not_found"}}`, control: `{"response_id":"missing"}`, controlError: true},
+		{name: "ambiguous-after-cancel", payload: `{"status":500}`, control: `{"response_id":"active"}`, terminal: true, ambiguous: true},
+		{name: "explicit-generation-failure", payload: `{"response_id":"active","status":500}`, control: `{"response_id":"active"}`, terminal: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var event responsesWSErrorEvent
+			require.NoError(t, common.Unmarshal([]byte(tc.payload), &event))
+			terminal, ambiguous, controlError := responsesWSErrorEndsRequest(event, "planner", "active", []byte(tc.control))
+			assert.Equal(t, tc.terminal, terminal)
+			assert.Equal(t, tc.ambiguous, ambiguous)
+			assert.Equal(t, tc.controlError, controlError)
+		})
+	}
+}
+
+func TestResponsesWSLateAndControlEventsDoNotFinishCurrent(t *testing.T) {
+	for _, tc := range []struct {
+		name, payload string
+		forward       bool
+	}{
+		{"other stream terminal", `{"type":"response.completed","stream_id":"other","response":{"id":"unrelated","usage":{"input_tokens":999}}}`, true},
+		{"other response terminal", `{"type":"response.completed","response":{"id":"unrelated","usage":{"input_tokens":999}}}`, true},
+		{"previous terminal", `{"type":"response.completed","response":{"id":"previous","usage":{"input_tokens":999}}}`, false},
+		{"previous error", `{"type":"error","response_id":"previous"}`, false},
+		{"previous cancel error", `{"type":"error","event_id":"previous_cancel"}`, false},
+		{"other stream error", `{"type":"error","stream_id":"other"}`, true},
+		{"cancel error", `{"type":"error","event_id":"cancel","error":{"type":"invalid_request_error","code":"response_not_found"}}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"}}
+			info.SetEstimatePromptTokens(100)
+			state := &responsesWSCallState{info: info, streamID: "planner", responseID: "active", control: []byte(`{"event_id":"cancel"}`), controlSent: true}
+			session := &responsesWSSession{current: state, lastResponseID: "previous", lastControlEventID: "previous_cancel"}
+			finished, forward, closeAfter := session.observeUpstreamMessage([]byte(tc.payload))
+			assert.False(t, finished)
+			assert.Equal(t, tc.forward, forward)
+			assert.False(t, closeAfter)
+			assert.Same(t, state, session.getCurrent())
+			assert.False(t, finalizeResponsesWSUsage(state), "unrelated/control events must not add estimated or reported usage")
+		})
+	}
+}
+
+func TestResponsesWSFailureSettlesOnceAndAmbiguousCancelCloses(t *testing.T) {
+	for _, tc := range []struct {
+		name, payload string
+		ambiguous     bool
+	}{
+		{"generation failure", `{"type":"error","response_id":"active"}`, false},
+		{"ambiguous cancel failure", `{"type":"error","error":{"type":"server_error"}}`, true},
+		{"response error", `{"type":"response.error","response_id":"active"}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			commits := 0
+			state := &responsesWSCallState{info: &relaycommon.RelayInfo{}, streamID: "planner", responseID: "active", control: []byte(`{"event_id":"cancel","response_id":"active"}`), controlSent: true, commitRate: func(bool) { commits++ }}
+			session := &responsesWSSession{current: state}
+			session.activityState.Store(responsesWSSessionActive)
+			finished, forward, closeAfter := session.observeUpstreamMessage([]byte(tc.payload))
+			require.True(t, finished)
+			assert.True(t, forward)
+			assert.Equal(t, tc.ambiguous, closeAfter)
+			assert.Nil(t, session.getCurrent())
+			assert.Equal(t, responsesWSSessionActive, session.activityState.Load(), "protect terminal delivery from eviction/new create")
+			session.settleCurrent()
+			assert.Equal(t, 1, commits)
+			assert.Equal(t, "active", session.lastResponseID)
+			assert.Equal(t, "cancel", session.lastControlEventID)
+		})
+	}
+}
+
+func TestResponsesWSCancelWaitsForAcceptanceAndCanRetryAfterRejection(t *testing.T) {
+	upstream, target, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	state := &responsesWSCallState{info: &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}, streamID: "planner"}
+	session := &responsesWSSession{target: target, current: state}
+	cancel := []byte(`{"type":"response.cancel","event_id":"cancel","stream_id":"planner"}`)
+	require.Nil(t, session.handleControlEvent(websocket.TextMessage, cancel, "response.cancel"))
+	assert.False(t, state.controlSent)
+	require.NotNil(t, session.handleControlEvent(websocket.TextMessage, cancel, "response.cancel"), "duplicate control must be bounded")
+	finished, forward, closeAfter := session.observeUpstreamMessage([]byte(`{"type":"response.created","stream_id":"planner","response":{"id":"active"}}`))
+	assert.False(t, finished)
+	assert.True(t, forward)
+	assert.False(t, closeAfter)
+	require.NoError(t, upstream.SetReadDeadline(time.Now().Add(time.Second)))
+	_, sent, err := upstream.ReadMessage()
+	require.NoError(t, err)
+	assert.JSONEq(t, string(cancel), string(sent))
+	finished, forward, closeAfter = session.observeUpstreamMessage([]byte(`{"type":"error","event_id":"cancel","stream_id":"planner"}`))
+	assert.False(t, finished)
+	assert.True(t, forward)
+	assert.False(t, closeAfter)
+	assert.Empty(t, state.control)
+	require.Nil(t, session.handleControlEvent(websocket.TextMessage, cancel, "response.cancel"))
+	_, sent, err = upstream.ReadMessage()
+	require.NoError(t, err)
+	assert.JSONEq(t, string(cancel), string(sent))
+}
+
+func TestResponsesWSLocalValidationErrorCarriesEventAndStream(t *testing.T) {
+	clientPeer, client, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	done := make(chan *types.NewAPIError, 1)
+	go func() { done <- responsesWebSocketHelper(c, client, responsesWSHeartbeatConfig{}) }()
+	require.NoError(t, clientPeer.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","event_id":"bad-model","stream_id":"planner","input":"hello"}`)))
+	require.NoError(t, clientPeer.SetReadDeadline(time.Now().Add(time.Second)))
+	_, raw, err := clientPeer.ReadMessage()
+	require.NoError(t, err)
+	var rejection responsesWSErrorEvent
+	require.NoError(t, common.Unmarshal(raw, &rejection))
+	assert.Equal(t, http.StatusBadRequest, rejection.Status)
+	assert.Equal(t, "bad-model", rejection.EventID)
+	assert.Equal(t, "planner", rejection.StreamID)
+	require.NoError(t, clientPeer.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second)))
+	select {
+	case result := <-done:
+		require.Nil(t, result)
+	case <-time.After(time.Second):
+		t.Fatal("websocket relay did not exit after close")
+	}
 }
