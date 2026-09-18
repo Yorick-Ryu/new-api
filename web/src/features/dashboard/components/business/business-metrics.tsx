@@ -39,6 +39,35 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatTitle } from '../ui/stat-title'
 import { formatBusinessMoney, type BusinessDashboardData } from './types'
 
+const metricsGridClassName = 'grid grid-cols-2 border-b lg:grid-cols-4'
+const metricCardClassName =
+  'bg-card min-w-0 border-r border-b px-4 py-2 sm:px-5 sm:py-4'
+
+function BusinessMetricValueSkeleton() {
+  return (
+    <dd className='mt-1 flex flex-col gap-1 sm:mt-2 sm:gap-1.5'>
+      <Skeleton className='h-5 w-20 sm:h-7 sm:w-24' />
+      <Skeleton className='h-3.5 w-28' />
+    </dd>
+  )
+}
+
+export function BusinessMetricsSkeleton() {
+  return (
+    <dl className={metricsGridClassName} aria-hidden='true'>
+      {Array.from({ length: 12 }, (_, index) => (
+        <div key={index} className={metricCardClassName}>
+          <dt className='flex min-w-0 items-center gap-1.5 sm:gap-2'>
+            <Skeleton className='size-4 shrink-0 rounded-sm sm:size-7 sm:rounded-md' />
+            <Skeleton className='h-4 w-24 max-w-full' />
+          </dt>
+          <BusinessMetricValueSkeleton />
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 type BusinessMetric = {
   label: string
   icon: LucideIcon
@@ -255,15 +284,12 @@ export function BusinessMetrics(props: {
     }
   )
   return (
-    <dl className='grid grid-cols-2 border-b lg:grid-cols-4'>
+    <dl className={metricsGridClassName}>
       {[
         ...metrics.map((metric) => ({ ...metric, key: metric.label })),
         ...planMetrics,
       ].map((metric) => (
-        <div
-          key={metric.key}
-          className='bg-card min-w-0 border-r border-b px-4 py-2 sm:px-5 sm:py-4'
-        >
+        <div key={metric.key} className={metricCardClassName}>
           <dt className='min-w-0'>
             <StatTitle
               title={metric.label}
@@ -272,10 +298,7 @@ export function BusinessMetrics(props: {
             />
           </dt>
           {props.loading ? (
-            <dd className='mt-1 flex flex-col gap-1 sm:mt-2 sm:gap-1.5'>
-              <Skeleton className='h-5 w-20 sm:h-7 sm:w-24' />
-              <Skeleton className='h-3.5 w-28' />
-            </dd>
+            <BusinessMetricValueSkeleton />
           ) : (
             <>
               <motion.dd

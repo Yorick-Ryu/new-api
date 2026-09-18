@@ -151,7 +151,7 @@ it('does not render business information or request data for ordinary users', ()
   expect(get).not.toHaveBeenCalled()
 })
 
-it('shows loading and disables refresh while the request is pending', async () => {
+it('shows twelve placeholders in the metrics responsive grid and disables refresh on initial load', async () => {
   let resolve!: (value: {
     data: { success: boolean; data: BusinessDashboardData }
   }) => void
@@ -162,9 +162,13 @@ it('shows loading and disables refresh while the request is pending', async () =
       })
   )
   mount(ROLE.ADMIN)
-  expect(
-    screen.getByRole('status', { name: 'Loading business data' })
-  ).toBeTruthy()
+  const loading = screen.getByRole('status', { name: 'Loading business data' })
+  const skeletonGrid = loading.querySelector('dl')
+  expect(skeletonGrid).not.toBeNull()
+  expect(skeletonGrid?.children).toHaveLength(12)
+  for (const className of ['grid', 'grid-cols-2', 'lg:grid-cols-4']) {
+    expect(skeletonGrid?.classList.contains(className)).toBe(true)
+  }
   expect(
     screen
       .getByRole('button', { name: 'Refresh business data' })
@@ -173,6 +177,20 @@ it('shows loading and disables refresh while the request is pending', async () =
   resolve({ data: { success: true, data: fixture() } })
   await screen.findByText('No business activity in this period')
   expect(screen.queryByRole('status')).toBeNull()
+  const metricsGrid = screen
+    .getByRole('region', { name: 'Business overview' })
+    .querySelector('dl')
+  for (const className of ['grid', 'grid-cols-2', 'lg:grid-cols-4']) {
+    expect(metricsGrid?.classList.contains(className)).toBe(true)
+  }
+  for (const className of ['border-r', 'border-b', 'px-4', 'py-2', 'sm:py-4']) {
+    expect(skeletonGrid?.firstElementChild?.classList.contains(className)).toBe(
+      true
+    )
+    expect(metricsGrid?.firstElementChild?.classList.contains(className)).toBe(
+      true
+    )
+  }
 })
 
 it('replaces old metrics with skeletons while a new period loads and preserves the chart selection', async () => {

@@ -22,7 +22,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import dayjs from '@/lib/dayjs'
 import { ROLE } from '@/lib/roles'
@@ -33,7 +32,7 @@ import { getBusinessDashboard } from '../../api'
 import { PanelTitle } from '../ui/panel-title'
 import { BusinessDetails } from './business-details'
 import { BusinessFilterDialog } from './business-filter-dialog'
-import { BusinessMetrics } from './business-metrics'
+import { BusinessMetrics, BusinessMetricsSkeleton } from './business-metrics'
 import {
   toBusinessPickerDate,
   type BusinessFilter,
@@ -164,14 +163,8 @@ function AdminBusinessOverview() {
         </div>
       )}
       {query.isPending && (
-        <div
-          role='status'
-          aria-label={t('Loading business data')}
-          className='grid grid-cols-2 gap-4 p-5 lg:grid-cols-3'
-        >
-          {[0, 1, 2, 3, 4, 5].map((key) => (
-            <Skeleton key={key} className='h-24 rounded-xl' />
-          ))}
+        <div role='status' aria-label={t('Loading business data')}>
+          <BusinessMetricsSkeleton />
         </div>
       )}
       {data && (
