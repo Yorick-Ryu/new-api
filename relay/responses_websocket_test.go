@@ -77,12 +77,13 @@ func TestBuildResponsesWSCreateEventIsFlat(t *testing.T) {
 		"input": "hi",
 		"store": false,
 		"event_id": "evt_upstream",
+		"stream_id": "override-stream",
 		"stream": true,
 		"background": true,
 		"stream_options": {"include_usage": true}
 	}`)
 
-	got, err := buildResponsesWSCreateEvent(payload, common.RawMessage(`false`), "")
+	got, err := buildResponsesWSCreateEvent(payload, common.RawMessage(`false`))
 	require.NoError(t, err)
 	var data map[string]any
 	require.NoError(t, common.Unmarshal(got, &data))
@@ -91,7 +92,7 @@ func TestBuildResponsesWSCreateEventIsFlat(t *testing.T) {
 	assert.Equal(t, "hi", data["input"])
 	assert.Equal(t, false, data["store"])
 	assert.Equal(t, false, data["generate"])
-	for _, key := range []string{"response", "event_id", "stream", "background", "stream_options"} {
+	for _, key := range []string{"response", "event_id", "stream_id", "stream", "background", "stream_options"} {
 		assert.NotContains(t, data, key, "field %q should not be present in upstream event", key)
 	}
 }
@@ -806,15 +807,11 @@ func TestResponsesWSStreamIdentity(t *testing.T) {
 				common.SetContextKey(c, appconstant.ContextKeyChannelType, appconstant.ChannelTypeOpenAI)
 				common.SetContextKey(c, appconstant.ContextKeyChannelSetting, dto.ChannelSettings{PassThroughBodyEnabled: passthrough})
 				info := relaycommon.GenRelayInfoResponses(c, &create.Request)
-				payload, apiErr := buildResponsesWSCreatePayload(c, info, create.Request, create.Generate, create.StreamID)
+				payload, apiErr := buildResponsesWSCreatePayload(c, info, create.Request, create.Generate)
 				require.Nil(t, apiErr)
 				var event map[string]any
 				require.NoError(t, common.Unmarshal(payload, &event))
-				if tc.want == "" {
-					assert.NotContains(t, event, "stream_id")
-				} else {
-					assert.Equal(t, tc.want, event["stream_id"])
-				}
+				assert.NotContains(t, event, "stream_id", "client correlation metadata must not break strict upstreams")
 				if storage, err := common.GetBodyStorage(c); err == nil {
 					require.NoError(t, storage.Close())
 				}
@@ -920,7 +917,7 @@ func TestResponsesWSCancelWaitsForAcceptanceAndCanRetryAfterRejection(t *testing
 	require.NoError(t, upstream.SetReadDeadline(time.Now().Add(time.Second)))
 	_, sent, err := upstream.ReadMessage()
 	require.NoError(t, err)
-	assert.JSONEq(t, string(cancel), string(sent))
+	assert.JSONEq(t, `{"type":"response.cancel","event_id":"cancel"}`, string(sent))
 	finished, forward, closeAfter = session.observeUpstreamMessage([]byte(`{"type":"error","event_id":"cancel","stream_id":"planner"}`))
 	assert.False(t, finished)
 	assert.True(t, forward)
@@ -929,7 +926,7 @@ func TestResponsesWSCancelWaitsForAcceptanceAndCanRetryAfterRejection(t *testing
 	require.Nil(t, session.handleControlEvent(websocket.TextMessage, cancel, "response.cancel"))
 	_, sent, err = upstream.ReadMessage()
 	require.NoError(t, err)
-	assert.JSONEq(t, string(cancel), string(sent))
+	assert.JSONEq(t, `{"type":"response.cancel","event_id":"cancel"}`, string(sent))
 }
 
 func TestResponsesWSLocalValidationErrorCarriesEventAndStream(t *testing.T) {

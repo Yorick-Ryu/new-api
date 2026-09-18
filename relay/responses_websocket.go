@@ -601,7 +601,7 @@ func (s *responsesWSSession) prepareCall(create responsesWSCreateRequest, commit
 		}
 	}
 
-	payload, apiErr := buildResponsesWSCreatePayload(s.c, relayInfo, req, create.Generate, create.StreamID)
+	payload, apiErr := buildResponsesWSCreatePayload(s.c, relayInfo, req, create.Generate)
 	if apiErr != nil {
 		if relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(s.c)
@@ -619,7 +619,7 @@ func (s *responsesWSSession) prepareCall(create responsesWSCreateRequest, commit
 	}, payload, nil
 }
 
-func buildResponsesWSCreatePayload(c *gin.Context, relayInfo *relaycommon.RelayInfo, req dto.OpenAIResponsesRequest, generate common.RawMessage, streamID string) ([]byte, *types.NewAPIError) {
+func buildResponsesWSCreatePayload(c *gin.Context, relayInfo *relaycommon.RelayInfo, req dto.OpenAIResponsesRequest, generate common.RawMessage) ([]byte, *types.NewAPIError) {
 	relayInfo.InitChannelMeta(c)
 	request, err := common.DeepCopy(&req)
 	if err != nil {
@@ -658,14 +658,14 @@ func buildResponsesWSCreatePayload(c *gin.Context, relayInfo *relaycommon.RelayI
 		}
 	}
 
-	event, err := buildResponsesWSCreateEvent(jsonData, generate, streamID)
+	event, err := buildResponsesWSCreateEvent(jsonData, generate)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
 	return event, nil
 }
 
-func buildResponsesWSCreateEvent(jsonData []byte, generate common.RawMessage, streamID string) ([]byte, error) {
+func buildResponsesWSCreateEvent(jsonData []byte, generate common.RawMessage) ([]byte, error) {
 	var event map[string]common.RawMessage
 	if err := common.Unmarshal(jsonData, &event); err != nil {
 		return nil, err
@@ -675,14 +675,10 @@ func buildResponsesWSCreateEvent(jsonData []byte, generate common.RawMessage, st
 		return nil, err
 	}
 	event["type"] = typeData
+	// Keep stream identity in the gateway call state. HTTP-bridged Responses
+	// upstreams can reject stream_id as an unsupported request parameter; the
+	// upstream connection still has only one active generation to correlate.
 	delete(event, "stream_id")
-	if streamID != "" {
-		streamData, err := common.Marshal(streamID)
-		if err != nil {
-			return nil, err
-		}
-		event["stream_id"] = streamData
-	}
 	delete(event, "event_id")
 	delete(event, "background")
 	delete(event, "stream")
@@ -909,7 +905,7 @@ func (s *responsesWSSession) observeUpstreamMessage(message []byte) (bool, bool,
 		return s.finishCall(state, responsesWSCallSettled, false), true, ambiguous
 	}
 	if pendingControl != nil {
-		if err := s.writeTarget(websocket.TextMessage, pendingControl); err != nil {
+		if err := s.writeControlEvent(websocket.TextMessage, pendingControl); err != nil {
 			return s.finishCall(state, responsesWSCallSettled, false), true, true
 		}
 	}
@@ -941,11 +937,29 @@ func (s *responsesWSSession) handleControlEvent(messageType int, message []byte,
 		state.controlSent = true
 		state.mu.Unlock()
 	}
-	if err := s.writeTarget(messageType, message); err != nil {
+	if err := s.writeControlEvent(messageType, message); err != nil {
 		s.settleCurrent()
 		return s.handleTargetWriteFailure(err)
 	}
 	return nil
+}
+
+// Client stream metadata is retained for error attribution, but cannot leak
+// into a cancel sent to an upstream that rejects stream_id on create.
+func (s *responsesWSSession) writeControlEvent(messageType int, message []byte) error {
+	var envelope map[string]common.RawMessage
+	if err := common.Unmarshal(message, &envelope); err != nil {
+		return err
+	}
+	if _, exists := envelope["stream_id"]; exists {
+		delete(envelope, "stream_id")
+		var err error
+		message, err = common.Marshal(envelope)
+		if err != nil {
+			return err
+		}
+	}
+	return s.writeTarget(messageType, message)
 }
 
 func (s *responsesWSSession) finishCall(state *responsesWSCallState, outcome responsesWSCallOutcome, releaseActivity bool) bool {
