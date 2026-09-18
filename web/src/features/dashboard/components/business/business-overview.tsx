@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { ChartNoAxesCombined, RefreshCw } from 'lucide-react'
+import { ChartNoAxesCombined, LoaderCircle, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -125,14 +125,14 @@ function AdminBusinessOverview() {
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
-            <RefreshCw
-              className={
-                query.isFetching
-                  ? 'size-4 animate-spin motion-reduce:animate-none'
-                  : 'size-4'
-              }
-              aria-hidden='true'
-            />
+            {query.isFetching ? (
+              <LoaderCircle
+                className='size-4 animate-spin motion-reduce:animate-none'
+                aria-hidden='true'
+              />
+            ) : (
+              <RefreshCw className='size-4' aria-hidden='true' />
+            )}
           </Button>
         </div>
         {filter.period === 'custom' && (
