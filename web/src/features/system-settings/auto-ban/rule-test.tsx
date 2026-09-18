@@ -41,7 +41,7 @@ export function RuleTest(props: { settings: BanSettings; valid: boolean }) {
   const mutation = useMutation({
     mutationFn: (request: { settings: BanSettings; sample: TestSample }) =>
       autoBanApi.test(request.settings, request.sample),
-    onError: handleServerError,
+    onError: (error) => handleServerError(error),
   })
   const currentResult =
     JSON.stringify(mutation.variables) ===

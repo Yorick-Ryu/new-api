@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
@@ -19,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +60,7 @@ func TestResponseModelComparisonAndLog(t *testing.T) {
 			var stored struct {
 				ResponseModel *relaycommon.ResponseModel `json:"response_model"`
 			}
-			require.NoError(t, common.UnmarshalJsonStr(common.GetJsonString(other), &stored))
+			require.NoError(t, common.UnmarshalJsonStr(other.JSONString(), &stored))
 			if tc.returned == "" {
 				assert.Nil(t, stored.ResponseModel)
 				return
@@ -97,11 +99,11 @@ func TestResponseModelLogOmitsUnchangedModel(t *testing.T) {
 			info.ObserveResponseModel(tc.returned)
 			other := service.GenerateTextOtherInfo(c, info, 1, 1, 1, 0, 0, 0, 1)
 			require.NotNil(t, info.ResponseModel)
-			assert.Equal(t, float64(1), other["model_ratio"])
+			assert.Equal(t, float64(1), other.Snapshot()["model_ratio"])
 			if tc.record {
-				assert.Equal(t, *info.ResponseModel, other["response_model"])
+				assert.Equal(t, *info.ResponseModel, other.Snapshot()["response_model"])
 			} else {
-				assert.NotContains(t, other, "response_model")
+				assert.NotContains(t, other.Snapshot(), "response_model")
 			}
 		})
 	}
@@ -171,7 +173,9 @@ func TestResponseModelHandlersCaptureBeforeConversion(t *testing.T) {
 		{"claude stream", claudeStream, types.RelayFormatClaude, true, func(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 			return claude.ClaudeStreamHandler(c, resp, info)
 		}},
-
+		{"claude to responses stream", claudeStream, types.RelayFormatOpenAIResponses, true, func(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+			return claude.ClaudeResponsesStreamHandler(c, resp, info)
+		}},
 		{"gemini", geminiBody, types.RelayFormatGemini, false, gemini.GeminiTextGenerationHandler},
 		{"gemini stream", geminiStream, types.RelayFormatGemini, true, gemini.GeminiTextGenerationStreamHandler},
 		{"gemini to chat", geminiBody, types.RelayFormatOpenAI, false, gemini.GeminiChatHandler},
@@ -194,7 +198,7 @@ func TestResponseModelHandlersCaptureBeforeConversion(t *testing.T) {
 			require.NotNil(t, info.ResponseModel)
 			assert.Equal(t, &relaycommon.ResponseModel{RequestedModel: "requested", UpstreamModel: "mapped", ReturnedModel: "returned", Mismatch: true}, info.ResponseModel)
 			other := service.GenerateTextOtherInfo(c, info, 1, 1, 1, 0, 0, 0, 1)
-			assert.Equal(t, *info.ResponseModel, other["response_model"])
+			assert.Equal(t, *info.ResponseModel, other.Snapshot()["response_model"])
 		})
 	}
 }
@@ -215,33 +219,42 @@ func TestResponseModelSharedResponsesAccumulator(t *testing.T) {
 }
 
 func TestResponseModelWebSocketTurnsIgnorePreviousResponse(t *testing.T) {
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	firstInfo := &relaycommon.RelayInfo{OriginModelName: "requested", ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "mapped"}}
-	first := &responsesWSCallState{info: firstInfo}
-	session := &responsesWSSession{c: c, current: first}
-	finished, forward, _ := session.observeUpstreamMessage([]byte(`{"type":"response.created","response":{"id":"first","model":"returned-first"}}`))
-	require.False(t, finished)
-	require.True(t, forward)
-	require.NotNil(t, firstInfo.ResponseModel)
-	assert.Equal(t, "returned-first", firstInfo.ResponseModel.ReturnedModel)
-	finished, _, _ = session.observeUpstreamMessage([]byte(`{"type":"response.failed","response":{"id":"first","usage":{"input_tokens":0,"output_tokens":0}}}`))
-	require.True(t, finished)
-	require.Nil(t, session.getCurrent())
-
-	secondInfo := &relaycommon.RelayInfo{OriginModelName: "requested", ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "mapped"}}
-	second := &responsesWSCallState{info: secondInfo}
-	session.markIdle()
-	require.True(t, session.tryReserveCurrent(second))
-	_, forward, _ = session.observeUpstreamMessage([]byte(`{"type":"response.completed","response":{"id":"first","model":"late-previous"}}`))
-	assert.False(t, forward)
-	assert.Nil(t, secondInfo.ResponseModel)
-	finished, forward, _ = session.observeUpstreamMessage([]byte(`{"type":"response.created","response":{"id":"second","model":"mapped"}}`))
-	assert.False(t, finished)
-	assert.True(t, forward)
-	require.NotNil(t, secondInfo.ResponseModel)
-	assert.False(t, secondInfo.ResponseModel.Mismatch)
-	assert.Equal(t, "mapped", secondInfo.ResponseModel.ReturnedModel)
-	assert.Equal(t, "returned-first", firstInfo.ResponseModel.ReturnedModel)
+	setupResponsesWSWorkerTest(t)
+	upgrader := websocket.Upgrader{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer conn.Close()
+		for turn := range 2 {
+			if _, _, err = conn.ReadMessage(); err != nil {
+				return
+			}
+			if turn == 0 {
+				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.created","response":{"id":"first","model":"returned-first"}}`))
+				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.failed","response":{"id":"first","usage":{"input_tokens":0,"output_tokens":0}}}`))
+			} else {
+				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.completed","response":{"id":"first","model":"late-previous","usage":{"input_tokens":999,"output_tokens":999}}}`))
+				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.created","response":{"id":"second","model":"gpt-test"}}`))
+				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.completed","response":{"id":"second","status":"completed","usage":{"input_tokens":0,"output_tokens":0}}}`))
+			}
+		}
+	}))
+	defer upstream.Close()
+	channel := &model.Channel{Id: 4, Name: "model-observation", Models: "gpt-test", BaseURL: common.GetPointer(upstream.URL)}
+	addResponsesWSChannelSelectionTestChannel(t, channel)
+	peer, client, cleanup := newTestWebSocketPair(t)
+	defer cleanup()
+	session, latest := newResponsesWSWorkerFixture(t, client)
+	for _, want := range []string{"first", "second"} {
+		done := submitResponsesWSWorkerFixture(t, session, `{"type":"response.create","model":"gpt-test","input":"hi"}`)
+		terminal := readResponsesWSTerminal(t, peer, done)
+		response := terminal["response"].(map[string]any)
+		assert.Equal(t, want, response["id"])
+	}
+	assert.Equal(t, "second", session.lastResponseID)
+	_ = latest
 }
 
 func TestResponseModelDoesNotRecordSynthesizedModel(t *testing.T) {

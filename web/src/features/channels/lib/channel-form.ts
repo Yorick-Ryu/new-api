@@ -19,10 +19,17 @@ For commercial licensing, please contact support@quantumnous.com
 import { z } from 'zod'
 
 import {
+  CLAUDE_FIELD_PASSTHROUGH_TYPES,
   CHANNEL_TYPE_NEW_API,
+  CHANNEL_TYPE_OLLAMA,
+  CHANNEL_TYPE_TASK_PLUGIN,
+  CHANNEL_TYPE_VLLM,
+  CHANNEL_TYPE_SGLANG,
   CHANNEL_STATUS,
   ERROR_MESSAGES,
+  FIELD_PASSTHROUGH_TYPES,
   MODEL_FETCHABLE_TYPES,
+  OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../constants'
 import type { Channel } from '../types'
 import {
@@ -33,6 +40,11 @@ import {
   stringifyAdvancedCustomConfig,
   validateAdvancedCustomConfig,
 } from './advanced-custom'
+import {
+  normalizeResponsesTransport,
+  responsesWebSocketDefaultEnabled,
+  supportsResponsesWebSocket,
+} from './responses-websocket'
 
 // ============================================================================
 // Form Validation Schema
@@ -198,6 +210,7 @@ export const channelFormSchema = z
     name: z.string().min(1, ERROR_MESSAGES.REQUIRED_NAME),
     type: z.number().min(0, ERROR_MESSAGES.REQUIRED_TYPE),
     base_url: z.string().optional(),
+    task_plugin_key: z.string().optional(),
     key: z.string(),
     openai_organization: z.string().optional(),
     models: z.string().min(1, ERROR_MESSAGES.REQUIRED_MODELS),
@@ -259,6 +272,7 @@ export const channelFormSchema = z
     http_protocol: z.enum(['auto', 'http1']).optional(),
     http2_connection_shards: z.number().int().optional(),
     pass_through_body_enabled: z.boolean().optional(),
+    responses_websocket_enabled: z.boolean().optional(),
     system_prompt: z.string().optional(),
     system_prompt_override: z.boolean().optional(),
     // Type-specific settings (stored in settings JSON)
@@ -277,6 +291,7 @@ export const channelFormSchema = z
     allow_inference_geo: z.boolean().optional(), // OpenAI/Anthropic: inference geography
     allow_speed: z.boolean().optional(), // Anthropic: speed mode control
     claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
+    ollama_openai_chat: z.boolean().optional(), // Ollama: OpenAI-compatible /v1/chat/completions instead of native /api/chat
     disable_task_polling_sleep: z.boolean().optional(),
     // Upstream model update settings (stored in settings JSON)
     upstream_model_update_check_enabled: z.boolean().optional(),
@@ -285,7 +300,16 @@ export const channelFormSchema = z
   })
   .superRefine((data, ctx) => {
     if (
-      [3, 8, 36, 45, CHANNEL_TYPE_NEW_API].includes(data.type) &&
+      [
+        3,
+        8,
+        36,
+        45,
+        CHANNEL_TYPE_NEW_API,
+        CHANNEL_TYPE_TASK_PLUGIN,
+        CHANNEL_TYPE_VLLM,
+        CHANNEL_TYPE_SGLANG,
+      ].includes(data.type) &&
       !data.base_url?.trim()
     ) {
       addRequiredIssue(
@@ -293,6 +317,12 @@ export const channelFormSchema = z
         'base_url',
         'Base URL is required for this channel type'
       )
+    }
+    if (
+      data.type === CHANNEL_TYPE_TASK_PLUGIN &&
+      !data.task_plugin_key?.trim()
+    ) {
+      addRequiredIssue(ctx, 'task_plugin_key', 'Task plugin is required')
     }
 
     if (data.type === CHANNEL_TYPE_ADVANCED_CUSTOM) {
@@ -405,6 +435,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   name: '',
   type: 1,
   base_url: '',
+  task_plugin_key: '',
   key: '',
   openai_organization: '',
   models: '',
@@ -434,6 +465,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   http_protocol: HTTP_PROTOCOL_AUTO,
   http2_connection_shards: 1,
   pass_through_body_enabled: false,
+  responses_websocket_enabled: false,
   system_prompt: '',
   system_prompt_override: false,
   // Type-specific settings
@@ -450,6 +482,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   allow_inference_geo: false,
   allow_speed: false,
   claude_beta_query: false,
+  ollama_openai_chat: false,
   disable_task_polling_sleep: false,
   upstream_model_update_check_enabled: false,
   upstream_model_update_auto_sync_enabled: false,
@@ -467,14 +500,29 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
 export function transformChannelToFormDefaults(
   channel: Channel
 ): ChannelFormValues {
+  // Either legacy settings field can contain the original explicit opt-in.
+  // Preserve it when saving the newer field, while keeping explicit false.
+  const responsesWebSocketDefault =
+    responsesWebSocketDefaultEnabled(channel.type) ||
+    [channel.setting, channel.settings].some((settings) => {
+      if (!settings || !supportsResponsesWebSocket(channel.type)) return false
+      try {
+        return JSON.parse(settings).responses_websocket_enabled === true
+      } catch {
+        return false
+      }
+    })
+
   // Parse channel extra settings from setting field
   let extraSettings = {
+    task_plugin_key: '',
     force_format: false,
     thinking_to_content: false,
     proxy: '',
     http_protocol: HTTP_PROTOCOL_AUTO as 'auto' | 'http1',
     http2_connection_shards: 1,
     pass_through_body_enabled: false,
+    responses_websocket_enabled: responsesWebSocketDefault,
     system_prompt: '',
     system_prompt_override: false,
   }
@@ -487,12 +535,17 @@ export function transformChannelToFormDefaults(
         parsed.http2_connection_shards
       )
       extraSettings = {
+        task_plugin_key: parsed.task_plugin_key || '',
         force_format: parsed.force_format || false,
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
         http_protocol: protocol,
         http2_connection_shards: protocol === HTTP_PROTOCOL_HTTP1 ? 1 : shards,
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
+        responses_websocket_enabled:
+          supportsResponsesWebSocket(channel.type) &&
+          (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
+            true,
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
       }
@@ -505,7 +558,8 @@ export function transformChannelToFormDefaults(
   // Parse type-specific settings from settings field
   let vertexKeyType: 'json' | 'api_key' = 'json'
   let azureResponsesVersion = ''
-  let responsesTransport: 'both' | 'http' | 'websocket' | 'none' = 'both'
+  let responsesTransport: 'both' | 'http' | 'websocket' | 'none' =
+    responsesWebSocketDefault ? 'both' : 'http'
   let isEnterpriseAccount = false
   let awsKeyType: 'ak_sk' | 'api_key' = 'ak_sk'
   let allowServiceTier = false
@@ -515,6 +569,7 @@ export function transformChannelToFormDefaults(
   let allowInferenceGeo = false
   let allowSpeed = false
   let claudeBetaQuery = false
+  let ollamaOpenAIChat = false
   let disableTaskPollingSleep = false
   let upstreamModelUpdateCheckEnabled = false
   let upstreamModelUpdateAutoSyncEnabled = false
@@ -528,8 +583,12 @@ export function transformChannelToFormDefaults(
       azureResponsesVersion = parsed.azure_responses_version || ''
       const responsesHTTPEnabled = parsed.responses_http_enabled !== false
       const responsesWebSocketEnabled =
-        parsed.responses_websocket_enabled !== false
-      if (responsesHTTPEnabled && !responsesWebSocketEnabled) {
+        supportsResponsesWebSocket(channel.type) &&
+        (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
+          true
+      if (responsesHTTPEnabled && responsesWebSocketEnabled) {
+        responsesTransport = 'both'
+      } else if (responsesHTTPEnabled && !responsesWebSocketEnabled) {
         responsesTransport = 'http'
       } else if (!responsesHTTPEnabled && responsesWebSocketEnabled) {
         responsesTransport = 'websocket'
@@ -545,6 +604,7 @@ export function transformChannelToFormDefaults(
       allowInferenceGeo = parsed.allow_inference_geo === true
       allowSpeed = parsed.allow_speed === true
       claudeBetaQuery = parsed.claude_beta_query === true
+      ollamaOpenAIChat = parsed.ollama_openai_chat === true
       disableTaskPollingSleep = parsed.disable_task_polling_sleep === true
       upstreamModelUpdateCheckEnabled =
         parsed.upstream_model_update_check_enabled === true
@@ -604,6 +664,7 @@ export function transformChannelToFormDefaults(
     allow_inference_geo: allowInferenceGeo,
     allow_speed: allowSpeed,
     claude_beta_query: claudeBetaQuery,
+    ollama_openai_chat: ollamaOpenAIChat,
     disable_task_polling_sleep: disableTaskPollingSleep,
     allow_safety_identifier: allowSafetyIdentifier,
     upstream_model_update_check_enabled: upstreamModelUpdateCheckEnabled,
@@ -618,10 +679,19 @@ export function transformChannelToFormDefaults(
  */
 export function buildSettingJSON(formData: ChannelFormValues): string {
   const settingObj: Record<string, unknown> = {
+    task_plugin_key:
+      formData.type === CHANNEL_TYPE_TASK_PLUGIN
+        ? formData.task_plugin_key?.trim() || ''
+        : undefined,
     force_format: formData.force_format || false,
     thinking_to_content: formData.thinking_to_content || false,
     proxy: formData.proxy?.trim() || '',
-    pass_through_body_enabled: formData.pass_through_body_enabled || false,
+    pass_through_body_enabled:
+      formData.type !== CHANNEL_TYPE_ADVANCED_CUSTOM &&
+      formData.pass_through_body_enabled === true,
+    responses_websocket_enabled:
+      supportsResponsesWebSocket(formData.type) &&
+      formData.responses_websocket_enabled === true,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
   }
@@ -672,7 +742,9 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     delete settingsObj.azure_responses_version
   }
 
-  switch (formData.responses_transport) {
+  switch (
+    normalizeResponsesTransport(formData.type, formData.responses_transport)
+  ) {
     case 'http':
       settingsObj.responses_http_enabled = true
       settingsObj.responses_websocket_enabled = false
@@ -687,7 +759,13 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       break
     default:
       delete settingsObj.responses_http_enabled
-      delete settingsObj.responses_websocket_enabled
+      if (responsesWebSocketDefaultEnabled(formData.type)) {
+        delete settingsObj.responses_websocket_enabled
+      } else {
+        settingsObj.responses_websocket_enabled = supportsResponsesWebSocket(
+          formData.type
+        )
+      }
   }
 
   // Add enterprise account setting for OpenRouter (type 20)
@@ -705,21 +783,21 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
   }
 
   // Field passthrough controls:
-  // - OpenAI (type 1) and Anthropic (type 14): allow_service_tier
-  // - OpenAI only: disable_store, allow_safety_identifier
-  if (formData.type === 1 || formData.type === 14 || formData.type === 57) {
+  // - OpenAI, Anthropic, Codex, and New API: allow_service_tier
+  // - OpenAI request fields: OpenAI, Codex, and New API
+  // - Claude request fields: Anthropic and New API
+  if (FIELD_PASSTHROUGH_TYPES.has(formData.type)) {
     settingsObj.allow_service_tier = formData.allow_service_tier === true
   } else if ('allow_service_tier' in settingsObj) {
     delete settingsObj.allow_service_tier
   }
 
-  if (formData.type === 1 || formData.type === 57) {
+  if (OPENAI_FIELD_PASSTHROUGH_TYPES.has(formData.type)) {
     settingsObj.disable_store = formData.disable_store === true
     settingsObj.allow_safety_identifier =
       formData.allow_safety_identifier === true
     settingsObj.allow_include_obfuscation =
       formData.allow_include_obfuscation === true
-    settingsObj.allow_inference_geo = formData.allow_inference_geo === true
   } else {
     if ('disable_store' in settingsObj) {
       delete settingsObj.disable_store
@@ -730,23 +808,35 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     if ('allow_include_obfuscation' in settingsObj) {
       delete settingsObj.allow_include_obfuscation
     }
-    if (formData.type !== 14 && 'allow_inference_geo' in settingsObj) {
-      delete settingsObj.allow_inference_geo
-    }
   }
 
-  // Anthropic (type 14): claude_beta_query, allow_inference_geo, allow_speed
-  if (formData.type === 14) {
+  if (
+    OPENAI_FIELD_PASSTHROUGH_TYPES.has(formData.type) ||
+    CLAUDE_FIELD_PASSTHROUGH_TYPES.has(formData.type)
+  ) {
     settingsObj.allow_inference_geo = formData.allow_inference_geo === true
+  } else if ('allow_inference_geo' in settingsObj) {
+    delete settingsObj.allow_inference_geo
+  }
+
+  if (CLAUDE_FIELD_PASSTHROUGH_TYPES.has(formData.type)) {
     settingsObj.allow_speed = formData.allow_speed === true
+  } else if ('allow_speed' in settingsObj) {
+    delete settingsObj.allow_speed
+  }
+
+  // Only the Anthropic adaptor supports forcing the Claude beta query.
+  if (formData.type === 14) {
     settingsObj.claude_beta_query = formData.claude_beta_query === true
-  } else {
-    if ('allow_speed' in settingsObj) {
-      delete settingsObj.allow_speed
-    }
-    if ('claude_beta_query' in settingsObj) {
-      delete settingsObj.claude_beta_query
-    }
+  } else if ('claude_beta_query' in settingsObj) {
+    delete settingsObj.claude_beta_query
+  }
+
+  // Only the Ollama adaptor can switch chat completions to the OpenAI-compatible endpoint.
+  if (formData.type === CHANNEL_TYPE_OLLAMA) {
+    settingsObj.ollama_openai_chat = formData.ollama_openai_chat === true
+  } else if ('ollama_openai_chat' in settingsObj) {
+    delete settingsObj.ollama_openai_chat
   }
 
   settingsObj.disable_task_polling_sleep =

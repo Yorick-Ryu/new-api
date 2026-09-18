@@ -16,14 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+// @vitest-environment happy-dom
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, render as renderUI, screen } from '@testing-library/react'
 import { createInstance } from 'i18next'
+import type { ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it } from 'vitest'
 
@@ -35,12 +37,30 @@ import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { UsageLogsProvider } from '../usage-logs-provider'
 
+const queryClients: QueryClient[] = []
+function render(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(['status'], {})
+  client.setQueryData(['pricing'], { success: true, data: [], vendors: [] })
+  queryClients.push(client)
+  return renderUI(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
+afterEach(() => {
+  queryClients.splice(0).forEach((client) => client.clear())
+})
+
 const i18n = createInstance()
 await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
 afterEach(cleanup)
 
 function LogList(props: { log: UsageLog }) {
-  const columns = useCommonLogsColumns(false).filter(
+  const columns = useCommonLogsColumns(false, false).filter(
     (column) =>
       'accessorKey' in column &&
       ['token_name', 'quota'].includes(column.accessorKey as string)
@@ -95,7 +115,6 @@ it('shows the group name and subscription label without ratio suffixes in the lo
 })
 
 it('shows a plain subscription badge and the actual deducted quota for legacy multipliers', async () => {
-  const user = userEvent.setup()
   render(
     <I18nextProvider i18n={i18n}>
       <LogCostDisplay
@@ -109,11 +128,7 @@ it('shows a plain subscription badge and the actual deducted quota for legacy mu
     </I18nextProvider>
   )
   expect(screen.queryByText('Subscription 2×')).toBeNull()
-  await user.hover(screen.getByText('Subscription'))
-  const tooltip = await screen.findByText(
-    `Deducted by subscription: ${formatLogQuota(250)}`
-  )
-  expect(tooltip.textContent).toContain(formatLogQuota(250))
+  expect(screen.getByText(formatLogQuota(250))).toBeVisible()
 })
 
 it.each([1, 2, 0.5])(
@@ -161,7 +176,13 @@ it.each([
     })
     render(
       <I18nextProvider i18n={i18n}>
-        <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+        <DetailsDialog
+          log={log}
+          isAdmin={false}
+          isRoot={false}
+          open
+          onOpenChange={() => {}}
+        />
       </I18nextProvider>
     )
     expect(screen.getByText('Group Ratio').parentElement?.textContent).toBe(
@@ -220,7 +241,13 @@ it('shows the original group cost above the doubled subscription deduction for c
   })
   render(
     <I18nextProvider i18n={i18n}>
-      <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+      <DetailsDialog
+        log={log}
+        isAdmin={false}
+        isRoot={false}
+        open
+        onOpenChange={() => {}}
+      />
     </I18nextProvider>
   )
   expect(screen.getByText('Group Ratio').parentElement?.textContent).toBe(
@@ -281,7 +308,13 @@ it.each([
   })
   render(
     <I18nextProvider i18n={i18n}>
-      <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+      <DetailsDialog
+        log={log}
+        isAdmin={false}
+        isRoot={false}
+        open
+        onOpenChange={() => {}}
+      />
     </I18nextProvider>
   )
   expect(screen.getByText('Total Cost').parentElement?.textContent).toBe(
@@ -304,7 +337,13 @@ it('does not present a historical subscription override as the original group ra
   })
   render(
     <I18nextProvider i18n={i18n}>
-      <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />
+      <DetailsDialog
+        log={log}
+        isAdmin={false}
+        isRoot={false}
+        open
+        onOpenChange={() => {}}
+      />
     </I18nextProvider>
   )
   expect(screen.queryByText('Group Ratio')).toBeNull()

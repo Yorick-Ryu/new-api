@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import { resetPlanSubscriptions } from '../../api'
 import { formatQuotaWindowPeriod, parseQuotaWindows } from '../../lib'
@@ -70,9 +71,11 @@ export function ResetSubscriptionsDialog() {
         )
         triggerRefresh()
         setOpen(null)
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
       setResetting(false)
     }

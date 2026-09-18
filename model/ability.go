@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -105,50 +105,39 @@ func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
 	return channelQuery, nil
 }
 
-func GetChannel(group string, model string, retry int, requestPath string, transport constant.ResponsesTransport) (*Channel, error) {
+func GetChannel(
+	group string,
+	model string,
+	retry int,
+	filters []dto.ChannelFilter,
+) (*Channel, error) {
 	var abilities []Ability
-
-	var err error
-	if transport == constant.ResponsesTransportNone {
-		channelQuery, queryErr := getChannelQuery(group, model, retry)
-		if queryErr != nil {
-			return nil, queryErr
-		}
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	} else {
-		err = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
-			Order("weight DESC").
-			Find(&abilities).Error
-	}
+	err := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).Order("priority DESC, weight DESC").Find(&abilities).Error
 	if err != nil {
 		return nil, err
 	}
-	abilities = filterAbilitiesForRequest(abilities, requestPath, model, transport)
-	if transport != constant.ResponsesTransportNone && len(abilities) > 0 {
-		priorities := make(map[int64]struct{})
+	abilities = filterAbilitiesByConstraints(abilities, model, filters)
+	if len(abilities) > 0 {
+		priorities := make([]int64, 0)
+		seen := make(map[int64]bool)
 		for _, ability := range abilities {
+			priority := int64(0)
 			if ability.Priority != nil {
-				priorities[*ability.Priority] = struct{}{}
+				priority = *ability.Priority
+			}
+			if !seen[priority] {
+				seen[priority] = true
+				priorities = append(priorities, priority)
 			}
 		}
-		sortedPriorities := make([]int64, 0, len(priorities))
-		for priority := range priorities {
-			sortedPriorities = append(sortedPriorities, priority)
+		sort.Slice(priorities, func(i, j int) bool { return priorities[i] > priorities[j] })
+		if retry >= len(priorities) {
+			retry = len(priorities) - 1
 		}
-		sort.Slice(sortedPriorities, func(i, j int) bool {
-			return sortedPriorities[i] > sortedPriorities[j]
+		targetPriority := priorities[retry]
+		abilities = lo.Filter(abilities, func(ability Ability, _ int) bool {
+			return ability.Priority == nil && targetPriority == 0 || ability.Priority != nil && *ability.Priority == targetPriority
 		})
-		if retry >= len(sortedPriorities) {
-			retry = len(sortedPriorities) - 1
-		}
-		targetPriority := sortedPriorities[retry]
-		filtered := make([]Ability, 0, len(abilities))
-		for _, ability := range abilities {
-			if ability.Priority != nil && *ability.Priority == targetPriority {
-				filtered = append(filtered, ability)
-			}
-		}
-		abilities = filtered
 	}
 	channel := Channel{}
 	if len(abilities) > 0 {
@@ -174,14 +163,12 @@ func GetChannel(group string, model string, retry int, requestPath string, trans
 	return &channel, err
 }
 
-// filterAbilitiesForRequest mirrors the cached channel filter for the DB
-// selection path.
-func filterAbilitiesForRequest(abilities []Ability, requestPath string, model string, transport constant.ResponsesTransport) []Ability {
+// filterAbilitiesByConstraints applies the same ChannelSatisfiesFilters
+// predicate used by the memory-cache path. A failed channel lookup fails
+// closed when a task-plugin identity is required and fails open otherwise.
+func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters []dto.ChannelFilter) []Ability {
 	if len(abilities) == 0 {
-		return abilities
-	}
-	if requestPath == "" && transport == constant.ResponsesTransportNone {
-		return abilities
+		return nil
 	}
 
 	channelIds := make([]int, 0, len(abilities))
@@ -196,10 +183,9 @@ func filterAbilitiesForRequest(abilities []Ability, requestPath string, model st
 
 	var channels []*Channel
 	if err := DB.Where("id IN ?", channelIds).Find(&channels).Error; err != nil {
-		if transport != constant.ResponsesTransportNone {
+		if identityFilterRequiresKey(filters) || len(filtersByKind(filters, dto.FilterResponsesTransport)) > 0 || len(filtersByKind(filters, dto.FilterResponsesWebSocket)) > 0 {
 			return nil
 		}
-		// Preserve the legacy fallback for non-Responses selection.
 		return abilities
 	}
 
@@ -210,24 +196,21 @@ func filterAbilitiesForRequest(abilities []Ability, requestPath string, model st
 
 	filtered := make([]Ability, 0, len(abilities))
 	for _, ability := range abilities {
-		channel, ok := channelsByID[ability.ChannelId]
-		if !ok {
-			continue
+		channel := channelsByID[ability.ChannelId]
+		if ok, _ := ChannelSatisfiesFilters(channel, modelName, filters); ok {
+			filtered = append(filtered, ability)
 		}
-		if !channel.SupportsResponsesTransport(transport) {
-			continue
-		}
-		if channel.Type == constant.ChannelTypeAdvancedCustom && requestPath != "" {
-			config := channel.GetOtherSettings().AdvancedCustom
-			if config == nil || !config.SupportsPathForModel(requestPath, model) {
-				continue
-			}
-		}
-		priority := channel.GetPriority()
-		ability.Priority = &priority
-		filtered = append(filtered, ability)
 	}
 	return filtered
+}
+
+func identityFilterRequiresKey(filters []dto.ChannelFilter) bool {
+	for _, filter := range filters {
+		if filter.Kind == dto.FilterTaskPluginIdentity && filter.TaskPluginKey != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {
@@ -303,7 +286,7 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	}
 
 	// Then add new abilities
-	models_ := strings.Split(channel.Models, ",")
+	models_ := channel.GetModels()
 	groups_ := strings.Split(channel.Group, ",")
 	abilitySet := make(map[string]struct{})
 	abilities := make([]Ability, 0, len(models_))

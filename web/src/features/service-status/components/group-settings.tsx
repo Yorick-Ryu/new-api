@@ -80,7 +80,7 @@ export function GroupSettings(props: {
               title={description || group.group}
             >
               {description || group.group}
-            </span>
+            </span>{' '}
             {description && description !== group.group && (
               <span
                 className='text-muted-foreground max-w-[50%] shrink-0 truncate text-xs font-normal'

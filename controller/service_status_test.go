@@ -21,19 +21,28 @@ func TestServiceStatusSeparatesGroupsAndWeightsActualRequests(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&model.PerfMetric{}))
 	at := time.Now().Truncate(time.Hour).Add(-6 * time.Hour).Unix()
 	rows := []model.PerfMetric{
-		{ModelName: "alpha", Group: "default", BucketTs: at, RequestCount: 9, SuccessCount: 9, TotalLatencyMs: 9000, TtftSumMs: 900, TtftCount: 9, OutputTokens: 900, GenerationMs: 9000},
-		{ModelName: "alpha", Group: "default", BucketTs: at + 3600, RequestCount: 1, TotalLatencyMs: 9000, OutputTokens: 100, GenerationMs: 1000},
-		{ModelName: "alpha", Group: "premium", BucketTs: at, RequestCount: 3, SuccessCount: 1, TotalLatencyMs: 3000},
-		{ModelName: "old", Group: "default", BucketTs: at - 8*24*3600, RequestCount: 1},
-		{ModelName: "future", Group: "default", BucketTs: at + 8*24*3600, RequestCount: 1},
+		{ModelName: "alpha", Group: "status-fixture-default", BucketTs: at, RequestCount: 9, SuccessCount: 9, TotalLatencyMs: 9000, TtftSumMs: 900, TtftCount: 9, OutputTokens: 900, GenerationMs: 9000},
+		{ModelName: "alpha", Group: "status-fixture-default", BucketTs: at + 3600, RequestCount: 1, TotalLatencyMs: 9000, OutputTokens: 100, GenerationMs: 1000},
+		{ModelName: "alpha", Group: "status-fixture-premium", BucketTs: at, RequestCount: 3, SuccessCount: 1, TotalLatencyMs: 3000},
+		{ModelName: "old", Group: "status-fixture-default", BucketTs: at - 8*24*3600, RequestCount: 1},
+		{ModelName: "future", Group: "status-fixture-default", BucketTs: at + 8*24*3600, RequestCount: 1},
 	}
 	require.NoError(t, db.Create(&rows).Error)
 	result, err := perfmetrics.QueryServiceStatus(context.Background(), 24)
 	require.NoError(t, err)
+	// Other relay tests leave valid process-wide hot metrics. Query our
+	// fixture groups independently while still checking old/future exclusion.
+	groups := result.Groups[:0]
+	for _, group := range result.Groups {
+		if group.Group == "status-fixture-default" || group.Group == "status-fixture-premium" {
+			groups = append(groups, group)
+		}
+	}
+	result.Groups = groups
 	require.Len(t, result.Groups, 2)
 	require.Len(t, result.Groups[0].Models, 1)
 	item := result.Groups[0].Models[0]
-	assert.Equal(t, "default", result.Groups[0].Group)
+	assert.Equal(t, "status-fixture-default", result.Groups[0].Group)
 	assert.Equal(t, "alpha", item.ModelName)
 	assert.InDelta(t, 90, *item.SuccessRate, 0.001)
 	assert.InDelta(t, 1800, *item.AvgLatencyMs, 0.001)

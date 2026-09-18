@@ -27,11 +27,14 @@ func convertChatCompatibilityRequest(t *testing.T, request *dto.GeneralOpenAIReq
 	t.Cleanup(func() { gin.SetMode(oldMode) })
 	settings := model_setting.GetGlobalSettings()
 	oldPassThrough, oldBlacklist := settings.PassThroughRequestEnabled, settings.ThinkingModelBlacklist
+	oldEffortTailModels := settings.EffortTailModelIDs
 	settings.PassThroughRequestEnabled = false
 	settings.ThinkingModelBlacklist = nil
+	settings.EffortTailModelIDs = []string{"gpt-5.1-codex-max"}
 	t.Cleanup(func() {
 		settings.PassThroughRequestEnabled = oldPassThrough
 		settings.ThinkingModelBlacklist = oldBlacklist
+		settings.EffortTailModelIDs = oldEffortTailModels
 	})
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -53,6 +56,7 @@ func convertChatCompatibilityRequest(t *testing.T, request *dto.GeneralOpenAIReq
 		},
 	}
 	require.NoError(t, helper.ModelMappedHelper(c, info, request))
+	require.NoError(t, helper.ApplyReasoningModelSuffix(c, info, request))
 	var converted any
 	var err error
 	if channelType == constant.ChannelTypeAli {
@@ -97,10 +101,6 @@ func TestChannelTestOpenAIChatCompatibility(t *testing.T) {
 			if tt.stream {
 				want["stream_options"] = map[string]any{"include_usage": true}
 			}
-			if tt.channelType == constant.ChannelTypeAli {
-				// Preserve this branch's existing Ali sampling default.
-				want["top_p"] = 0.001
-			}
 			wantJSON, err := common.Marshal(want)
 			require.NoError(t, err)
 			assert.JSONEq(t, string(wantJSON), string(encoded))
@@ -137,6 +137,9 @@ func TestOpenAIChatSamplingCompatibility(t *testing.T) {
 		{name: "GPT6 snapshot", model: "gpt-6-astra-2026-09-03", wantRole: "developer", wantParams: `{}`},
 		{name: "GPT6 effort suffix", model: "gpt-6-astra-high", wantModel: "gpt-6-astra", wantEffort: "high", wantRole: "developer", wantParams: `{}`},
 		{name: "none effort suffix", model: "gpt-5.2-none", wantModel: "gpt-5.2", wantEffort: "none", wantRole: "developer", wantParams: sampling},
+		{name: "modifier overrides explicit effort", model: "gpt-5.2@thinking:off", effort: "high", wantModel: "gpt-5.2", wantEffort: "none", wantRole: "developer", wantParams: sampling},
+		{name: "mapped modifier wins", model: "customer-model@thinking:off", mapping: map[string]string{"customer-model": "gpt-5.2@effort:high"}, wantModel: "gpt-5.2", wantEffort: "high", wantRole: "developer", wantParams: `{}`},
+		{name: "nested reasoning disabled", model: "gpt-5.2", reasoning: `{"enabled":false}`, wantEffort: "none", wantRole: "developer", wantParams: sampling},
 		{name: "o1 mini role exception", model: "o1-mini", wantRole: "system", wantParams: `{"top_p":0.8,"logprobs":true,"top_logprobs":5}`},
 		{name: "GPT4 unchanged", model: "gpt-4.1", wantRole: "system", wantParams: sampling},
 		{name: "future model unchanged", model: "gpt-7", wantRole: "system", wantParams: sampling},

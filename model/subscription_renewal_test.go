@@ -102,7 +102,7 @@ func TestSubscriptionRenewalCallbacksAreIdempotentAcrossGateways(t *testing.T) {
 			require.NoError(t, order.Insert())
 			require.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "", "wrong-provider", "", "203.0.113.10"), ErrPaymentMethodMismatch)
 			var failedLogs int64
-			require.NoError(t, DB.Model(&Log{}).Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Count(&failedLogs).Error)
+			require.NoError(t, LOG_DB.Model(&Log{}).Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Count(&failedLogs).Error)
 			assert.Zero(t, failedLogs)
 			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, "", "203.0.113.10"))
 			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "", provider, "", "203.0.113.11"))
@@ -117,7 +117,7 @@ func TestSubscriptionRenewalCallbacksAreIdempotentAcrossGateways(t *testing.T) {
 			assert.Equal(t, sub.Id, completed.RenewalSourceId)
 			assert.Equal(t, sub.EndTime, completed.RenewalDueTime)
 			var logs []*Log
-			require.NoError(t, DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Find(&logs).Error)
+			require.NoError(t, LOG_DB.Where("user_id = ? AND type = ?", user.Id, LogTypeTopup).Find(&logs).Error)
 			require.Len(t, logs, 1)
 			assert.Equal(t, "203.0.113.10", logs[0].Ip)
 			var details struct {

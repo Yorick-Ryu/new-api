@@ -22,12 +22,6 @@ func TestAutoBanEndpointsEnforceAdministratorPermission(t *testing.T) {
 	t.Cleanup(func() { auto_ban.PublishSnapshot(previous) })
 	db := setupManageUserTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.AutoBanEvent{}, &model.Token{}))
-	audited := make(chan error, 1)
-	require.NoError(t, db.Callback().Create().After("gorm:commit_or_rollback_transaction").Register("test:auto_ban_audit_completed", func(tx *gorm.DB) {
-		if log, ok := tx.Statement.Dest.(*model.Log); ok && log.Type == model.LogTypeManage {
-			audited <- tx.Error
-		}
-	}))
 	router := gin.New()
 	group := router.Group("/api/auto-ban", middleware.AdminAuth())
 	group.GET("/", GetAutoBanSettings)
@@ -55,15 +49,12 @@ func TestAutoBanEndpointsEnforceAdministratorPermission(t *testing.T) {
 			} else {
 				assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 			}
-			// AdminAuth can write its audit asynchronously. Finish that write
-			// before another request or the fixture restores the global DB.
+			// The upstream audit pipeline writes management events synchronously
+			// to its dedicated table, including rejected administrator writes.
 			if role >= common.RoleAdminUser && (route.method == "PUT" || route.method == "POST") {
-				select {
-				case err := <-audited:
-					require.NoError(t, err)
-				case <-time.After(5 * time.Second):
-					t.Fatal("administrator write did not finish its audit log")
-				}
+				var count int64
+				require.NoError(t, model.LOG_DB.Model(&model.AuditLog{}).Where("user_id = ? AND category = ? AND method = ? AND route = ?", user.Id, model.AuditCategoryOperation, route.method, route.path).Count(&count).Error)
+				require.EqualValues(t, 1, count, "administrator write must produce one operation audit")
 			}
 		}
 	}

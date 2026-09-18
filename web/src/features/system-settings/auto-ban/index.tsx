@@ -59,7 +59,7 @@ export function AutoBanEditor(props: {
       form.reset(settings)
       toast.success(t('Automatic ban settings saved'))
     },
-    onError: handleServerError,
+    onError: (error) => handleServerError(error),
   })
   const submit = form.handleSubmit((settings) => mutation.mutate(settings))
   return (

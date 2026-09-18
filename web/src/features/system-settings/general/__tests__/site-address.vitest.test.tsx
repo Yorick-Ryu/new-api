@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createRootRoute,
@@ -57,6 +58,7 @@ async function openSettings() {
         <SystemInfoSection
           defaultValues={{
             SystemName: 'New API',
+            TaskPublicAddress: '',
             ServerAddress: 'https://api.example.com',
             SiteAddress: 'https://example.com',
             SiteAllowedOrigins: 'https://www.example.com',

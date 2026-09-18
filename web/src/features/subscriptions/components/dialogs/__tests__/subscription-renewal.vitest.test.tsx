@@ -16,9 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+// @vitest-environment happy-dom
+import {
+  cleanup,
+  render as renderUI,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
+import type { ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it, vi } from 'vitest'
 
@@ -26,6 +34,23 @@ import { api } from '@/lib/api'
 
 import { subscriptionPlanSchema, type UserSubscription } from '../../../types'
 import { SubscriptionPurchaseDialog } from '../subscription-purchase-dialog'
+
+const queryClients: QueryClient[] = []
+function render(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(['status'], {})
+  queryClients.push(client)
+  return renderUI(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
+afterEach(() => {
+  queryClients.splice(0).forEach((client) => client.clear())
+})
 
 const i18n = createInstance()
 await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })

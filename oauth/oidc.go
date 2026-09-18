@@ -53,8 +53,6 @@ func (p *OIDCProvider) ExchangeToken(ctx context.Context, code string, c *gin.Co
 		return nil, NewOAuthError(i18n.MsgOAuthInvalidCode, nil)
 	}
 
-	logger.LogDebug(ctx, "[OAuth-OIDC] ExchangeToken: code=%s...", code[:min(len(code), 10)])
-
 	settings := system_setting.GetOIDCSettings()
 	redirectUri, err := callbackURL(c, "oidc")
 	if err != nil {
@@ -177,4 +175,9 @@ func (p *OIDCProvider) SetProviderUserID(user *model.User, providerUserID string
 
 func (p *OIDCProvider) GetProviderPrefix() string {
 	return "oidc_"
+}
+
+// ProviderUserIDColumn returns the users-table column storing this provider's user ID.
+func (p *OIDCProvider) ProviderUserIDColumn() string {
+	return "oidc_id"
 }

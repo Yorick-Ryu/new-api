@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -46,8 +47,9 @@ func TestChannelAffinityWebSocketBodyAndRequestIsolation(t *testing.T) {
 	assert.Equal(t, 4, channelID)
 	MarkChannelAffinityUsed(c, "default", channelID)
 	assert.True(t, ShouldSkipRetryAfterChannelAffinityFailure(c))
-	adminInfo := map[string]interface{}{}
-	AppendChannelAffinityAdminInfo(c, adminInfo)
+	adminOther := model.NewLogOther()
+	AppendChannelAffinityAdminInfo(c, adminOther)
+	adminInfo, _ := adminOther.Snapshot()["admin_info"].(map[string]any)
 	assert.Contains(t, adminInfo, "channel_affinity")
 
 	// Explicit frame input must neither read nor replace the HTTP handshake body.
@@ -74,8 +76,9 @@ func TestChannelAffinityWebSocketBodyAndRequestIsolation(t *testing.T) {
 			_, hit = GetPreferredChannelByAffinityWithBody(c, tc.model, tc.group, []byte(tc.body))
 			assert.False(t, hit)
 			assert.False(t, ShouldSkipRetryAfterChannelAffinityFailure(c))
-			info := map[string]interface{}{}
-			AppendChannelAffinityAdminInfo(c, info)
+			other := model.NewLogOther()
+			AppendChannelAffinityAdminInfo(c, other)
+			info, _ := other.Snapshot()["admin_info"].(map[string]any)
 			assert.NotContains(t, info, "channel_affinity", "do not log the previous frame's binding")
 		})
 	}
@@ -100,7 +103,8 @@ func TestChannelAffinityWebSocketBodyAndRequestIsolation(t *testing.T) {
 	assert.False(t, found)
 	_, hasMeta := GetChannelAffinityStatsContext(c)
 	assert.False(t, hasMeta)
-	info := map[string]interface{}{}
-	AppendChannelAffinityAdminInfo(c, info)
+	other := model.NewLogOther()
+	AppendChannelAffinityAdminInfo(c, other)
+	info, _ := other.Snapshot()["admin_info"].(map[string]any)
 	assert.Empty(t, info)
 }

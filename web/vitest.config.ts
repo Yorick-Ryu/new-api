@@ -16,18 +16,47 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vitest/config'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig({
-  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   test: {
-    environment: 'happy-dom',
-    // The icon library's emoji dependency uses extensionless directory imports.
-    // Let Vite resolve those imports, as the application bundler does.
-    server: { deps: { inline: [/@lobehub\//] } },
-    include: ['src/**/*.vitest.test.{ts,tsx}'],
+    environment: 'jsdom',
+    server: {
+      deps: { inline: [/@lobehub\//, /antd-style/] },
+    },
+    setupFiles: ['./src/test-setup.ts'],
+    // Several heavy jsdom suites (channel-configuration, visual-billing-editor)
+    // legitimately take >5s per test on contended CI runners; the vitest
+    // default of 5000ms fails whichever of them crosses the line first. The
+    // heaviest test measures ~3.2s uncontended, so 20s keeps headroom for the
+    // ~4x slowdown observed on shared runners.
+    testTimeout: 20000,
+    clearMocks: true,
     restoreMocks: true,
+    exclude: [
+      'src/lib/__tests__/oauth.test.ts',
+      'src/features/channels/lib/__tests__/channel-responses-transport.test.ts',
+      'src/features/keys/components/dialogs/__tests__/cc-switch-dialog.test.ts',
+      'src/features/wallet/components/__tests__/subscription-quota-usage.test.tsx',
+      'src/features/dashboard/components/overview/__tests__/performance-health-panel-layout.test.ts',
+      'src/features/subscriptions/lib/__tests__/quota-windows.test.ts',
+      'src/features/subscriptions/components/__tests__/quota-windows-field.test.tsx',
+      'src/features/subscriptions/components/dialogs/__tests__/reset-subscriptions-dialog.test.tsx',
+      'src/features/redeem-code/components/__tests__/redemption-form.test.tsx',
+    ],
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'scripts/oxlint/__tests__/*.test.ts',
+    ],
   },
 })

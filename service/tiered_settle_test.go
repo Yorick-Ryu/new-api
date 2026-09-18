@@ -3,8 +3,11 @@ package service
 import (
 	"math"
 	"math/rand"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -514,6 +517,41 @@ func TestBillingSessionReserveWalletTopUpDecrementsBalance(t *testing.T) {
 	assert.Equal(t, 450_000, userQuota)
 }
 
+func TestBillingSessionImageReserveRefundRestoresWholeReservation(t *testing.T) {
+	for _, failToken := range []bool{false, true} {
+		t.Run(map[bool]string{false: "reserve succeeds", true: "token rejects extra reserve"}[failToken], func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 702, 500_000)
+			tokenQuota := 500_000
+			if failToken {
+				tokenQuota = 75_000
+			}
+			seedToken(t, 702, 702, "image-reserve-refund", tokenQuota)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			info := &relaycommon.RelayInfo{UserId: 702, TokenId: 702, TokenKey: "image-reserve-refund", ForcePreConsume: true, Request: &dto.ImageRequest{}}
+			info.UserSetting.BillingPreference = "wallet_only"
+			session, apiErr := NewBillingSession(ctx, info, 50_000)
+			require.Nil(t, apiErr)
+			if failToken {
+				require.Error(t, session.Reserve(100_000))
+				assert.Equal(t, 50_000, session.GetPreConsumedQuota())
+				assert.Equal(t, 450_000, getUserQuota(t, 702))
+			} else {
+				require.NoError(t, session.Reserve(100_000))
+				require.NoError(t, session.Reserve(125_000))
+				assert.Equal(t, 375_000, getUserQuota(t, 702))
+			}
+			session.Refund(ctx)
+			session.Refund(ctx)
+			require.Eventually(t, func() bool {
+				var user model.User
+				var token model.Token
+				return model.DB.First(&user, 702).Error == nil && model.DB.First(&token, 702).Error == nil && user.Quota == 500_000 && token.RemainQuota == tokenQuota
+			}, time.Second, 5*time.Millisecond)
+		})
+	}
+}
+
 func TestTryTieredSettleUsesFinalGroupAfterRetry(t *testing.T) {
 	const expr = `tier("base", p)`
 	tests := []struct {
@@ -749,6 +787,42 @@ func TestBuildTieredTokenParams_GPT_WithImage(t *testing.T) {
 	want := 3050.0
 	if math.Abs(got-want) > 0.01 {
 		t.Fatalf("quota = %f, want %f", got, want)
+	}
+}
+
+func TestImageCacheBilling(t *testing.T) {
+	const expression = `tier("standard", p * 5 + cr * 1.25 + img * 8 + img_cr * 2 + c * 30)`
+	for _, tc := range []struct {
+		name              string
+		details           *dto.CachedTokenDetails
+		expression        string
+		p, cr, img, imgCR float64
+		quota             int
+	}{
+		{"mixed cache", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(200), TextTokens: common.GetPointer(100)}, expression, 300, 100, 400, 200, 4113},
+		{"explicit free image cache price", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(200)}, `tier("standard", p * 5 + cr * 1.25 + img * 8 + img_cr * 0 + c * 30)`, 300, 100, 400, 200, 3913},
+		{"explicit zero", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(0)}, expression, 100, 300, 600, 0, 4338},
+		{"missing breakdown", nil, expression, 100, 300, 600, 0, 4338},
+		{"missing image modality", &dto.CachedTokenDetails{TextTokens: common.GetPointer(100)}, expression, 100, 300, 600, 0, 4338},
+		{"negative image count", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(-1)}, expression, 100, 300, 600, 0, 4338},
+		{"image count exceeds cache", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(301)}, expression, 100, 300, 600, 0, 4338},
+		{"modality sum exceeds cache", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(200), TextTokens: common.GetPointer(101)}, expression, 100, 300, 600, 0, 4338},
+		{"old expression unchanged", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(200)}, `p * 5 + cr * 1.25 + img * 8 + c * 30`, 100, 300, 600, 0, 4338},
+		{"only image cache separately priced", &dto.CachedTokenDetails{ImageTokens: common.GetPointer(200)}, `p * 5 + img_cr * 2 + c * 30`, 800, 100, 400, 200, 3700},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usage := &dto.Usage{PromptTokens: 1000, CompletionTokens: 100,
+				PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 300, ImageTokens: 600, CachedTokensDetails: tc.details}}
+			params := BuildTieredTokenParams(usage, false, billingexpr.UsedVars(tc.expression))
+			assert.Equal(t, tc.p, params.P)
+			assert.Equal(t, tc.cr, params.CR)
+			assert.Equal(t, tc.img, params.Img)
+			assert.Equal(t, tc.imgCR, params.ImgCR)
+			assert.Equal(t, float64(1000), params.Len)
+			result, err := billingexpr.ComputeTieredQuota(makeSnapshot(tc.expression, 1, 1000, 100), params)
+			require.NoError(t, err)
+			assert.Equal(t, tc.quota, result.ActualQuotaAfterGroup)
+		})
 	}
 }
 
@@ -1023,4 +1097,32 @@ func BenchmarkRatioBilling_Parallel(b *testing.B) {
 			ratioQuota(usage, false, 1.5, 5.0, 0.1, 1.0, 1.5)
 		}
 	})
+}
+
+func TestSamePriceCacheReadsRemainInInput(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		usage       dto.Usage
+		extra       string
+		input, cost float64
+	}{
+		{"openai", dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200}}, "", 1000, 72000},
+		{"anthropic", dto.Usage{PromptTokens: 800, CompletionTokens: 100, UsageSemantic: "anthropic", PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200}}, "", 1000, 72000},
+		{"anthropic mixed cache TTLs", dto.Usage{PromptTokens: 750, CompletionTokens: 100, UsageSemantic: "anthropic", ClaudeCacheCreation5mTokens: 30, ClaudeCacheCreation1hTokens: 20, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200, CachedCreationTokens: 50}}, " + cc * 75 + cc1h * 120", 950, 73650},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			merged := `tier("base", p * 60 + c * 120` + tc.extra + `)`
+			separate := `tier("base", p * 60 + c * 120 + cr * 60` + tc.extra + `)`
+			params := BuildTieredTokenParams(&tc.usage, tc.usage.UsageSemantic == "anthropic", billingexpr.UsedVars(merged))
+			assert.Equal(t, tc.input, params.P)
+			cost, _, err := billingexpr.RunExpr(merged, params)
+			require.NoError(t, err)
+			assert.Equal(t, tc.cost, cost)
+			separateParams := BuildTieredTokenParams(&tc.usage, tc.usage.UsageSemantic == "anthropic", billingexpr.UsedVars(separate))
+			previousCost, _, err := billingexpr.RunExpr(separate, separateParams)
+			require.NoError(t, err)
+			assert.Equal(t, previousCost, cost, "folding cache reads into input must preserve the charge")
+			assert.Equal(t, separateParams.Len, params.Len, "tier conditions keep the full context length")
+		})
+	}
 }

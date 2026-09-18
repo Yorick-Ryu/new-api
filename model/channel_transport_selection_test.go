@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	hostdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +33,9 @@ func insertChannelTransportSelectionChannel(t *testing.T, channel *Channel, sett
 		channel.Key = fmt.Sprintf("key-%d-a\nkey-%d-b", channel.Id, channel.Id)
 	} else {
 		channel.Key = fmt.Sprintf("key-%d", channel.Id)
+	}
+	if channel.Type == 0 {
+		channel.Type = constant.ChannelTypeOpenAI
 	}
 	channel.Status = common.ChannelStatusEnabled
 	channel.Group = "default"
@@ -86,32 +90,32 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			})
 			InitChannelCache()
 
-			httpText, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, "/v1/responses", constant.ResponsesTransportHTTP)
+			httpText, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 			require.NoError(t, err)
 			require.NotNil(t, httpText)
 			require.Equal(t, 13, httpText.Id)
 
-			wsText, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, "/v1/responses", constant.ResponsesTransportWebSocket)
+			wsText, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportWebSocket}})
 			require.NoError(t, err)
 			require.NotNil(t, wsText)
 			require.Equal(t, 14, wsText.Id)
 
-			httpImage, err := GetRandomSatisfiedChannel("default", "gpt-image-2", 0, "/v1/responses", constant.ResponsesTransportHTTP)
+			httpImage, err := GetRandomSatisfiedChannel("default", "gpt-image-2", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 			require.NoError(t, err)
 			require.NotNil(t, httpImage)
 			require.Equal(t, 4, httpImage.Id)
 
-			httpFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, "/v1/responses", constant.ResponsesTransportHTTP)
+			httpFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 			require.NoError(t, err)
 			require.NotNil(t, httpFallback)
 			require.Equal(t, 4, httpFallback.Id)
 
-			wsFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, "/v1/responses", constant.ResponsesTransportWebSocket)
+			wsFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportWebSocket}})
 			require.NoError(t, err)
 			require.NotNil(t, wsFallback)
 			require.Equal(t, 4, wsFallback.Id)
 
-			legacy, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, "/v1/responses", constant.ResponsesTransportNone)
+			legacy, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportNone}})
 			require.NoError(t, err)
 			require.NotNil(t, legacy)
 			require.Contains(t, []int{13, 14}, legacy.Id)
@@ -124,7 +128,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 				})
 				CacheUpdateChannel(updatedHTTP)
 
-				hotReloaded, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, "/v1/responses", constant.ResponsesTransportHTTP)
+				hotReloaded, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 				require.NoError(t, err)
 				require.NotNil(t, hotReloaded)
 				require.Equal(t, 4, hotReloaded.Id)

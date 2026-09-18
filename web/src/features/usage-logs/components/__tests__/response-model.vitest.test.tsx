@@ -16,14 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+// @vitest-environment happy-dom
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  render as renderUI,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
+import type { ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it } from 'vitest'
 
@@ -35,6 +43,24 @@ import { DetailsDialog } from '../dialogs/details-dialog'
 import { UsageLogsMobileList } from '../usage-logs-mobile-card'
 import { UsageLogsProvider } from '../usage-logs-provider'
 
+const queryClients: QueryClient[] = []
+function render(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(['status'], {})
+  client.setQueryData(['pricing'], { success: true, data: [], vendors: [] })
+  queryClients.push(client)
+  return renderUI(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
+afterEach(() => {
+  queryClients.splice(0).forEach((client) => client.clear())
+})
+
 const i18n = createInstance()
 await i18n.init({ lng: 'en', resources: { en: { translation: {} }, zh } })
 afterEach(async () => {
@@ -43,7 +69,7 @@ afterEach(async () => {
 })
 
 function LogList(props: { log: UsageLog; mobile: boolean }) {
-  const columns = useCommonLogsColumns(false).filter(
+  const columns = useCommonLogsColumns(false, false).filter(
     (column) =>
       'accessorKey' in column &&
       ['model_name', 'created_at'].includes(column.accessorKey as string)
@@ -128,13 +154,14 @@ it('shows translated response-model details in the existing log details dialog',
       <DetailsDialog
         log={responseModelLog()}
         isAdmin={false}
+        isRoot={false}
         open
         onOpenChange={() => {}}
       />
     </I18nextProvider>
   )
   const dialog = await screen.findByRole('dialog')
-  expect(within(dialog).getByText('响应模型')).toBeTruthy()
+  expect(within(dialog).getAllByText('响应模型')).toHaveLength(2)
   expect(within(dialog).getByText('上游请求模型')).toBeTruthy()
   expect(within(dialog).getByText('响应模型：returned')).toBeTruthy()
   expect(within(dialog).getByText('returned')).toBeTruthy()

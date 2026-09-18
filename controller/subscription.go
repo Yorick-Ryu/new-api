@@ -308,7 +308,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		// update plan (allow zero values updates with map)
-		updateMap := map[string]interface{}{
+		updateMap := map[string]any{
 			"title":                      req.Plan.Title,
 			"subtitle":                   req.Plan.Subtitle,
 			"price_amount":               req.Plan.PriceAmount,
@@ -440,13 +440,13 @@ func resolveAdvanceResetTime(value *bool) bool {
 	return *value
 }
 
-func recordSubscriptionResetUserLogs(result *model.SubscriptionResetResult, adminInfo map[string]interface{}) {
+func recordSubscriptionResetUserLogs(c *gin.Context, result *model.SubscriptionResetResult, adminInfo *model.AuditAdminInfo) {
 	if result == nil || result.ResetCount == 0 {
 		return
 	}
 	content := fmt.Sprintf("管理员重置订阅套餐 %s（ID: %d）额度，窗口: %s", result.PlanTitle, result.PlanId, result.ResetWindow)
 	for _, userId := range result.AffectedUserIds {
-		model.RecordLogWithAdminInfo(userId, model.LogTypeManage, content, adminInfo)
+		model.RecordLogWithAdminInfo(userId, model.LogTypeManage, content, adminInfo, nil, c)
 	}
 }
 
@@ -499,8 +499,8 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(result, auditOperatorInfo(c))
-	recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]interface{}{
+	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
+	recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]any{
 		"target_user_id":     userId,
 		"plan_id":            result.PlanId,
 		"plan_title":         result.PlanTitle,
@@ -529,10 +529,10 @@ func AdminResetPlanSubscriptions(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(result, auditOperatorInfo(c))
+	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
 	common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t reset_window=%s",
 		result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime, result.ResetWindow))
-	recordManageAudit(c, "subscription.plan_reset", map[string]interface{}{
+	recordManageAudit(c, "subscription.plan_reset", map[string]any{
 		"plan_id":            result.PlanId,
 		"plan_title":         result.PlanTitle,
 		"reset_count":        result.ResetCount,

@@ -12,7 +12,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
 // These are capability defaults, never an availability list. Membership is
@@ -40,7 +39,7 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels) ([]byte, string, error
 	for _, availableModel := range available {
 		name := availableModel.Id
 		if seen[name] || strings.TrimSpace(name) == "" || strings.ContainsAny(name, "*?") ||
-			strings.HasSuffix(name, ratio_setting.CompactModelSuffix) {
+			strings.HasSuffix(name, "-openai-compact") {
 			continue
 		}
 		seen[name] = true

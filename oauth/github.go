@@ -50,8 +50,6 @@ func (p *GitHubProvider) ExchangeToken(ctx context.Context, code string, c *gin.
 		return nil, NewOAuthError(i18n.MsgOAuthInvalidCode, nil)
 	}
 
-	logger.LogDebug(ctx, "[OAuth-GitHub] ExchangeToken: code=%s...", code[:min(len(code), 10)])
-
 	redirectURI, err := callbackURL(c, "github")
 	if err != nil {
 		return nil, err
@@ -180,4 +178,9 @@ func (p *GitHubProvider) SetProviderUserID(user *model.User, providerUserID stri
 
 func (p *GitHubProvider) GetProviderPrefix() string {
 	return "github_"
+}
+
+// ProviderUserIDColumn returns the users-table column storing this provider's user ID.
+func (p *GitHubProvider) ProviderUserIDColumn() string {
+	return "github_id"
 }

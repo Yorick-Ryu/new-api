@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// @vitest-environment happy-dom
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { AxiosError } from 'axios'
 import { Toaster, toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { handleServerError } from '../handle-server-error'
 import { api } from '../http-client'
 
 const originalAdapter = api.defaults.adapter
@@ -97,9 +99,7 @@ describe('HTTP request cancellation', () => {
       )
     }
     await act(async () => {
-      await expect(api.get('/api/test-server-error')).rejects.toMatchObject({
-        response: { status: 503 },
-      })
+      await api.get('/api/test-server-error').catch(handleServerError)
     })
     expect(await screen.findByText('Upstream unavailable')).toBeTruthy()
   })

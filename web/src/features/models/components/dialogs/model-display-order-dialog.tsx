@@ -56,7 +56,7 @@ export function ModelDisplayOrderDialog(props: { onClose: () => void }) {
       toast.success(t('Model display order saved'))
       props.onClose()
     },
-    onError: handleServerError,
+    onError: (error) => handleServerError(error),
   })
   const names = draft ?? query.data ?? []
   const dirty =

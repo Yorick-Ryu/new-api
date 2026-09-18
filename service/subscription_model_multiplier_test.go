@@ -84,11 +84,11 @@ func TestSubscriptionMultiplierSnapshotsAndSettlesAllWindows(t *testing.T) {
 	var token model.Token
 	require.NoError(t, model.DB.First(&token, 1).Error)
 	assert.Equal(t, 750, token.RemainQuota)
-	other := map[string]interface{}{}
+	other := model.NewLogOther()
 	appendBillingInfo(info, other)
-	assert.Equal(t, 2.0, other["subscription_group_ratio"])
-	assert.EqualValues(t, 250, other["subscription_consumed"])
-	assert.EqualValues(t, -50, other["subscription_post_delta"])
+	assert.Equal(t, 2.0, other.Snapshot()["subscription_group_ratio"])
+	assert.EqualValues(t, 250, other.Snapshot()["subscription_consumed"])
+	assert.EqualValues(t, -50, other.Snapshot()["subscription_post_delta"])
 
 	info2 := *info
 	info2.RequestId += "-next"
@@ -247,10 +247,10 @@ func TestSubscriptionGroupRatioOverridesInsteadOfMultiplying(t *testing.T) {
 			assert.Equal(t, tc.want, summary.Quota)
 			require.NoError(t, session.Settle(summary.Quota))
 			assertSubscriptionConsumption(t, sub.Id, int64(tc.want))
-			other := map[string]interface{}{}
+			other := model.NewLogOther()
 			appendBillingInfo(info, other)
-			assert.Equal(t, tc.group, other["subscription_original_group_ratio"])
-			assert.Equal(t, tc.override, other["subscription_group_ratio"])
+			assert.Equal(t, tc.group, other.Snapshot()["subscription_original_group_ratio"])
+			assert.Equal(t, tc.override, other.Snapshot()["subscription_group_ratio"])
 			privateData, err := common.Marshal(model.TaskPrivateData{
 				BillingSource: BillingSourceSubscription, SubscriptionId: sub.Id,
 				SubscriptionGroupRatio:         info.SubscriptionGroupRatio,
@@ -260,8 +260,8 @@ func TestSubscriptionGroupRatioOverridesInsteadOfMultiplying(t *testing.T) {
 			var task model.Task
 			require.NoError(t, common.Unmarshal(privateData, &task.PrivateData))
 			taskOther := taskBillingOther(&task)
-			assert.Equal(t, tc.group, taskOther["subscription_original_group_ratio"])
-			assert.Equal(t, tc.override, taskOther["subscription_group_ratio"])
+			assert.Equal(t, tc.group, taskOther.Snapshot()["subscription_original_group_ratio"])
+			assert.Equal(t, tc.override, taskOther.Snapshot()["subscription_group_ratio"])
 		})
 	}
 }

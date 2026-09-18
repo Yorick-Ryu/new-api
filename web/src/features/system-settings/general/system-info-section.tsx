@@ -45,12 +45,14 @@ import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useSettingsForm } from '../hooks/use-settings-form'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { isValidTaskPublicAddress } from './task-public-address'
 
 const _systemInfoSchema = z.object({
   SystemName: z.string().min(1),
   ServerAddress: z.string().optional(),
   SiteAddress: z.string().optional(),
   SiteAllowedOrigins: z.string().optional(),
+  TaskPublicAddress: z.string().refine(isValidTaskPublicAddress),
   Logo: z.string().url().optional().or(z.literal('')),
   Footer: z.string().optional(),
   About: z.string().optional(),
@@ -81,6 +83,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
     SiteAddress: normalizeValue(defaultValues.SiteAddress),
     SiteAllowedOrigins: normalizeValue(defaultValues.SiteAllowedOrigins),
+    TaskPublicAddress: normalizeValue(defaultValues.TaskPublicAddress),
     Logo: normalizeValue(defaultValues.Logo),
     Footer: normalizeValue(defaultValues.Footer),
     About: normalizeValue(defaultValues.About),
@@ -116,6 +119,12 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
         t('Enter one valid HTTP or HTTPS origin per line')
       )
       .optional(),
+    TaskPublicAddress: z.string().refine(isValidTaskPublicAddress, {
+      error: () =>
+        t(
+          'Enter an absolute HTTP(S) URL without credentials, query parameters, or fragments'
+        ),
+    }),
     Logo: z.string().url().optional().or(z.literal('')),
     Footer: z.string().optional(),
     About: z.string().optional(),
@@ -137,7 +146,11 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       onSubmit: async (_data, changedFields) => {
         for (const [key, value] of Object.entries(changedFields)) {
           let v = normalizeValue(value)
-          if (key === 'ServerAddress' || key === 'SiteAddress') {
+          if (
+            key === 'ServerAddress' ||
+            key === 'SiteAddress' ||
+            key === 'TaskPublicAddress'
+          ) {
             v = v.trim().replace(/\/+$/, '')
           }
           await updateOption.mutateAsync({
@@ -232,6 +245,28 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                     <FormDescription>
                       {t(
                         'Optional: one complete origin per line. Login and payment returns stay on these sites. The business site address is always allowed. OAuth provider callbacks and Passkey origins must also be configured separately.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='TaskPublicAddress'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Async Task Public Address')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='https://media.example.com/tasks'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Public base URL for async task media. Supports a dedicated media domain, port, or Nginx path prefix; falls back to Server Address when empty.'
                       )}
                     </FormDescription>
                     <FormMessage />

@@ -114,7 +114,7 @@ func TestAddressOptionsPersistIndependentlyAndPublishCompatibleStatus(t *testing
 	api, site, allowed := system_setting.ServerAddress, system_setting.SiteAddress, system_setting.SiteAllowedOrigins
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.User{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.User{}, &model.Log{}, &model.AuditLog{}, &model.PasskeyCredential{}))
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	model.DB = db
@@ -154,7 +154,7 @@ func TestAddressOptionsPersistIndependentlyAndPublishCompatibleStatus(t *testing
 	}
 	var saved model.Option
 	require.NoError(t, db.Where("key = ?", "SiteAddress").First(&saved).Error)
-	assert.Equal(t, "https://example.com/", saved.Value)
+	assert.Equal(t, "https://example.com", saved.Value)
 	assert.Equal(t, "https://api.example.com", system_setting.GetAPIAddress())
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)

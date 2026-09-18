@@ -74,12 +74,12 @@ func TestPasskeyDefaultsFollowSiteUpdatesWithoutOverwritingExplicitSettings(t *t
 	t.Cleanup(func() { ServerAddress, SiteAddress, defaultPasskeySettings = api, site, settings })
 	ServerAddress, SiteAddress = "https://api.example.com", "https://example.com"
 	defaultPasskeySettings = PasskeySettings{}
-	assert.Equal(t, "example.com", GetPasskeySettings().RPID)
+	assert.Equal(t, "example.com", PasskeySettingsSnapshot().RPID)
 	SiteAddress = "https://www.other.example:8443"
-	assert.Equal(t, "www.other.example", GetPasskeySettings().RPID)
-	assert.Equal(t, SiteAddress, GetPasskeySettings().Origins)
+	assert.Equal(t, "www.other.example", PasskeySettingsSnapshot().RPID)
+	assert.Equal(t, SiteAddress, PasskeySettingsSnapshot().Origins)
 	assert.Empty(t, defaultPasskeySettings.RPID)
 	defaultPasskeySettings = PasskeySettings{RPID: "example.com", Origins: "https://example.com,https://www.example.com"}
-	assert.Equal(t, "example.com", GetPasskeySettings().RPID)
-	assert.Equal(t, "https://example.com,https://www.example.com", GetPasskeySettings().Origins)
+	assert.Equal(t, "example.com", PasskeySettingsSnapshot().RPID)
+	assert.Equal(t, "https://example.com,https://www.example.com", PasskeySettingsSnapshot().Origins)
 }

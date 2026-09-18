@@ -53,7 +53,7 @@ function SettingsEditor(props: { settings: ServiceStatusSettings }) {
       void client.invalidateQueries({ queryKey: ['service-status-settings'] })
       toast.success(t('Service status settings saved'))
     },
-    onError: handleServerError,
+    onError: (error) => handleServerError(error),
   })
   return (
     <form

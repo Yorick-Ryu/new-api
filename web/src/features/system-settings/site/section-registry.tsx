@@ -44,6 +44,7 @@ const SITE_SECTIONS = [
           ServerAddress: settings.ServerAddress,
           SiteAddress: settings.SiteAddress,
           SiteAllowedOrigins: settings.SiteAllowedOrigins,
+          TaskPublicAddress: settings.TaskPublicAddress,
           legal: {
             user_agreement: settings['legal.user_agreement'],
             privacy_policy: settings['legal.privacy_policy'],

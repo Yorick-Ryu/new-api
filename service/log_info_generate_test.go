@@ -38,7 +38,7 @@ func TestGenerateTextOtherInfoMarksWebSocketTransport(t *testing.T) {
 				ChannelMeta:       &relaycommon.ChannelMeta{},
 			}
 
-			other := GenerateTextOtherInfo(ctx, relayInfo, 1, 1, 1, 0, 0, 0, -1)
+			other := GenerateTextOtherInfo(ctx, relayInfo, 1, 1, 1, 0, 0, 0, -1).Snapshot()
 
 			assert.Equal(t, float64(1500), other["frt"])
 			ws, exists := other["ws"]

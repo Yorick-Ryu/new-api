@@ -1,16 +1,19 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 )
 
-// ResponsesUsageAccumulator shares accounting between HTTP SSE and WebSocket.
-// The stream owner must serialize Observe and Finish. Finish freezes the usage
-// so a late event cannot change a request that has already been settled.
+// ResponsesUsageAccumulator owns the accounting facts for one Responses stream.
+// HTTP SSE and WebSocket transports feed the same events into it, then settle
+// Finish's usage through the normal text billing path, including interrupted
+// streams. Observe and Finish must be called by the same stream owner.
 type ResponsesUsageAccumulator struct {
 	info           *relaycommon.RelayInfo
 	usage          *dto.Usage
@@ -32,6 +35,7 @@ func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse) 
 		return
 	}
 	a.started = true
+	ObserveResponsesOutcome(a.info, event)
 	var status string
 	if event.Response != nil {
 		a.info.ObserveResponseModel(event.Response.Model)
@@ -93,6 +97,9 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 		return a.usage
 	}
 	a.finished = true
+	// A final image item can already have reached the client before the stream
+	// disconnects. Explicit failed/incomplete terminals reset and commit zero in
+	// Observe; otherwise retain completed tool usage even without a terminal.
 	if !a.imageCommitted {
 		a.imageCounter.Commit(a.info)
 		a.imageCommitted = true
@@ -101,7 +108,7 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 	// still owe input and generated tool/reasoning/text output tokens.
 	if !a.failed && !a.reportedUsage {
 		if output := a.outputText.String(); output != "" {
-			a.usage.CompletionTokens = CountTextToken(output, a.info.UpstreamModelName)
+			a.usage.CompletionTokens = CountTextToken(output, a.info.GetUpstreamModelName())
 		}
 		if a.started {
 			a.usage.PromptTokens = a.info.GetEstimatePromptTokens()
@@ -113,42 +120,60 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 	return a.usage
 }
 
+// ObserveResponsesOutcome records the protocol outcome of one Responses event
+// on the stream status for health classification. Only codes and types are
+// kept; messages never leave the event.
+func ObserveResponsesOutcome(info *relaycommon.RelayInfo, event *dto.ResponsesStreamResponse) {
+	if info == nil || info.StreamStatus == nil || event == nil {
+		return
+	}
+	var responseStatus string
+	if event.Response != nil {
+		_ = common.Unmarshal(event.Response.Status, &responseStatus)
+	}
+	switch {
+	case event.Type == "error" || event.Type == "response.failed" || event.Type == "response.error" || responseStatus == "failed":
+		code, errorType := event.Code, ""
+		oaiErr := dto.GetOpenAIError(event.Error)
+		if event.Response != nil && event.Response.Error != nil {
+			oaiErr = event.Response.GetOpenAIError()
+		}
+		if oaiErr != nil {
+			if oaiErr.Code != nil {
+				code = fmt.Sprint(oaiErr.Code)
+			}
+			errorType = oaiErr.Type
+		}
+		info.StreamStatus.MarkFailed(code, errorType, 0)
+	case event.Type == "response.incomplete" || responseStatus == "incomplete":
+		reason := ""
+		if event.Response != nil && event.Response.IncompleteDetails != nil {
+			reason = event.Response.IncompleteDetails.Reason
+		}
+		info.StreamStatus.MarkIncomplete(reason)
+	case event.Type == "response.cancelled" || event.Type == "response.canceled" || responseStatus == "cancelled":
+		info.StreamStatus.MarkCancelled()
+	case event.Type == "response.completed" || event.Type == "response.done" || responseStatus == "completed":
+		info.StreamStatus.MarkCompleted()
+	}
+}
+
 func ApplyResponsesUsage(dst *dto.Usage, src *dto.Usage) {
 	if dst == nil || src == nil {
 		return
 	}
-	if src.InputTokens != 0 {
-		dst.PromptTokens = src.InputTokens
-		dst.InputTokens = src.InputTokens
-	}
-	if src.OutputTokens != 0 {
-		dst.CompletionTokens = src.OutputTokens
-		dst.OutputTokens = src.OutputTokens
-	}
-	if src.TotalTokens != 0 {
-		dst.TotalTokens = src.TotalTokens
-	}
+	incoming := relayconvert.NormalizeResponsesUsage(src)
 	if src.InputTokensDetails != nil {
 		inputDetails := *src.InputTokensDetails
-		dst.InputTokensDetails = &inputDetails
-		dst.PromptTokensDetails = inputDetails
+		incoming.InputTokensDetails = &inputDetails
 	}
-	outputDetails := src.CompletionTokenDetails
 	if src.OutputTokensDetails != nil {
-		outputDetails = *src.OutputTokensDetails
+		incoming.CompletionTokenDetails = *src.OutputTokensDetails
 	}
-	if !isZeroOutputTokenDetails(outputDetails) {
-		dst.CompletionTokenDetails = outputDetails
+	incoming.PromptCacheHitTokens = src.PromptCacheHitTokens
+	dto.MergeUsageNonZero(dst, incoming)
+	outputDetails := dst.CompletionTokenDetails
+	if outputDetails != (dto.OutputTokenDetails{}) {
 		dst.OutputTokensDetails = &outputDetails
 	}
-	dst.PromptCacheHitTokens = src.PromptCacheHitTokens
-	dst.UsageSemantic = src.UsageSemantic
-	dst.UsageSource = src.UsageSource
-}
-
-func isZeroOutputTokenDetails(details dto.OutputTokenDetails) bool {
-	return details.TextTokens == 0 &&
-		details.AudioTokens == 0 &&
-		details.ImageTokens == 0 &&
-		details.ReasoningTokens == 0
 }

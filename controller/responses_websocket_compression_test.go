@@ -112,7 +112,7 @@ func TestResponsesWebSocketUploadCompression(t *testing.T) {
 			require.NoError(t, common.Unmarshal(reply, &event))
 			assert.Equal(t, "error", event.Type)
 			assert.Equal(t, 400, event.Status)
-			assert.Contains(t, event.Error.Message, "first responses websocket event must be ")
+			assert.Contains(t, event.Error.Message, "unsupported websocket event ")
 
 			// Uncompressed messages remain valid on the same negotiated connection,
 			// and reaching the limit must not corrupt the next message boundary.
