@@ -14,8 +14,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestAutoBanUnmatchedErrorsNeedNoDatabase(t *testing.T) {
@@ -146,4 +148,101 @@ func TestAutoBanHTTPFailureBeforeMaskingAndLiveSettings(t *testing.T) {
 	assert.Equal(t, observeVersion, events[1].Version)
 	assert.Equal(t, "observe", events[1].Mode)
 	assert.NotContains(t, events[0].ErrorSummary, body)
+}
+
+func TestAutoBanEmailIsAsyncAndFailureDoesNotUndoBan(t *testing.T) {
+	for _, deliveryError := range []error{nil, errors.New("SMTP unavailable")} {
+		name := "delivered"
+		if deliveryError != nil {
+			name = "mail failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			previous, oldDB, oldRedis := auto_ban.CurrentSnapshot(), model.DB, common.RedisEnabled
+			oldSendEmail, oldSystemName := autoBanSendEmail, common.SystemName
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+			require.NoError(t, err)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			sqlDB.SetMaxOpenConns(1)
+			model.DB, common.RedisEnabled = db, false
+			common.SystemName = "Test & Site"
+			t.Cleanup(func() {
+				auto_ban.PublishSnapshot(previous)
+				model.DB, common.RedisEnabled = oldDB, oldRedis
+				autoBanSendEmail, common.SystemName = oldSendEmail, oldSystemName
+				_ = sqlDB.Close()
+			})
+			require.NoError(t, db.AutoMigrate(&model.User{}, &model.Option{}, &model.AutoBanEvent{}, &model.Token{}))
+			user := model.User{Username: "email-owner", Email: "bound@example.com", Setting: `{"notification_email":"other@example.com","notify_type":"webhook"}`, Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1}
+			require.NoError(t, db.Create(&user).Error)
+			settings := auto_ban.Defaults()
+			settings.Mode = "ban"
+			for i := range settings.Rules {
+				settings.Rules[i].Reason = "Network <b>risk</b> & policy"
+			}
+			_, err = model.SaveAutoBanSettings(settings)
+			require.NoError(t, err)
+			type mail struct{ subject, receiver, content string }
+			delivered := make(chan mail, 1)
+			releaseSMTP := make(chan struct{})
+			var releaseOnce sync.Once
+			smtpFinished := make(chan struct{})
+			autoBanSendEmail = func(subject, receiver, content string) error {
+				delivered <- mail{subject, receiver, content}
+				<-releaseSMTP
+				close(smtpFinished)
+				return deliveryError
+			}
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Set("id", user.Id)
+			c.Set(common.RequestIdKey, "email-ban-request")
+			response := make(chan bool, 1)
+			requestFinished := make(chan struct{})
+			go func() {
+				defer close(requestFinished)
+				response <- ObserveUpstreamFailure(c, []byte(`{"error":{"code":"cyber_policy","message":"private upstream text"}}`), 400)
+			}()
+			t.Cleanup(func() {
+				releaseOnce.Do(func() { close(releaseSMTP) })
+				select {
+				case <-requestFinished:
+				case <-time.After(5 * time.Second):
+					t.Error("ban request did not finish")
+				}
+				select {
+				case <-smtpFinished:
+				case <-time.After(5 * time.Second):
+					t.Error("SMTP attempt did not finish")
+				}
+			})
+			select {
+			case banned := <-response:
+				require.True(t, banned)
+			case <-time.After(5 * time.Second):
+				t.Fatal("ban request waited for SMTP")
+			}
+			select {
+			case mail := <-delivered:
+				assert.Equal(t, "bound@example.com", mail.receiver)
+				assert.Equal(t, "API 账号封禁通知", mail.subject)
+				assert.Contains(t, mail.content, "您的 API 账号已被封禁。")
+				assert.NotContains(t, mail.content, "Test &amp; Site")
+				assert.NotContains(t, mail.content, "自动封禁")
+				assert.Contains(t, mail.content, "Network &lt;b&gt;risk&lt;/b&gt; &amp; policy")
+				assert.Contains(t, mail.content, "封禁时间：")
+				assert.Contains(t, mail.content, "请联系管理员")
+				assert.NotContains(t, mail.content, "private upstream text")
+			case <-time.After(5 * time.Second):
+				t.Fatal("ban notification was not sent")
+			}
+			releaseOnce.Do(func() { close(releaseSMTP) })
+			select {
+			case <-smtpFinished:
+			case <-time.After(5 * time.Second):
+				t.Fatal("SMTP attempt did not finish")
+			}
+			require.NoError(t, db.First(&user, user.Id).Error)
+			assert.Equal(t, common.UserStatusDisabled, user.Status)
+		})
+	}
 }

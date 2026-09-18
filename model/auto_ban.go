@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,9 @@ var autoBanSettingsUpdateMu sync.Mutex
 
 // Stored in the main database so the evidence and account update commit together.
 type AutoBanEvent struct {
+	// Returned only to the caller that committed a new ban; never persisted or
+	// exposed by the records API. Replays and rolled-back bans leave it empty.
+	BanEmailRecipient string `json:"-" gorm:"-:all"`
 	ID                int    `json:"id" gorm:"primaryKey"`
 	EventKey          string `json:"-" gorm:"size:64;uniqueIndex"`
 	UserID            int    `json:"user_id" gorm:"index"`
@@ -116,13 +120,15 @@ func SaveAutoBanSettings(settings auto_ban.Settings) (auto_ban.Settings, error) 
 }
 
 func ApplyAutoBanEvent(event *AutoBanEvent) error {
+	event.BanEmailRecipient = ""
 	if event.UserID <= 0 || event.EventKey == "" || (event.Mode != "observe" && event.Mode != "ban") {
 		return fmt.Errorf("invalid automatic ban event")
 	}
 	changed := false
+	var boundEmail string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
-		if err := lockForUpdate(tx).Select("id", "role", "status", "auth_version").First(&user, event.UserID).Error; err != nil {
+		if err := lockForUpdate(tx).Select("id", "role", "status", "auth_version", "email").First(&user, event.UserID).Error; err != nil {
 			return err
 		}
 		event.CreatedAt = time.Now().Unix()
@@ -153,11 +159,13 @@ func ApplyAutoBanEvent(event *AutoBanEvent) error {
 			return err
 		}
 		changed = true
+		boundEmail = strings.TrimSpace(user.Email)
 		return nil
 	})
 	if err != nil || !changed {
 		return err
 	}
+	event.BanEmailRecipient = boundEmail
 	// The version fence denies stale cached identities even if publication fails.
 	return errors.Join(PublishUserAuthCache(event.UserID), InvalidateUserTokensCache(event.UserID))
 }

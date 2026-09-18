@@ -5,19 +5,25 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 const AutoBanRequestKey = "auto_ban_request_key"
 const autoBanEnforcedKey = "auto_ban_enforced"
+
+// SMTP boundary, shared with the existing account email configuration.
+var autoBanSendEmail = common.SendEmail
 
 var violationListPattern = regexp.MustCompile(`(?i)\bsafety_violations\s*=\s*\[([^\]]{0,512})\]`)
 
@@ -157,6 +163,20 @@ func ObserveUpstreamFailure(ctx context.Context, body []byte, httpStatus int) bo
 	if err := model.ApplyAutoBanEvent(&event); err != nil {
 		// Error text can contain SQL bindings; log only the incident identifiers.
 		common.SysError(fmt.Sprintf("automatic ban processing failed for user %d, request %s", event.UserID, event.RequestID))
+	}
+	if event.BanEmailRecipient != "" {
+		// Capture values before enqueueing; the worker must not hold the request
+		// context or re-read an address that may have changed since the ban.
+		subject := "API 账号封禁通知"
+		content := fmt.Sprintf("<p>您的 API 账号已被封禁。</p><p>用户 ID：%d<br/>封禁时间：%s<br/>封禁原因：%s</p><p>如需申诉或解除封禁，请联系管理员。</p>",
+			event.UserID,
+			time.Unix(event.CreatedAt, 0).Format("2006-01-02 15:04:05 -0700"), html.EscapeString(event.Reason))
+		sendEmail := autoBanSendEmail
+		gopool.Go(func() {
+			if err := sendEmail(subject, event.BanEmailRecipient, content); err != nil {
+				common.SysError(fmt.Sprintf("automatic ban email failed for user %d, event %d", event.UserID, event.ID))
+			}
+		})
 	}
 	return settings.Mode() == "ban"
 }
