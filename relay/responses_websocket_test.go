@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -388,6 +389,49 @@ func TestFinalizeResponsesWSUsageReportsNothingBillableWithoutOutput(t *testing.
 	}
 
 	assert.False(t, finalizeResponsesWSUsage(state), "a call that produced nothing must stay refundable")
+}
+
+func TestResponsesWSZeroTokenToolUsageRemainsBillable(t *testing.T) {
+	const pricedTool = "ws_zero_token_probe"
+	operation_setting.SetToolPriceForTest(pricedTool, 5)
+	t.Cleanup(func() { operation_setting.DeleteToolPriceForTest(pricedTool) })
+	for _, tc := range []struct {
+		name, tool string
+		completed  bool
+		billable   bool
+	}{
+		{name: "completed priced tool", tool: pricedTool, completed: true, billable: true},
+		{name: "completed unpriced tool", tool: "ws_unpriced_probe", completed: true},
+		{name: "declared priced tool without completion", tool: pricedTool},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{
+				ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"},
+				ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{BuiltInTools: map[string]*relaycommon.BuildInToolInfo{
+					tc.tool: {ToolName: tc.tool},
+				}},
+			}
+			info.SetEstimatePromptTokens(100)
+			state := &responsesWSCallState{info: info, accumulator: service.NewResponsesUsageAccumulator(info)}
+			if tc.completed {
+				state.accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone,
+					Item: &dto.ResponsesOutput{Type: dto.BuildInCallFunctionCall, Name: tc.tool}})
+			}
+			state.accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.completed",
+				Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{}}})
+			assert.Equal(t, tc.billable, finalizeResponsesWSUsage(state), "tool fees must survive explicit zero token usage")
+			assert.Zero(t, state.usage.TotalTokens, "reported zero must not be replaced with estimated input")
+			wantCalls := 0
+			if tc.billable {
+				wantCalls = 1
+			}
+			assert.Equal(t, wantCalls, info.ResponsesUsageInfo.BuiltInTools[tc.tool].CallCount)
+			state.accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone,
+				Item: &dto.ResponsesOutput{Type: dto.BuildInCallFunctionCall, Name: tc.tool}})
+			assert.Equal(t, tc.billable, finalizeResponsesWSUsage(state))
+			assert.Equal(t, wantCalls, info.ResponsesUsageInfo.BuiltInTools[tc.tool].CallCount, "late tool events cannot change settled fees")
+		})
+	}
 }
 
 // TestFinishCallAbortedRefundsDespiteObservedOutput guards the other side of the
