@@ -85,12 +85,14 @@ import type { LogCleanupTask } from '../types'
 
 const logSettingsSchema = z.object({
   LogConsumeEnabled: z.boolean(),
+  LogModelDetailsAdminOnlyEnabled: z.boolean(),
 })
 
 type LogSettingsFormValues = z.infer<typeof logSettingsSchema>
 
 type LogSettingsSectionProps = {
   defaultEnabled: boolean
+  modelDetailsAdminOnly: boolean
 }
 
 type ServerLogInfo = {
@@ -146,6 +148,7 @@ function isActiveLogCleanupTask(task: LogCleanupTask | null) {
 
 export function LogSettingsSection({
   defaultEnabled,
+  modelDetailsAdminOnly,
 }: LogSettingsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -153,6 +156,7 @@ export function LogSettingsSection({
     resolver: zodResolver(logSettingsSchema),
     defaultValues: {
       LogConsumeEnabled: defaultEnabled,
+      LogModelDetailsAdminOnlyEnabled: modelDetailsAdminOnly,
     },
   })
 
@@ -180,8 +184,11 @@ export function LogSettingsSection({
   }, [])
 
   useEffect(() => {
-    form.reset({ LogConsumeEnabled: defaultEnabled })
-  }, [defaultEnabled, form])
+    form.reset({
+      LogConsumeEnabled: defaultEnabled,
+      LogModelDetailsAdminOnlyEnabled: modelDetailsAdminOnly,
+    })
+  }, [defaultEnabled, modelDetailsAdminOnly, form])
 
   useEffect(() => {
     fetchServerLogInfo()
@@ -263,11 +270,18 @@ export function LogSettingsSection({
   }, [logCleanupActive, logCleanupTaskId, t])
 
   const onSubmit = async (values: LogSettingsFormValues) => {
-    if (values.LogConsumeEnabled === defaultEnabled) return
-    await updateOption.mutateAsync({
-      key: 'LogConsumeEnabled',
-      value: values.LogConsumeEnabled,
-    })
+    if (values.LogConsumeEnabled !== defaultEnabled) {
+      await updateOption.mutateAsync({
+        key: 'LogConsumeEnabled',
+        value: values.LogConsumeEnabled,
+      })
+    }
+    if (values.LogModelDetailsAdminOnlyEnabled !== modelDetailsAdminOnly) {
+      await updateOption.mutateAsync({
+        key: 'LogModelDetailsAdminOnlyEnabled',
+        value: values.LogModelDetailsAdminOnlyEnabled,
+      })
+    }
   }
 
   const handleRequestCleanLogs = () => {
@@ -359,6 +373,32 @@ export function LogSettingsSection({
                   <FormDescription>
                     {t(
                       'Track per-request consumption to power usage analytics. Keeping this on increases database writes.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <FormMessage />
+              </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='LogModelDetailsAdminOnlyEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>
+                    {t('Response models and mappings visible to admins only')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>

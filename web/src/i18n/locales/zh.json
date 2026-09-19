@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Response models and mappings visible to admins only": "响应模型及映射仅管理员可见",
+    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "向普通用户隐藏日志中的上游返回模型和模型映射信息。对历史和新日志均生效，管理员仍可查看。",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

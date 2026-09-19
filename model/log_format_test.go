@@ -242,3 +242,44 @@ func TestLogFormattingPreservesLargeIntegerLexemes(t *testing.T) {
 		assert.Equal(t, unprivileged, adminLogs[0].Other)
 	})
 }
+
+func TestModelDetailsVisibilitySetting(t *testing.T) {
+	const key = "LogModelDetailsAdminOnlyEnabled"
+	original := common.LogModelDetailsAdminOnlyEnabled.Load()
+	require.True(t, original, "model details must be admin-only by default")
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
+	oldValue, existed := common.OptionMap[key]
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.LogModelDetailsAdminOnlyEnabled.Store(original)
+		common.OptionMapRWMutex.Lock()
+		defer common.OptionMapRWMutex.Unlock()
+		if existed {
+			common.OptionMap[key] = oldValue
+		} else {
+			delete(common.OptionMap, key)
+		}
+	})
+	// The same stored log must respect subsequent setting changes without rewriting it.
+	stored := `{"response_model":{"requested_model":"codex-auto-review","upstream_model":"codex-auto-review","returned_model":"gpt-5.6-luna","mismatch":true},"upstream_model_name":"mapped-model","is_model_mapped":true,"request_path":"/v1/responses","large_integer":9007199254740993}`
+	for _, enabled := range []string{"false", "true", "false"} {
+		require.NoError(t, updateOptionMap(key, enabled))
+		users := []*Log{{ModelName: "codex-auto-review", Other: stored}}
+		formatUserLogs(users, 0)
+		if enabled == "true" {
+			assert.JSONEq(t, `{"request_path":"/v1/responses","large_integer":9007199254740993}`, users[0].Other)
+		} else {
+			assert.JSONEq(t, stored, users[0].Other)
+		}
+		assert.Equal(t, "codex-auto-review", users[0].ModelName)
+		admins := []*Log{{Other: stored}}
+		FormatAdminLogs(admins)
+		assert.JSONEq(t, stored, admins[0].Other)
+		roots := []*Log{{Other: stored}}
+		FormatRootLogs(roots)
+		assert.JSONEq(t, stored, roots[0].Other)
+	}
+}

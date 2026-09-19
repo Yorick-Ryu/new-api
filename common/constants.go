@@ -5,6 +5,7 @@ import (
 	//"os"
 	//"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -92,6 +93,13 @@ var DebugEnabled bool
 var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
+
+// LogModelDetailsAdminOnlyEnabled filters model diagnostics at log read time.
+var LogModelDetailsAdminOnlyEnabled atomic.Bool
+
+func init() {
+	LogModelDetailsAdminOnlyEnabled.Store(true)
+}
 
 var TLSInsecureSkipVerify bool
 var InsecureTLSConfig = &tls.Config{InsecureSkipVerify: true}
