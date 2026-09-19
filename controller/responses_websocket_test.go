@@ -616,6 +616,7 @@ func TestResponsesWebSocketReusesConnectionAndSettlesEachRequest(t *testing.T) {
 	// channel, later creates on the same connection reuse it as a pin.
 	for index, wantDecision := range []string{"attempt:channel_selected", "select:pinned_channel"} {
 		var other struct {
+			WebSocket bool `json:"ws"`
 			AdminInfo struct {
 				RequestPolicy []struct {
 					ChannelID int `json:"channel_id"`
@@ -627,6 +628,7 @@ func TestResponsesWebSocketReusesConnectionAndSettlesEachRequest(t *testing.T) {
 			} `json:"admin_info"`
 		}
 		require.NoError(t, common.UnmarshalJsonStr(logs[index].Other, &other))
+		assert.True(t, other.WebSocket, "request %d must retain the WebSocket log marker", index)
 		var decisions []string
 		for _, event := range other.AdminInfo.RequestPolicy {
 			assert.Equal(t, fixture.channel.Id, event.ChannelID)
@@ -715,6 +717,18 @@ func TestResponsesWebSocketDialsNativeResponsesChannelTypes(t *testing.T) {
 			assert.Equal(t, tc.want("upstream-second"), <-targets)
 			fixture.closeAndWait(t)
 			assertResponsesWSAccounting(t, fixture, []int{1000, 1000})
+			var logs []model.Log
+			require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeConsume).Order("id").Find(&logs).Error)
+			require.Len(t, logs, 2)
+			for index, log := range logs {
+				var other map[string]any
+				require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+				if index == 0 {
+					assert.Equal(t, true, other["ws"], "WebSocket request must retain its transport marker")
+				} else {
+					assert.NotContains(t, other, "ws", "HTTP request must not be marked as WebSocket")
+				}
+			}
 		})
 	}
 }

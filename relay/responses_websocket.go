@@ -384,6 +384,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 			return apiErr
 		}
 		info = relaycommon.GenRelayInfoResponses(c, &create.Request)
+		info.ClientWs = s.client
 		info.IsStream = true
 		common.SetContextKey(c, appconstant.ContextKeyIsStream, true)
 		if apiErr = PrepareRequestBilling(c, info); apiErr != nil {
@@ -410,6 +411,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 			service.AppendUsedChannel(c, channel.Id)
 			if info == nil {
 				info = relaycommon.GenRelayInfoResponses(c, &create.Request)
+				info.ClientWs = s.client
 				info.IsStream = true
 				common.SetContextKey(c, appconstant.ContextKeyIsStream, true)
 				if apiErr = PrepareRequestBilling(c, info); apiErr != nil {
