@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
@@ -81,12 +81,18 @@ it.each([
     )
     const user = userEvent.setup()
     const select = screen.getByRole('combobox', { name: 'Show response model' })
-    expect(select).toHaveTextContent(initialLabel)
+    expect(
+      within(select).getByText(initialLabel, {
+        selector: '[data-slot="select-value"]',
+      })
+    ).toBeVisible()
     select.focus()
     await user.keyboard('{Enter}')
     expect(screen.getAllByRole('option')).toHaveLength(3)
     await user.click(screen.getByRole('option', { name: label }))
-    expect(select).toHaveTextContent(label)
+    expect(
+      within(select).getByText(label, { selector: '[data-slot="select-value"]' })
+    ).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Save log settings' }))
     await waitFor(() =>
       expect(put).toHaveBeenCalledWith('/api/option/', {

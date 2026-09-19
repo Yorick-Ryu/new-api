@@ -152,6 +152,11 @@ export function LogSettingsSection({
   responseModelDisplayMode = 'off',
 }: LogSettingsSectionProps) {
   const { t } = useTranslation()
+  const responseModelDisplayOptions = [
+    { value: 'off', label: t('Off') },
+    { value: 'on', label: t('On') },
+    { value: 'admin_only', label: t('Admins only') },
+  ]
   const updateOption = useUpdateOption()
   const form = useForm<LogSettingsFormValues>({
     resolver: zodResolver(logSettingsSchema),
@@ -392,29 +397,40 @@ export function LogSettingsSection({
             control={form.control}
             name='LogResponseModelDisplayMode'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-settings-form-span='full'>
                 <FormLabel>{t('Show response model')}</FormLabel>
                 <Select
-                  items={[
-                    { value: 'off', label: t('Off') },
-                    { value: 'on', label: t('On') },
-                    { value: 'admin_only', label: t('Admins only') },
-                  ]}
+                  items={responseModelDisplayOptions}
                   value={field.value}
                   onValueChange={field.onChange}
                 >
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className='max-w-full pr-3.5'>
+                      <span className='grid min-w-0 overflow-hidden'>
+                        {responseModelDisplayOptions.map((option) => (
+                          <span
+                            key={option.value}
+                            aria-hidden='true'
+                            className='invisible col-start-1 row-start-1'
+                          >
+                            {option.label}
+                          </span>
+                        ))}
+                        <SelectValue className='col-start-1 row-start-1 block truncate' />
+                      </span>
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent alignItemWithTrigger={false}>
+                  <SelectContent
+                    align='start'
+                    alignItemWithTrigger={false}
+                    className='min-w-0'
+                  >
                     <SelectGroup>
-                      <SelectItem value='off'>{t('Off')}</SelectItem>
-                      <SelectItem value='on'>{t('On')}</SelectItem>
-                      <SelectItem value='admin_only'>
-                        {t('Admins only')}
-                      </SelectItem>
+                      {responseModelDisplayOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
