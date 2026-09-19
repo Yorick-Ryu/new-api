@@ -176,8 +176,8 @@ func TestResponsesWSDisconnectOutcomeKeepsFirstCause(t *testing.T) {
 		want   perfmetrics.Outcome
 	}{
 		{"client leaves", relaycommon.StreamEndReasonClientGone, perfmetrics.OutcomeIgnored},
-		{"upstream disappears", relaycommon.StreamEndReasonScannerErr, perfmetrics.OutcomeFailure},
-		{"upstream stalls", relaycommon.StreamEndReasonTimeout, perfmetrics.OutcomeFailure},
+		{"upstream disappears", relaycommon.StreamEndReasonScannerErr, perfmetrics.OutcomeSuccess},
+		{"upstream stalls", relaycommon.StreamEndReasonTimeout, perfmetrics.OutcomeSuccess},
 		{"client heartbeat", relaycommon.StreamEndReasonPingFail, perfmetrics.OutcomeIgnored},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -187,6 +187,7 @@ func TestResponsesWSDisconnectOutcomeKeepsFirstCause(t *testing.T) {
 			// client disconnect must not overwrite that first terminal cause.
 			info.StreamStatus.SetEndReason(tc.reason, nil)
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, nil)
+			assert.Equal(t, tc.reason, info.StreamStatus.OutcomeSnapshot().EndReason)
 			assert.Equal(t, tc.want, perfmetrics.ClassifyRelayOutcome(nil, info, nil))
 		})
 	}

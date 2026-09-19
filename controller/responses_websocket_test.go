@@ -423,7 +423,7 @@ func newResponsesWSBillingTest(t *testing.T, expression string, handle func(*web
 }
 
 func TestResponsesInterruptedStreamHealth(t *testing.T) {
-	for _, scenario := range []string{"websocket timeout", "sse timeout", "sse client cancel"} {
+	for _, scenario := range []string{"websocket disconnect", "websocket timeout", "sse timeout", "sse client cancel"} {
 		t.Run(scenario, func(t *testing.T) {
 			events := []string{`{"type":"response.created","response":{"id":"partial","status":"in_progress"}}`, `{"type":"response.output_text.delta","delta":"hello"}`}
 			fixture := newResponsesWSBillingTest(t, `tier("request", fixed(0.002))`, func(ws *websocket.Conn, _ *http.Request) {
@@ -434,6 +434,9 @@ func TestResponsesInterruptedStreamHealth(t *testing.T) {
 					if !assert.NoError(t, ws.WriteMessage(websocket.TextMessage, []byte(event))) {
 						return
 					}
+				}
+				if scenario == "websocket disconnect" {
+					return // Missing close frame and terminal event produces 1006/EOF.
 				}
 				_, _, _ = ws.ReadMessage()
 			})
@@ -446,12 +449,12 @@ func TestResponsesInterruptedStreamHealth(t *testing.T) {
 				w.(http.Flusher).Flush()
 				<-r.Context().Done()
 			}
-			if scenario == "websocket timeout" {
+			if strings.HasPrefix(scenario, "websocket") {
 				require.NoError(t, fixture.client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","model":"ws-billing","input":"hello"}`)))
 				assert.Equal(t, "response.created", readResponsesWSTestEvent(t, fixture.client)["type"])
 				assert.Equal(t, "response.output_text.delta", readResponsesWSTestEvent(t, fixture.client)["type"])
 				_, _, err := fixture.client.ReadMessage()
-				require.Error(t, err, "idle timeout closes the incomplete stream")
+				require.Error(t, err, "the incomplete stream must close")
 			} else {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -484,6 +487,16 @@ func TestResponsesInterruptedStreamHealth(t *testing.T) {
 			}
 			fixture.closeAndWait(t)
 			assertResponsesWSAccounting(t, fixture, []int{1000})
+			if scenario == "websocket disconnect" {
+				var log model.Log
+				require.NoError(t, model.LOG_DB.Where("token_id = ? AND type = ?", fixture.token.Id, model.LogTypeConsume).First(&log).Error)
+				var other map[string]any
+				require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+				stream := other["stream_status"].(map[string]any)
+				assert.Equal(t, "error", stream["status"])
+				assert.Equal(t, "scanner_error", stream["end_reason"])
+				assert.Contains(t, stream["end_error"], "1006")
+			}
 			if scenario == "sse client cancel" {
 				keys, err := common.RDB.Keys(context.Background(), "perf:ws-billing:*").Result()
 				require.NoError(t, err)
@@ -492,7 +505,7 @@ func TestResponsesInterruptedStreamHealth(t *testing.T) {
 			}
 			requests, successes := waitPerfCounters(t, 1)
 			assert.Equal(t, int64(1), requests)
-			assert.Zero(t, successes)
+			assert.Equal(t, int64(1), successes, "an accepted stream interruption is not a request-level API failure")
 		})
 	}
 }
@@ -1003,7 +1016,7 @@ func TestResponsesStreamOutcomesPreserveAccounting(t *testing.T) {
 				}
 				requests, successes := waitPerfCounters(t, expectedRequests)
 				assert.Equal(t, expectedRequests, requests)
-				assert.Equal(t, int64(1), successes)
+				assert.Equal(t, expectedRequests, successes, "stream diagnostics do not add failures to request success rates")
 			})
 		}
 	}

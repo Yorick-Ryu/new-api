@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResponsesStreamOutcomeUsesProtocolInsteadOfHTTPStatus(t *testing.T) {
+func TestResponsesStreamDiagnosticsPreserveRequestSuccessRate(t *testing.T) {
 	previousTimeout := constant.StreamingTimeout
 	constant.StreamingTimeout = 30
 	t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
@@ -25,11 +25,11 @@ func TestResponsesStreamOutcomeUsesProtocolInsteadOfHTTPStatus(t *testing.T) {
 		want        perfmetrics.Outcome
 	}{
 		{"completed", `{"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":10,"output_tokens":2,"total_tokens":12}}}`, perfmetrics.OutcomeSuccess},
-		{"HTTP 200 with overload", `{"type":"error","error":{"code":"server_is_overloaded","type":"server_error","message":"busy"}}`, perfmetrics.OutcomeFailure},
+		{"HTTP 200 with overload", `{"type":"error","error":{"code":"server_is_overloaded","type":"server_error","message":"busy"}}`, perfmetrics.OutcomeSuccess},
 		{"context limit", `{"type":"error","code":"context_length_exceeded"}`, perfmetrics.OutcomeIgnored},
 		{"output limit", `{"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}`, perfmetrics.OutcomeSuccess},
 		{"cancelled", `{"type":"response.cancelled"}`, perfmetrics.OutcomeIgnored},
-		{"truncated", `{"type":"response.output_text.delta","delta":"hello"}`, perfmetrics.OutcomeFailure},
+		{"truncated", `{"type":"response.output_text.delta","delta":"hello"}`, perfmetrics.OutcomeSuccess},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
