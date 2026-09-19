@@ -3,16 +3,18 @@ package perfmetrics
 import (
 	"context"
 	"errors"
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyRelayOutcome(t *testing.T) {
@@ -48,7 +50,7 @@ func TestClassifyRelayOutcome(t *testing.T) {
 	assert.Equal(t, OutcomeIgnored, ClassifyRelayOutcome(context.Background(), &relaycommon.RelayInfo{PerformanceBusinessRejection: true}, nil))
 }
 
-func TestStreamOutcomeClassification(t *testing.T) {
+func TestStreamDiagnosticsDoNotAddRequestFailures(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		mark func(*relaycommon.StreamStatus)
@@ -57,14 +59,18 @@ func TestStreamOutcomeClassification(t *testing.T) {
 	}{
 		{"completed", (*relaycommon.StreamStatus).MarkCompleted, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
 		{"business rejection", func(s *relaycommon.StreamStatus) { s.MarkFailed("context_length_exceeded", "", 0) }, relaycommon.StreamEndReasonEOF, OutcomeIgnored},
-		{"service error", func(s *relaycommon.StreamStatus) { s.MarkFailed("server_error", "", 0) }, relaycommon.StreamEndReasonEOF, OutcomeFailure},
-		{"error after completion", func(s *relaycommon.StreamStatus) { s.MarkCompleted(); s.MarkFailed("", "server_error", 0) }, relaycommon.StreamEndReasonEOF, OutcomeFailure},
+		{"service error in accepted stream", func(s *relaycommon.StreamStatus) { s.MarkFailed("server_error", "", 0) }, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
+		{"error after completion", func(s *relaycommon.StreamStatus) { s.MarkCompleted(); s.MarkFailed("", "server_error", 0) }, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
 		{"output limit", func(s *relaycommon.StreamStatus) { s.MarkIncomplete("max_output_tokens") }, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
 		{"content filter", func(s *relaycommon.StreamStatus) { s.MarkIncomplete("content_filter") }, relaycommon.StreamEndReasonEOF, OutcomeIgnored},
 		{"client cancel", (*relaycommon.StreamStatus).MarkCancelled, relaycommon.StreamEndReasonEOF, OutcomeIgnored},
 		{"client gone", nil, relaycommon.StreamEndReasonClientGone, OutcomeIgnored},
-		{"timeout", nil, relaycommon.StreamEndReasonTimeout, OutcomeFailure},
-		{"missing terminal", nil, relaycommon.StreamEndReasonEOF, OutcomeFailure},
+		{"timeout in accepted stream", nil, relaycommon.StreamEndReasonTimeout, OutcomeSuccess},
+		{"missing terminal", nil, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
+		{"upstream websocket disconnect", nil, relaycommon.StreamEndReasonScannerErr, OutcomeSuccess},
+		{"stream handler panic", nil, relaycommon.StreamEndReasonPanic, OutcomeSuccess},
+		{"stream parser warning", func(s *relaycommon.StreamStatus) { s.RecordError("invalid event") }, relaycommon.StreamEndReasonDone, OutcomeSuccess},
+		{"unknown incomplete reason", func(s *relaycommon.StreamStatus) { s.MarkIncomplete("unknown") }, relaycommon.StreamEndReasonEOF, OutcomeSuccess},
 		{"done marker without terminal", nil, relaycommon.StreamEndReasonDone, OutcomeSuccess},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,7 +80,9 @@ func TestStreamOutcomeClassification(t *testing.T) {
 				tc.mark(stream)
 			}
 			stream.SetEndReason(tc.end, nil)
-			assert.Equal(t, tc.want, ClassifyRelayOutcome(context.Background(), &relaycommon.RelayInfo{StreamStatus: stream}, nil))
+			info := &relaycommon.RelayInfo{StreamStatus: stream}
+			assert.Equal(t, tc.want, ClassifyRelayOutcome(context.Background(), info, nil))
+			assert.Equal(t, OutcomeFailure, ClassifyRelayOutcome(context.Background(), info, types.InitOpenAIError("service_unavailable", 503)), "stream diagnostics must not hide an explicit API failure")
 		})
 	}
 }
@@ -89,7 +97,9 @@ func TestClientCancellationDuringUpstreamRead(t *testing.T) {
 
 	deadline := relaycommon.NewStreamStatus()
 	deadline.SetEndReason(relaycommon.StreamEndReasonClientGone, context.DeadlineExceeded)
-	assert.Equal(t, OutcomeFailure, ClassifyRelayOutcome(context.Background(), &relaycommon.RelayInfo{StreamStatus: deadline}, nil))
+	info := &relaycommon.RelayInfo{StreamStatus: deadline}
+	assert.Equal(t, OutcomeSuccess, ClassifyRelayOutcome(context.Background(), info, nil))
+	assert.Equal(t, OutcomeFailure, ClassifyRelayOutcome(context.Background(), info, types.NewOpenAIError(context.DeadlineExceeded, types.ErrorCodeDoRequestFailed, 504)))
 }
 
 func TestPerformanceWindowIncludesCurrentHour(t *testing.T) {
@@ -218,6 +228,53 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			require.NotNil(t, cached.CacheHitRate)
 			assert.Equal(t, 75.0, *cached.CacheHitRate)
 			assert.Equal(t, 100.0, cached.Summary.SuccessRate)
+
+			// Reproduce the service-status discrepancy: two accepted WebSocket
+			// requests end with 1006/EOF but return no request-level API error.
+			for _, reason := range []relaycommon.StreamEndReason{
+				relaycommon.StreamEndReasonDone,
+				relaycommon.StreamEndReasonScannerErr,
+				relaycommon.StreamEndReasonScannerErr,
+			} {
+				stream := relaycommon.NewStreamStatus()
+				stream.RequireTerminal()
+				if reason == relaycommon.StreamEndReasonDone {
+					stream.MarkCompleted()
+					stream.SetEndReason(reason, nil)
+				} else {
+					stream.SetEndReason(reason, &websocket.CloseError{Code: websocket.CloseAbnormalClosure, Text: "unexpected EOF"})
+				}
+				RecordRelayResult(context.Background(), &relaycommon.RelayInfo{
+					OriginModelName: "request-outcome-model", UsingGroup: "request-outcome-group",
+					StartTime: now, StreamStatus: stream,
+				}, nil)
+				assert.Equal(t, reason, stream.OutcomeSnapshot().EndReason, "retain the original stream diagnostics")
+			}
+			for _, wantRate := range []float64{100, 75} {
+				if wantRate == 75 {
+					RecordRelayResult(context.Background(), &relaycommon.RelayInfo{
+						OriginModelName: "request-outcome-model", UsingGroup: "request-outcome-group", StartTime: now,
+					}, types.InitOpenAIError("service_unavailable", 503))
+				}
+				details, err := Query(QueryParams{Model: "request-outcome-model", Group: "request-outcome-group", Hours: 24})
+				require.NoError(t, err)
+				require.NotNil(t, details.Summary)
+				assert.Equal(t, wantRate, details.Summary.SuccessRate)
+				status, err := QueryServiceStatus(context.Background(), 24)
+				require.NoError(t, err)
+				var statusModel *StatusModel
+				for _, group := range status.Groups {
+					if group.Group == "request-outcome-group" {
+						require.Len(t, group.Models, 1)
+						statusModel = &group.Models[0]
+					}
+				}
+				require.NotNil(t, statusModel)
+				require.NotNil(t, statusModel.SuccessRate)
+				assert.Equal(t, wantRate, *statusModel.SuccessRate)
+				require.Len(t, statusModel.Series, 1)
+				assert.Equal(t, wantRate, *statusModel.Series[0].SuccessRate)
+			}
 		})
 	}
 }

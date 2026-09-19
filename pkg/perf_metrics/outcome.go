@@ -17,9 +17,11 @@ const (
 	OutcomeIgnored Outcome = "ignored"
 )
 
-// ClassifyRelayOutcome decides whether one finished relay counts as a health
-// sample. Business rejections and client cancellations are not samples; the
-// classification is independent of retries, channel disabling and billing.
+// ClassifyRelayOutcome preserves BeiAPI's request-level success-rate policy:
+// a relay that returns without an API error succeeds, even when its stream ends
+// early. Stream outcomes remain available in logs, but do not add failures to
+// service status or model metrics. Business rejections and client cancellations
+// are excluded from both views.
 func ClassifyRelayOutcome(ctx context.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIError) Outcome {
 	if info == nil || info.PerformanceBusinessRejection {
 		return OutcomeIgnored
@@ -31,13 +33,14 @@ func ClassifyRelayOutcome(ctx context.Context, info *relaycommon.RelayInfo, apiE
 		return OutcomeIgnored
 	}
 	stream := info.StreamStatus.OutcomeSnapshot()
-	if stream.Response == relaycommon.ResponseOutcomeFailed {
-		return classifyFailure(false, stream.ErrorCode, stream.ErrorType, stream.ErrorStatus)
-	}
 	if apiErr != nil {
 		root := rootAPIError(apiErr)
 		local := root.GetErrorType() == types.ErrorTypeNewAPIError
 		return classifyFailure(local, string(root.GetErrorCode()), root.ToOpenAIError().Type, root.StatusCode)
+	}
+	if stream.Response == relaycommon.ResponseOutcomeFailed &&
+		classifyFailure(false, stream.ErrorCode, stream.ErrorType, stream.ErrorStatus) == OutcomeIgnored {
+		return OutcomeIgnored
 	}
 	deadlineExceeded := errors.Is(stream.EndError, context.DeadlineExceeded)
 	if stream.Response == relaycommon.ResponseOutcomeCancelled || stream.EndReason == relaycommon.StreamEndReasonPingFail {
@@ -48,23 +51,9 @@ func ClassifyRelayOutcome(ctx context.Context, info *relaycommon.RelayInfo, apiE
 	}
 	if stream.Response == relaycommon.ResponseOutcomeIncomplete {
 		switch stream.IncompleteReason {
-		case "max_output_tokens", "max_tokens":
-			return OutcomeSuccess
 		case "content_filter", "safety", "content_policy_violation":
 			return OutcomeIgnored
-		default:
-			return OutcomeFailure
 		}
-	}
-	if stream.HasErrors || deadlineExceeded {
-		return OutcomeFailure
-	}
-	switch stream.EndReason {
-	case relaycommon.StreamEndReasonTimeout, relaycommon.StreamEndReasonScannerErr, relaycommon.StreamEndReasonPanic:
-		return OutcomeFailure
-	}
-	if stream.ExpectsTerminal && stream.Response == relaycommon.ResponseOutcomeUnknown && stream.EndReason != relaycommon.StreamEndReasonDone {
-		return OutcomeFailure
 	}
 	return OutcomeSuccess
 }
