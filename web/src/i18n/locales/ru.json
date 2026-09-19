@@ -1,7 +1,9 @@
 {
   "translation": {
-    "Response models and mappings visible to admins only": "Модели ответов и сопоставления видны только администраторам",
-    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "Скрывать модели ответов провайдера и сопоставления моделей в журналах пользователей. Применяется к существующим и новым журналам; администраторам сведения остаются доступны.",
+    "Show response model": "Показывать модель ответа",
+    "On": "Включено",
+    "Admins only": "Только администраторам",
+    "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.": "Выберите, кому видны модели ответов и сопоставления в существующих и новых журналах. Имена запрошенных моделей остаются видимыми.",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

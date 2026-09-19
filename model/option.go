@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"maps"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticDisableChannelEnabled"] = strconv.FormatBool(common.AutomaticDisableChannelEnabled)
 	common.OptionMap["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	common.OptionMap["LogConsumeEnabled"] = strconv.FormatBool(common.LogConsumeEnabled)
-	common.OptionMap["LogModelDetailsAdminOnlyEnabled"] = strconv.FormatBool(common.LogModelDetailsAdminOnlyEnabled.Load())
+	common.OptionMap["LogResponseModelDisplayMode"] = common.LogResponseModelDisplayMode.Load().(string)
 	common.OptionMap["DisplayInCurrencyEnabled"] = strconv.FormatBool(common.DisplayInCurrencyEnabled)
 	common.OptionMap["DisplayTokenStatEnabled"] = strconv.FormatBool(common.DisplayTokenStatEnabled)
 	common.OptionMap["DrawingEnabled"] = strconv.FormatBool(common.DrawingEnabled)
@@ -258,6 +259,17 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if key == "LogModelDetailsAdminOnlyEnabled" {
+		return errors.New("use LogResponseModelDisplayMode instead")
+	}
+	if key == "LogResponseModelDisplayMode" {
+		switch value {
+		case common.LogResponseModelDisplayOff, common.LogResponseModelDisplayOn, common.LogResponseModelDisplayAdminOnly:
+			return nil
+		default:
+			return errors.New("response model display must be off, on, or admin_only")
+		}
+	}
 	if key == "ServerAddress" || key == "SiteAddress" {
 		if strings.TrimSpace(value) == "" {
 			return nil
@@ -386,7 +398,12 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
-	if key == retiredThemeOptionKey {
+	if key == "LogResponseModelDisplayMode" {
+		if err := validateOptionValue(key, value); err != nil {
+			return err
+		}
+	}
+	if key == retiredThemeOptionKey || key == "LogModelDetailsAdminOnlyEnabled" {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
 		common.OptionMapRWMutex.Unlock()
@@ -395,6 +412,10 @@ func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
+	if key == "LogResponseModelDisplayMode" {
+		common.LogResponseModelDisplayMode.Store(value)
+		return nil
+	}
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
@@ -444,8 +465,6 @@ func updateOptionMap(key string, value string) (err error) {
 			common.AutomaticDisableChannelEnabled = boolValue
 		case "AutomaticEnableChannelEnabled":
 			common.AutomaticEnableChannelEnabled = boolValue
-		case "LogModelDetailsAdminOnlyEnabled":
-			common.LogModelDetailsAdminOnlyEnabled.Store(boolValue)
 		case "LogConsumeEnabled":
 			common.LogConsumeEnabled = boolValue
 		case "DisplayInCurrencyEnabled":

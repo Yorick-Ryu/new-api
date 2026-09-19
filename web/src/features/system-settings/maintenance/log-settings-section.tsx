@@ -44,6 +44,7 @@ import {
   FormField,
   FormLabel,
   FormMessage,
+  FormItem,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -85,14 +86,14 @@ import type { LogCleanupTask } from '../types'
 
 const logSettingsSchema = z.object({
   LogConsumeEnabled: z.boolean(),
-  LogModelDetailsAdminOnlyEnabled: z.boolean(),
+  LogResponseModelDisplayMode: z.enum(['off', 'on', 'admin_only']),
 })
 
 type LogSettingsFormValues = z.infer<typeof logSettingsSchema>
 
 type LogSettingsSectionProps = {
   defaultEnabled: boolean
-  modelDetailsAdminOnly: boolean
+  responseModelDisplayMode?: LogSettingsFormValues['LogResponseModelDisplayMode']
 }
 
 type ServerLogInfo = {
@@ -148,7 +149,7 @@ function isActiveLogCleanupTask(task: LogCleanupTask | null) {
 
 export function LogSettingsSection({
   defaultEnabled,
-  modelDetailsAdminOnly,
+  responseModelDisplayMode = 'off',
 }: LogSettingsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -156,7 +157,7 @@ export function LogSettingsSection({
     resolver: zodResolver(logSettingsSchema),
     defaultValues: {
       LogConsumeEnabled: defaultEnabled,
-      LogModelDetailsAdminOnlyEnabled: modelDetailsAdminOnly,
+      LogResponseModelDisplayMode: responseModelDisplayMode,
     },
   })
 
@@ -186,9 +187,9 @@ export function LogSettingsSection({
   useEffect(() => {
     form.reset({
       LogConsumeEnabled: defaultEnabled,
-      LogModelDetailsAdminOnlyEnabled: modelDetailsAdminOnly,
+      LogResponseModelDisplayMode: responseModelDisplayMode,
     })
-  }, [defaultEnabled, modelDetailsAdminOnly, form])
+  }, [defaultEnabled, responseModelDisplayMode, form])
 
   useEffect(() => {
     fetchServerLogInfo()
@@ -276,10 +277,10 @@ export function LogSettingsSection({
         value: values.LogConsumeEnabled,
       })
     }
-    if (values.LogModelDetailsAdminOnlyEnabled !== modelDetailsAdminOnly) {
+    if (values.LogResponseModelDisplayMode !== responseModelDisplayMode) {
       await updateOption.mutateAsync({
-        key: 'LogModelDetailsAdminOnlyEnabled',
-        value: values.LogModelDetailsAdminOnlyEnabled,
+        key: 'LogResponseModelDisplayMode',
+        value: values.LogResponseModelDisplayMode,
       })
     }
   }
@@ -389,27 +390,41 @@ export function LogSettingsSection({
 
           <FormField
             control={form.control}
-            name='LogModelDetailsAdminOnlyEnabled'
+            name='LogResponseModelDisplayMode'
             render={({ field }) => (
-              <SettingsSwitchItem>
-                <SettingsSwitchContent>
-                  <FormLabel>
-                    {t('Response models and mappings visible to admins only')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t(
-                      'Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.'
-                    )}
-                  </FormDescription>
-                </SettingsSwitchContent>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
+              <FormItem>
+                <FormLabel>{t('Show response model')}</FormLabel>
+                <Select
+                  items={[
+                    { value: 'off', label: t('Off') },
+                    { value: 'on', label: t('On') },
+                    { value: 'admin_only', label: t('Admins only') },
+                  ]}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      <SelectItem value='off'>{t('Off')}</SelectItem>
+                      <SelectItem value='on'>{t('On')}</SelectItem>
+                      <SelectItem value='admin_only'>
+                        {t('Admins only')}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {t(
+                    'Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.'
+                  )}
+                </FormDescription>
                 <FormMessage />
-              </SettingsSwitchItem>
+              </FormItem>
             )}
           />
 

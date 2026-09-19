@@ -1,7 +1,9 @@
 {
   "translation": {
-    "Response models and mappings visible to admins only": "Response models and mappings visible to admins only",
-    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.",
+    "Show response model": "Show response model",
+    "On": "On",
+    "Admins only": "Admins only",
+    "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.": "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

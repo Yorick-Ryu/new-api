@@ -36,9 +36,23 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-it.each([false, true])(
-  'saves model visibility independently when initially %s',
-  async (initial) => {
+it.each([
+  { initial: 'off', next: 'on', label: 'On', initialLabel: 'Off' },
+  {
+    initial: 'on',
+    next: 'admin_only',
+    label: 'Admins only',
+    initialLabel: 'On',
+  },
+  {
+    initial: 'admin_only',
+    next: 'off',
+    label: 'Off',
+    initialLabel: 'Admins only',
+  },
+] as const)(
+  'saves response model display from $initial to $next',
+  async ({ initial, next, label, initialLabel }) => {
     vi.spyOn(api, 'get').mockResolvedValue({
       data: { success: true, data: null },
     })
@@ -59,25 +73,25 @@ it.each([false, true])(
           <SettingsPageProvider actionsContainer={actions}>
             <LogSettingsSection
               defaultEnabled
-              modelDetailsAdminOnly={initial}
+              responseModelDisplayMode={initial === 'off' ? undefined : initial}
             />
           </SettingsPageProvider>
         </QueryClientProvider>
       </I18nextProvider>
     )
     const user = userEvent.setup()
-    const toggle = screen.getByRole('switch', {
-      name: 'Response models and mappings visible to admins only',
-    })
-    expect(toggle).toHaveAttribute('aria-checked', String(initial))
-    toggle.focus()
-    await user.keyboard(' ')
-    expect(toggle).toHaveAttribute('aria-checked', String(!initial))
+    const select = screen.getByRole('combobox', { name: 'Show response model' })
+    expect(select).toHaveTextContent(initialLabel)
+    select.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+    await user.click(screen.getByRole('option', { name: label }))
+    expect(select).toHaveTextContent(label)
     await user.click(screen.getByRole('button', { name: 'Save log settings' }))
     await waitFor(() =>
       expect(put).toHaveBeenCalledWith('/api/option/', {
-        key: 'LogModelDetailsAdminOnlyEnabled',
-        value: !initial,
+        key: 'LogResponseModelDisplayMode',
+        value: next,
       })
     )
     expect(put).toHaveBeenCalledTimes(1)

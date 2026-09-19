@@ -1,7 +1,9 @@
 {
   "translation": {
-    "Response models and mappings visible to admins only": "応答モデルとモデルマッピングは管理者のみに表示",
-    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "ユーザーのログで上流の応答モデルとモデルマッピングを非表示にします。既存と新規のログに適用され、管理者は引き続き閲覧できます。",
+    "Show response model": "応答モデルを表示",
+    "On": "オン",
+    "Admins only": "管理者のみ",
+    "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.": "既存と新規のログで応答モデルとモデルマッピングを表示する対象を設定します。リクエストしたモデル名は常に表示されます。",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

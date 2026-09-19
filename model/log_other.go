@@ -226,15 +226,17 @@ func formatLogOtherJSON(value string, visibility logOtherVisibility) string {
 	}
 
 	changed := false
-	if visibility == logOtherVisibilityUser {
-		if common.LogModelDetailsAdminOnlyEnabled.Load() {
-			for _, key := range []string{"response_model", "upstream_model_name", "is_model_mapped"} {
-				if _, exists := values[key]; exists {
-					delete(values, key)
-					changed = true
-				}
+	mode := common.LogResponseModelDisplayMode.Load()
+	if mode == common.LogResponseModelDisplayOff ||
+		(mode == common.LogResponseModelDisplayAdminOnly && visibility == logOtherVisibilityUser) {
+		for _, key := range []string{"response_model", "upstream_model_name", "is_model_mapped"} {
+			if _, exists := values[key]; exists {
+				delete(values, key)
+				changed = true
 			}
 		}
+	}
+	if visibility == logOtherVisibilityUser {
 		for _, key := range []string{logOtherAdminInfoKey, logOtherRootInfoKey, logOtherAuditInfoKey} {
 			if _, exists := values[key]; exists {
 				delete(values, key)
@@ -248,7 +250,7 @@ func formatLogOtherJSON(value string, visibility logOtherVisibility) string {
 			}
 		}
 	} else {
-		changed = normalizeLegacyRejectReason(values)
+		changed = normalizeLegacyRejectReason(values) || changed
 		if visibility == logOtherVisibilityAdmin {
 			if _, exists := values[logOtherRootInfoKey]; exists {
 				delete(values, logOtherRootInfoKey)

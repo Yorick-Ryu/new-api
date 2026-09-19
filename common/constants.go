@@ -94,11 +94,17 @@ var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
 
-// LogModelDetailsAdminOnlyEnabled filters model diagnostics at log read time.
-var LogModelDetailsAdminOnlyEnabled atomic.Bool
+const (
+	LogResponseModelDisplayOff       = "off"
+	LogResponseModelDisplayOn        = "on"
+	LogResponseModelDisplayAdminOnly = "admin_only"
+)
+
+// LogResponseModelDisplayMode controls model diagnostics in usage-log responses.
+var LogResponseModelDisplayMode atomic.Value
 
 func init() {
-	LogModelDetailsAdminOnlyEnabled.Store(true)
+	LogResponseModelDisplayMode.Store(LogResponseModelDisplayOff)
 }
 
 var TLSInsecureSkipVerify bool

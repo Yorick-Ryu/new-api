@@ -1,7 +1,9 @@
 {
   "translation": {
-    "Response models and mappings visible to admins only": "Chỉ quản trị viên được xem mô hình phản hồi và ánh xạ",
-    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "Ẩn mô hình phản hồi từ nhà cung cấp và ánh xạ mô hình trong nhật ký người dùng. Áp dụng cho nhật ký cũ và mới; quản trị viên vẫn xem được.",
+    "Show response model": "Hiển thị mô hình phản hồi",
+    "On": "Bật",
+    "Admins only": "Chỉ quản trị viên",
+    "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.": "Chọn người được xem mô hình phản hồi và ánh xạ mô hình trong nhật ký cũ và mới. Tên mô hình yêu cầu luôn hiển thị.",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

@@ -1,7 +1,9 @@
 {
   "translation": {
-    "Response models and mappings visible to admins only": "Modèles de réponse et correspondances réservés aux administrateurs",
-    "Hide upstream response models and model mappings from user logs. Applies to existing and new logs; admins can still view these details.": "Masquer les modèles de réponse en amont et les correspondances de modèles dans les journaux des utilisateurs. S’applique aux journaux existants et futurs ; les administrateurs conservent l’accès.",
+    "Show response model": "Afficher le modèle de réponse",
+    "On": "Activé",
+    "Admins only": "Administrateurs uniquement",
+    "Choose who can see response models and model mappings in existing and new logs. Requested model names remain visible.": "Choisir qui peut voir les modèles de réponse et les correspondances dans les journaux existants et futurs. Le nom du modèle demandé reste visible.",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
