@@ -26,9 +26,7 @@ export function BusinessPage() {
 
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>
-        {t('Business overview')}
-      </SectionPageLayout.Title>
+      <SectionPageLayout.Title>{t('Business')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <BusinessOverview />
       </SectionPageLayout.Content>

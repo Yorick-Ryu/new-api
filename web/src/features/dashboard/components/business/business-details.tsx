@@ -32,14 +32,14 @@ import { buildBusinessTrend } from './business-trend'
 import type { BusinessDashboardData } from './types'
 
 export function BusinessDetails(props: {
-  data: Pick<BusinessDashboardData, 'daily' | 'plans'>
+  data?: Pick<BusinessDashboardData, 'daily' | 'plans'>
   loading?: boolean
 }) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
   const [chartType, setChartType] = useState<'bar' | 'area'>('bar')
   const chart = useMemo(
-    () => buildBusinessTrend(props.data, chartType, t),
+    () => props.data && buildBusinessTrend(props.data, chartType, t),
     [props.data, chartType, t]
   )
   return (
@@ -70,7 +70,7 @@ export function BusinessDetails(props: {
         </div>
       </div>
       {props.loading && <Skeleton className='h-[300px] w-full sm:h-96' />}
-      {!props.loading && chart.hasActivity && (
+      {!props.loading && chart?.hasActivity && (
         <div
           role='img'
           aria-label={t('Business trends')}
@@ -83,7 +83,7 @@ export function BusinessDetails(props: {
           />
         </div>
       )}
-      {!props.loading && !chart.hasActivity && (
+      {!props.loading && !chart?.hasActivity && (
         <div className='text-muted-foreground flex h-64 items-center justify-center text-sm'>
           {t('No business activity in this period')}
         </div>

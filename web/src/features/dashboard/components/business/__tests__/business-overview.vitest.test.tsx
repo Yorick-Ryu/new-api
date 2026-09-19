@@ -148,11 +148,11 @@ function mount(role: number) {
 it('does not render business information or request data for ordinary users', () => {
   const get = vi.spyOn(api, 'get')
   mount(ROLE.USER)
-  expect(screen.queryByRole('region', { name: 'Business overview' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Business' })).toBeNull()
   expect(get).not.toHaveBeenCalled()
 })
 
-it('shows twelve placeholders in the metrics responsive grid and disables refresh on initial load', async () => {
+it('keeps metric labels and chart controls visible with matching skeletons on entry and refresh', async () => {
   let resolve!: (value: {
     data: { success: boolean; data: BusinessDashboardData }
   }) => void
@@ -162,36 +162,60 @@ it('shows twelve placeholders in the metrics responsive grid and disables refres
         resolve = done
       })
   )
+  const user = userEvent.setup()
   mount(ROLE.ADMIN)
-  const loading = screen.getByRole('status', { name: 'Loading business data' })
-  const skeletonGrid = loading.querySelector('dl')
-  expect(skeletonGrid).not.toBeNull()
+  const region = screen.getByRole('region', { name: 'Business' })
+  expect(
+    screen.getByRole('status', { name: 'Loading business data' })
+  ).toBeTruthy()
+  const skeletonGrid = region.querySelector('dl')
   expect(skeletonGrid?.children).toHaveLength(12)
   for (const className of ['grid', 'grid-cols-2', 'lg:grid-cols-4']) {
     expect(skeletonGrid?.classList.contains(className)).toBe(true)
   }
+  const metric = screen
+    .getByText('New registrations')
+    .closest('dt')?.parentElement
+  if (!metric) throw new Error('Missing registrations card')
+  expect(metric.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2)
+  expect(screen.getByRole('heading', { name: 'Trend' })).toBeTruthy()
+  const chartSkeleton = region.querySelector(
+    '[data-slot="skeleton"][class*="h-[300px]"]'
+  )
+  expect(chartSkeleton).not.toBeNull()
+  const refresh = screen.getByRole('button', { name: 'Refresh business data' })
+  expect(refresh.hasAttribute('disabled')).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'Area Chart' }))
+  resolve({ data: { success: true, data: { ...fixture(), new_users: 12 } } })
+  await screen.findByText('0 of 12 new users topped up')
+  expect(screen.queryByRole('status')).toBeNull()
+  const value = within(metric).getByText('12')
+  expect(value.style.opacity).toBe('')
+  expect(value.style.transform).toBe('')
   expect(
     screen
-      .getByRole('button', { name: 'Refresh business data' })
-      .hasAttribute('disabled')
-  ).toBe(true)
-  resolve({ data: { success: true, data: fixture() } })
-  await screen.findByText('No business activity in this period')
+      .getByRole('button', { name: 'Area Chart' })
+      .getAttribute('aria-pressed')
+  ).toBe('true')
+  await user.click(refresh)
+  expect(
+    screen.getByRole('status', { name: 'Loading business data' })
+  ).toBeTruthy()
+  expect(
+    screen.getByText('New registrations').closest('dt')?.parentElement
+  ).toBe(metric)
+  expect(metric.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2)
+  expect(within(metric).queryByText('12')).toBeNull()
+  const refreshChartSkeleton = region.querySelector(
+    '[data-slot="skeleton"][class*="h-[300px]"]'
+  )
+  expect(refreshChartSkeleton?.className).toBe(chartSkeleton?.className)
+  resolve({ data: { success: true, data: { ...fixture(), new_users: 5 } } })
+  await screen.findByText('0 of 5 new users topped up')
+  const refreshedValue = within(metric).getByText('5')
+  expect(refreshedValue.style.opacity).toBe('')
+  expect(refreshedValue.style.transform).toBe('')
   expect(screen.queryByRole('status')).toBeNull()
-  const metricsGrid = screen
-    .getByRole('region', { name: 'Business overview' })
-    .querySelector('dl')
-  for (const className of ['grid', 'grid-cols-2', 'lg:grid-cols-4']) {
-    expect(metricsGrid?.classList.contains(className)).toBe(true)
-  }
-  for (const className of ['border-r', 'border-b', 'px-4', 'py-2', 'sm:py-4']) {
-    expect(skeletonGrid?.firstElementChild?.classList.contains(className)).toBe(
-      true
-    )
-    expect(metricsGrid?.firstElementChild?.classList.contains(className)).toBe(
-      true
-    )
-  }
 })
 
 it('replaces old metrics with skeletons while a new period loads and preserves the chart selection', async () => {
@@ -224,9 +248,7 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
   expect(refreshIcon).not.toBeNull()
   expect(refreshIcon?.classList.contains('animate-spin')).toBe(true)
   expect(
-    screen
-      .getByRole('region', { name: 'Business overview' })
-      .getAttribute('aria-busy')
+    screen.getByRole('region', { name: 'Business' }).getAttribute('aria-busy')
   ).toBe('true')
   expect(
     screen
@@ -240,9 +262,7 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
   expect(refreshIcon?.classList.contains('animate-spin')).toBe(false)
   expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
   expect(
-    screen
-      .getByRole('region', { name: 'Business overview' })
-      .getAttribute('aria-busy')
+    screen.getByRole('region', { name: 'Business' }).getAttribute('aria-busy')
   ).toBe('false')
   expect(
     screen
@@ -540,7 +560,8 @@ it('renders the new filters and growth metrics in the selected Chinese locale', 
     data: { success: true, data },
   })
   mount(ROLE.ADMIN)
-  await screen.findByText('总收入')
+  await screen.findByText('Team 月卡')
+  expect(screen.getByRole('heading', { name: '经营' })).toBeTruthy()
   expect(
     screen
       .getAllByRole('term')
@@ -681,7 +702,7 @@ it('places average spend before active subscriptions using only revenue-paying u
   ]
   vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data } })
   mount(ROLE.ADMIN)
-  await screen.findByText('Average revenue per paying user')
+  await screen.findByText('Ultra')
   expect(
     screen
       .getAllByRole('term')

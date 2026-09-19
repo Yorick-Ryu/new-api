@@ -142,29 +142,25 @@ function mount(role: number, path = '/business', sidebarConfig = '') {
 }
 
 it.each([ROLE.ADMIN, ROLE.SUPER_ADMIN])(
-  'gives role %s a separate business page in Admin after Subscriptions',
+  'gives role %s a separate business page in Admin after Channels',
   async (role) => {
     mount(role)
-    await screen.findByRole('region', { name: 'Business overview' })
+    await screen.findByRole('region', { name: 'Business' })
     const admin = screen.getByRole('navigation', { name: 'Admin' })
     const links = within(admin).getAllByRole('link')
-    const index = links.findIndex(
-      (link) => link.textContent === 'Business overview'
-    )
+    const index = links.findIndex((link) => link.textContent === 'Business')
     expect(links[index].getAttribute('href')).toBe('/business')
-    expect(links[index - 1].textContent).toBe('Subscriptions')
-    if (role === ROLE.SUPER_ADMIN) {
-      expect(links[index + 1].textContent).toBe('System Info')
-    }
+    expect(links[index - 1].textContent).toBe('Channels')
+    expect(links[index + 1].textContent).toBe('Models')
     expect(
       within(screen.getByRole('navigation', { name: 'General' })).queryByRole(
         'link',
-        { name: 'Business overview' }
+        { name: 'Business' }
       )
     ).toBeNull()
     expect(
       getDashboardSectionNavItems(i18n.t, { isAdmin: true }).some(
-        (item) => item.title === 'Business overview'
+        (item) => item.title === 'Business'
       )
     ).toBe(false)
   }
@@ -176,21 +172,21 @@ it.each(['/business', '/dashboard/business'])(
     const { get, router } = mount(ROLE.USER, path)
     await screen.findByText('Forbidden')
     expect(router.state.location.pathname).toBe('/403')
-    expect(screen.queryByRole('link', { name: 'Business overview' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Business' })).toBeNull()
     expect(get).not.toHaveBeenCalled()
   }
 )
 
 it('redirects old administrator bookmarks to the independent business page', async () => {
   const { router } = mount(ROLE.ADMIN, '/dashboard/business')
-  await screen.findByRole('region', { name: 'Business overview' })
+  await screen.findByRole('region', { name: 'Business' })
   expect(router.state.location.pathname).toBe('/business')
 })
 
 it('keeps the administrator homepage free of business cards and business requests', async () => {
   const { get } = mount(ROLE.ADMIN, '/home')
   await screen.findByRole('heading', { name: 'Usage at a glance' })
-  expect(screen.queryByRole('region', { name: 'Business overview' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Business' })).toBeNull()
   expect(get.mock.calls.some(([url]) => url === '/api/data/business')).toBe(
     false
   )
@@ -198,6 +194,6 @@ it('keeps the administrator homepage free of business cards and business request
 
 it('honors an administrator hiding the business navigation module', async () => {
   mount(ROLE.ADMIN, '/business', '{"admin":{"enabled":true,"business":false}}')
-  await screen.findByRole('region', { name: 'Business overview' })
-  expect(screen.queryByRole('link', { name: 'Business overview' })).toBeNull()
+  await screen.findByRole('region', { name: 'Business' })
+  expect(screen.queryByRole('link', { name: 'Business' })).toBeNull()
 })

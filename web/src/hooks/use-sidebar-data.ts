@@ -159,6 +159,12 @@ export function useSidebarData(): SidebarData {
             icon: Radio,
           },
           {
+            title: t('Business'),
+            url: '/business',
+            icon: ChartNoAxesCombined,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
             title: t('Models'),
             url: '/models/metadata',
             icon: Box,
@@ -177,12 +183,6 @@ export function useSidebarData(): SidebarData {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
-          },
-          {
-            title: t('Business overview'),
-            url: '/business',
-            icon: ChartNoAxesCombined,
-            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Info'),

@@ -32,7 +32,7 @@ import { getBusinessDashboard } from '../../api'
 import { PanelTitle } from '../ui/panel-title'
 import { BusinessDetails } from './business-details'
 import { BusinessFilterDialog } from './business-filter-dialog'
-import { BusinessMetrics, BusinessMetricsSkeleton } from './business-metrics'
+import { BusinessMetrics } from './business-metrics'
 import {
   toBusinessPickerDate,
   type BusinessFilter,
@@ -72,14 +72,14 @@ function AdminBusinessOverview() {
 
   return (
     <section
-      aria-label={t('Business overview')}
+      aria-label={t('Business')}
       aria-busy={query.isFetching}
       className='bg-card overflow-hidden rounded-lg border'
     >
       <div className='flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5'>
         <PanelTitle
           as='h2'
-          title={t('Business overview')}
+          title={t('Business')}
           icon={ChartNoAxesCombined}
           iconTone='info'
         />
@@ -162,14 +162,9 @@ function AdminBusinessOverview() {
           </Button>
         </div>
       )}
-      {query.isPending && (
-        <div role='status' aria-label={t('Loading business data')}>
-          <BusinessMetricsSkeleton />
-        </div>
-      )}
-      {data && (
+      {(query.isPending || data) && (
         <>
-          {query.isFetching && (
+          {(query.isPending || query.isFetching) && (
             <span
               role='status'
               aria-label={t('Loading business data')}
@@ -178,8 +173,14 @@ function AdminBusinessOverview() {
               {t('Loading business data')}
             </span>
           )}
-          <BusinessMetrics data={data} loading={query.isFetching} />
-          <BusinessDetails data={data} loading={query.isFetching} />
+          <BusinessMetrics
+            data={data}
+            loading={query.isPending || query.isFetching}
+          />
+          <BusinessDetails
+            data={data}
+            loading={query.isPending || query.isFetching}
+          />
         </>
       )}
     </section>
