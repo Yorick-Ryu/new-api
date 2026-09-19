@@ -22,6 +22,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Combobox } from '../combobox'
+import { ComboboxInput } from '../combobox-input'
 import {
   Drawer,
   DrawerContent,
@@ -111,6 +112,31 @@ afterEach(() => {
 })
 
 describe('popups inside a drawer', () => {
+  it('keeps editable combobox options interactive inside the drawer', async () => {
+    const change = vi.fn()
+    render(
+      <FilterDrawer>
+        <ComboboxInput
+          options={options}
+          onValueChange={change}
+          aria-label='Provider'
+          allowCustomValue
+          openOnFocus={false}
+        />
+      </FilterDrawer>
+    )
+    const user = userEvent.setup()
+    const dialog = screen.getByRole('dialog', { name: 'Filters' })
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Provider' }))
+    await user.click(
+      await within(dialog).findByRole('option', { name: 'Google' })
+    )
+
+    expect(change).toHaveBeenCalledWith('gemini')
+    expect(dialog).toBeVisible()
+  })
+
   it('renders combobox options inside the drawer dialog and clicking one applies it without closing the drawer', async () => {
     const change = vi.fn()
     render(

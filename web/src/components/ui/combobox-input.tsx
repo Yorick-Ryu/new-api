@@ -18,10 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Check, ChevronsUpDown } from 'lucide-react'
 import * as React from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 export type ComboboxInputOption = {
@@ -76,16 +76,6 @@ export function ComboboxInput({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
-  const dropdownRef = React.useRef<HTMLDivElement>(null)
-  // The dropdown is portaled so scrolling ancestors cannot clip it. It goes
-  // into the enclosing dialog when there is one, which keeps a modal parent
-  // from treating option clicks as outside presses.
-  const [dropdown, setDropdown] = React.useState<{
-    container: HTMLElement
-    top: number
-    left: number
-    width: number
-  } | null>(null)
   const pointerFocusRef = React.useRef(false)
   const selectedOption = React.useMemo(
     () => options.find((option) => option.value === value),
@@ -107,54 +97,6 @@ export function ComboboxInput({
   React.useEffect(() => {
     setHighlightedIndex(-1)
   }, [filteredOptions])
-
-  // Handle click outside to close
-  React.useEffect(() => {
-    if (!open) return
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(target) &&
-        !dropdownRef.current?.contains(target)
-      ) {
-        setOpen(false)
-        setSearchValue('')
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
-
-  // Position the portaled dropdown under the input and follow scroll/resize.
-  React.useEffect(() => {
-    if (!open) {
-      setDropdown(null)
-      return
-    }
-    const input = inputRef.current
-    if (!input) return
-    const container =
-      input.closest<HTMLElement>('[role="dialog"]') ?? document.body
-    const measure = () => {
-      const rect = input.getBoundingClientRect()
-      setDropdown({
-        container,
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      })
-    }
-    measure()
-    window.addEventListener('scroll', measure, true)
-    window.addEventListener('resize', measure)
-    return () => {
-      window.removeEventListener('scroll', measure, true)
-      window.removeEventListener('resize', measure)
-    }
-  }, [open])
 
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue)
@@ -220,83 +162,95 @@ export function ComboboxInput({
   const showDropdown =
     open &&
     !disabled &&
-    (filteredOptions.length > 0 || (allowCustomValue && searchValue.trim()))
+    (filteredOptions.length > 0 ||
+      (allowCustomValue && searchValue.trim().length > 0))
 
   return (
-    <div ref={containerRef} className='relative'>
-      <Input
-        ref={inputRef}
-        id={id}
-        type='text'
-        role='combobox'
-        disabled={disabled}
-        aria-label={ariaLabel}
-        aria-labelledby={ariaLabelledBy}
-        aria-invalid={ariaInvalid}
-        aria-expanded={!!showDropdown}
-        aria-controls={
-          showDropdown && filteredOptions.length > 0 ? listId : undefined
+    <Popover
+      open={showDropdown}
+      onOpenChange={(nextOpen, details) => {
+        // The editable input is the anchor, not a toggling popover trigger.
+        if (
+          details.reason === 'outside-press' &&
+          containerRef.current?.contains(details.event.target as Node)
+        ) {
+          details.cancel()
+          return
         }
-        aria-activedescendant={
-          showDropdown && highlightedIndex >= 0
-            ? `${listId}-${highlightedIndex}`
-            : undefined
-        }
-        aria-haspopup='listbox'
-        aria-autocomplete='list'
-        autoComplete='off'
-        placeholder={placeholder}
-        value={displayValue}
-        onChange={(e) => {
-          const nextValue = e.target.value
-          setSearchValue(nextValue)
-          setSearchChanged(true)
-          if (allowCustomValue) {
-            onValueChange(nextValue)
+        setOpen(nextOpen)
+        if (!nextOpen) setSearchValue('')
+      }}
+    >
+      <div ref={containerRef} className='relative'>
+        <Input
+          ref={inputRef}
+          id={id}
+          type='text'
+          role='combobox'
+          disabled={disabled}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+          aria-invalid={ariaInvalid}
+          aria-expanded={!!showDropdown}
+          aria-controls={
+            showDropdown && filteredOptions.length > 0 ? listId : undefined
           }
-          if (!open) setOpen(true)
-        }}
-        onPointerDown={() => {
-          pointerFocusRef.current = true
-          if (document.activeElement === inputRef.current && !open) {
+          aria-activedescendant={
+            showDropdown && highlightedIndex >= 0
+              ? `${listId}-${highlightedIndex}`
+              : undefined
+          }
+          aria-haspopup='listbox'
+          aria-autocomplete='list'
+          autoComplete='off'
+          placeholder={placeholder}
+          value={displayValue}
+          onChange={(e) => {
+            const nextValue = e.target.value
+            setSearchValue(nextValue)
+            setSearchChanged(true)
+            if (allowCustomValue) {
+              onValueChange(nextValue)
+            }
+            if (!open) setOpen(true)
+          }}
+          onPointerDown={() => {
+            pointerFocusRef.current = true
+            if (document.activeElement === inputRef.current && !open) {
+              setSearchValue(allowCustomValue ? value : '')
+              setSearchChanged(false)
+              setOpen(true)
+            }
+          }}
+          onFocus={() => {
             setSearchValue(allowCustomValue ? value : '')
             setSearchChanged(false)
-            setOpen(true)
-          }
-        }}
-        onFocus={() => {
-          setSearchValue(allowCustomValue ? value : '')
-          setSearchChanged(false)
-          if (openOnFocus || pointerFocusRef.current) {
-            setOpen(true)
-          }
-          pointerFocusRef.current = false
-        }}
-        onBlur={() => {
-          setOpen(false)
-          setSearchValue('')
-        }}
-        onKeyDown={(event) => {
-          handleKeyDown(event)
-          if (!event.defaultPrevented) onKeyDown?.(event)
-        }}
-        className={cn('pr-9', className)}
-      />
-      <ChevronsUpDown className='pointer-events-none absolute top-1/2 right-3 size-4 shrink-0 -translate-y-1/2 opacity-50' />
+            if (openOnFocus || pointerFocusRef.current) {
+              setOpen(true)
+            }
+            pointerFocusRef.current = false
+          }}
+          onBlur={() => {
+            setOpen(false)
+            setSearchValue('')
+          }}
+          onKeyDown={(event) => {
+            handleKeyDown(event)
+            if (!event.defaultPrevented) onKeyDown?.(event)
+          }}
+          className={cn('pr-9', className)}
+        />
+        <ChevronsUpDown className='pointer-events-none absolute top-1/2 right-3 size-4 shrink-0 -translate-y-1/2 opacity-50' />
 
-      {showDropdown &&
-        dropdown &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'fixed',
-              top: dropdown.top,
-              left: dropdown.left,
-              width: dropdown.width,
-            }}
+        {showDropdown && (
+          <PopoverContent
+            anchor={inputRef}
+            align='start'
+            role='presentation'
+            initialFocus={false}
+            finalFocus={false}
             className={cn(
-              'bg-popover text-popover-foreground z-100 rounded-md border shadow-md',
+              'w-(--anchor-width) max-w-(--available-width) gap-0 overflow-hidden rounded-md border p-0',
               popupClassName
             )}
           >
@@ -305,7 +259,7 @@ export function ComboboxInput({
                 ref={listRef}
                 id={listId}
                 role='listbox'
-                className='max-h-[200px] overflow-y-auto p-1'
+                className='max-h-[min(200px,var(--available-height))] overflow-y-auto p-1'
               >
                 {filteredOptions.map((option, index) => (
                   <li
@@ -349,9 +303,9 @@ export function ComboboxInput({
                 )}
               </div>
             )}
-          </div>,
-          dropdown.container
+          </PopoverContent>
         )}
-    </div>
+      </div>
+    </Popover>
   )
 }
