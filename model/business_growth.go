@@ -46,6 +46,38 @@ type BusinessSubscriptionHealth struct {
 	plans          map[int]businessPlanRenewal
 }
 
+type BusinessCumulativeRenewals struct {
+	Renewed          int64    `json:"renewed"`
+	ExpiredUnrenewed int64    `json:"expired_unrenewed"`
+	Rate             *float64 `json:"rate"`
+}
+
+// Every successful renewal buys another cycle and counts immediately. Expired
+// instances settled by a later renewal are no longer unrenewed. Earlier renewals
+// already extended the stored end time, so they must not hide its next expiry.
+func getBusinessCumulativeRenewals(db *gorm.DB, now int64) (*BusinessCumulativeRenewals, error) {
+	result := &BusinessCumulativeRenewals{}
+	if err := db.Model(&SubscriptionOrder{}).
+		Where("status = ? AND renewal_subscription_id > 0 AND complete_time > 0 AND complete_time <= ?", common.TopUpStatusSuccess, now).
+		Count(&result.Renewed).Error; err != nil {
+		return nil, err
+	}
+	matched := db.Model(&SubscriptionOrder{}).
+		Where("status = ? AND renewal_subscription_id = s.id AND complete_time >= s.end_time AND complete_time <= ?", common.TopUpStatusSuccess, now).Select("1")
+	purchased := db.Model(&SubscriptionOrder{}).
+		Where("status = ? AND renewal_subscription_id = s.id AND complete_time > 0 AND complete_time <= ?", common.TopUpStatusSuccess, now).Select("1")
+	if err := db.Table("user_subscriptions AS s").
+		Where("(s.source IN ? OR EXISTS (?)) AND s.end_time > 0 AND s.end_time <= ? AND s.status IN ?", []string{"order", PaymentMethodBalance}, purchased, now, []string{"active", "expired"}).
+		Where("NOT EXISTS (?)", matched).Count(&result.ExpiredUnrenewed).Error; err != nil {
+		return nil, err
+	}
+	if total := result.Renewed + result.ExpiredUnrenewed; total > 0 {
+		rate := float64(result.Renewed) / float64(total) * 100
+		result.Rate = &rate
+	}
+	return result, nil
+}
+
 type businessPlanRenewal struct {
 	PlanId      int
 	Due         int64

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -214,4 +215,36 @@ func TestBusinessDashboardUsesSuccessfulOrderCreationTime(t *testing.T) {
 	assert.Equal(t, end+100, data.RecentTopUps[0].CompleteTime)
 	assert.Equal(t, start, data.RecentTopUps[1].CreateTime)
 	assert.Zero(t, data.RecentTopUps[1].CompleteTime)
+}
+
+func TestBusinessNewPayersMergeWalletAndSubscriptions(t *testing.T) {
+	db := setupBusinessDatabase(t)
+	now := time.Date(2026, 9, 17, 4, 0, 0, 0, time.UTC)
+	start := now.Unix() - 3600
+	users := []User{}
+	for i := 1; i <= 7; i++ {
+		users = append(users, User{Id: i, Username: fmt.Sprintf("payer-%d", i), AffCode: fmt.Sprintf("payer-%d", i), CreatedAt: start})
+	}
+	users[6].CreatedAt = start - 86400
+	require.NoError(t, db.Create(&users).Error)
+	require.NoError(t, db.Create(&[]TopUp{
+		{UserId: 1, TradeNo: "wallet", Money: 10, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 1, TradeNo: "wallet-repeat", Money: 10, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 2, TradeNo: "sub", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+	}).Error)
+	require.NoError(t, db.Create(&[]SubscriptionOrder{
+		{UserId: 1, TradeNo: "both", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 2, TradeNo: "sub", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 3, TradeNo: "balance", Money: 20, PaymentProvider: PaymentProviderBalance, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 4, TradeNo: "pending", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending, CreateTime: start},
+		{UserId: 5, TradeNo: "free", Money: 0, Status: common.TopUpStatusSuccess, CreateTime: start},
+		{UserId: 6, TradeNo: "future", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: now.Unix() + 1},
+		{UserId: 7, TradeNo: "old", Money: 20, PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusSuccess, CreateTime: start},
+	}).Error)
+	result, err := GetBusinessDashboard(context.Background(), 1, 0, now)
+	require.NoError(t, err)
+	assert.EqualValues(t, 6, result.NewUsers)
+	assert.EqualValues(t, 1, result.NewUserTopUpUsers)
+	assert.EqualValues(t, 2, result.NewUserPayingUsers)
+	assert.Equal(t, []BusinessMoney{{Provider: "epay", Amount: 60}}, result.NewUserPaymentAmounts)
 }

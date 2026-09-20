@@ -131,15 +131,20 @@ export function BusinessMetrics(props: {
       ),
     },
     {
-      label: t('New user top-up rate'),
+      label: t('New user payment rate'),
       icon: Percent,
       iconTone: 'chart-2',
-      value: data?.new_users ? `${data.new_user_topup_rate.toFixed(1)}%` : '—',
+      value: data?.new_users
+        ? `${((data.new_user_paying_users / data.new_users) * 100).toFixed(1)}%`
+        : '—',
       description:
         data &&
-        t('{{paid}} of {{total}} new users topped up', {
-          paid: data.new_user_topup_users,
-          total: data.new_users,
+        t('New user payments {{amount}}', {
+          amount: formatBusinessMoney(
+            data.new_user_payment_amounts?.length
+              ? data.new_user_payment_amounts
+              : [{ provider: 'epay', amount: 0 }]
+          ),
         }),
     },
     {
@@ -166,7 +171,7 @@ export function BusinessMetrics(props: {
       ),
     },
     {
-      label: t('Wallet top-up amount'),
+      label: t('Wallet top-up revenue'),
       icon: Wallet,
       iconTone: 'success',
       value: data && formatBusinessMoney(data.topup_amounts),
@@ -178,23 +183,20 @@ export function BusinessMetrics(props: {
         }),
     },
     {
-      label: t('New user top-up amount'),
-      icon: CircleDollarSign,
+      label: t('Subscription revenue'),
+      icon: WalletCards,
       iconTone: 'success',
-      value: data && formatBusinessMoney(data.new_user_topup_amounts),
-      description:
+      value:
         data &&
-        t('Average top-up {{amount}}', {
-          amount:
-            data.new_user_topup_users > 0
-              ? formatBusinessMoney(
-                  data.new_user_topup_amounts.map((item) => ({
-                    ...item,
-                    amount: item.amount / data.new_user_topup_users,
-                  }))
-                )
-              : '—',
-        }),
+        formatBusinessMoney([
+          { provider: 'epay', amount: data.sales.subscription_revenue },
+        ]),
+      description: data && (
+        <PeriodComparison
+          current={data.sales.subscription_revenue}
+          previous={data.previous_sales.subscription_revenue}
+        />
+      ),
     },
     {
       label: t('Average revenue per paying user'),
@@ -224,20 +226,19 @@ export function BusinessMetrics(props: {
         }),
     },
     {
-      label: t('Subscription revenue'),
-      icon: WalletCards,
-      iconTone: 'success',
+      label: t('Cumulative renewal rate'),
+      icon: Percent,
+      iconTone: 'chart-4',
       value:
+        data?.cumulative_renewals.rate != null
+          ? `${data.cumulative_renewals.rate.toFixed(1)}%`
+          : '—',
+      description:
         data &&
-        formatBusinessMoney([
-          { provider: 'epay', amount: data.sales.subscription_revenue },
-        ]),
-      description: data && (
-        <PeriodComparison
-          current={data.sales.subscription_revenue}
-          previous={data.previous_sales.subscription_revenue}
-        />
-      ),
+        t('Renewed {{renewed}} · Expired without renewal {{expired}}', {
+          renewed: data.cumulative_renewals.renewed,
+          expired: data.cumulative_renewals.expired_unrenewed,
+        }),
     },
   ]
   const planMetrics = data?.plans.map(

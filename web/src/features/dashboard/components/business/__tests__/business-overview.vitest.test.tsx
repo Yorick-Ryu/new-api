@@ -118,6 +118,9 @@ function fixture(): BusinessDashboardData {
     topup_users: 0,
     topup_orders: 0,
     topup_amounts: [],
+    new_user_payment_amounts: [],
+    cumulative_renewals: { renewed: 3, expired_unrenewed: 1, rate: 75 },
+    new_user_paying_users: 0,
     new_user_topup_users: 0,
     new_user_topup_rate: 0,
     new_user_topup_amounts: [],
@@ -187,7 +190,7 @@ it('keeps metric labels and chart controls visible with matching skeletons on en
   expect(refresh.hasAttribute('disabled')).toBe(true)
   await user.click(screen.getByRole('button', { name: 'Area Chart' }))
   resolve({ data: { success: true, data: { ...fixture(), new_users: 12 } } })
-  await screen.findByText('0 of 12 new users topped up')
+  await screen.findByText('12')
   expect(screen.queryByRole('status')).toBeNull()
   const value = within(metric).getByText('12')
   expect(value.style.opacity).toBe('')
@@ -211,7 +214,7 @@ it('keeps metric labels and chart controls visible with matching skeletons on en
   )
   expect(refreshChartSkeleton?.className).toBe(chartSkeleton?.className)
   resolve({ data: { success: true, data: { ...fixture(), new_users: 5 } } })
-  await screen.findByText('0 of 5 new users topped up')
+  await screen.findByText('5')
   const refreshedValue = within(metric).getByText('5')
   expect(refreshedValue.style.opacity).toBe('')
   expect(refreshedValue.style.transform).toBe('')
@@ -234,10 +237,10 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
     )
   const user = userEvent.setup()
   mount(ROLE.ADMIN)
-  await screen.findByText('0 of 12 new users topped up')
+  await screen.findByText('12')
   await user.click(screen.getByRole('button', { name: 'Area Chart' }))
   await user.click(screen.getByRole('tab', { name: 'Yesterday' }))
-  expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
+  expect(screen.queryByText('12')).toBeNull()
   expect(
     screen.getByRole('status', { name: 'Loading business data' })
   ).toBeTruthy()
@@ -256,11 +259,11 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
       .getAttribute('aria-pressed')
   ).toBe('true')
   resolve({ data: { success: true, data: { ...fixture(), new_users: 5 } } })
-  await screen.findByText('0 of 5 new users topped up')
+  await screen.findByText('5')
   expect(refresh.querySelectorAll('svg')).toHaveLength(1)
   expect(refresh.querySelector('.lucide-refresh-cw')).toBe(refreshIcon)
   expect(refreshIcon?.classList.contains('animate-spin')).toBe(false)
-  expect(screen.queryByText('0 of 12 new users topped up')).toBeNull()
+  expect(screen.queryByText('12')).toBeNull()
   expect(
     screen.getByRole('region', { name: 'Business' }).getAttribute('aria-busy')
   ).toBe('false')
@@ -271,13 +274,24 @@ it('replaces old metrics with skeletons while a new period loads and preserves t
   ).toBe('true')
 })
 
+it('uses merged new payers instead of wallet-only users for payment conversion', async () => {
+  const data = fixture()
+  data.new_users = 7
+  data.new_user_payment_amounts = [{ provider: 'epay', amount: 123.45 }]
+  data.new_user_paying_users = 3
+  data.new_user_topup_users = 1
+  vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data } })
+  mount(ROLE.ADMIN)
+  expect(await screen.findByText('New user payments ¥123.45')).toBeTruthy()
+  expect(screen.getByText('42.9%')).toBeTruthy()
+})
+
 it('shows empty states and an undefined conversion rate for a period without registrations', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({
     data: { success: true, data: fixture() },
   })
   mount(ROLE.ADMIN)
   await screen.findByText('No business activity in this period')
-  expect(screen.getByText('Average top-up —')).toBeTruthy()
   expect(
     screen.getByText('Subscription revenue').closest('dt')?.parentElement
       ?.textContent
@@ -290,11 +304,11 @@ it('shows empty states and an undefined conversion rate for a period without reg
   expect(screen.queryByText('Plan activations')).toBeNull()
   expect(screen.queryByText('Renewal rate')).toBeNull()
   expect(
-    screen.getByText('New user top-up rate').closest('dt')?.parentElement
+    screen.getByText('New user payment rate').closest('dt')?.parentElement
       ?.textContent
   ).toContain('—')
   expect(
-    screen.getByText('Wallet top-up amount').closest('dt')?.parentElement
+    screen.getByText('Wallet top-up revenue').closest('dt')?.parentElement
       ?.textContent
   ).toContain('0.00')
 })
@@ -307,7 +321,8 @@ it('caps reporting choices at 30 days and switches the cohort using keyboard', a
     },
   }))
   mount(ROLE.ADMIN)
-  await screen.findByText('0 of 7 new users topped up')
+  await screen.findByText('7')
+  expect(screen.getByText('Renewed 3 · Expired without renewal 1')).toBeTruthy()
   expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
     'Today',
     'Yesterday',
@@ -318,7 +333,8 @@ it('caps reporting choices at 30 days and switches the cohort using keyboard', a
   const user = userEvent.setup()
   screen.getByRole('tab', { name: 'Last 30 days' }).focus()
   await user.keyboard('{Enter}')
-  await screen.findByText('0 of 30 new users topped up')
+  await screen.findByText('30')
+  expect(screen.getByText('Renewed 3 · Expired without renewal 1')).toBeTruthy()
   expect(
     screen
       .getByRole('tab', { name: 'Last 30 days' })
@@ -338,6 +354,7 @@ it('shows payment and subscription metrics without recent-user or top-up record 
   const data = fixture()
   data.new_users = 2
   data.new_user_topup_users = 1
+  data.new_user_paying_users = 1
   data.new_user_topup_rate = 50
   data.subscription_activations = 21
   data.subscription_renewals = 8
@@ -529,7 +546,7 @@ it('shows period comparisons and expiry metrics without renewal-rate or history 
   expect(screen.getByText('Previous period was 0')).toBeTruthy()
   expect(screen.getByText('3 expiring in the next 7 days')).toBeTruthy()
   expect(screen.queryByText('Renewal rate')).toBeNull()
-  expect(screen.queryByText('75.0%')).toBeNull()
+  expect(screen.getByText('75.0%')).toBeTruthy()
   expect(screen.queryByText('Historical renewal records incomplete')).toBeNull()
   expect(screen.getByText('Usage data unavailable')).toBeTruthy()
   expect(screen.queryByText(/NaN|Infinity/)).toBeNull()
@@ -567,19 +584,19 @@ it('renders the new filters and growth metrics in the selected Chinese locale', 
       .getAllByRole('term')
       .slice(0, 4)
       .map((term) => term.textContent)
-  ).toEqual(['新增用户', '首次付费用户', '活跃用户', '新用户充值率'])
+  ).toEqual(['新增用户', '首次付费用户', '活跃用户', '新用户付费率'])
   expect(
     screen
       .getAllByRole('term')
       .slice(4, 8)
       .map((term) => term.textContent)
-  ).toEqual(['总收入', '充值金额', '新用户充值金额', '客单价'])
+  ).toEqual(['总收入', '充值收入', '套餐收入', '客单价'])
   expect(
     screen
       .getAllByRole('term')
       .slice(7)
       .map((term) => term.textContent)
-  ).toEqual(['客单价', '当前有效套餐', '套餐收入', 'Team 月卡'])
+  ).toEqual(['客单价', '当前有效套餐', '累计续费率', 'Team 月卡'])
   expect(screen.queryByText('用户增长、充值与套餐开通 · 北京时间')).toBeNull()
   for (const [label, tone] of [
     ['新增用户', 'info'],
@@ -606,23 +623,6 @@ it('renders the new filters and growth metrics in the selected Chinese locale', 
   expect(screen.queryByText(/最近一日/)).toBeNull()
   expect(screen.queryByText(/本期付费用户/)).toBeNull()
   expect(screen.queryByText('钱包充值 + 套餐直接支付')).toBeNull()
-})
-
-it('shows average recharge per new top-up user while preserving separate payment units', async () => {
-  await i18n.changeLanguage('zh')
-  const data = fixture()
-  data.new_users = 10
-  data.new_user_topup_users = 4
-  data.new_user_topup_rate = 40
-  data.new_user_topup_amounts = [
-    { provider: 'epay', amount: 321.5 },
-    { provider: 'stripe', amount: 12 },
-  ]
-  vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data } })
-  mount(ROLE.ADMIN)
-  expect(await screen.findByText('人均充值 ¥80.38 / stripe 3.00')).toBeTruthy()
-  expect(screen.getByText('¥321.50 / stripe 12.00')).toBeTruthy()
-  expect(screen.queryByText('本期新注册用户在本期的充值金额')).toBeNull()
 })
 
 it.each([
@@ -711,7 +711,7 @@ it('places average spend before active subscriptions using only revenue-paying u
   ).toEqual([
     'Average revenue per paying user',
     'Current active subscriptions',
-    'Subscription revenue',
+    'Cumulative renewal rate',
     'Plus',
     'Ultra',
   ])

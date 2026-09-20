@@ -2,6 +2,9 @@ package model
 
 import (
 	"context"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -284,4 +287,70 @@ func TestBusinessDashboardSubscriptionsFollowEnabledCatalogAndStableIDs(t *testi
 	assert.NotNil(t, empty.Plans)
 	assert.Empty(t, empty.Daily[0].Plans)
 	assert.NotNil(t, empty.Daily[0].Plans)
+}
+
+func TestBusinessCumulativeRenewalsAcrossDatabases(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			var driver gorm.Dialector
+			switch dialect {
+			case "sqlite":
+				driver = sqlite.Open(filepath.Join(t.TempDir(), "cumulative.db"))
+			case "mysql":
+				dsn := os.Getenv("TEST_MYSQL_DSN")
+				if dsn == "" {
+					t.Skip("TEST_MYSQL_DSN not configured")
+				}
+				driver = mysql.Open(dsn)
+			case "postgres":
+				dsn := os.Getenv("TEST_POSTGRES_DSN")
+				if dsn == "" {
+					t.Skip("TEST_POSTGRES_DSN not configured")
+				}
+				driver = postgres.Open(dsn)
+			}
+			db, err := gorm.Open(driver, &gorm.Config{})
+			require.NoError(t, err)
+			var version string
+			versionSQL := "SELECT VERSION()"
+			if dialect == "sqlite" {
+				versionSQL = "SELECT sqlite_version()"
+			}
+			require.NoError(t, db.Raw(versionSQL).Scan(&version).Error)
+			t.Logf("%s version: %s", dialect, version)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = sqlDB.Close() })
+			require.NoError(t, db.AutoMigrate(&SubscriptionOrder{}, &UserSubscription{}))
+			empty, err := getBusinessCumulativeRenewals(db, 200)
+			require.NoError(t, err)
+			assert.Nil(t, empty.Rate)
+			require.NoError(t, db.Create(&[]UserSubscription{
+				{Id: 1, Source: "order", Status: "active", StartTime: 10, EndTime: 500},
+				{Id: 2, Source: "balance", Status: "expired", StartTime: 10, EndTime: 100},
+				{Id: 3, Source: "order", Status: "active", StartTime: 10, EndTime: 200},
+				{Id: 4, Source: "admin", Status: "expired", StartTime: 10, EndTime: 100},
+				{Id: 5, Source: "order", Status: "cancelled", StartTime: 10, EndTime: 100},
+				{Id: 6, Source: "order", Status: "active", StartTime: 150, EndTime: 450},
+			}).Error)
+			require.NoError(t, db.Create(&[]SubscriptionOrder{
+				{TradeNo: "early-one", Status: common.TopUpStatusSuccess, RenewalSubscriptionId: 1, CompleteTime: 90},
+				{TradeNo: "early-two", Status: common.TopUpStatusSuccess, RenewalSubscriptionId: 1, RenewalSourceId: 1, RenewalDueTime: 400, CompleteTime: 100},
+				{TradeNo: "late", Status: common.TopUpStatusSuccess, RenewalSubscriptionId: 2, RenewalSourceId: 2, RenewalDueTime: 100, CompleteTime: 150},
+
+				{TradeNo: "pending", Status: common.TopUpStatusPending, RenewalSubscriptionId: 3, RenewalSourceId: 3, RenewalDueTime: 200, CompleteTime: 180},
+				{TradeNo: "future", Status: common.TopUpStatusSuccess, RenewalSubscriptionId: 3, RenewalSourceId: 3, RenewalDueTime: 200, CompleteTime: 250},
+			}).Error)
+			result, err := getBusinessCumulativeRenewals(db, 200)
+			require.NoError(t, err)
+			assert.EqualValues(t, 3, result.Renewed)
+			assert.EqualValues(t, 1, result.ExpiredUnrenewed)
+			require.NotNil(t, result.Rate)
+			assert.Equal(t, 75.0, *result.Rate)
+			later, err := getBusinessCumulativeRenewals(db, 500)
+			require.NoError(t, err)
+			assert.EqualValues(t, 4, later.Renewed)
+			assert.EqualValues(t, 2, later.ExpiredUnrenewed)
+		})
+	}
 }

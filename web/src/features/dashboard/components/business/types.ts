@@ -32,6 +32,11 @@ export interface BusinessSales {
 }
 
 export interface BusinessDashboardData {
+  cumulative_renewals: {
+    renewed: number
+    expired_unrenewed: number
+    rate: number | null
+  }
   sales: BusinessSales
   previous_sales: BusinessSales
   previous_start_timestamp: number
@@ -57,6 +62,8 @@ export interface BusinessDashboardData {
   topup_orders: number
   topup_users: number
   topup_amounts: BusinessMoney[]
+  new_user_payment_amounts: BusinessMoney[] | null
+  new_user_paying_users: number
   new_user_topup_users: number
   new_user_topup_rate: number
   new_user_topup_amounts: BusinessMoney[]

@@ -75,6 +75,9 @@ type BusinessDashboard struct {
 	TopUpOrders             int64                       `json:"topup_orders"`
 	TopUpUsers              int64                       `json:"topup_users"`
 	TopUpAmounts            []BusinessMoney             `json:"topup_amounts"`
+	CumulativeRenewals      *BusinessCumulativeRenewals `json:"cumulative_renewals"`
+	NewUserPaymentAmounts   []BusinessMoney             `json:"new_user_payment_amounts"`
+	NewUserPayingUsers      int64                       `json:"new_user_paying_users"`
 	NewUserTopUpUsers       int64                       `json:"new_user_topup_users"`
 	NewUserTopUpRate        float64                     `json:"new_user_topup_rate"`
 	NewUserTopUpAmounts     []BusinessMoney             `json:"new_user_topup_amounts"`
@@ -152,6 +155,11 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 	if err != nil {
 		return nil, err
 	}
+	result.CumulativeRenewals, err = getBusinessCumulativeRenewals(db, now.Unix())
+	if err != nil {
+		return nil, err
+	}
+
 	result.SubscriptionHealth, err = getBusinessSubscriptionHealth(db, start, end, now.Unix())
 	if err != nil {
 		return nil, err
@@ -180,6 +188,12 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 	}
 	cohortIds := db.Unscoped().Model(&User{}).Select("id").Where("created_at >= ? AND created_at < ?", start, end)
 	if err := businessTopUps(db, start, end).Where("t.user_id IN (?)", cohortIds).Distinct("t.user_id").Count(&result.NewUserTopUpUsers).Error; err != nil {
+		return nil, err
+	}
+	if err := businessPayments(db, start, end).Where("user_id IN (?)", cohortIds).Distinct("user_id").Count(&result.NewUserPayingUsers).Error; err != nil {
+		return nil, err
+	}
+	if err := businessPayments(db, start, end).Where("user_id IN (?)", cohortIds).Select("provider, SUM(money) AS amount").Group("provider").Order("provider").Scan(&result.NewUserPaymentAmounts).Error; err != nil {
 		return nil, err
 	}
 	if result.NewUsers > 0 {
