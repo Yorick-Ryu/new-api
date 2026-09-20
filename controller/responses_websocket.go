@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/pkg/wsmanager"
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -112,12 +114,26 @@ func newResponsesWSRequestRunner(c *gin.Context) relay.ResponsesWSRequestRunner 
 	}
 }
 
+type responsesWSUploadWriter struct{ gin.ResponseWriter }
+
+func (w responsesWSUploadWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, buffers, err := w.ResponseWriter.Hijack()
+	if err != nil || buffers.Reader.Buffered() > 0 {
+		// Preserve Gorilla's rejection of data sent before the upgrade.
+		return conn, buffers, err
+	}
+	upload := &wsmanager.UploadConn{Conn: conn}
+	buffers.Reader.Reset(upload)
+	buffers.Writer.Reset(upload)
+	return upload, buffers, nil
+}
+
 func ResponsesWebSocket(c *gin.Context) {
 	requestID := c.GetString(common.RequestIdKey)
 	runner := newResponsesWSRequestRunner(c)
 	responsesUpgrader := upgrader
 	responsesUpgrader.EnableCompression = true
-	ws, err := responsesUpgrader.Upgrade(c.Writer, c.Request, nil)
+	ws, err := responsesUpgrader.Upgrade(responsesWSUploadWriter{c.Writer}, c.Request, nil)
 	if err != nil {
 		return
 	}

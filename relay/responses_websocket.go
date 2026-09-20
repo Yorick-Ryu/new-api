@@ -146,6 +146,7 @@ type responsesWSSession struct {
 	activityState      atomic.Uint32
 	lastActivity       atomic.Int64
 	lastPong           atomic.Int64
+	lastClientMessage  atomic.Int64
 	heartbeat          responsesWSHeartbeatConfig
 	heartbeatStop      chan struct{}
 	heartbeatDone      chan struct{}
@@ -216,8 +217,22 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat 
 	for {
 		_, reader, err := client.NextReader()
 		var message []byte
+		var uploading bool
 		if err == nil {
-			message, err = io.ReadAll(io.LimitReader(reader, maxMessageBytes+1))
+			wire, ok := client.UnderlyingConn().(*wsmanager.UploadConn)
+			uploadLimit := relaycommon.GetWebSocketUploadTimeout()
+			uploading = ok && uploadLimit > 0 && heartbeat.pingInterval > 0 && heartbeat.pongTimeout > 0
+			if uploading {
+				err = wire.BeginUpload(heartbeat.pongTimeout, uploadLimit)
+			}
+			if err == nil {
+				message, err = io.ReadAll(io.LimitReader(reader, maxMessageBytes+1))
+			}
+			if uploading {
+				if endErr := wire.EndUpload(); err == nil {
+					err = endErr
+				}
+			}
 			if int64(len(message)) > maxMessageBytes {
 				err = websocket.ErrReadLimit
 			}
@@ -227,13 +242,20 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat 
 				s.closeWithCode(websocket.CloseMessageTooBig, "websocket message exceeds size limit")
 			} else if relaycommon.IsWebSocketIdleTimeout(err) {
 				now := time.Now()
-				if s.businessIdleExpired(now) {
+				if uploading {
+					s.closeWithCode(websocket.CloseGoingAway, relaycommon.WebSocketUploadCloseReason)
+				} else if s.businessIdleExpired(now) {
 					s.closeForIdleTimeout()
 				} else if s.heartbeatExpired(now) {
 					s.closeForHeartbeatTimeout()
 				}
 			}
 			return nil
+		}
+		// A completed message proves inbound liveness. Give any Pong queued
+		// behind it a full heartbeat window, without pretending one was received.
+		if uploading {
+			s.lastClientMessage.Store(time.Now().UnixNano())
 		}
 		if err := s.markBusinessActivity(); err != nil {
 			return types.NewError(err, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
@@ -1197,7 +1219,7 @@ func (s *responsesWSSession) refreshClientReadDeadline() error {
 		deadline = time.Unix(0, s.lastActivity.Load()).Add(s.heartbeat.idleTimeout)
 	}
 	if s.heartbeat.pingInterval > 0 && s.heartbeat.pongTimeout > 0 {
-		pongDeadline := time.Unix(0, s.lastPong.Load()).Add(s.heartbeat.pongTimeout)
+		pongDeadline := time.Unix(0, max(s.lastPong.Load(), s.lastClientMessage.Load())).Add(s.heartbeat.pongTimeout)
 		if deadline.IsZero() || pongDeadline.Before(deadline) {
 			deadline = pongDeadline
 		}
@@ -1212,7 +1234,7 @@ func (s *responsesWSSession) businessIdleExpired(now time.Time) bool {
 
 func (s *responsesWSSession) heartbeatExpired(now time.Time) bool {
 	return s != nil && s.heartbeat.pingInterval > 0 && s.heartbeat.pongTimeout > 0 &&
-		!now.Before(time.Unix(0, s.lastPong.Load()).Add(s.heartbeat.pongTimeout))
+		!now.Before(time.Unix(0, max(s.lastPong.Load(), s.lastClientMessage.Load())).Add(s.heartbeat.pongTimeout))
 }
 
 func (s *responsesWSSession) touchActivity() {

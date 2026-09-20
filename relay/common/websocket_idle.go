@@ -11,6 +11,7 @@ import (
 const (
 	WebSocketIdleCloseReason      = "websocket idle timeout"
 	WebSocketHeartbeatCloseReason = "websocket heartbeat timeout"
+	WebSocketUploadCloseReason    = "websocket upload timeout"
 )
 
 // WebSocketIdleTimeoutMinutes 客户端 WebSocket 空闲超时（分钟），0 表示不启用。
@@ -22,6 +23,14 @@ var WebSocketPingIntervalSeconds = appcommon.GetEnvOrDefault("WEBSOCKET_PING_INT
 
 // WebSocketPongTimeoutSeconds is the maximum time since the last client Pong.
 var WebSocketPongTimeoutSeconds = appcommon.GetEnvOrDefault("WEBSOCKET_PONG_TIMEOUT_SECONDS", 90)
+
+// WebSocketUploadTimeoutSeconds caps a single Responses message upload while
+// incoming bytes keep it alive. Zero retains strict Pong deadlines.
+var WebSocketUploadTimeoutSeconds = appcommon.GetEnvOrDefault("WEBSOCKET_UPLOAD_TIMEOUT_SECONDS", 900)
+
+func GetWebSocketUploadTimeout() time.Duration {
+	return time.Duration(max(0, WebSocketUploadTimeoutSeconds)) * time.Second
+}
 
 func GetWebSocketIdleTimeout() time.Duration {
 	if WebSocketIdleTimeoutMinutes <= 0 {
