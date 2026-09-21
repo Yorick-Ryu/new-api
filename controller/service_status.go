@@ -71,16 +71,19 @@ func GetServiceStatus(c *gin.Context) {
 }
 
 func buildVisibleServiceStatus(result perfmetrics.StatusResult, usable map[string]string, pricing []model.Pricing, vendors []model.PricingVendor, displayOrder []string) perfmetrics.StatusResult {
-	groups := map[string]map[string]perfmetrics.StatusModel{}
+	metrics := map[string]map[string]perfmetrics.StatusModel{}
 	for _, group := range result.Groups {
 		if _, allowed := usable[group.Group]; !allowed {
 			continue
 		}
-		groups[group.Group] = map[string]perfmetrics.StatusModel{}
+		metrics[group.Group] = map[string]perfmetrics.StatusModel{}
 		for _, item := range group.Models {
-			groups[group.Group][item.ModelName] = item
+			metrics[group.Group][item.ModelName] = item
 		}
 	}
+	// Build visibility from the enabled catalog, never from request model names.
+	// Failed requests and removed models may still exist in the shared metrics.
+	groups := map[string]map[string]perfmetrics.StatusModel{}
 	vendorIcons := map[int]string{}
 	for _, vendor := range vendors {
 		vendorIcons[vendor.ID] = vendor.Icon
@@ -105,7 +108,9 @@ func buildVisibleServiceStatus(result perfmetrics.StatusResult, usable map[strin
 			if groups[group] == nil {
 				groups[group] = map[string]perfmetrics.StatusModel{}
 			}
-			if _, exists := groups[group][item.ModelName]; !exists {
+			if metric, exists := metrics[group][item.ModelName]; exists {
+				groups[group][item.ModelName] = metric
+			} else {
 				groups[group][item.ModelName] = perfmetrics.StatusModel{ModelName: item.ModelName, Series: []perfmetrics.StatusPoint{}}
 			}
 		}
