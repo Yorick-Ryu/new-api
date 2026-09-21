@@ -91,13 +91,13 @@ func TestVisibleServiceStatusFiltersGroupsWithoutMutatingSharedData(t *testing.T
 	assert.Empty(t, input.Groups[0].Description)
 	updated := buildVisibleServiceStatus(input, map[string]string{"default": "Updated access"}, pricing, nil, nil)
 	assert.Equal(t, "Updated access", updated.Groups[0].Description)
-	require.Len(t, result.Groups[0].Models, 3)
+	require.Len(t, result.Groups[0].Models, 2)
 	items := result.Groups[0].Models
 	assert.Equal(t, "no-traffic", items[0].ModelName)
 	assert.Nil(t, items[0].SuccessRate)
 	assert.Empty(t, items[0].Series)
 	assert.Equal(t, "OpenAI", items[1].Icon)
-	assert.Equal(t, "unavailable-model", items[2].ModelName)
+	assert.Equal(t, "alpha", items[1].ModelName)
 	assert.Len(t, input.Groups, 2)
 	assert.Empty(t, input.Groups[0].Models[0].Icon)
 	assert.Len(t, input.Groups[0].Models, 2)
@@ -109,6 +109,46 @@ func TestVisibleServiceStatusWithNoAllowedGroupsReturnsEmptyArray(t *testing.T) 
 	assert.Empty(t, result.Groups)
 }
 
+func TestVisibleServiceStatusUsesCurrentCatalogForEachGroup(t *testing.T) {
+	input := perfmetrics.StatusResult{Groups: []perfmetrics.StatusGroup{
+		{Group: "default", Models: []perfmetrics.StatusModel{
+			{ModelName: "auto"},
+			{ModelName: "deepseek-v4-flash"},
+			{ModelName: "removed-model"},
+			{ModelName: "premium-only"},
+			{ModelName: "active", StatusMetrics: perfmetrics.StatusMetrics{SuccessRate: common.GetPointer(0.0)}, Series: []perfmetrics.StatusPoint{{Ts: 1800}}},
+		}},
+		{Group: "premium", Models: []perfmetrics.StatusModel{
+			{ModelName: "premium-only", StatusMetrics: perfmetrics.StatusMetrics{SuccessRate: common.GetPointer(100.0)}},
+		}},
+		{Group: "stale", Models: []perfmetrics.StatusModel{{ModelName: "removed-model"}}},
+	}}
+	pricing := []model.Pricing{
+		{ModelName: "active", EnableGroup: []string{"default"}},
+		{ModelName: "premium-only", EnableGroup: []string{"premium"}},
+		{ModelName: "shared", EnableGroup: []string{"all"}},
+	}
+	usable := map[string]string{"default": "", "premium": ""}
+	result := buildVisibleServiceStatus(input, usable, pricing, nil, nil)
+	require.Len(t, result.Groups, 2)
+	assert.Equal(t, "default", result.Groups[0].Group)
+	require.Len(t, result.Groups[0].Models, 2)
+	assert.Equal(t, input.Groups[0].Models[4], result.Groups[0].Models[0], "valid failing models must retain their metrics")
+	assert.Equal(t, "shared", result.Groups[0].Models[1].ModelName)
+	assert.Nil(t, result.Groups[0].Models[1].SuccessRate)
+	assert.Equal(t, "premium", result.Groups[1].Group)
+	require.Len(t, result.Groups[1].Models, 2)
+	assert.Equal(t, input.Groups[1].Models[0], result.Groups[1].Models[0])
+	assert.Equal(t, "shared", result.Groups[1].Models[1].ModelName)
+	assert.Len(t, input.Groups[0].Models, 5, "shared cached input must remain intact")
+
+	usable["stale"] = ""
+	assert.Empty(t, buildVisibleServiceStatus(input, usable, nil, nil, nil).Groups, "historical metrics cannot populate an empty catalog")
+	updated := buildVisibleServiceStatus(input, usable, pricing[1:], nil, nil)
+	require.Len(t, updated.Groups[0].Models, 1)
+	assert.Equal(t, "shared", updated.Groups[0].Models[0].ModelName, "catalog removal applies even while metrics remain cached")
+}
+
 func TestServiceStatusIdentifiesImageModelsWithoutInferringFromTokenMetrics(t *testing.T) {
 	input := perfmetrics.StatusResult{Groups: []perfmetrics.StatusGroup{{Group: "default", Models: []perfmetrics.StatusModel{
 		{ModelName: "gpt-image-2", StatusMetrics: perfmetrics.StatusMetrics{AvgTps: common.GetPointer(21.2)}},
@@ -116,6 +156,7 @@ func TestServiceStatusIdentifiesImageModelsWithoutInferringFromTokenMetrics(t *t
 	}}}}
 	pricing := []model.Pricing{
 		{ModelName: "gpt-image-2", EnableGroup: []string{"default"}, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeImageGeneration}},
+		{ModelName: "gpt-6-astra", EnableGroup: []string{"default"}},
 		{ModelName: "art-model", EnableGroup: []string{"default"}, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeImageGeneration}},
 	}
 	result := buildVisibleServiceStatus(input, map[string]string{"default": ""}, pricing, nil, nil)
@@ -130,8 +171,10 @@ func TestServiceStatusIdentifiesImageModelsWithoutInferringFromTokenMetrics(t *t
 func TestServiceStatusOrdersNumericVersionsDescendingWithManualOrderFirst(t *testing.T) {
 	names := []string{"gpt-5.9", "gpt-image-2", "claude-fable-5", "gpt-6-astra", "gpt-5.10", "gpt-5.6-sol", "claude-fable-5-1"}
 	models := make([]perfmetrics.StatusModel, 0, len(names))
+	pricing := make([]model.Pricing, 0, len(names))
 	for _, name := range names {
 		models = append(models, perfmetrics.StatusModel{ModelName: name})
+		pricing = append(pricing, model.Pricing{ModelName: name, EnableGroup: []string{"default"}})
 	}
 	input := perfmetrics.StatusResult{Groups: []perfmetrics.StatusGroup{{Group: "default", Models: models}}}
 	for _, tc := range []struct {
@@ -142,7 +185,7 @@ func TestServiceStatusOrdersNumericVersionsDescendingWithManualOrderFirst(t *tes
 		{"manual", []string{"gpt-image-2", "gpt-5.6-sol"}, []string{"gpt-image-2", "gpt-5.6-sol", "claude-fable-5-1", "claude-fable-5", "gpt-6-astra", "gpt-5.10", "gpt-5.9"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			result := buildVisibleServiceStatus(input, map[string]string{"default": ""}, nil, nil, tc.manual)
+			result := buildVisibleServiceStatus(input, map[string]string{"default": ""}, pricing, nil, tc.manual)
 			got := make([]string, 0, len(names))
 			for _, item := range result.Groups[0].Models {
 				got = append(got, item.ModelName)
