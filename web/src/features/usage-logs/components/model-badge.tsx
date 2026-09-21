@@ -56,7 +56,8 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
       className={cn(
         'border-border/60 bg-muted/30 h-6 max-w-none gap-1.5 rounded-md border px-2 [font-family:var(--font-body)]',
         provider?.icon && 'text-foreground',
-        props.wrapText && 'h-auto min-h-6 max-w-full py-0.5 whitespace-normal',
+        props.wrapText &&
+          'h-auto min-h-6 max-w-[min(100%,26ch)] py-0.5 whitespace-normal',
         props.className
       )}
     >
@@ -82,7 +83,9 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
               : 'whitespace-nowrap'
           }
         >
-          {props.modelName}
+          <span className={props.wrapText ? 'relative -top-px' : undefined}>
+            {props.modelName}
+          </span>
         </span>
       </span>
     </StatusBadge>
