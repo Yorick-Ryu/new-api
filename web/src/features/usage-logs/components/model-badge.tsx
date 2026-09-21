@@ -78,8 +78,8 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
         <span
           className={
             props.wrapText
-              ? 'line-clamp-2 [overflow-wrap:anywhere]'
-              : 'whitespace-nowrap'
+              ? 'leading-normal line-clamp-2 [overflow-wrap:anywhere]'
+              : 'leading-normal whitespace-nowrap'
           }
         >
           {props.modelName}
