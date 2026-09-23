@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -29,12 +30,16 @@ var codexCatalogProfiles = sync.OnceValues(func() (map[string]map[string]json.Ra
 
 // BuildCodexModelCatalog renders the authenticated user's available models as
 // Codex ModelInfo entries. It does not fetch upstreams or change routing.
-func BuildCodexModelCatalog(available []dto.OpenAIModels) ([]byte, string, error) {
+func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
 	profiles, err := codexCatalogProfiles()
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
 	}
 	entries := make([]map[string]json.RawMessage, 0, len(available))
+	ranks := make(map[string]int, len(displayOrder))
+	for i, name := range displayOrder {
+		ranks[name] = i + 1
+	}
 	seen := make(map[string]bool, len(available))
 	for _, availableModel := range available {
 		name := availableModel.Id
@@ -79,6 +84,16 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels) ([]byte, string, error
 		entry := make(map[string]json.RawMessage, len(profile)+4)
 		for key, value := range profile {
 			entry[key] = value
+		}
+		if len(ranks) > 0 {
+			priority, ordered := ranks[name]
+			if !ordered {
+				// Unlisted models retain their relative profile order after the saved list.
+				_ = common.Unmarshal(entry["priority"], &priority)
+				priority += len(displayOrder) + 1
+			}
+			// Clients may sort by priority, so the field must match the response order.
+			entry["priority"] = json.RawMessage(strconv.Itoa(priority))
 		}
 		slug, err := common.Marshal(name)
 		if err != nil {

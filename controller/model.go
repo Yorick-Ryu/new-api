@@ -313,7 +313,7 @@ func ListModels(c *gin.Context, modelType int) {
 		})
 	default:
 		if c.Query("client_version") != "" {
-			body, etag, err := service.BuildCodexModelCatalog(userOpenAiModels)
+			body, etag, err := service.BuildCodexModelCatalog(userOpenAiModels, model.GetModelDisplayOrder())
 			if err != nil {
 				common.SysError(fmt.Sprintf("build Codex model catalog: %v", err))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{
