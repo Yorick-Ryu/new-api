@@ -215,6 +215,8 @@ func SetApiRouter(router *gin.Engine) {
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
+			optionRoute.GET("/codex_model_profiles", controller.GetCodexModelProfileDefaults)
+			optionRoute.POST("/codex_model_profiles/sync", middleware.CriticalRateLimit(), controller.SyncOfficialCodexModelProfiles)
 			optionRoute.GET("/request_policy", controller.GetRequestPolicy)
 			optionRoute.PATCH("/request_policy", controller.UpdateRequestPolicy)
 			optionRoute.PUT("/", controller.UpdateOption)

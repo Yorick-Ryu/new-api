@@ -28,12 +28,27 @@ var codexCatalogProfiles = sync.OnceValues(func() (map[string]map[string]json.Ra
 	return profiles, err
 })
 
+const codexFallbackProfileJSON = `{
+				"description":"Custom Responses model; capabilities are not yet profiled.",
+				"supported_reasoning_levels":[],"shell_type":"shell_command",
+				"priority":1000,"availability_nux":null,"upgrade":null,
+				"support_verbosity":false,"default_verbosity":null,
+				"apply_patch_tool_type":null,"truncation_policy":{"mode":"tokens","limit":10000},
+				"experimental_supported_tools":[],"input_modalities":["text"],
+				"supports_reasoning_summary_parameter":false,"use_responses_lite":false,
+				"base_instructions":"You are a coding assistant. Help the user complete their task."
+			}`
+
 // BuildCodexModelCatalog renders the authenticated user's available models as
 // Codex ModelInfo entries. It does not fetch upstreams or change routing.
 func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
-	profiles, err := codexCatalogProfiles()
+	profiles, err := GetEffectiveCodexModelProfiles()
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
+	}
+	overrides, err := GetCodexModelProfileOverrides()
+	if err != nil {
+		return nil, "", err
 	}
 	entries := make([]map[string]json.RawMessage, 0, len(available))
 	ranks := make(map[string]int, len(displayOrder))
@@ -68,22 +83,24 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 			}
 			// Complete, conservative fallback for explicitly Responses-capable
 			// custom models; no vendor-specific tools or guessed context window.
-			if err := common.Unmarshal([]byte(`{
-				"description":"Custom Responses model; capabilities are not yet profiled.",
-				"supported_reasoning_levels":[],"shell_type":"shell_command",
-				"priority":1000,"availability_nux":null,"upgrade":null,
-				"support_verbosity":false,"default_verbosity":null,
-				"apply_patch_tool_type":null,"truncation_policy":{"mode":"tokens","limit":10000},
-				"experimental_supported_tools":[],"input_modalities":["text"],
-				"supports_reasoning_summary_parameter":false,"use_responses_lite":false,
-				"base_instructions":"You are a coding assistant. Help the user complete their task."
-			}`), &profile); err != nil {
+			if err := common.Unmarshal([]byte(codexFallbackProfileJSON), &profile); err != nil {
 				return nil, "", err
 			}
 		}
 		entry := make(map[string]json.RawMessage, len(profile)+4)
 		for key, value := range profile {
 			entry[key] = value
+		}
+		for key, value := range overrides[name] {
+			entry[key] = value
+		}
+		if messages, ok := overrides[name]["model_messages"]; ok {
+			var parsed struct {
+				Template string `json:"instructions_template"`
+			}
+			if common.Unmarshal(messages, &parsed) == nil && parsed.Template != "" {
+				entry["base_instructions"], _ = common.Marshal(parsed.Template)
+			}
 		}
 		if len(ranks) > 0 {
 			priority, ordered := ranks[name]
@@ -100,7 +117,7 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 			return nil, "", err
 		}
 		entry["slug"] = slug
-		if !known {
+		if !known && entry["display_name"] == nil {
 			entry["display_name"] = slug
 		}
 		entry["supported_in_api"] = json.RawMessage(`true`)

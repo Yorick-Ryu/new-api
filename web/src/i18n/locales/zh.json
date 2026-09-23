@@ -6965,7 +6965,7 @@
     "Top-up users": "充值人数",
     "Unique users with successful wallet top-ups": "成功充值的去重用户数",
     "Cumulative renewal rate": "累计续费率",
-    "Renewed {{renewed}} \u00b7 Expired without renewal {{expired}}": "已续费 {{renewed}} 份 · 到期未续费 {{expired}} 份",
+    "Renewed {{renewed}} · Expired without renewal {{expired}}": "已续费 {{renewed}} 份 · 到期未续费 {{expired}} 份",
     "New user payment rate": "新用户付费率",
     "New user payments {{amount}}": "新用户付费 {{amount}}",
     "Wallet top-up revenue": "充值收入",
@@ -7047,6 +7047,23 @@
     "Select both start and end times": "请选择开始时间和结束时间",
     "Select a time range of up to 30 days": "时间范围最多选择 30 天",
     "End time cannot be in the future": "结束时间不能晚于当前时间",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）",
+    "Codex Model Configuration": "Codex 模型配置",
+    "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.": "编辑 Codex 模型列表使用的能力配置。保存后立即生效，无需重启服务；在 Codex 中刷新模型列表即可载入。",
+    "Enter a valid JSON object": "请输入有效的 JSON 对象",
+    "Custom configuration": "自定义配置",
+    "Built-in configuration": "内置配置",
+    "Restore built-in configuration": "恢复内置配置",
+    "Model capabilities JSON": "模型能力 JSON",
+    "Official model profiles": "官方模型配置",
+    "Last sync": "上次同步",
+    "Not synced yet; using bundled model profiles.": "尚未同步，当前使用程序内置配置。",
+    "Syncing official profiles...": "正在同步官方配置…",
+    "Synced {{count}} model profiles from the official repository.": "已从官方仓库同步 {{count}} 个模型配置。",
+    "Default configuration": "默认配置",
+    "Restore default configuration": "恢复默认配置",
+    "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "从 openai/codex 官方仓库同步最新模型能力与排序，保留手动修改的字段。",
+    "Save changes before switching models.": "请先保存更改，再切换模型。",
+    "Sync official configuration": "一键同步官方配置"
   }
 }

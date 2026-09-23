@@ -87,6 +87,9 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
+		if k == service.CodexOfficialModelProfilesOptionKey {
+			continue
+		}
 		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
 			continue
 		}
@@ -191,6 +194,10 @@ func UpdateOption(c *gin.Context) {
 		})
 		return
 	}
+	if option.Key == service.CodexOfficialModelProfilesOptionKey {
+		common.ApiErrorMsg(c, "Use the official Codex model sync endpoint")
+		return
+	}
 	if option.Key == auto_ban.OptionKey {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Use the automatic ban settings endpoint"})
 		return
@@ -224,6 +231,11 @@ func UpdateOption(c *gin.Context) {
 		}
 	}
 	switch option.Key {
+	case service.CodexModelProfilesOptionKey:
+		if err := service.ValidateCodexModelProfiles(option.Value.(string)); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	case "GitHubOAuthEnabled":
 		if option.Value == "true" && common.GitHubClientId == "" {
 			c.JSON(http.StatusOK, gin.H{

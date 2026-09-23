@@ -20,6 +20,7 @@ import { IoNetDeploymentSettingsSection } from '../integrations/ionet-deployment
 import type { ModelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { ClaudeSettingsCard } from './claude-settings-card'
+import { CodexSettingsCard } from './codex-settings-card'
 import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
@@ -64,6 +65,13 @@ const MODELS_SECTIONS = [
     ),
   },
 
+  {
+    id: 'codex',
+    titleKey: 'Codex',
+    build: (settings: ModelSettings) => (
+      <CodexSettingsCard overrides={settings.CodexModelProfiles || '{}'} />
+    ),
+  },
   {
     id: 'gemini',
     titleKey: 'Gemini',

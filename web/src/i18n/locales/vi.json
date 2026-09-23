@@ -6956,6 +6956,23 @@
     "Select both start and end times": "Chọn cả thời gian bắt đầu và kết thúc",
     "Select a time range of up to 30 days": "Chọn khoảng thời gian tối đa 30 ngày",
     "End time cannot be in the future": "Thời gian kết thúc không thể ở tương lai",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)",
+    "Codex Model Configuration": "Codex Model Configuration",
+    "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.": "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.",
+    "Enter a valid JSON object": "Enter a valid JSON object",
+    "Custom configuration": "Custom configuration",
+    "Built-in configuration": "Built-in configuration",
+    "Restore built-in configuration": "Restore built-in configuration",
+    "Model capabilities JSON": "Model capabilities JSON",
+    "Official model profiles": "Official model profiles",
+    "Last sync": "Last sync",
+    "Not synced yet; using bundled model profiles.": "Not synced yet; using bundled model profiles.",
+    "Syncing official profiles...": "Syncing official profiles...",
+    "Synced {{count}} model profiles from the official repository.": "Synced {{count}} model profiles from the official repository.",
+    "Default configuration": "Default configuration",
+    "Restore default configuration": "Restore default configuration",
+    "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.",
+    "Save changes before switching models.": "Save changes before switching models.",
+    "Sync official configuration": "Sync official configuration"
   }
 }
