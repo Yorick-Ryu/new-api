@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "已设为优先",
+    "Use first": "优先使用",
+    "Preferred": "优先套餐",
+    "Restore automatic order": "恢复自动顺序",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "先使用优先套餐；若套餐不可用或额度不足，再按到期时间从早到晚尝试其他套餐。",
+    "Invalid preferred subscription": "优先套餐无效",
+    "Preferred subscription must be your active subscription": "只能选择您当前有效的套餐",
     "Show response model": "显示响应模型",
     "On": "开启",
     "Admins only": "仅管理员可见",

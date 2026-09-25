@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "Đã đặt ưu tiên",
+    "Use first": "Dùng trước",
+    "Preferred": "Gói ưu tiên",
+    "Restore automatic order": "Khôi phục thứ tự tự động",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "Dùng gói ưu tiên trước. Nếu không khả dụng hoặc hạn mức không đủ, thử các gói khác theo ngày hết hạn gần nhất.",
+    "Invalid preferred subscription": "Gói ưu tiên không hợp lệ",
+    "Preferred subscription must be your active subscription": "Chỉ được chọn gói đang hoạt động của bạn",
     "Show response model": "Hiển thị mô hình phản hồi",
     "On": "Bật",
     "Admins only": "Chỉ quản trị viên",

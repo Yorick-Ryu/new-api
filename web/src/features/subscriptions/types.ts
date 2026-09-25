@@ -180,6 +180,7 @@ export interface SubscriptionResetResult {
 // ============================================================================
 
 export interface SelfSubscriptionData {
+  preferred_subscription_id?: number
   billing_preference: string
   subscriptions: UserSubscriptionRecord[]
   all_subscriptions: UserSubscriptionRecord[]

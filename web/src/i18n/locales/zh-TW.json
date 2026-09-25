@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "已設為優先",
+    "Use first": "優先使用",
+    "Preferred": "優先方案",
+    "Restore automatic order": "恢復自動順序",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "先使用優先方案；若方案無法使用或額度不足，再依到期時間由早到晚嘗試其他方案。",
+    "Invalid preferred subscription": "優先方案無效",
+    "Preferred subscription must be your active subscription": "只能選擇您目前有效的方案",
     "Show response model": "顯示回應模型",
     "On": "開啟",
     "Admins only": "僅管理員可見",

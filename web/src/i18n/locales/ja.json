@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "優先に設定済み",
+    "Use first": "優先して使用",
+    "Preferred": "優先プラン",
+    "Restore automatic order": "自動順序に戻す",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "優先プランから使用します。利用できない場合や残高が不足する場合は、有効期限が近い順に他のプランを試します。",
+    "Invalid preferred subscription": "優先プランが無効です",
+    "Preferred subscription must be your active subscription": "ご自身の有効なプランを選択してください",
     "Show response model": "応答モデルを表示",
     "On": "オン",
     "Admins only": "管理者のみ",

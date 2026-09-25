@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "Set as preferred",
+    "Use first": "Use first",
+    "Preferred": "Preferred",
+    "Restore automatic order": "Restore automatic order",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.",
+    "Invalid preferred subscription": "Invalid preferred subscription",
+    "Preferred subscription must be your active subscription": "Preferred subscription must be your active subscription",
     "Show response model": "Show response model",
     "On": "On",
     "Admins only": "Admins only",

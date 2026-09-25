@@ -20,7 +20,8 @@ type SubscriptionPlanDTO struct {
 }
 
 type BillingPreferenceRequest struct {
-	BillingPreference string `json:"billing_preference"`
+	BillingPreference       *string `json:"billing_preference"`
+	PreferredSubscriptionId *int    `json:"preferred_subscription_id"`
 }
 
 type SubscriptionBalancePayRequest struct {
@@ -69,9 +70,10 @@ func GetSubscriptionSelf(c *gin.Context) {
 	}
 
 	common.ApiSuccess(c, gin.H{
-		"billing_preference": pref,
-		"subscriptions":      activeSubscriptions, // all active subscriptions
-		"all_subscriptions":  allSubscriptions,    // all subscriptions including expired
+		"billing_preference":        pref,
+		"preferred_subscription_id": settingMap.PreferredSubscriptionId,
+		"subscriptions":             activeSubscriptions, // all active subscriptions
+		"all_subscriptions":         allSubscriptions,    // all subscriptions including expired
 	})
 }
 
@@ -82,7 +84,26 @@ func UpdateSubscriptionPreference(c *gin.Context) {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	pref := common.NormalizeBillingPreference(req.BillingPreference)
+	if req.PreferredSubscriptionId != nil {
+		id := *req.PreferredSubscriptionId
+		if id < 0 {
+			common.ApiErrorMsg(c, "Invalid preferred subscription")
+			return
+		}
+		if id > 0 {
+			var count int64
+			if err := model.DB.Model(&model.UserSubscription{}).
+				Where("id = ? AND user_id = ? AND status = ? AND end_time > ?", id, userId, "active", model.GetDBTimestamp()).
+				Count(&count).Error; err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if count == 0 {
+				common.ApiErrorMsg(c, "Preferred subscription must be your active subscription")
+				return
+			}
+		}
+	}
 
 	user, err := model.GetUserById(userId, true)
 	if err != nil {
@@ -90,12 +111,17 @@ func UpdateSubscriptionPreference(c *gin.Context) {
 		return
 	}
 	current := user.GetSetting()
-	current.BillingPreference = pref
+	if req.BillingPreference != nil {
+		current.BillingPreference = common.NormalizeBillingPreference(*req.BillingPreference)
+	}
+	if req.PreferredSubscriptionId != nil {
+		current.PreferredSubscriptionId = *req.PreferredSubscriptionId
+	}
 	if err := model.UpdateUserSetting(user.Id, current); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, gin.H{"billing_preference": pref})
+	common.ApiSuccess(c, gin.H{"billing_preference": common.NormalizeBillingPreference(current.BillingPreference), "preferred_subscription_id": current.PreferredSubscriptionId})
 }
 
 func SubscriptionRequestBalancePay(c *gin.Context) {

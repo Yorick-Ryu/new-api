@@ -1408,6 +1408,8 @@ func UpdateUserSetting(c *gin.Context) {
 
 	// 构建设置
 	settings := dto.UserSetting{
+		BillingPreference:                existingSettings.BillingPreference,
+		PreferredSubscriptionId:          existingSettings.PreferredSubscriptionId,
 		NotifyType:                       req.QuotaWarningType,
 		QuotaWarningThreshold:            req.QuotaWarningThreshold,
 		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,

@@ -47,6 +47,7 @@ import {
   getPublicPlans,
   getSelfSubscriptionFull,
   updateBillingPreference,
+  updatePreferredSubscription,
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
 import { ModelMultiplierSummary } from '@/features/subscriptions/components/model-multiplier-summary'
@@ -117,6 +118,8 @@ export function SubscriptionPlansCard({
   >([])
   const [billingPreference, setBillingPreference] =
     useState('subscription_first')
+  const [preferredSubscriptionId, setPreferredSubscriptionId] = useState(0)
+  const [savingPreference, setSavingPreference] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -154,6 +157,7 @@ export function SubscriptionPlansCard({
         setBillingPreference(
           res.data.billing_preference || 'subscription_first'
         )
+        setPreferredSubscriptionId(res.data.preferred_subscription_id || 0)
         setActiveSubscriptions(res.data.subscriptions || [])
         setAllSubscriptions(res.data.all_subscriptions || [])
       }
@@ -181,6 +185,7 @@ export function SubscriptionPlansCard({
   }
 
   const handlePreferenceChange = async (pref: string) => {
+    setSavingPreference(true)
     const previous = billingPreference
     setBillingPreference(pref)
     try {
@@ -196,6 +201,25 @@ export function SubscriptionPlansCard({
     } catch (error) {
       handleServerError(error, t('Request failed'))
       setBillingPreference(previous)
+    } finally {
+      setSavingPreference(false)
+    }
+  }
+
+  const handlePreferredSubscriptionChange = async (subscriptionId: number) => {
+    setSavingPreference(true)
+    try {
+      const res = requireServerSuccess(
+        await updatePreferredSubscription(subscriptionId)
+      )
+      setPreferredSubscriptionId(
+        res.data?.preferred_subscription_id ?? subscriptionId
+      )
+      toast.success(t('Updated successfully'))
+    } catch (error) {
+      handleServerError(error, t('Update failed'))
+    } finally {
+      setSavingPreference(false)
     }
   }
 
@@ -350,6 +374,7 @@ export function SubscriptionPlansCard({
                     label: getBillingPreferenceLabel('wallet_only', t),
                   },
                 ]}
+                disabled={savingPreference || refreshing}
                 value={billingPreference}
                 onValueChange={(v) => v !== null && handlePreferenceChange(v)}
               >
@@ -389,7 +414,7 @@ export function SubscriptionPlansCard({
                 className='h-8 w-8'
                 aria-label={t('Refresh subscriptions')}
                 onClick={handleRefresh}
-                disabled={refreshing}
+                disabled={refreshing || savingPreference}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
@@ -413,6 +438,26 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
+            <div className='mt-3 flex flex-wrap items-center gap-2'>
+              <p className='text-muted-foreground flex-1 text-xs'>
+                {t(
+                  'Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.'
+                )}
+              </p>
+              {preferredSubscriptionId > 0 && (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={savingPreference || refreshing}
+                  onClick={() => handlePreferredSubscriptionChange(0)}
+                >
+                  {t('Restore automatic order')}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {hasAny && (
             <div className='mt-3 max-h-[32rem] divide-y overflow-y-auto rounded-xl border'>
               {allSubscriptions.map((sub) => {
                 const subscription = sub.subscription
@@ -424,9 +469,11 @@ export function SubscriptionPlansCard({
                   ? formatPrimaryQuotaLabel(subscriptionPlan, t)
                   : t('Main quota')
                 const now = Date.now() / 1000
-                const isExpired = (subscription?.end_time || 0) < now
+                const isExpired = (subscription?.end_time || 0) <= now
                 const isCancelled = subscription?.status === 'cancelled'
                 const isActive = subscription?.status === 'active' && !isExpired
+                const isPreferred =
+                  isActive && subscription.id === preferredSubscriptionId
                 let statusBadge = (
                   <StatusBadge
                     label={t('Expired')}
@@ -478,29 +525,61 @@ export function SubscriptionPlansCard({
                         )}
                         {statusBadge}
                       </div>
-                      <div className='ml-auto flex min-w-0 items-center gap-3'>
+                      <div className='ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2'>
                         <SubscriptionExpiry
                           className='text-[12px]'
                           endTime={subscription.end_time}
                           isActive={isActive}
                           isCancelled={isCancelled}
                         />
-                        {subscriptionPlan &&
-                          subscriptionPlan.allow_renewal === true &&
-                          (subscription.status === 'active' ||
-                            subscription.status === 'expired') && (
+                        <div className='flex shrink-0 items-center gap-2'>
+                          {isActive && (
                             <Button
+                              variant='outline'
                               size='sm'
-                              className='shrink-0'
-                              onClick={() => {
-                                setSelectedPlan({ plan: subscriptionPlan })
-                                setRenewalSubscription(subscription)
-                                setPurchaseOpen(true)
-                              }}
+                              className={cn(
+                                'shrink-0',
+                                isPreferred &&
+                                  'border-primary/40 bg-primary/5 text-primary disabled:opacity-100'
+                              )}
+                              aria-pressed={isPreferred}
+                              disabled={
+                                savingPreference || refreshing || isPreferred
+                              }
+                              onClick={() =>
+                                handlePreferredSubscriptionChange(
+                                  subscription.id
+                                )
+                              }
                             >
-                              {t('Renew')}
+                              {isPreferred && (
+                                <Check
+                                  className='size-3.5'
+                                  aria-hidden='true'
+                                />
+                              )}
+                              {isPreferred
+                                ? t('Set as preferred')
+                                : t('Use first')}
                             </Button>
                           )}
+                          {subscriptionPlan &&
+                            subscriptionPlan.allow_renewal === true &&
+                            (subscription.status === 'active' ||
+                              subscription.status === 'expired') && (
+                              <Button
+                                size='sm'
+                                className='shrink-0'
+                                onClick={() => {
+                                  setSelectedPlan({ plan: subscriptionPlan })
+                                  setRenewalSubscription(subscription)
+                                  setPurchaseOpen(true)
+                                }}
+                              >
+                                {t('Renew')}
+                              </Button>
+                            )}
+                        </div>
                       </div>
                     </header>
                     <div
