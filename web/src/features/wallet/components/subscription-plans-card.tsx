@@ -438,23 +438,11 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
-            <div className='mt-3 flex flex-wrap items-center gap-2'>
-              <p className='text-muted-foreground flex-1 text-xs'>
-                {t(
-                  'Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.'
-                )}
-              </p>
-              {preferredSubscriptionId > 0 && (
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  disabled={savingPreference || refreshing}
-                  onClick={() => handlePreferredSubscriptionChange(0)}
-                >
-                  {t('Restore automatic order')}
-                </Button>
+            <p className='text-muted-foreground mt-3 text-xs'>
+              {t(
+                'Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.'
               )}
-            </div>
+            </p>
           )}
 
           {hasAny && (
@@ -540,15 +528,13 @@ export function SubscriptionPlansCard({
                               className={cn(
                                 'shrink-0',
                                 isPreferred &&
-                                  'border-primary/40 bg-primary/5 text-primary disabled:opacity-100'
+                                  'border-primary/40 bg-primary/5 text-primary'
                               )}
                               aria-pressed={isPreferred}
-                              disabled={
-                                savingPreference || refreshing || isPreferred
-                              }
+                              disabled={savingPreference || refreshing}
                               onClick={() =>
                                 handlePreferredSubscriptionChange(
-                                  subscription.id
+                                  isPreferred ? 0 : subscription.id
                                 )
                               }
                             >

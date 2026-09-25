@@ -355,7 +355,7 @@ it('saves the preferred subscription, restores it after refresh, and clears it w
   await waitFor(() =>
     expect(
       screen
-        .getByRole('button', { name: 'Restore automatic order' })
+        .getByRole('button', { name: 'Refresh subscriptions' })
         .hasAttribute('disabled')
     ).toBe(false)
   )
@@ -364,6 +364,14 @@ it('saves the preferred subscription, restores it after refresh, and clears it w
       .getByRole('button', { name: 'Set as preferred' })
       .getAttribute('aria-pressed')
   ).toBe('true')
+  expect(
+    screen.queryByRole('button', { name: 'Restore automatic order' })
+  ).toBeNull()
+  expect(
+    within(article)
+      .getByRole('button', { name: 'Set as preferred' })
+      .hasAttribute('disabled')
+  ).toBe(false)
   const otherArticle = screen.getByRole('article', { name: 'Monthly Pro #7' })
   await user.click(
     within(otherArticle).getByRole('button', { name: 'Use first' })
@@ -382,7 +390,7 @@ it('saves the preferred subscription, restores it after refresh, and clears it w
       .getAttribute('aria-pressed')
   ).toBe('false')
   await user.click(
-    screen.getByRole('button', { name: 'Restore automatic order' })
+    within(otherArticle).getByRole('button', { name: 'Set as preferred' })
   )
   await waitFor(() =>
     expect(
@@ -394,63 +402,87 @@ it('saves the preferred subscription, restores it after refresh, and clears it w
   expect(put).toHaveBeenLastCalledWith('/api/subscription/self/preference', {
     preferred_subscription_id: 0,
   })
+  await user.click(
+    screen.getByRole('button', { name: 'Refresh subscriptions' })
+  )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole('button', { name: 'Refresh subscriptions' })
+        .hasAttribute('disabled')
+    ).toBe(false)
+  )
+  expect(screen.queryByRole('button', { name: 'Set as preferred' })).toBeNull()
+  expect(
+    screen.queryByRole('button', { name: 'Restore automatic order' })
+  ).toBeNull()
   expect(screen.getByRole('combobox').textContent).toContain('Wallet First')
 })
 
-it('keeps the previous preference when saving fails and disables changes while saving', async () => {
-  const records = ['active', 'expired', 'cancelled'].map((status, index) => ({
-    subscription: {
-      id: index + 7,
-      user_id: 2,
-      plan_id: 1,
-      status,
-      start_time: 1700000000,
-      end_time: status === 'active' ? 2100000000 : 1700003600,
-      amount_total: 1000,
-      amount_used: 0,
-    },
-  }))
-  vi.spyOn(api, 'get').mockImplementation(async (url) => ({
-    data: {
-      success: true,
-      data: String(url).endsWith('/plans')
-        ? [{ plan }]
-        : {
-            billing_preference: 'subscription_first',
-            preferred_subscription_id: 0,
-            subscriptions: [records[0]],
-            all_subscriptions: records,
-          },
-    },
-  }))
-  let finish!: (value: { data: { success: boolean; message: string } }) => void
-  vi.spyOn(api, 'put').mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve
-      })
-  )
-  const user = userEvent.setup()
-  render(
-    <I18nextProvider i18n={i18n}>
-      <SubscriptionPlansCard topupInfo={null} />
-    </I18nextProvider>
-  )
-  const button = await screen.findByRole('button', { name: 'Use first' })
-  expect(screen.getAllByRole('button', { name: 'Use first' })).toHaveLength(1)
-  button.focus()
-  await user.keyboard('{Enter}')
-  await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true))
-  expect(
-    screen
-      .getByRole('button', { name: 'Refresh subscriptions' })
-      .hasAttribute('disabled')
-  ).toBe(true)
-  finish({ data: { success: false, message: 'Preference rejected' } })
-  await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
-  expect(button.getAttribute('aria-pressed')).toBe('false')
-  expect(screen.queryByText('Preferred')).toBeNull()
-})
+it.each([0, 7])(
+  'keeps preference %s when saving or cancelling fails and disables changes while saving',
+  async (preferred) => {
+    const records = ['active', 'expired', 'cancelled'].map((status, index) => ({
+      subscription: {
+        id: index + 7,
+        user_id: 2,
+        plan_id: 1,
+        status,
+        start_time: 1700000000,
+        end_time: status === 'active' ? 2100000000 : 1700003600,
+        amount_total: 1000,
+        amount_used: 0,
+      },
+    }))
+    vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+      data: {
+        success: true,
+        data: String(url).endsWith('/plans')
+          ? [{ plan }]
+          : {
+              billing_preference: 'subscription_first',
+              preferred_subscription_id: preferred,
+              subscriptions: [records[0]],
+              all_subscriptions: records,
+            },
+      },
+    }))
+    let finish!: (value: {
+      data: { success: boolean; message: string }
+    }) => void
+    const put = vi.spyOn(api, 'put').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const user = userEvent.setup()
+    render(
+      <I18nextProvider i18n={i18n}>
+        <SubscriptionPlansCard topupInfo={null} />
+      </I18nextProvider>
+    )
+    const buttonName = preferred ? 'Set as preferred' : 'Use first'
+    const button = await screen.findByRole('button', { name: buttonName })
+    expect(screen.getAllByRole('button', { name: buttonName })).toHaveLength(1)
+    button.focus()
+    await user.keyboard('{Enter}')
+    expect(put).toHaveBeenLastCalledWith('/api/subscription/self/preference', {
+      preferred_subscription_id: preferred ? 0 : 7,
+    })
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true))
+    expect(
+      screen
+        .getByRole('button', { name: 'Refresh subscriptions' })
+        .hasAttribute('disabled')
+    ).toBe(true)
+    finish({ data: { success: false, message: 'Preference rejected' } })
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
+    expect(button.getAttribute('aria-pressed')).toBe(String(preferred > 0))
+    expect(button.textContent).toContain(buttonName)
+    expect(screen.queryByText('Preferred')).toBeNull()
+  }
+)
 
 it('shows the priority controls in Chinese using the application translations', async () => {
   const chinese = createInstance()
@@ -485,5 +517,5 @@ it('shows the priority controls in Chinese using the application translations', 
   )
   expect(await screen.findByRole('button', { name: '已设为优先' })).toBeTruthy()
   expect(screen.queryByText('优先套餐')).toBeNull()
-  expect(screen.getByRole('button', { name: '恢复自动顺序' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '恢复自动顺序' })).toBeNull()
 })
