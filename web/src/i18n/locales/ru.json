@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "Приоритет установлен",
+    "Use first": "Использовать первым",
+    "Preferred": "Приоритетная подписка",
+    "Restore automatic order": "Восстановить автоматический порядок",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "Сначала используется приоритетная подписка. Если она недоступна или квоты недостаточно, используются другие подписки в порядке ближайшего истечения срока.",
+    "Invalid preferred subscription": "Недопустимая приоритетная подписка",
+    "Preferred subscription must be your active subscription": "Можно выбрать только свою активную подписку",
     "Show response model": "Показывать модель ответа",
     "On": "Включено",
     "Admins only": "Только администраторам",

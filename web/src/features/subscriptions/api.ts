@@ -233,6 +233,15 @@ export async function updateBillingPreference(
   return res.data
 }
 
+export async function updatePreferredSubscription(
+  subscriptionId: number
+): Promise<ApiResponse<{ preferred_subscription_id: number }>> {
+  const res = await api.put('/api/subscription/self/preference', {
+    preferred_subscription_id: subscriptionId,
+  })
+  return res.data
+}
+
 export async function getGroups(): Promise<ApiResponse<string[]>> {
   const res = await api.get('/api/group')
   return res.data

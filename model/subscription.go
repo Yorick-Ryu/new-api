@@ -1405,8 +1405,8 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 	return tx.Save(sub).Error
 }
 
-// PreConsumeUserSubscription pre-consumes from any active subscription total quota.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64, quotaForGroupRatio ...func(float64) (int64, error)) (*SubscriptionPreConsumeResult, error) {
+// PreConsumeUserSubscription tries the preferred active subscription first, then expiry order.
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, preferredSubscriptionId int, amount int64, quotaForGroupRatio ...func(float64) (int64, error)) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1456,6 +1456,15 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		}
 		if len(subs) == 0 {
 			return errors.New("no active subscription")
+		}
+		// Keep the database lock order unchanged. Only reorder this user's active
+		// candidates, preserving expiry order for every fallback subscription.
+		for i, sub := range subs {
+			if sub.Id == preferredSubscriptionId {
+				copy(subs[1:i+1], subs[:i])
+				subs[0] = sub
+				break
+			}
 		}
 		for _, candidate := range subs {
 			sub := candidate

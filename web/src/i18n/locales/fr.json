@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Set as preferred": "Défini comme prioritaire",
+    "Use first": "Utiliser en premier",
+    "Preferred": "Prioritaire",
+    "Restore automatic order": "Rétablir l’ordre automatique",
+    "Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.": "Utiliser d’abord l’abonnement prioritaire. S’il est indisponible ou si son quota est insuffisant, essayer les autres par date d’expiration croissante.",
+    "Invalid preferred subscription": "Abonnement prioritaire invalide",
+    "Preferred subscription must be your active subscription": "Vous devez choisir un de vos abonnements actifs",
     "Show response model": "Afficher le modèle de réponse",
     "On": "Activé",
     "Admins only": "Administrateurs uniquement",

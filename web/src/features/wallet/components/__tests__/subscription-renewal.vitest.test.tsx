@@ -35,6 +35,7 @@ import {
   subscriptionPlanSchema,
   type UserSubscription,
 } from '@/features/subscriptions/types'
+import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 
 import { SubscriptionPlansCard } from '../subscription-plans-card'
@@ -174,11 +175,27 @@ it.each(['active', 'expired', 'cancelled', 'none'])(
     expect(renewalButton.classList.contains('bg-primary')).toBe(true)
     expect(header.classList.contains('flex')).toBe(true)
     expect(header.classList.contains('items-center')).toBe(true)
-    const details = renewalButton.parentElement
+    const actions = renewalButton.parentElement
+    if (!actions) throw new Error('Subscription actions are missing')
+    if (status === 'active') {
+      const priorityButton = within(header).getByRole('button', {
+        name: 'Use first',
+      })
+      expect(priorityButton.parentElement).toBe(actions)
+      expect(priorityButton.classList.contains('h-7')).toBe(true)
+      expect(renewalButton.classList.contains('h-7')).toBe(true)
+      expect(priorityButton.classList.contains('bg-primary')).toBe(false)
+      expect(priorityButton.classList.contains('border-border')).toBe(true)
+      expect(
+        priorityButton.compareDocumentPosition(renewalButton) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+    }
+    const details = actions.parentElement
     if (!details) throw new Error('Subscription details are missing')
     expect(details.classList.contains('flex')).toBe(true)
     expect(details.classList.contains('items-center')).toBe(true)
-    expect(details.classList.contains('flex-wrap')).toBe(false)
+    expect(details.classList.contains('flex-wrap')).toBe(true)
     const expiry = details.querySelector('time')
     if (!expiry) throw new Error('Expiry must share the renewal button row')
     expect(expiry.textContent).toMatch(/\d{1,2}:\d{2}/)
@@ -278,3 +295,195 @@ it.each([undefined, false])(
     })
   }
 )
+
+it('saves the preferred subscription, restores it after refresh, and clears it without changing wallet preference', async () => {
+  let preferred = 0
+  const records = [7, 8].map((id) => ({
+    subscription: {
+      id,
+      user_id: 2,
+      plan_id: 1,
+      status: 'active',
+      start_time: 1700000000,
+      end_time: 2100000000 + id,
+      amount_total: 1000,
+      amount_used: 0,
+    },
+  }))
+  vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+    data: {
+      success: true,
+      data: String(url).endsWith('/plans')
+        ? [{ plan }]
+        : {
+            billing_preference: 'wallet_first',
+            preferred_subscription_id: preferred,
+            subscriptions: records,
+            all_subscriptions: records,
+          },
+    },
+  }))
+  const put = vi.spyOn(api, 'put').mockImplementation(async (_url, body) => {
+    preferred = (body as { preferred_subscription_id: number })
+      .preferred_subscription_id
+    return {
+      data: { success: true, data: { preferred_subscription_id: preferred } },
+    }
+  })
+  const user = userEvent.setup()
+  render(
+    <I18nextProvider i18n={i18n}>
+      <SubscriptionPlansCard topupInfo={null} />
+    </I18nextProvider>
+  )
+  const article = await screen.findByRole('article', { name: 'Monthly Pro #8' })
+  await user.click(within(article).getByRole('button', { name: 'Use first' }))
+  await waitFor(() =>
+    expect(
+      within(article)
+        .getByRole('button', { name: 'Set as preferred' })
+        .getAttribute('aria-pressed')
+    ).toBe('true')
+  )
+  expect(within(article).queryByText('Preferred')).toBeNull()
+  expect(put).toHaveBeenLastCalledWith('/api/subscription/self/preference', {
+    preferred_subscription_id: 8,
+  })
+  await user.click(
+    screen.getByRole('button', { name: 'Refresh subscriptions' })
+  )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole('button', { name: 'Restore automatic order' })
+        .hasAttribute('disabled')
+    ).toBe(false)
+  )
+  expect(
+    within(article)
+      .getByRole('button', { name: 'Set as preferred' })
+      .getAttribute('aria-pressed')
+  ).toBe('true')
+  const otherArticle = screen.getByRole('article', { name: 'Monthly Pro #7' })
+  await user.click(
+    within(otherArticle).getByRole('button', { name: 'Use first' })
+  )
+  await waitFor(() =>
+    expect(
+      within(otherArticle).getByRole('button', { name: 'Set as preferred' })
+    ).toBeTruthy()
+  )
+  expect(
+    screen.getAllByRole('button', { name: 'Set as preferred' })
+  ).toHaveLength(1)
+  expect(
+    within(article)
+      .getByRole('button', { name: 'Use first' })
+      .getAttribute('aria-pressed')
+  ).toBe('false')
+  await user.click(
+    screen.getByRole('button', { name: 'Restore automatic order' })
+  )
+  await waitFor(() =>
+    expect(
+      within(otherArticle)
+        .getByRole('button', { name: 'Use first' })
+        .getAttribute('aria-pressed')
+    ).toBe('false')
+  )
+  expect(put).toHaveBeenLastCalledWith('/api/subscription/self/preference', {
+    preferred_subscription_id: 0,
+  })
+  expect(screen.getByRole('combobox').textContent).toContain('Wallet First')
+})
+
+it('keeps the previous preference when saving fails and disables changes while saving', async () => {
+  const records = ['active', 'expired', 'cancelled'].map((status, index) => ({
+    subscription: {
+      id: index + 7,
+      user_id: 2,
+      plan_id: 1,
+      status,
+      start_time: 1700000000,
+      end_time: status === 'active' ? 2100000000 : 1700003600,
+      amount_total: 1000,
+      amount_used: 0,
+    },
+  }))
+  vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+    data: {
+      success: true,
+      data: String(url).endsWith('/plans')
+        ? [{ plan }]
+        : {
+            billing_preference: 'subscription_first',
+            preferred_subscription_id: 0,
+            subscriptions: [records[0]],
+            all_subscriptions: records,
+          },
+    },
+  }))
+  let finish!: (value: { data: { success: boolean; message: string } }) => void
+  vi.spyOn(api, 'put').mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      })
+  )
+  const user = userEvent.setup()
+  render(
+    <I18nextProvider i18n={i18n}>
+      <SubscriptionPlansCard topupInfo={null} />
+    </I18nextProvider>
+  )
+  const button = await screen.findByRole('button', { name: 'Use first' })
+  expect(screen.getAllByRole('button', { name: 'Use first' })).toHaveLength(1)
+  button.focus()
+  await user.keyboard('{Enter}')
+  await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true))
+  expect(
+    screen
+      .getByRole('button', { name: 'Refresh subscriptions' })
+      .hasAttribute('disabled')
+  ).toBe(true)
+  finish({ data: { success: false, message: 'Preference rejected' } })
+  await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
+  expect(button.getAttribute('aria-pressed')).toBe('false')
+  expect(screen.queryByText('Preferred')).toBeNull()
+})
+
+it('shows the priority controls in Chinese using the application translations', async () => {
+  const chinese = createInstance()
+  await chinese.init({ lng: 'zh', resources: { zh }, keySeparator: false })
+  const subscription = {
+    id: 7,
+    user_id: 2,
+    plan_id: 1,
+    status: 'active',
+    start_time: 1700000000,
+    end_time: 2100000000,
+    amount_total: 1000,
+    amount_used: 0,
+  }
+  vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+    data: {
+      success: true,
+      data: String(url).endsWith('/plans')
+        ? [{ plan }]
+        : {
+            billing_preference: 'subscription_first',
+            preferred_subscription_id: 7,
+            subscriptions: [{ subscription }],
+            all_subscriptions: [{ subscription }],
+          },
+    },
+  }))
+  render(
+    <I18nextProvider i18n={chinese}>
+      <SubscriptionPlansCard topupInfo={null} />
+    </I18nextProvider>
+  )
+  expect(await screen.findByRole('button', { name: '已设为优先' })).toBeTruthy()
+  expect(screen.queryByText('优先套餐')).toBeNull()
+  expect(screen.getByRole('button', { name: '恢复自动顺序' })).toBeTruthy()
+})

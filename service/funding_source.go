@@ -103,7 +103,11 @@ func (s *SubscriptionFunding) Source() string { return BillingSourceSubscription
 
 func (s *SubscriptionFunding) PreConsume(_ int) error {
 	// amount 参数被忽略，使用内部 s.amount（已在构造时根据 preConsumedQuota 计算）
-	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, 0, s.amount, func(ratio float64) (int64, error) {
+	preferredSubscriptionId := 0
+	if s.relayInfo != nil {
+		preferredSubscriptionId = s.relayInfo.UserSetting.PreferredSubscriptionId
+	}
+	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, preferredSubscriptionId, s.amount, func(ratio float64) (int64, error) {
 		return subscriptionPreConsumeQuota(s.relayInfo, s.amount, ratio)
 	})
 	if err != nil {
