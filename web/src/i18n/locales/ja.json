@@ -6963,6 +6963,23 @@
     "Select both start and end times": "開始時刻と終了時刻を選択してください",
     "Select a time range of up to 30 days": "期間は最大30日間にしてください",
     "End time cannot be in the future": "終了時刻は現在より後にできません",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）",
+    "Codex Model Configuration": "Codex Model Configuration",
+    "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.": "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.",
+    "Enter a valid JSON object": "Enter a valid JSON object",
+    "Custom configuration": "Custom configuration",
+    "Built-in configuration": "Built-in configuration",
+    "Restore built-in configuration": "Restore built-in configuration",
+    "Model capabilities JSON": "Model capabilities JSON",
+    "Official model profiles": "Official model profiles",
+    "Last sync": "Last sync",
+    "Not synced yet; using bundled model profiles.": "Not synced yet; using bundled model profiles.",
+    "Syncing official profiles...": "Syncing official profiles...",
+    "Synced {{count}} model profiles from the official repository.": "Synced {{count}} model profiles from the official repository.",
+    "Default configuration": "Default configuration",
+    "Restore default configuration": "Restore default configuration",
+    "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.",
+    "Save changes before switching models.": "Save changes before switching models.",
+    "Sync official configuration": "Sync official configuration"
   }
 }

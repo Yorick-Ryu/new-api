@@ -1821,7 +1821,7 @@
     "Disabled; fell back to factory": "已禁用；已回落內建版",
     "Disabled; platform unavailable": "已禁用；平台不可用",
     "Disabling...": "停用中...",
-    "Discard changes": "Discard changes",
+    "Discard changes": "捨棄變更",
     "Discard unsaved changes?": "捨棄未儲存的變更？",
     "Disclaimer: Personal use only. Do not distribute or share any credentials. This channel has prerequisites and requires prior setup; use it only if you understand the flow and risks, and comply with OpenAI's terms and policies. Credentials and configuration are for Codex CLI integration only, and are not intended for any other client, platform, or channel.": "免責聲明：僅限個人使用，請勿分發或共享任何憑證。該渠道存在前置條件與使用門檻，請在充分了解流程與風險後使用，並遵守 OpenAI 的相關條款與政策。相關憑證與設定僅限接入 Codex CLI 使用，不適用於其他用戶端、平台或渠道。",
     "Discord": "Discord",
@@ -6963,6 +6963,23 @@
     "Select both start and end times": "請選擇開始時間和結束時間",
     "Select a time range of up to 30 days": "時間範圍最多選擇 30 天",
     "End time cannot be in the future": "結束時間不能晚於目前時間",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）",
+    "Codex Model Configuration": "Codex 模型設定",
+    "Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.": "編輯 Codex 模型清單使用的能力設定。儲存後立即生效，無需重新啟動服務；在 Codex 中重新整理模型清單即可載入。",
+    "Enter a valid JSON object": "請輸入有效的 JSON 物件",
+    "Custom configuration": "自訂設定",
+    "Built-in configuration": "內建設定",
+    "Restore built-in configuration": "還原內建設定",
+    "Model capabilities JSON": "模型能力 JSON",
+    "Official model profiles": "官方模型設定",
+    "Last sync": "上次同步",
+    "Not synced yet; using bundled model profiles.": "尚未同步，目前使用程式內建設定。",
+    "Syncing official profiles...": "正在同步官方設定…",
+    "Synced {{count}} model profiles from the official repository.": "已從官方儲存庫同步 {{count}} 個模型設定。",
+    "Default configuration": "預設設定",
+    "Restore default configuration": "還原預設設定",
+    "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "從 openai/codex 官方倉庫同步最新模型能力與排序，保留手動修改的欄位。",
+    "Save changes before switching models.": "請先儲存變更，再切換模型。",
+    "Sync official configuration": "一鍵同步官方設定"
   }
 }

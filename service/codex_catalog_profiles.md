@@ -5,6 +5,23 @@ installed OpenAI Codex CLI 0.153.2 bundled catalog (`codex debug models
 --bundled`). It preserves opaque tool fields and instructions. It was checked
 against BeiAPI's temporary Nginx catalog on 2026-09-05.
 
+The `gpt-6-sol` and `gpt-6-luna` profiles come from the official
+`openai/codex` catalog at commit
+[`39598ed17885970828acd42a6370131ed0190a98`](https://github.com/openai/codex/blob/39598ed17885970828acd42a6370131ed0190a98/codex-rs/models-manager/models.json).
+Their capabilities and model messages are preserved; availability fields are
+omitted because NewAPI supplies authorization and visibility. The legacy
+`base_instructions` field mirrors the official instructions template for older
+clients, as in Codex's catalog serializer.
+
+System settings → Models → Codex can synchronize the current public
+`openai/codex` main-branch catalog and edit per-model capability overrides.
+`CodexOfficialModelProfiles` stores the validated revision and snapshot;
+`CodexModelProfiles` stores manual overrides. Catalog requests read these
+settings immediately. Codex ordering uses the per-model `priority` override
+(lower values first), independently of marketplace `ModelDisplayOrder`. Official
+sync updates default priorities; manual overrides take precedence. Channel
+permissions remain authoritative.
+
 The legacy `gpt-5.3-codex-spark` profile comes from the existing CLIProxyAPI
 Codex client registry (`02e3d33c`, `internal/registry/models/codex_client_models.json`).
 It retains its own 128K/text-only capabilities rather than inheriting Astra's.

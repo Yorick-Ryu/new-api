@@ -313,7 +313,8 @@ func ListModels(c *gin.Context, modelType int) {
 		})
 	default:
 		if c.Query("client_version") != "" {
-			body, etag, err := service.BuildCodexModelCatalog(userOpenAiModels)
+			// Codex priorities belong to capability profiles, independently of the marketplace order.
+			body, etag, err := service.BuildCodexModelCatalog(userOpenAiModels, nil)
 			if err != nil {
 				common.SysError(fmt.Sprintf("build Codex model catalog: %v", err))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{
