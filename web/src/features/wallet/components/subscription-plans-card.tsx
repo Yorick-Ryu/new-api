@@ -119,7 +119,9 @@ export function SubscriptionPlansCard({
   const [billingPreference, setBillingPreference] =
     useState('subscription_first')
   const [preferredSubscriptionId, setPreferredSubscriptionId] = useState(0)
-  const [savingPreference, setSavingPreference] = useState(false)
+  const [savingPreference, setSavingPreference] = useState<
+    'billing' | 'subscription' | null
+  >(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -185,7 +187,7 @@ export function SubscriptionPlansCard({
   }
 
   const handlePreferenceChange = async (pref: string) => {
-    setSavingPreference(true)
+    setSavingPreference('billing')
     const previous = billingPreference
     setBillingPreference(pref)
     try {
@@ -202,12 +204,12 @@ export function SubscriptionPlansCard({
       handleServerError(error, t('Request failed'))
       setBillingPreference(previous)
     } finally {
-      setSavingPreference(false)
+      setSavingPreference(null)
     }
   }
 
   const handlePreferredSubscriptionChange = async (subscriptionId: number) => {
-    setSavingPreference(true)
+    setSavingPreference('subscription')
     try {
       const res = requireServerSuccess(
         await updatePreferredSubscription(subscriptionId)
@@ -219,7 +221,7 @@ export function SubscriptionPlansCard({
     } catch (error) {
       handleServerError(error, t('Update failed'))
     } finally {
-      setSavingPreference(false)
+      setSavingPreference(null)
     }
   }
 
@@ -374,11 +376,17 @@ export function SubscriptionPlansCard({
                     label: getBillingPreferenceLabel('wallet_only', t),
                   },
                 ]}
-                disabled={savingPreference || refreshing}
+                disabled={savingPreference !== null || refreshing}
                 value={billingPreference}
                 onValueChange={(v) => v !== null && handlePreferenceChange(v)}
               >
-                <SelectTrigger className='h-8 flex-1 text-xs sm:w-[140px] sm:flex-none'>
+                <SelectTrigger
+                  className={cn(
+                    'h-8 flex-1 text-xs sm:w-[140px] sm:flex-none',
+                    savingPreference === 'subscription' &&
+                      'disabled:opacity-100'
+                  )}
+                >
                   <SelectValue>
                     {getBillingPreferenceLabel(billingPreference, t)}
                   </SelectValue>
@@ -414,7 +422,7 @@ export function SubscriptionPlansCard({
                 className='h-8 w-8'
                 aria-label={t('Refresh subscriptions')}
                 onClick={handleRefresh}
-                disabled={refreshing || savingPreference}
+                disabled={refreshing || savingPreference !== null}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
@@ -531,7 +539,7 @@ export function SubscriptionPlansCard({
                                   'border-primary/40 bg-primary/5 text-primary'
                               )}
                               aria-pressed={isPreferred}
-                              disabled={savingPreference || refreshing}
+                              disabled={savingPreference !== null || refreshing}
                               onClick={() =>
                                 handlePreferredSubscriptionChange(
                                   isPreferred ? 0 : subscription.id

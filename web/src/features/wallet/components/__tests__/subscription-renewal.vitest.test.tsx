@@ -471,6 +471,17 @@ it.each([0, 7])(
       preferred_subscription_id: preferred ? 0 : 7,
     })
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true))
+    const billingPreference = screen.getByRole('combobox')
+    expect(billingPreference.hasAttribute('disabled')).toBe(true)
+    expect(billingPreference.classList.contains('disabled:opacity-100')).toBe(
+      true
+    )
+    expect(billingPreference.classList.contains('disabled:opacity-50')).toBe(
+      false
+    )
+    expect(billingPreference.textContent).toContain('Subscription First')
+    await user.click(billingPreference)
+    expect(put).toHaveBeenCalledTimes(1)
     expect(
       screen
         .getByRole('button', { name: 'Refresh subscriptions' })
@@ -478,6 +489,7 @@ it.each([0, 7])(
     ).toBe(true)
     finish({ data: { success: false, message: 'Preference rejected' } })
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
+    expect(billingPreference.hasAttribute('disabled')).toBe(false)
     expect(button.getAttribute('aria-pressed')).toBe(String(preferred > 0))
     expect(button.textContent).toContain(buttonName)
     expect(screen.queryByText('Preferred')).toBeNull()
