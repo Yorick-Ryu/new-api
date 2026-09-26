@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Manual renewal": "Renouvellement manuel",
+    "Confirm manual renewal": "Confirmer le renouvellement manuel",
+    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "Accorder une période supplémentaire du forfait {{plan}} à {{user}} sans débiter son solde ?",
     "Set as preferred": "Défini comme prioritaire",
     "Use first": "Utiliser en premier",
     "Preferred": "Prioritaire",

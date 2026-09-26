@@ -90,6 +90,16 @@ export async function createUserSubscription(
   return res.data
 }
 
+export async function renewUserSubscription(
+  userId: number,
+  subscriptionId: number
+): Promise<ApiResponse<UserSubscriptionRecord['subscription']>> {
+  const res = await api.post(
+    `/api/subscription/admin/users/${userId}/subscriptions/${subscriptionId}/renew`
+  )
+  return res.data
+}
+
 export async function invalidateUserSubscription(
   subId: number
 ): Promise<ApiResponse<{ message?: string }>> {

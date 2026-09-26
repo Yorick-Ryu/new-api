@@ -761,6 +761,36 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	return "", nil
 }
 
+// AdminRenewUserSubscription grants one plan period without charging the user.
+// It shares the paid renewal fulfillment path, but creates no sales order.
+func AdminRenewUserSubscription(userId int, subscriptionId int) (*UserSubscription, error) {
+	if userId <= 0 || subscriptionId <= 0 {
+		return nil, errors.New("invalid userId or subscriptionId")
+	}
+	var renewed *UserSubscription
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var original UserSubscription
+		if err := tx.Select("plan_id").Where("id = ? AND user_id = ?", subscriptionId, userId).First(&original).Error; err != nil {
+			return err
+		}
+		plan, err := getSubscriptionPlanByIdTx(tx, original.PlanId)
+		if err != nil {
+			return err
+		}
+		// The administrator may renew an existing subscription even when public
+		// checkout or renewal is disabled for its plan.
+		renewed, err = fulfillSubscriptionPurchaseTx(tx, userId, plan, "admin", subscriptionId, &SubscriptionOrder{})
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	if renewed.PrevUserGroup != "" {
+		refreshSubscriptionUserGroupCache(userId, "admin subscription renewal")
+	}
+	return renewed, nil
+}
+
 func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 	if priceAmount <= 0 {
 		return 0, nil
