@@ -761,11 +761,14 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	return "", nil
 }
 
-// AdminRenewUserSubscription grants one plan period without charging the user.
+// AdminRenewUserSubscription grants 1–12 calendar months without charging the user.
 // It shares the paid renewal fulfillment path, but creates no sales order.
-func AdminRenewUserSubscription(userId int, subscriptionId int) (*UserSubscription, error) {
+func AdminRenewUserSubscription(userId int, subscriptionId int, months int) (*UserSubscription, error) {
 	if userId <= 0 || subscriptionId <= 0 {
 		return nil, errors.New("invalid userId or subscriptionId")
+	}
+	if months < 1 || months > 12 {
+		return nil, errors.New("续费月份必须为 1 至 12 个月")
 	}
 	var renewed *UserSubscription
 	err := DB.Transaction(func(tx *gorm.DB) error {
@@ -779,7 +782,10 @@ func AdminRenewUserSubscription(userId int, subscriptionId int) (*UserSubscripti
 		}
 		// The administrator may renew an existing subscription even when public
 		// checkout or renewal is disabled for its plan.
-		renewed, err = fulfillSubscriptionPurchaseTx(tx, userId, plan, "admin", subscriptionId, &SubscriptionOrder{})
+		renewalPlan := *plan
+		renewalPlan.DurationUnit = SubscriptionDurationMonth
+		renewalPlan.DurationValue = months
+		renewed, err = fulfillSubscriptionPurchaseTx(tx, userId, &renewalPlan, "admin", subscriptionId, &SubscriptionOrder{})
 		return err
 	})
 	if err != nil {

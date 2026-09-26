@@ -92,10 +92,12 @@ export async function createUserSubscription(
 
 export async function renewUserSubscription(
   userId: number,
-  subscriptionId: number
+  subscriptionId: number,
+  months: number
 ): Promise<ApiResponse<UserSubscriptionRecord['subscription']>> {
   const res = await api.post(
-    `/api/subscription/admin/users/${userId}/subscriptions/${subscriptionId}/renew`
+    `/api/subscription/admin/users/${userId}/subscriptions/${subscriptionId}/renew`,
+    { months }
   )
   return res.data
 }

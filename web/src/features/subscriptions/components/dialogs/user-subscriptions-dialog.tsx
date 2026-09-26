@@ -41,6 +41,13 @@ import {
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -118,6 +125,7 @@ export function UserSubscriptionsDialog(props: Props) {
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [acting, setActing] = useState(false)
+  const [renewalMonths, setRenewalMonths] = useState(1)
   const [plans, setPlans] = useState<PlanRecord[]>([])
   const [subs, setSubs] = useState<UserSubscriptionRecord[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState<string>('')
@@ -208,7 +216,8 @@ export function UserSubscriptionsDialog(props: Props) {
         if (!props.user?.id) return
         const res = await renewUserSubscription(
           props.user.id,
-          confirmAction.subId
+          confirmAction.subId,
+          renewalMonths
         )
         if (res.success) {
           toast.success(t('Subscription renewed successfully'))
@@ -279,12 +288,13 @@ export function UserSubscriptionsDialog(props: Props) {
     'Deleting will permanently remove this subscription record (including benefit details). Continue?'
   )
   if (confirmAction?.type === 'renew') {
-    confirmTitle = t('Confirm manual renewal')
+    confirmTitle = t('Renew')
     confirmDescription = t(
-      'Grant one more plan period to {{user}} for {{plan}} without charging their balance?',
+      'Renew {{plan}} for {{user}} by {{months}} months without charging their balance?',
       {
         user: props.user?.username || `#${props.user?.id}`,
         plan: confirmAction.planTitle,
+        months: renewalMonths,
       }
     )
   } else if (confirmAction?.type === 'invalidate') {
@@ -431,7 +441,8 @@ export function UserSubscriptionsDialog(props: Props) {
                             sub.status === 'cancelled' ||
                             !planMap.has(sub.plan_id)
                           }
-                          onClick={() =>
+                          onClick={() => {
+                            setRenewalMonths(1)
                             setConfirmAction({
                               type: 'renew',
                               subId: sub.id,
@@ -439,9 +450,9 @@ export function UserSubscriptionsDialog(props: Props) {
                                 planMap.get(sub.plan_id)?.title ||
                                 `#${sub.plan_id}`,
                             })
-                          }
+                          }}
                         >
-                          {t('Manual renewal')}
+                          {t('Renew')}
                           <DropdownMenuShortcut>
                             <RefreshCw size={16} />
                           </DropdownMenuShortcut>
@@ -513,7 +524,38 @@ export function UserSubscriptionsDialog(props: Props) {
           handleConfirm={handleConfirmAction}
           isLoading={acting}
           destructive={confirmAction.type === 'delete'}
-        />
+          confirmText={confirmAction.type === 'renew' ? t('Renew') : undefined}
+        >
+          {confirmAction.type === 'renew' && (
+            <div className='space-y-1.5'>
+              <label htmlFor='renewal-months' className='text-sm font-medium'>
+                {t('Renewal duration')}
+              </label>
+              <Select
+                value={String(renewalMonths)}
+                onValueChange={(value) =>
+                  value !== null && setRenewalMonths(Number(value))
+                }
+                disabled={acting}
+                items={Array.from({ length: 12 }, (_, index) => ({
+                  value: String(index + 1),
+                  label: t('{{months}} month(s)', { months: index + 1 }),
+                }))}
+              >
+                <SelectTrigger id='renewal-months' className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {Array.from({ length: 12 }, (_, index) => (
+                    <SelectItem key={index + 1} value={String(index + 1)}>
+                      {t('{{months}} month(s)', { months: index + 1 })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </ConfirmDialog>
       )}
 
       {resetAction && (

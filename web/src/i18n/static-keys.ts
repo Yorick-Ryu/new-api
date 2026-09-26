@@ -588,9 +588,9 @@ export const STATIC_I18N_KEYS = [
   'Enable',
 
   // User subscription management
-  'Manual renewal',
-  'Confirm manual renewal',
-  'Grant one more plan period to {{user}} for {{plan}} without charging their balance?',
+  'Renewal duration',
+  '{{months}} month(s)',
+  'Renew {{plan}} for {{user}} by {{months}} months without charging their balance?',
   'User Subscription Management',
   'Select subscription plan',
   'Add subscription',

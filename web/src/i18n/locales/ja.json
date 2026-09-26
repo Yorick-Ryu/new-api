@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Manual renewal": "手動更新",
-    "Confirm manual renewal": "手動更新の確認",
-    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "{{user}} の {{plan}} プランを残高から引き落とさずに1期間延長しますか？",
+    "Renewal duration": "更新期間",
+    "{{months}} month(s)": "{{months}} か月",
+    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "{{user}} の {{plan}} を残高から引き落とさずに {{months}} か月更新します。",
     "Set as preferred": "優先に設定済み",
     "Use first": "優先して使用",
     "Preferred": "優先プラン",

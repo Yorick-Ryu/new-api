@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Manual renewal": "Ручное продление",
-    "Confirm manual renewal": "Подтвердить ручное продление",
-    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "Продлить тариф {{plan}} для {{user}} на один период без списания средств?",
+    "Renewal duration": "Срок продления",
+    "{{months}} month(s)": "{{months}} мес.",
+    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "Продлить {{plan}} для {{user}} на {{months}} мес. без списания средств?",
     "Set as preferred": "Приоритет установлен",
     "Use first": "Использовать первым",
     "Preferred": "Приоритетная подписка",
