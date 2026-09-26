@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Renewal duration": "续费时长",
-    "{{months}} month(s)": "{{months}} 个月",
-    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "为 {{user}} 的 {{plan}} 套餐续费 {{months}} 个月，不扣除余额。",
+    "Renewal months": "续费月数",
+    "1–12 months": "1–12 个月",
+    "{{user}} · {{plan}}": "{{user}} · {{plan}}",
     "Set as preferred": "已设为优先",
     "Use first": "优先使用",
     "Preferred": "优先套餐",

@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Renewal duration": "Thời hạn gia hạn",
-    "{{months}} month(s)": "{{months}} tháng",
-    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "Gia hạn {{plan}} cho {{user}} thêm {{months}} tháng mà không trừ số dư?",
+    "Renewal months": "Số tháng gia hạn",
+    "1–12 months": "1–12 tháng",
+    "{{user}} · {{plan}}": "{{user}} · {{plan}}",
     "Set as preferred": "Đã đặt ưu tiên",
     "Use first": "Dùng trước",
     "Preferred": "Gói ưu tiên",

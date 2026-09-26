@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Renewal duration": "Durée du renouvellement",
-    "{{months}} month(s)": "{{months}} mois",
-    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "Renouveler {{plan}} pour {{user}} de {{months}} mois sans débiter son solde ?",
+    "Renewal months": "Nombre de mois",
+    "1–12 months": "1–12 mois",
+    "{{user}} · {{plan}}": "{{user}} · {{plan}}",
     "Set as preferred": "Défini comme prioritaire",
     "Use first": "Utiliser en premier",
     "Preferred": "Prioritaire",
