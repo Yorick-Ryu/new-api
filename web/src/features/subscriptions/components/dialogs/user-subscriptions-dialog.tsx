@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Ban, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, Plus, RotateCcw, RefreshCw, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -55,6 +55,7 @@ import {
   getAdminPlans,
   getUserSubscriptions,
   createUserSubscription,
+  renewUserSubscription,
   invalidateUserSubscription,
   deleteUserSubscription,
   resetUserSubscriptionsByPlan,
@@ -116,6 +117,7 @@ export function UserSubscriptionsDialog(props: Props) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [acting, setActing] = useState(false)
   const [plans, setPlans] = useState<PlanRecord[]>([])
   const [subs, setSubs] = useState<UserSubscriptionRecord[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState<string>('')
@@ -128,8 +130,9 @@ export function UserSubscriptionsDialog(props: Props) {
     quotaWindows: UserSubscriptionQuotaWindow[]
   } | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'invalidate' | 'delete'
+    type: 'invalidate' | 'delete' | 'renew'
     subId: number
+    planTitle?: string
   } | null>(null)
 
   const planMap = useMemo(() => {
@@ -199,8 +202,22 @@ export function UserSubscriptionsDialog(props: Props) {
 
   const handleConfirmAction = async () => {
     if (!confirmAction) return
+    setActing(true)
     try {
-      if (confirmAction.type === 'invalidate') {
+      if (confirmAction.type === 'renew') {
+        if (!props.user?.id) return
+        const res = await renewUserSubscription(
+          props.user.id,
+          confirmAction.subId
+        )
+        if (res.success) {
+          toast.success(t('Subscription renewed successfully'))
+          await loadData()
+          props.onSuccess?.()
+        } else {
+          handleServerError(res)
+        }
+      } else if (confirmAction.type === 'invalidate') {
         const res = await invalidateUserSubscription(confirmAction.subId)
         if (res.success) {
           toast.success(res.data?.message || t('Has been invalidated'))
@@ -222,6 +239,7 @@ export function UserSubscriptionsDialog(props: Props) {
     } catch (error) {
       handleServerError(error, t('Operation failed'))
     } finally {
+      setActing(false)
       setConfirmAction(null)
     }
   }
@@ -254,6 +272,26 @@ export function UserSubscriptionsDialog(props: Props) {
       setResetting(false)
       setResetAction(null)
     }
+  }
+
+  let confirmTitle = t('Confirm delete')
+  let confirmDescription = t(
+    'Deleting will permanently remove this subscription record (including benefit details). Continue?'
+  )
+  if (confirmAction?.type === 'renew') {
+    confirmTitle = t('Confirm manual renewal')
+    confirmDescription = t(
+      'Grant one more plan period to {{user}} for {{plan}} without charging their balance?',
+      {
+        user: props.user?.username || `#${props.user?.id}`,
+        plan: confirmAction.planTitle,
+      }
+    )
+  } else if (confirmAction?.type === 'invalidate') {
+    confirmTitle = t('Confirm invalidate')
+    confirmDescription = t(
+      'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
+    )
   }
 
   return (
@@ -389,6 +427,26 @@ export function UserSubscriptionsDialog(props: Props) {
                     return (
                       <DataTableRowActionMenu ariaLabel={t('Actions')}>
                         <DropdownMenuItem
+                          disabled={
+                            sub.status === 'cancelled' ||
+                            !planMap.has(sub.plan_id)
+                          }
+                          onClick={() =>
+                            setConfirmAction({
+                              type: 'renew',
+                              subId: sub.id,
+                              planTitle:
+                                planMap.get(sub.plan_id)?.title ||
+                                `#${sub.plan_id}`,
+                            })
+                          }
+                        >
+                          {t('Manual renewal')}
+                          <DropdownMenuShortcut>
+                            <RefreshCw size={16} />
+                          </DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           disabled={!isActive}
                           onClick={() => {
                             setAdvanceResetTime(true)
@@ -450,21 +508,10 @@ export function UserSubscriptionsDialog(props: Props) {
         <ConfirmDialog
           open
           onOpenChange={(v) => !v && setConfirmAction(null)}
-          title={
-            confirmAction.type === 'invalidate'
-              ? t('Confirm invalidate')
-              : t('Confirm delete')
-          }
-          desc={
-            confirmAction.type === 'invalidate'
-              ? t(
-                  'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
-                )
-              : t(
-                  'Deleting will permanently remove this subscription record (including benefit details). Continue?'
-                )
-          }
+          title={confirmTitle}
+          desc={confirmDescription}
           handleConfirm={handleConfirmAction}
+          isLoading={acting}
           destructive={confirmAction.type === 'delete'}
         />
       )}

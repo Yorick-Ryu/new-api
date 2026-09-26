@@ -3,12 +3,16 @@ package model
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -26,6 +30,108 @@ func seedSubscriptionRenewal(t *testing.T) (User, *SubscriptionPlan, *UserSubscr
 	require.NoError(t, DB.Model(sub).Update("amount_used", 350).Error)
 	require.NoError(t, DB.Model(&UserSubscriptionQuotaWindow{}).Where("user_subscription_id = ?", sub.Id).Update("amount_used", 40).Error)
 	return user, plan, sub
+}
+
+func TestAdminManualRenewalExtendsWithoutChargingOrCreatingSalesOrder(t *testing.T) {
+	user, plan, sub := seedSubscriptionRenewal(t)
+	require.NoError(t, DB.Model(plan).Update("allow_renewal", false).Error)
+	beforeQuota := getUserQuotaForPaymentGuardTest(t, user.Id)
+	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+	require.NoError(t, err)
+	assert.Equal(t, sub.Id, renewed.Id)
+	assert.Equal(t, sub.EndTime+30*86400, renewed.EndTime)
+	assert.EqualValues(t, 350, renewed.AmountUsed)
+	assert.Equal(t, beforeQuota, getUserQuotaForPaymentGuardTest(t, user.Id))
+	var orders int64
+	require.NoError(t, DB.Model(&SubscriptionOrder{}).Where("user_id = ?", user.Id).Count(&orders).Error)
+	assert.Zero(t, orders)
+
+	other := User{Username: "other-renewal-user", AffCode: "other-renewal", Group: "default", Status: common.UserStatusEnabled}
+	require.NoError(t, DB.Create(&other).Error)
+	_, err = AdminRenewUserSubscription(other.Id, sub.Id)
+	require.Error(t, err)
+	assert.Equal(t, renewed.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
+}
+
+func TestAdminManualRenewalOfExpiredSubscriptionStartsNewPeriod(t *testing.T) {
+	user, _, sub := seedSubscriptionRenewal(t)
+	require.NoError(t, DB.Model(sub).Updates(map[string]any{"end_time": GetDBTimestamp() - 1, "status": "expired"}).Error)
+	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+	require.NoError(t, err)
+	assert.NotEqual(t, sub.Id, renewed.Id)
+	assert.Equal(t, "admin", renewed.Source)
+	assert.Zero(t, renewed.AmountUsed)
+	assert.Equal(t, renewed.StartTime+30*86400, renewed.EndTime)
+	assert.EqualValues(t, 350, getSubscriptionResetSub(t, sub.Id).AmountUsed)
+	require.NoError(t, DB.Model(sub).Update("status", "cancelled").Error)
+	_, err = AdminRenewUserSubscription(user.Id, sub.Id)
+	require.ErrorContains(t, err, "不可续费")
+}
+
+func TestAdminManualRenewalDatabaseMatrix(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			var driver gorm.Dialector
+			switch dialect {
+			case "sqlite":
+				driver = sqlite.Open(filepath.Join(t.TempDir(), "renewal.db"))
+			case "mysql":
+				dsn := os.Getenv("TEST_MYSQL_DSN")
+				if dsn == "" {
+					t.Skip("TEST_MYSQL_DSN not configured")
+				}
+				driver = mysql.Open(dsn)
+			case "postgres":
+				dsn := os.Getenv("TEST_POSTGRES_DSN")
+				if dsn == "" {
+					t.Skip("TEST_POSTGRES_DSN not configured")
+				}
+				driver = postgres.Open(dsn)
+			}
+			db, err := gorm.Open(driver, &gorm.Config{})
+			require.NoError(t, err)
+			var version string
+			versionSQL := "SELECT VERSION()"
+			if dialect == "sqlite" {
+				versionSQL = "SELECT sqlite_version()"
+			}
+			require.NoError(t, db.Raw(versionSQL).Scan(&version).Error)
+			t.Logf("%s version: %s", dialect, version)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			sqlDB.SetMaxOpenConns(1)
+			previousDB, previousType := DB, common.MainDatabaseType()
+			DB = db
+			common.SetMainDatabaseType(common.DatabaseType(dialect))
+			initCol()
+			t.Cleanup(func() {
+				DB = previousDB
+				common.SetMainDatabaseType(previousType)
+				initCol()
+				_ = sqlDB.Close()
+			})
+			require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &UserSubscription{}, &UserSubscriptionQuotaWindow{}, &SubscriptionOrder{}))
+			user := User{Username: "matrix-renewal", AffCode: "matrix-renewal", Quota: 1000, Group: "default", Status: common.UserStatusEnabled}
+			require.NoError(t, db.Create(&user).Error)
+			plan := &SubscriptionPlan{Title: "Matrix", DurationUnit: SubscriptionDurationDay, DurationValue: 1, TotalAmount: 100, Enabled: true}
+			require.NoError(t, db.Create(plan).Error)
+			sub, err := CreateUserSubscriptionFromPlanTx(db, user.Id, plan, "admin")
+			require.NoError(t, err)
+			renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+			require.NoError(t, err)
+			assert.Equal(t, sub.EndTime+86400, renewed.EndTime)
+			var persisted UserSubscription
+			require.NoError(t, db.First(&persisted, sub.Id).Error)
+			assert.Equal(t, renewed.EndTime, persisted.EndTime)
+			var orders int64
+			require.NoError(t, db.Model(&SubscriptionOrder{}).Count(&orders).Error)
+			assert.Zero(t, orders)
+			require.NoError(t, db.Unscoped().Where("user_subscription_id = ?", sub.Id).Delete(&UserSubscriptionQuotaWindow{}).Error)
+			require.NoError(t, db.Unscoped().Where("user_id = ?", user.Id).Delete(&UserSubscription{}).Error)
+			require.NoError(t, db.Unscoped().Delete(plan).Error)
+			require.NoError(t, db.Unscoped().Delete(&user).Error)
+		})
+	}
 }
 
 func TestSubscriptionRenewalBalancePreservesUsageAndBypassesOnlyRenewalLimit(t *testing.T) {

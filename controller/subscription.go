@@ -504,6 +504,35 @@ func AdminCreateUserSubscription(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+func AdminRenewUserSubscription(c *gin.Context) {
+	if !requirePaymentCompliance(c) {
+		return
+	}
+	userId, err := strconv.Atoi(c.Param("id"))
+	if err != nil || userId <= 0 {
+		common.ApiErrorMsg(c, "无效的用户ID")
+		return
+	}
+	subscriptionId, err := strconv.Atoi(c.Param("subscription_id"))
+	if err != nil || subscriptionId <= 0 {
+		common.ApiErrorMsg(c, "无效的订阅ID")
+		return
+	}
+	renewed, err := model.AdminRenewUserSubscription(userId, subscriptionId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAuditFor(c, userId, "subscription.user_renew", map[string]any{
+		"target_user_id": userId, "subscription_id": subscriptionId,
+		"renewed_subscription_id": renewed.Id, "plan_id": renewed.PlanId,
+	})
+	model.RecordLogWithAdminInfo(userId, model.LogTypeManage,
+		fmt.Sprintf("管理员手动续费订阅 #%d，续费后订阅 #%d 到期时间 %d", subscriptionId, renewed.Id, renewed.EndTime),
+		auditOperatorInfo(c), nil, c)
+	common.ApiSuccess(c, renewed)
+}
+
 func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {

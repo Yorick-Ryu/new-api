@@ -10,6 +10,13 @@ only an explicitly stored `true` permits new renewals.
 Disabling it hides renewal actions and rejects new renewal payment requests;
 already-created gateway orders still settle normally.
 
+Administrators can use **Users → Subscription Management → Manual renewal**
+on an active or expired subscription. The action requires confirmation, grants
+one current plan period through the same renewal fulfillment path, and records
+the operator and target account. It does not charge wallet balance or create a
+sales order. Administrators may grant a renewal even when the plan is hidden or
+public renewal is disabled; cancelled subscriptions cannot be renewed.
+
 - Payment requests accept optional `renewal_subscription_id`; the order stores
   that ID. Omitting it preserves the existing new-purchase behavior.
 - The ID must belong to the paying user and match `plan_id`. A valid renewal

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Manual renewal": "Manual renewal",
+    "Confirm manual renewal": "Confirm manual renewal",
+    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "Grant one more plan period to {{user}} for {{plan}} without charging their balance?",
     "Set as preferred": "Set as preferred",
     "Use first": "Use first",
     "Preferred": "Preferred",

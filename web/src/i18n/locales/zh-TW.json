@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Manual renewal": "手動續費",
+    "Confirm manual renewal": "確認手動續費",
+    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "為 {{user}} 的 {{plan}} 套餐增加一期，且不扣除餘額？",
     "Set as preferred": "已設為優先",
     "Use first": "優先使用",
     "Preferred": "優先方案",
