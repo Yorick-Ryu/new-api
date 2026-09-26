@@ -34,8 +34,8 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it.each([1, 12])(
-  'defaults to one month and submits a %i month renewal after confirmation',
+it.each([1, 12, 0, 13, 1.5, ''])(
+  'validates renewal month input %s before submission',
   async (months) => {
     vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/subscription/admin/plans') {
@@ -84,18 +84,23 @@ it.each([1, 12])(
     )
     await user.click(screen.getByRole('button', { name: 'Actions' }))
     await user.click(screen.getByRole('menuitem', { name: 'Renew' }))
-    const duration = screen.getByRole('combobox', { name: 'Renewal duration' })
-    expect(duration.textContent).toContain('1 month(s)')
-    if (months === 12) {
-      await user.click(duration)
-      expect(screen.getAllByRole('option')).toHaveLength(12)
-      await user.click(screen.getByRole('option', { name: '12 month(s)' }))
+    const duration = screen.getByRole('spinbutton', {
+      name: 'Renewal months',
+    }) as HTMLInputElement
+    expect(duration.value).toBe('1')
+    if (months !== 1) {
+      await user.clear(duration)
+      if (months !== '') await user.type(duration, String(months))
     }
-    expect(
-      screen.getByText(
-        `Renew Pro for alice by ${months} months without charging their balance?`
-      )
-    ).toBeTruthy()
+    expect(screen.getByText('alice · Pro')).toBeTruthy()
+    const confirm = screen.getByRole('button', { name: 'Renew' })
+    if (months !== 1 && months !== 12) {
+      expect(confirm.hasAttribute('disabled')).toBe(true)
+      expect(duration.getAttribute('aria-invalid')).toBe('true')
+      expect(post).not.toHaveBeenCalled()
+      client.clear()
+      return
+    }
     expect(post).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Renew' }))
     await waitFor(() =>

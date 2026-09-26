@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Renewal duration": "更新期間",
-    "{{months}} month(s)": "{{months}} か月",
-    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "{{user}} の {{plan}} を残高から引き落とさずに {{months}} か月更新します。",
+    "Renewal months": "更新月数",
+    "1–12 months": "1–12 か月",
+    "{{user}} · {{plan}}": "{{user}} · {{plan}}",
     "Set as preferred": "優先に設定済み",
     "Use first": "優先して使用",
     "Preferred": "優先プラン",
