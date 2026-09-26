@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
@@ -36,10 +37,10 @@ func TestAdminManualRenewalExtendsWithoutChargingOrCreatingSalesOrder(t *testing
 	user, plan, sub := seedSubscriptionRenewal(t)
 	require.NoError(t, DB.Model(plan).Update("allow_renewal", false).Error)
 	beforeQuota := getUserQuotaForPaymentGuardTest(t, user.Id)
-	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id, 1)
 	require.NoError(t, err)
 	assert.Equal(t, sub.Id, renewed.Id)
-	assert.Equal(t, sub.EndTime+30*86400, renewed.EndTime)
+	assert.Equal(t, time.Unix(sub.EndTime, 0).AddDate(0, 1, 0).Unix(), renewed.EndTime)
 	assert.EqualValues(t, 350, renewed.AmountUsed)
 	assert.Equal(t, beforeQuota, getUserQuotaForPaymentGuardTest(t, user.Id))
 	var orders int64
@@ -48,7 +49,7 @@ func TestAdminManualRenewalExtendsWithoutChargingOrCreatingSalesOrder(t *testing
 
 	other := User{Username: "other-renewal-user", AffCode: "other-renewal", Group: "default", Status: common.UserStatusEnabled}
 	require.NoError(t, DB.Create(&other).Error)
-	_, err = AdminRenewUserSubscription(other.Id, sub.Id)
+	_, err = AdminRenewUserSubscription(other.Id, sub.Id, 1)
 	require.Error(t, err)
 	assert.Equal(t, renewed.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
 }
@@ -56,16 +57,33 @@ func TestAdminManualRenewalExtendsWithoutChargingOrCreatingSalesOrder(t *testing
 func TestAdminManualRenewalOfExpiredSubscriptionStartsNewPeriod(t *testing.T) {
 	user, _, sub := seedSubscriptionRenewal(t)
 	require.NoError(t, DB.Model(sub).Updates(map[string]any{"end_time": GetDBTimestamp() - 1, "status": "expired"}).Error)
-	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id, 1)
 	require.NoError(t, err)
 	assert.NotEqual(t, sub.Id, renewed.Id)
 	assert.Equal(t, "admin", renewed.Source)
 	assert.Zero(t, renewed.AmountUsed)
-	assert.Equal(t, renewed.StartTime+30*86400, renewed.EndTime)
+	assert.Equal(t, time.Unix(renewed.StartTime, 0).AddDate(0, 1, 0).Unix(), renewed.EndTime)
 	assert.EqualValues(t, 350, getSubscriptionResetSub(t, sub.Id).AmountUsed)
 	require.NoError(t, DB.Model(sub).Update("status", "cancelled").Error)
-	_, err = AdminRenewUserSubscription(user.Id, sub.Id)
+	_, err = AdminRenewUserSubscription(user.Id, sub.Id, 1)
 	require.ErrorContains(t, err, "不可续费")
+}
+
+func TestAdminRenewalMonthsBoundsAndPlanDurationPreserved(t *testing.T) {
+	user, plan, sub := seedSubscriptionRenewal(t)
+	for _, months := range []int{-1, 0, 13} {
+		_, err := AdminRenewUserSubscription(user.Id, sub.Id, months)
+		require.ErrorContains(t, err, "1 至 12")
+		assert.Equal(t, sub.EndTime, getSubscriptionResetSub(t, sub.Id).EndTime)
+	}
+	renewed, err := AdminRenewUserSubscription(user.Id, sub.Id, 12)
+	require.NoError(t, err)
+	assert.Equal(t, time.Unix(sub.EndTime, 0).AddDate(0, 12, 0).Unix(), renewed.EndTime)
+	assert.EqualValues(t, 350, renewed.AmountUsed)
+	var unchanged SubscriptionPlan
+	require.NoError(t, DB.First(&unchanged, plan.Id).Error)
+	assert.Equal(t, SubscriptionDurationDay, unchanged.DurationUnit)
+	assert.Equal(t, 30, unchanged.DurationValue)
 }
 
 func TestAdminManualRenewalDatabaseMatrix(t *testing.T) {
@@ -117,9 +135,9 @@ func TestAdminManualRenewalDatabaseMatrix(t *testing.T) {
 			require.NoError(t, db.Create(plan).Error)
 			sub, err := CreateUserSubscriptionFromPlanTx(db, user.Id, plan, "admin")
 			require.NoError(t, err)
-			renewed, err := AdminRenewUserSubscription(user.Id, sub.Id)
+			renewed, err := AdminRenewUserSubscription(user.Id, sub.Id, 1)
 			require.NoError(t, err)
-			assert.Equal(t, sub.EndTime+86400, renewed.EndTime)
+			assert.Equal(t, time.Unix(sub.EndTime, 0).AddDate(0, 1, 0).Unix(), renewed.EndTime)
 			var persisted UserSubscription
 			require.NoError(t, db.First(&persisted, sub.Id).Error)
 			assert.Equal(t, renewed.EndTime, persisted.EndTime)

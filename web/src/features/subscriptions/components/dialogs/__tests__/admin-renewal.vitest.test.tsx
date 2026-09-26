@@ -34,61 +34,76 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('confirms the target account and plan before granting a manual renewal', async () => {
-  vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/subscription/admin/plans') {
-      return {
-        data: { success: true, data: [{ plan: { id: 3, title: 'Pro' } }] },
+it.each([1, 12])(
+  'defaults to one month and submits a %i month renewal after confirmation',
+  async (months) => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/subscription/admin/plans') {
+        return {
+          data: { success: true, data: [{ plan: { id: 3, title: 'Pro' } }] },
+        }
       }
-    }
-    return {
-      data: {
-        success: true,
-        data: [
-          {
-            subscription: {
-              id: 7,
-              user_id: 2,
-              plan_id: 3,
-              status: 'active',
-              start_time: 1700000000,
-              end_time: 2100000000,
-              amount_total: 1000,
-              amount_used: 0,
+      return {
+        data: {
+          success: true,
+          data: [
+            {
+              subscription: {
+                id: 7,
+                user_id: 2,
+                plan_id: 3,
+                status: 'active',
+                start_time: 1700000000,
+                end_time: 2100000000,
+                amount_total: 1000,
+                amount_used: 0,
+              },
             },
-          },
-        ],
-      },
-    }
-  })
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true, data: {} } })
-  const user = userEvent.setup()
-  const client = new QueryClient()
-  render(
-    <QueryClientProvider client={client}>
-      <I18nextProvider i18n={i18n}>
-        <UserSubscriptionsDialog
-          open
-          onOpenChange={() => {}}
-          user={{ id: 2, username: 'alice' }}
-        />
-      </I18nextProvider>
-    </QueryClientProvider>
-  )
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Actions' })).toBeTruthy()
-  )
-  await user.click(screen.getByRole('button', { name: 'Actions' }))
-  await user.click(screen.getByRole('menuitem', { name: 'Manual renewal' }))
-  expect(screen.getByText(/alice.*Pro.*without charging/)).toBeTruthy()
-  expect(post).not.toHaveBeenCalled()
-  await user.click(screen.getByRole('button', { name: 'Continue' }))
-  await waitFor(() =>
-    expect(post).toHaveBeenCalledWith(
-      '/api/subscription/admin/users/2/subscriptions/7/renew'
+          ],
+        },
+      }
+    })
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ data: { success: true, data: {} } })
+    const user = userEvent.setup()
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <I18nextProvider i18n={i18n}>
+          <UserSubscriptionsDialog
+            open
+            onOpenChange={() => {}}
+            user={{ id: 2, username: 'alice' }}
+          />
+        </I18nextProvider>
+      </QueryClientProvider>
     )
-  )
-  client.clear()
-})
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Actions' })).toBeTruthy()
+    )
+    await user.click(screen.getByRole('button', { name: 'Actions' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Renew' }))
+    const duration = screen.getByRole('combobox', { name: 'Renewal duration' })
+    expect(duration.textContent).toContain('1 month(s)')
+    if (months === 12) {
+      await user.click(duration)
+      expect(screen.getAllByRole('option')).toHaveLength(12)
+      await user.click(screen.getByRole('option', { name: '12 month(s)' }))
+    }
+    expect(
+      screen.getByText(
+        `Renew Pro for alice by ${months} months without charging their balance?`
+      )
+    ).toBeTruthy()
+    expect(post).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Renew' }))
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/api/subscription/admin/users/2/subscriptions/7/renew',
+        { months }
+      )
+    )
+    client.clear()
+  }
+)

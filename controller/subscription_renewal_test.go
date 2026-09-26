@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -16,6 +17,41 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestAdminRenewalMonthsRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		body   string
+		months int
+	}{
+		{"default", `{}`, 1},
+		{"empty body default", ``, 1},
+		{"maximum", `{"months":12}`, 12},
+		{"zero", `{"months":0}`, 0},
+		{"over maximum", `{"months":13}`, 0},
+		{"fraction", `{"months":1.5}`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, user, _, sub := setupSubscriptionRenewalControllerTest(t)
+			writer := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(writer)
+			ctx.Set("id", user.Id)
+			ctx.Set("role", common.RoleAdminUser)
+			ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(user.Id)}, {Key: "subscription_id", Value: fmt.Sprint(sub.Id)}}
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/api/subscription/admin/users/1/subscriptions/1/renew", strings.NewReader(tc.body))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+			AdminRenewUserSubscription(ctx)
+			var response struct {
+				Success bool `json:"success"`
+			}
+			require.NoError(t, common.Unmarshal(writer.Body.Bytes(), &response))
+			assert.Equal(t, tc.months > 0, response.Success, writer.Body.String())
+			var updated model.UserSubscription
+			require.NoError(t, db.First(&updated, sub.Id).Error)
+			assert.Equal(t, time.Unix(sub.EndTime, 0).AddDate(0, tc.months, 0).Unix(), updated.EndTime)
+		})
+	}
+}
 
 func setupSubscriptionRenewalControllerTest(t *testing.T) (*gorm.DB, model.User, model.SubscriptionPlan, *model.UserSubscription) {
 	t.Helper()

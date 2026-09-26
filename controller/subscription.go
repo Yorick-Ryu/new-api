@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -518,7 +519,14 @@ func AdminRenewUserSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "无效的订阅ID")
 		return
 	}
-	renewed, err := model.AdminRenewUserSubscription(userId, subscriptionId)
+	req := struct {
+		Months int `json:"months"`
+	}{Months: 1}
+	if err := c.ShouldBindJSON(&req); err != nil && err != io.EOF {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	renewed, err := model.AdminRenewUserSubscription(userId, subscriptionId, req.Months)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -526,9 +534,10 @@ func AdminRenewUserSubscription(c *gin.Context) {
 	recordManageAuditFor(c, userId, "subscription.user_renew", map[string]any{
 		"target_user_id": userId, "subscription_id": subscriptionId,
 		"renewed_subscription_id": renewed.Id, "plan_id": renewed.PlanId,
+		"months": req.Months,
 	})
 	model.RecordLogWithAdminInfo(userId, model.LogTypeManage,
-		fmt.Sprintf("管理员手动续费订阅 #%d，续费后订阅 #%d 到期时间 %d", subscriptionId, renewed.Id, renewed.EndTime),
+		fmt.Sprintf("管理员续费订阅 #%d，续费 %d 个月，续费后订阅 #%d 到期时间 %d", subscriptionId, req.Months, renewed.Id, renewed.EndTime),
 		auditOperatorInfo(c), nil, c)
 	common.ApiSuccess(c, renewed)
 }

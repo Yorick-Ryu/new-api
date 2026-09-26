@@ -1,8 +1,8 @@
 {
   "translation": {
-    "Manual renewal": "Gia hạn thủ công",
-    "Confirm manual renewal": "Xác nhận gia hạn thủ công",
-    "Grant one more plan period to {{user}} for {{plan}} without charging their balance?": "Gia hạn thêm một kỳ gói {{plan}} cho {{user}} mà không trừ số dư?",
+    "Renewal duration": "Thời hạn gia hạn",
+    "{{months}} month(s)": "{{months}} tháng",
+    "Renew {{plan}} for {{user}} by {{months}} months without charging their balance?": "Gia hạn {{plan}} cho {{user}} thêm {{months}} tháng mà không trừ số dư?",
     "Set as preferred": "Đã đặt ưu tiên",
     "Use first": "Dùng trước",
     "Preferred": "Gói ưu tiên",
