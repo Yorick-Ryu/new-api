@@ -39,13 +39,13 @@ export function BillingGroupsField(props: {
   const { t } = useTranslation()
   const restricted = props.form.watch('restrict_groups')
   return (
-    <div className='space-y-3 rounded-lg border p-3'>
+    <div className='flex flex-col gap-3'>
       <FormField
         control={props.form.control}
         name='restrict_groups'
         render={({ field }) => (
           <FormItem className='flex flex-row items-center justify-between gap-3'>
-            <div className='space-y-1'>
+            <div className='flex flex-col gap-1'>
               <FormLabel>{t('Restrict subscription billing groups')}</FormLabel>
               <FormDescription>
                 {t(
