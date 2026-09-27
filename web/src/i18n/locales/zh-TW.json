@@ -6966,6 +6966,11 @@
     "Select both start and end times": "請選擇開始時間和結束時間",
     "Select a time range of up to 30 days": "時間範圍最多選擇 30 天",
     "End time cannot be in the future": "結束時間不能晚於目前時間",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京時間）",
+    "Restrict subscription billing groups": "限制方案適用分組",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "僅所選分組可扣此方案，其他分組扣餘額。儲存後對已購用戶的新請求生效。",
+    "Applicable Groups": "適用分組",
+    "All accessible groups": "不限分組",
+    "Select at least one billing group": "請至少選擇一個適用分組"
   }
 }

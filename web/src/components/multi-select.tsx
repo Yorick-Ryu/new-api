@@ -49,7 +49,10 @@ export type Option = {
   hint?: string
 }
 
-interface MultiSelectProps {
+interface MultiSelectProps extends Pick<
+  React.AriaAttributes,
+  'aria-describedby' | 'aria-invalid'
+> {
   options: Option[]
   selected: string[]
   onChange: (values: string[]) => void
@@ -383,6 +386,8 @@ export function MultiSelect(props: MultiSelectProps) {
         </ComboboxValue>
         <ComboboxChipsInput
           id={props.id}
+          aria-describedby={props['aria-describedby']}
+          aria-invalid={props['aria-invalid']}
           placeholder={
             props.selected.length === 0 && !props.renderSelectedSummary
               ? placeholder

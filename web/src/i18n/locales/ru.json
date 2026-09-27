@@ -6966,6 +6966,11 @@
     "Select both start and end times": "Выберите время начала и окончания",
     "Select a time range of up to 30 days": "Выберите период не более 30 дней",
     "End time cannot be in the future": "Время окончания не может быть в будущем",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Период: {{start}} – {{end}} (пекинское время)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Период: {{start}} – {{end}} (пекинское время)",
+    "Restrict subscription billing groups": "Ограничить группы подписки",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "Этот тариф доступен только выбранным группам. Остальные используют баланс кошелька. Правило действует для новых запросов существующих подписок.",
+    "Applicable Groups": "Доступные группы",
+    "All accessible groups": "Все доступные группы",
+    "Select at least one billing group": "Выберите хотя бы одну группу"
   }
 }

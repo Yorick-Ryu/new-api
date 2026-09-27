@@ -37,6 +37,7 @@ const plan = subscriptionPlanSchema.parse({
   title: 'Plus',
   quota_windows: '[]',
   model_multipliers: '{"gpt-6-astra":2}',
+  billing_groups: '',
 })
 
 describe('subscription model multiplier form', () => {

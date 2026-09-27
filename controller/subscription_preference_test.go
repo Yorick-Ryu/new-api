@@ -180,7 +180,7 @@ func TestSubscriptionPreference(t *testing.T) {
 			require.Nil(t, apiErr)
 			assert.Equal(t, subs[tc.expected].Id, info.SubscriptionId)
 			// Changing preference after reservation never moves a retry or settlement.
-			replay, err := model.PreConsumeUserSubscription(info.RequestId, user.Id, "test", subs[1].Id, 100)
+			replay, err := model.PreConsumeUserSubscription(info.RequestId, user.Id, "test", "", subs[1].Id, 100)
 			require.NoError(t, err)
 			assert.Equal(t, subs[tc.expected].Id, replay.UserSubscriptionId)
 			require.NoError(t, session.Settle(60))
@@ -191,7 +191,7 @@ func TestSubscriptionPreference(t *testing.T) {
 	}
 	t.Run("refund_stays_on_reserved_subscription", func(t *testing.T) {
 		require.NoError(t, db.Model(&model.UserSubscription{}).Where("user_id = ?", user.Id).Update("amount_used", 0).Error)
-		result, err := model.PreConsumeUserSubscription("priority-refund", user.Id, "test", subs[1].Id, 100)
+		result, err := model.PreConsumeUserSubscription("priority-refund", user.Id, "test", "", subs[1].Id, 100)
 		require.NoError(t, err)
 		require.Equal(t, subs[1].Id, result.UserSubscriptionId)
 		require.NoError(t, model.RefundSubscriptionPreConsume("priority-refund"))

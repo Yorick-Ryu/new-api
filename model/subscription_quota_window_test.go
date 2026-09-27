@@ -172,14 +172,14 @@ func TestPreConsumeUpdatesEveryWindowAtomicallyAndEnforcesSmallestLimit(t *testi
 	sub, err := CreateUserSubscriptionFromPlanTx(DB, 801, plan, "test")
 	require.NoError(t, err)
 
-	result, err := PreConsumeUserSubscription("dual-window-1", 801, "test", 0, 80)
+	result, err := PreConsumeUserSubscription("dual-window-1", 801, "test", "", 0, 80)
 	require.NoError(t, err)
 	assert.EqualValues(t, 80, result.AmountUsedAfter)
 	for _, window := range getSubscriptionQuotaWindows(t, sub.Id) {
 		assert.EqualValues(t, 80, window.AmountUsed)
 	}
 
-	_, err = PreConsumeUserSubscription("dual-window-2", 801, "test", 0, 30)
+	_, err = PreConsumeUserSubscription("dual-window-2", 801, "test", "", 0, 30)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "subscription quota insufficient")
 
@@ -207,7 +207,7 @@ func TestSubscriptionQuotaWindowCanBeResetIndependently(t *testing.T) {
 	require.NoError(t, DB.Create(plan).Error)
 	sub, err := CreateUserSubscriptionFromPlanTx(DB, 901, plan, "test")
 	require.NoError(t, err)
-	_, err = PreConsumeUserSubscription("reset-window-1", 901, "test", 0, 200)
+	_, err = PreConsumeUserSubscription("reset-window-1", 901, "test", "", 0, 200)
 	require.NoError(t, err)
 
 	result, err := AdminResetUserSubscriptionsByPlanWindow(901, plan.Id, true, "monthly")
@@ -305,7 +305,7 @@ func TestSubscriptionQuotaWindowSettlementAndRefundAdjustAllCounters(t *testing.
 	sub, err := CreateUserSubscriptionFromPlanTx(DB, 1001, plan, "test")
 	require.NoError(t, err)
 	requestID := fmt.Sprintf("settlement-%d", time.Now().UnixNano())
-	_, err = PreConsumeUserSubscription(requestID, 1001, "test", 0, 300)
+	_, err = PreConsumeUserSubscription(requestID, 1001, "test", "", 0, 300)
 	require.NoError(t, err)
 	require.NoError(t, PostConsumeUserSubscriptionDelta(sub.Id, -100))
 

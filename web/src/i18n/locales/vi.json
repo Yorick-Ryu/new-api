@@ -6966,6 +6966,11 @@
     "Select both start and end times": "Chọn cả thời gian bắt đầu và kết thúc",
     "Select a time range of up to 30 days": "Chọn khoảng thời gian tối đa 30 ngày",
     "End time cannot be in the future": "Thời gian kết thúc không thể ở tương lai",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "Khoảng thời gian: {{start}} – {{end}} (giờ Bắc Kinh)",
+    "Restrict subscription billing groups": "Giới hạn nhóm áp dụng cho gói",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "Chỉ các nhóm đã chọn được dùng hạn mức gói. Các nhóm khác dùng số dư ví. Áp dụng cho yêu cầu mới của cả các đăng ký hiện có.",
+    "Applicable Groups": "Nhóm áp dụng",
+    "All accessible groups": "Tất cả nhóm được phép truy cập",
+    "Select at least one billing group": "Chọn ít nhất một nhóm áp dụng"
   }
 }

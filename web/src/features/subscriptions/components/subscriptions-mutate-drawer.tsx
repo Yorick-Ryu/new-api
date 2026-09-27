@@ -81,6 +81,7 @@ import {
   type PlanFormValues,
 } from '../lib'
 import type { PlanRecord } from '../types'
+import { BillingGroupsField } from './billing-groups-field'
 import { ModelMultipliersField } from './model-multipliers-field'
 import { QuotaWindowsField } from './quota-windows-field'
 import { useSubscriptions } from './subscriptions-provider'
@@ -398,6 +399,8 @@ export function SubscriptionsMutateDrawer({
                   )}
                 />
               </div>
+
+              <BillingGroupsField form={form} groups={groupOptions} />
 
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField

@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -374,4 +375,98 @@ func TestSubscriptionGroupOverridePerCallKeepsModelPriceAndOtherRatios(t *testin
 	}}
 	require.NoError(t, taskAdjustFunding(task, -100))
 	assertSubscriptionConsumption(t, sub.Id, 0)
+}
+
+func TestSubscriptionBillingGroupsRebindAcrossRetries(t *testing.T) {
+	for _, tiered := range []bool{false, true} {
+		t.Run(fmt.Sprint(tiered), func(t *testing.T) {
+			ctx, info, plan, sub := subscriptionMultiplierFixture(t, `{"gpt-6-astra":2}`, 900)
+			previousGroups := ratio_setting.GroupRatio2JSONString()
+			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"A":1,"C":3}`))
+			t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups)) })
+			require.NoError(t, model.DB.Model(plan).Update("billing_groups", `["A"]`).Error)
+			model.InvalidateSubscriptionPlanCache(plan.Id)
+			info.UsingGroup = "A"
+			info.UserSetting.BillingPreference = "subscription_first"
+			base := 100.0
+			info.PriceData.QuotaBeforeGroup = &base
+			if tiered {
+				info.TieredBillingSnapshot = makeRelayInfo(flatExpr, 1, 100, 0).TieredBillingSnapshot
+			}
+			require.Nil(t, PreConsumeBilling(ctx, 100, info))
+			assertSubscriptionConsumption(t, sub.Id, 200)
+			original := info.Billing
+			info.UsingGroup = "C"
+			require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+			assert.Equal(t, BillingSourceWallet, info.BillingSource)
+			assertSubscriptionConsumption(t, sub.Id, 0)
+			assert.False(t, original.NeedsRefund())
+			assert.Equal(t, 700, getUserQuota(t, 1))
+			assert.Equal(t, 3.0, info.PriceData.GroupRatioInfo.GroupRatio)
+			assert.Zero(t, info.SubscriptionGroupRatio)
+			assert.Zero(t, info.SubscriptionPlanId)
+			info.UsingGroup = "A"
+			require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+			assert.Equal(t, BillingSourceSubscription, info.BillingSource)
+			assert.Equal(t, 1000, getUserQuota(t, 1))
+			assertSubscriptionConsumption(t, sub.Id, 200)
+			require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info)) // Same group: no second reservation.
+			assertSubscriptionConsumption(t, sub.Id, 200)
+			require.NoError(t, info.Billing.Settle(150))
+			assertSubscriptionConsumption(t, sub.Id, 150)
+			var token model.Token
+			require.NoError(t, model.DB.First(&token, 1).Error)
+			assert.Equal(t, 850, token.RemainQuota)
+			require.NoError(t, model.RefundSubscriptionPreConsume(info.RequestId)) // Old attempt is already refunded.
+			assertSubscriptionConsumption(t, sub.Id, 150)
+		})
+	}
+}
+
+func TestSubscriptionBillingGroupsRetryCannotSpendExcludedPlanWithEmptyWallet(t *testing.T) {
+	ctx, info, plan, sub := subscriptionMultiplierFixture(t, `{}`, 900)
+	require.NoError(t, model.DB.Model(plan).Update("billing_groups", `["A"]`).Error)
+	model.InvalidateSubscriptionPlanCache(plan.Id)
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", 1).Update("quota", 0).Error)
+	info.UsingGroup = "A"
+	base := 100.0
+	info.PriceData.QuotaBeforeGroup = &base
+	require.Nil(t, PreConsumeBilling(ctx, 100, info))
+	info.UsingGroup = "C"
+	require.NotNil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+	assert.Nil(t, info.Billing)
+	assertSubscriptionConsumption(t, sub.Id, 0)
+	var token model.Token
+	require.NoError(t, model.DB.First(&token, 1).Error)
+	assert.Equal(t, 1000, token.RemainQuota)
+	assert.Equal(t, 0, getUserQuota(t, 1))
+}
+
+func TestSubscriptionBillingGroupsFreeGroupRetryReselectsFunding(t *testing.T) {
+	ctx, info, plan, sub := subscriptionMultiplierFixture(t, `{}`, 900)
+	previousGroups := ratio_setting.GroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"A":1,"free":0}`))
+	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups)) })
+	require.NoError(t, model.DB.Model(plan).Update("billing_groups", `["A"]`).Error)
+	model.InvalidateSubscriptionPlanCache(plan.Id)
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", 1).Update("quota", 0).Error)
+	info.UserSetting.BillingPreference = "subscription_first"
+	info.UsingGroup = "free"
+	info.PriceData.FreeModel = true
+	info.PriceData.GroupRatioInfo.GroupRatio = 0
+	base := 100.0
+	info.PriceData.QuotaBeforeGroup = &base
+	require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+	for range 2 {
+		info.UsingGroup = "A"
+		require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+		assert.Equal(t, BillingSourceSubscription, info.BillingSource)
+		assertSubscriptionConsumption(t, sub.Id, 100)
+		info.UsingGroup = "free"
+		require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, info))
+		assert.Equal(t, BillingSourceWallet, info.BillingSource)
+		assertSubscriptionConsumption(t, sub.Id, 0)
+	}
+	require.NoError(t, info.Billing.Settle(0))
+	assert.Equal(t, 0, getUserQuota(t, 1))
 }

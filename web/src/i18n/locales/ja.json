@@ -6966,6 +6966,11 @@
     "Select both start and end times": "開始時刻と終了時刻を選択してください",
     "Select a time range of up to 30 days": "期間は最大30日間にしてください",
     "End time cannot be in the future": "終了時刻は現在より後にできません",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "期間：{{start}} ～ {{end}}（北京時間）",
+    "Restrict subscription billing groups": "プランの対象グループを制限",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "選択したグループのみプラン枠を使用できます。それ以外はウォレット残高を使用します。既存の契約にも次回のリクエストから適用されます。",
+    "Applicable Groups": "対象グループ",
+    "All accessible groups": "アクセス可能なすべてのグループ",
+    "Select at least one billing group": "対象グループを1つ以上選択してください"
   }
 }

@@ -235,6 +235,12 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+	groups, err := model.NormalizeSubscriptionBillingGroups(req.Plan.BillingGroups)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	req.Plan.BillingGroups = groups
 	normalizedMultipliers, err := model.NormalizeSubscriptionModelMultipliers(req.Plan.ModelMultipliers)
 	if err != nil {
 		common.ApiErrorMsg(c, err.Error())
@@ -321,6 +327,12 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+	groups, err := model.NormalizeSubscriptionBillingGroups(req.Plan.BillingGroups)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	req.Plan.BillingGroups = groups
 	normalizedMultipliers, err := model.NormalizeSubscriptionModelMultipliers(req.Plan.ModelMultipliers)
 	if err != nil {
 		common.ApiErrorMsg(c, err.Error())
@@ -357,6 +369,9 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_windows":              normalizedQuotaWindows,
 			"model_multipliers":          normalizedMultipliers,
 			"updated_at":                 common.GetTimestamp(),
+		}
+		if req.Plan.BillingGroups != nil {
+			updateMap["billing_groups"] = *req.Plan.BillingGroups
 		}
 		if req.Plan.AllowRenewal != nil {
 			updateMap["allow_renewal"] = *req.Plan.AllowRenewal

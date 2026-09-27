@@ -6975,7 +6975,7 @@
     "Top-up users": "充值人数",
     "Unique users with successful wallet top-ups": "成功充值的去重用户数",
     "Cumulative renewal rate": "累计续费率",
-    "Renewed {{renewed}} \u00b7 Expired without renewal {{expired}}": "已续费 {{renewed}} 份 · 到期未续费 {{expired}} 份",
+    "Renewed {{renewed}} · Expired without renewal {{expired}}": "已续费 {{renewed}} 份 · 到期未续费 {{expired}} 份",
     "New user payment rate": "新用户付费率",
     "New user payments {{amount}}": "新用户付费 {{amount}}",
     "Wallet top-up revenue": "充值收入",
@@ -7057,6 +7057,11 @@
     "Select both start and end times": "请选择开始时间和结束时间",
     "Select a time range of up to 30 days": "时间范围最多选择 30 天",
     "End time cannot be in the future": "结束时间不能晚于当前时间",
-    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）"
+    "Selected period: {{start}} – {{end}} (Beijing time)": "{{start}} 至 {{end}}（北京时间）",
+    "Restrict subscription billing groups": "限制套餐适用分组",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "仅所选分组可扣此套餐，其他分组扣余额。保存后对已购用户的新请求生效。",
+    "Applicable Groups": "适用分组",
+    "All accessible groups": "不限分组",
+    "Select at least one billing group": "请至少选择一个适用分组"
   }
 }
