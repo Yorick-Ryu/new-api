@@ -402,7 +402,7 @@ export function SubscriptionsMutateDrawer({
 
               <BillingGroupsField form={form} groups={groupOptions} />
 
-              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+              <div className='grid grid-cols-1 items-start gap-3 sm:grid-cols-2'>
                 <FormField
                   control={form.control}
                   name='upgrade_group'
