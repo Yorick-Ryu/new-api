@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "工具",
+    "Failed to load groups": "群組載入失敗",
     "Renewal months": "續費月數",
     "1–12 months": "1–12 個月",
     "{{user}} · {{plan}}": "{{user}} · {{plan}}",

@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Tác nhân",
+    "Failed to load groups": "Không thể tải nhóm",
     "Renewal months": "Số tháng gia hạn",
     "1–12 months": "1–12 tháng",
     "{{user}} · {{plan}}": "{{user}} · {{plan}}",

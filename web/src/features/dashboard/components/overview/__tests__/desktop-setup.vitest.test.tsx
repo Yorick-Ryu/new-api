@@ -49,6 +49,8 @@ afterEach(() => {
 
 function requests(
   options: {
+    groups?: string[]
+    groupsFail?: boolean
     models?: string[]
     creationFails?: boolean
     keyFails?: boolean
@@ -67,21 +69,48 @@ function requests(
     calls.push(config)
     let data: unknown
     if (config.url === '/api/user/models') {
-      expect(config.params).toEqual({
-        group: 'default',
-        client_version: 'codexbei',
-      })
-      data = options.modelsFail
-        ? { success: false }
-        : {
-            models: (
-              options.models ?? ['gpt-6-astra', 'gpt-5.6-terra', 'gpt-5.6-sol']
-            ).map((slug) => ({
-              slug,
-              visibility: slug.startsWith('codex-auto-') ? 'hide' : 'list',
-              supported_in_api: true,
-            })),
-          }
+      if (config.params.client_version === 'claude') {
+        data = {
+          data: [
+            {
+              id:
+                config.params.group === 'claude'
+                  ? 'claude-opus-test'
+                  : 'claude-sonnet-test',
+            },
+          ],
+          has_more: false,
+        }
+      } else {
+        expect(config.params).toEqual({
+          group: 'default',
+          client_version: 'codexbei',
+        })
+        data = options.modelsFail
+          ? { success: false }
+          : {
+              models: (
+                options.models ?? [
+                  'gpt-6-astra',
+                  'gpt-5.6-terra',
+                  'gpt-5.6-sol',
+                ]
+              ).map((slug) => ({
+                slug,
+                visibility: slug.startsWith('codex-auto-') ? 'hide' : 'list',
+                supported_in_api: true,
+              })),
+            }
+      }
+    } else if (config.url === '/api/user/self/groups') {
+      data = {
+        success: !options.groupsFail,
+        data: Object.fromEntries(
+          (options.groups ?? ['default', 'claude', 'claude-kiro']).map(
+            (name) => [name, { desc: name, ratio: 1 }]
+          )
+        ),
+      }
     } else if (config.url?.startsWith('/api/token/?')) {
       const page = Number(
         new URL(config.url, 'http://localhost').searchParams.get('p')
@@ -106,7 +135,7 @@ function requests(
         storedKeys.push({
           id: 42,
           status: 1,
-          group: 'default',
+          group: JSON.parse(config.data).group,
           expired_time: -1,
           unlimited_quota: true,
           model_limits_enabled: false,
@@ -178,7 +207,7 @@ it('opens without a key, loads only default group models and prefers the recomme
     (await screen.findByRole('option', { name: /Claude Code/ })).getAttribute(
       'aria-disabled'
     )
-  ).toBe('true')
+  ).not.toBe('true')
   await userEvent.keyboard('{Escape}')
   expect(calls.every((call) => call.method === 'get')).toBe(true)
   expect(screen.queryByRole('button', { name: 'Create API Key' })).toBeNull()
@@ -487,7 +516,7 @@ it('embeds accessible agent and model selectors in the Chinese sentence', async 
     expect(sentence.textContent).toContain('中使用')
     expect(screen.queryByText('Agent')).toBeNull()
     expect(screen.queryByText('模型')).toBeNull()
-    const agent = screen.getByRole('combobox', { name: 'Agent' })
+    const agent = screen.getByRole('combobox', { name: '工具' })
     const model = screen.getByRole('combobox', { name: '模型' })
     agent.focus()
     await userEvent.tab()
@@ -753,7 +782,7 @@ it('shows the unpublished message when no installer is available', () => {
   expect(screen.queryByText('Other architectures')).toBeNull()
 })
 
-it('uses matching typography and equal vertical gaps for setup guidance and the launch status', async () => {
+it('uses matching typography and section spacing for setup guidance and the launch status', async () => {
   requests()
   renderDialog()
   await waitFor(() =>
@@ -788,7 +817,111 @@ it('uses matching typography and equal vertical gaps for setup guidance and the 
       expect(text.classList.contains(style)).toBe(true)
     }
   }
-  // Both hints participate in the same grid so their top and bottom gaps match.
-  expect(status.parentElement).toBe(guidance.parentElement)
+  // Guidance and its inline feedback form one section in the dialog grid.
+  expect(status.parentElement).toBe(guidance.parentElement?.parentElement)
   expect(status.parentElement?.classList.contains('gap-5')).toBe(true)
 })
+
+it('Claude setup requires a permitted group and creates CodexBei · CC with that group', async () => {
+  const { calls, launch } = requests()
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('group', { name: 'Group' }))
+        .getByRole('combobox')
+        .hasAttribute('disabled')
+    ).toBe(false)
+  )
+  expect(
+    screen
+      .getByRole('button', { name: 'One-click setup' })
+      .hasAttribute('disabled')
+  ).toBe(true)
+  await user.click(
+    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+  )
+  expect(screen.queryByRole('option', { name: /default/ })).toBeNull()
+  await user.click(await screen.findByRole('option', { name: /claude-kiro/ }))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('combobox', { name: 'Model' }).textContent
+    ).toContain('claude-sonnet-test')
+  )
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  const created = calls.find((call) => call.url === '/api/token/')
+  expect(JSON.parse(String(created?.data))).toMatchObject({
+    name: 'CodexBei · CC',
+    group: 'claude-kiro',
+    cross_group_retry: false,
+  })
+  const link = new URL(String(launch.mock.calls[0][0]))
+  expect(link.pathname).toBe('/claude')
+  expect(link.searchParams.get('preset')).toBe('claude-v1')
+  expect(link.searchParams.get('base_url')).toBe('https://api.beiapi.cn')
+  expect(link.searchParams.get('model')).toBe('claude-sonnet-test')
+})
+
+it('Claude setup reuses only a usable key from the selected group', async () => {
+  const usable = {
+    status: 1,
+    expired_time: -1,
+    unlimited_quota: true,
+    model_limits_enabled: false,
+  }
+  const { calls, launch } = requests({
+    keys: [
+      { ...usable, id: 11, group: 'default' },
+      { ...usable, id: 12, group: 'claude-kiro' },
+      { ...usable, id: 13, group: 'claude' },
+    ],
+  })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('group', { name: 'Group' }))
+        .getByRole('combobox')
+        .hasAttribute('disabled')
+    ).toBe(false)
+  )
+  await user.click(
+    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+  )
+  await user.click(await screen.findByRole('option', { name: /^claude 1x/ }))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('combobox', { name: 'Model' }).textContent
+    ).toContain('claude-opus-test')
+  )
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  expect(calls.some((call) => call.url === '/api/token/')).toBe(false)
+  expect(calls.some((call) => call.url === '/api/token/13/key')).toBe(true)
+})
+
+it.each([
+  { groups: [], text: 'No group found.' },
+  { groupsFail: true, text: 'Failed to load groups' },
+])(
+  'Claude setup cannot create a key when groups are unavailable: $text',
+  async (options) => {
+    const { calls } = requests(options)
+    renderDialog()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+    await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+    await screen.findByText(options.text)
+    expect(
+      screen
+        .getByRole('button', { name: 'One-click setup' })
+        .hasAttribute('disabled')
+    ).toBe(true)
+    expect(calls.every((call) => call.method === 'get')).toBe(true)
+  }
+)

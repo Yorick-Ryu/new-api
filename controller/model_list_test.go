@@ -529,3 +529,48 @@ func TestSetupLoginDoesNotTouchPasswordWhenPasswordFieldOmitted(t *testing.T) {
 	require.NoError(t, db.First(&stored, user.Id).Error)
 	assert.Equal(t, hashedPassword, stored.Password)
 }
+
+func TestClaudeSetupCatalogRespectsGroupPermissionsAndMatchesTokenCatalog(t *testing.T) {
+	withSelfUseModeEnabled(t)
+	original := setting.UserUsableGroups2JSONString()
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default","claude":"Claude","claude-kiro":"Kiro"}`))
+	t.Cleanup(func() { require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(original)) })
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{Id: 1191, Username: "claude-setup-user", Group: "default", Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "claude", Model: "claude-opus-test", ChannelId: 1, Enabled: true},
+		{Group: "claude", Model: "claude-disabled-test", ChannelId: 1, Enabled: false},
+		{Group: "claude-kiro", Model: "claude-sonnet-test", ChannelId: 2, Enabled: true},
+		{Group: "private", Model: "claude-private-test", ChannelId: 3, Enabled: true},
+	}).Error)
+	for _, tc := range []struct{ group, want string }{{"claude", "claude-opus-test"}, {"claude-kiro", "claude-sonnet-test"}, {"private", ""}} {
+		t.Run(tc.group, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?client_version=claude&group="+tc.group, nil)
+			ctx.Set("id", 1191)
+			GetUserModels(ctx)
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var payload struct {
+				Data    []dto.AnthropicModel `json:"data"`
+				HasMore bool                 `json:"has_more"`
+			}
+			require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+			assert.False(t, payload.HasMore)
+			if tc.want == "" {
+				assert.Empty(t, payload.Data)
+				return
+			}
+			require.Len(t, payload.Data, 1)
+			assert.Equal(t, tc.want, payload.Data[0].ID)
+			tokenResponse := httptest.NewRecorder()
+			tokenContext, _ := gin.CreateTestContext(tokenResponse)
+			tokenContext.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			tokenContext.Set("id", 1191)
+			common.SetContextKey(tokenContext, constant.ContextKeyUserGroup, "default")
+			common.SetContextKey(tokenContext, constant.ContextKeyTokenGroup, tc.group)
+			ListModels(tokenContext, constant.ChannelTypeAnthropic)
+			assert.JSONEq(t, tokenResponse.Body.String(), recorder.Body.String())
+		})
+	}
+}

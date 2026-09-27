@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+export type SetupAgent = 'codex' | 'claude'
+
 export class InvalidDesktopSetupUrlError extends Error {
   constructor() {
     super('HTTPS gateway address is not configured.')
@@ -25,7 +27,8 @@ export class InvalidDesktopSetupUrlError extends Error {
 export function buildDesktopSetupLink(
   baseUrl: string,
   apiKey: string,
-  model: string
+  model: string,
+  agent: SetupAgent = 'codex'
 ): string {
   let endpoint: URL
   try {
@@ -44,7 +47,11 @@ export function buildDesktopSetupLink(
     throw new InvalidDesktopSetupUrlError()
   }
   const pathname = endpoint.pathname.replace(/\/+$/, '')
-  endpoint.pathname = pathname.endsWith('/v1') ? pathname : `${pathname}/v1`
+  if (agent === 'claude') {
+    endpoint.pathname = pathname.replace(/\/v1$/, '') || '/'
+  } else {
+    endpoint.pathname = pathname.endsWith('/v1') ? pathname : `${pathname}/v1`
+  }
   const key = apiKey.startsWith('sk-') ? apiKey : `sk-${apiKey}`
   if (!/^sk-[A-Za-z0-9_-]{12,512}$/.test(key) || key === 'sk-your-api-key') {
     throw new Error('Invalid API key')
@@ -52,10 +59,13 @@ export function buildDesktopSetupLink(
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model)) {
     throw new Error('Invalid model')
   }
-  const link = new URL('codexbei://configure/codex')
+  const link = new URL(`codexbei://configure/${agent}`)
   link.searchParams.set('base_url', endpoint.href.replace(/\/$/, ''))
   link.searchParams.set('api_key', key)
   link.searchParams.set('model', model)
-  link.searchParams.set('preset', 'codexbei-v1')
+  link.searchParams.set(
+    'preset',
+    agent === 'claude' ? 'claude-v1' : 'codexbei-v1'
+  )
   return link.href
 }

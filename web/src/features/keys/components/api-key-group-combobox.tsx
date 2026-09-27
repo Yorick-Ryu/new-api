@@ -56,6 +56,8 @@ type ApiKeyGroupComboboxProps = {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  size?: 'default' | 'compact'
+  searchable?: boolean
 }
 
 export function ApiKeyGroupCombobox({
@@ -64,6 +66,8 @@ export function ApiKeyGroupCombobox({
   onValueChange,
   placeholder,
   disabled,
+  size = 'default',
+  searchable = true,
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -74,7 +78,7 @@ export function ApiKeyGroupCombobox({
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
-    if (!search) return options
+    if (!searchable || !search) return options
 
     return options.filter((option) => {
       const ratioText = String(option.ratio ?? '').toLowerCase()
@@ -85,7 +89,7 @@ export function ApiKeyGroupCombobox({
         ratioText.includes(search)
       )
     })
-  }, [options, searchValue])
+  }, [options, searchValue, searchable])
 
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue)
@@ -105,7 +109,10 @@ export function ApiKeyGroupCombobox({
             data-auto-group-effect={isAutoSelected ? 'trigger' : undefined}
             disabled={disabled}
             className={cn(
-              'border-input bg-muted/40 hover:bg-muted/55 hover:text-foreground active:bg-background data-popup-open:border-ring data-popup-open:bg-background data-popup-open:ring-ring/20 relative h-auto min-h-14 w-full justify-between gap-2 rounded-lg px-3 py-2 text-start shadow-none transition-[background-color,border-color,box-shadow] duration-150 data-popup-open:ring-[3px] sm:min-h-20 sm:gap-3 sm:px-4 sm:py-3',
+              'border-input hover:text-foreground active:bg-background data-popup-open:border-ring data-popup-open:bg-background data-popup-open:ring-ring/20 relative w-full justify-between gap-2 rounded-lg text-start transition-[background-color,border-color,box-shadow] duration-150 data-popup-open:ring-[3px]',
+              size === 'compact'
+                ? 'bg-background hover:bg-accent/50 h-9 min-w-0 px-2.5 py-1.5 shadow-xs'
+                : 'bg-muted/40 hover:bg-muted/55 h-auto min-h-14 px-3 py-2 shadow-none sm:min-h-20 sm:gap-3 sm:px-4 sm:py-3',
               isAutoSelected &&
                 cn(
                   AUTO_GROUP_FRAME_CLASS_NAME,
@@ -123,7 +130,7 @@ export function ApiKeyGroupCombobox({
             <span className='block truncate font-medium'>
               {selectedOption?.label || placeholder || t('Select a group')}
             </span>
-            {selectedOption?.desc && (
+            {size !== 'compact' && selectedOption?.desc && (
               <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
                 {selectedOption.desc}
               </span>
@@ -148,15 +155,17 @@ export function ApiKeyGroupCombobox({
         onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder={t('Search...')}
-            value={searchValue}
-            onValueChange={setSearchValue}
-          />
-          <CommandList className='max-h-[360px]'>
+        <Command shouldFilter={false} tabIndex={searchable ? undefined : 0}>
+          {searchable && (
+            <CommandInput
+              placeholder={t('Search...')}
+              value={searchValue}
+              onValueChange={setSearchValue}
+            />
+          )}
+          <CommandList className='max-h-[360px]' aria-label={t('Group')}>
             <CommandEmpty>{t('No group found.')}</CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className={size === 'compact' ? 'p-0' : undefined}>
               {filteredOptions.map((option) => {
                 const isAutoOption = option.value === 'auto'
 
@@ -164,10 +173,14 @@ export function ApiKeyGroupCombobox({
                   <CommandItem
                     key={option.value}
                     value={option.value}
+                    showIndicator={size !== 'compact'}
                     data-auto-group-effect={isAutoOption ? 'option' : undefined}
                     onSelect={() => handleSelect(option.value)}
                     className={cn(
-                      'data-[selected=true]:bg-muted items-start gap-3 rounded-lg px-3 py-3 transition-colors',
+                      'data-[selected=true]:bg-muted rounded-lg transition-colors',
+                      size === 'compact'
+                        ? 'h-8 items-center gap-2 px-2 py-1'
+                        : 'items-start gap-3 px-3 py-3',
                       isAutoOption &&
                         cn(
                           AUTO_GROUP_FRAME_CLASS_NAME,
@@ -180,18 +193,31 @@ export function ApiKeyGroupCombobox({
                         shouldReduceMotion={shouldReduceMotion}
                       />
                     )}
-                    <Check
-                      aria-hidden='true'
+                    {size !== 'compact' && (
+                      <Check
+                        aria-hidden='true'
+                        className={cn(
+                          'mt-0.5 size-4',
+                          value === option.value ? 'opacity-100' : 'opacity-0'
+                        )}
+                      />
+                    )}
+                    <span
                       className={cn(
-                        'mt-0.5 size-4',
-                        value === option.value ? 'opacity-100' : 'opacity-0'
+                        'min-w-0 flex-1',
+                        size === 'compact' && 'flex items-center gap-1.5'
                       )}
-                    />
-                    <span className='min-w-0 flex-1'>
+                    >
                       <span className='block truncate font-medium'>
                         {option.label}
                       </span>
-                      {option.desc && (
+                      {size === 'compact' && value === option.value && (
+                        <Check
+                          aria-hidden='true'
+                          className='size-3.5 shrink-0'
+                        />
+                      )}
+                      {size !== 'compact' && option.desc && (
                         <span className='text-muted-foreground block truncate text-xs'>
                           {option.desc}
                         </span>

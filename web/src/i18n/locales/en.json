@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Agent",
+    "Failed to load groups": "Failed to load groups",
     "Renewal months": "Renewal months",
     "1–12 months": "1–12 months",
     "{{user}} · {{plan}}": "{{user}} · {{plan}}",

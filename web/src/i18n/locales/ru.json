@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Агент",
+    "Failed to load groups": "Не удалось загрузить группы",
     "Renewal months": "Количество месяцев",
     "1–12 months": "1–12 мес.",
     "{{user}} · {{plan}}": "{{user}} · {{plan}}",

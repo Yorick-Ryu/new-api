@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "エージェント",
+    "Failed to load groups": "グループを読み込めませんでした",
     "Renewal months": "更新月数",
     "1–12 months": "1–12 か月",
     "{{user}} · {{plan}}": "{{user}} · {{plan}}",
