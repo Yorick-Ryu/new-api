@@ -42,6 +42,7 @@ export const subscriptionPlanSchema = z.object({
   total_amount: z.number(),
   quota_windows: z.string().optional(),
   model_multipliers: z.string().optional(),
+  billing_groups: z.string().nullable().optional(),
   upgrade_group: z.string().optional(),
   downgrade_group: z.string().optional(),
   stripe_price_id: z.string().optional(),

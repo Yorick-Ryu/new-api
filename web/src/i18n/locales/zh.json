@@ -7074,6 +7074,11 @@
     "Restore default configuration": "恢复默认配置",
     "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "从 openai/codex 官方仓库同步最新模型能力与排序，保留手动修改的字段。",
     "Save changes before switching models.": "请先保存更改，再切换模型。",
-    "Sync official configuration": "一键同步官方配置"
+    "Sync official configuration": "一键同步官方配置",
+    "Restrict subscription billing groups": "限制套餐适用分组",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "仅所选分组可扣此套餐，其他分组扣余额。保存后对已购用户的新请求生效。",
+    "Applicable Groups": "适用分组",
+    "All accessible groups": "不限分组",
+    "Select at least one billing group": "请至少选择一个适用分组"
   }
 }

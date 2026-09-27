@@ -323,7 +323,7 @@ func preserveSubscriptionGroupOverride(info *relaycommon.RelayInfo, price *hostt
 	if pref == "wallet_only" || pref == "wallet_first" {
 		return nil
 	}
-	hasOverride, err := model.HasActiveSubscriptionModelOverride(info.UserId, info.GetBillingModelName())
+	hasOverride, err := model.HasActiveSubscriptionModelOverride(info.UserId, info.GetBillingModelName(), info.UsingGroup)
 	if err != nil {
 		return err
 	}

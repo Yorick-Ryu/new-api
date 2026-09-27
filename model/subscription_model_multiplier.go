@@ -48,7 +48,7 @@ func NormalizeSubscriptionModelMultipliers(raw string) (string, error) {
 
 // HasActiveSubscriptionModelOverride also allows a normally free group to
 // enter subscription selection when a plan explicitly overrides that group.
-func HasActiveSubscriptionModelOverride(userID int, modelName string) (bool, error) {
+func HasActiveSubscriptionModelOverride(userID int, modelName string, usingGroup string) (bool, error) {
 	if userID <= 0 {
 		return false, nil
 	}
@@ -60,6 +60,13 @@ func HasActiveSubscriptionModelOverride(userID int, modelName string) (bool, err
 		plan, err := getSubscriptionPlanByIdTx(DB, planID)
 		if err != nil {
 			return false, err
+		}
+		allowed, err := plan.AllowsBillingGroup(usingGroup)
+		if err != nil {
+			return false, err
+		}
+		if !allowed {
+			continue
 		}
 		ratios, err := ParseSubscriptionModelMultipliers(plan.ModelMultipliers)
 		if err != nil {

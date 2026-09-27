@@ -62,7 +62,7 @@ func TestSubscriptionSelectionChecksEachPlansGroupOverride(t *testing.T) {
 	require.NoError(t, err)
 	sub2, err := CreateUserSubscriptionFromPlanTx(DB, 701, second, "test")
 	require.NoError(t, err)
-	result, err := PreConsumeUserSubscription("plan-group-override", 701, "gpt-6-astra", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
+	result, err := PreConsumeUserSubscription("plan-group-override", 701, "gpt-6-astra", "", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
 	require.NoError(t, err)
 	assert.Equal(t, sub2.Id, result.UserSubscriptionId)
 	assert.EqualValues(t, 150, result.PreConsumed)
@@ -72,7 +72,7 @@ func TestSubscriptionSelectionChecksEachPlansGroupOverride(t *testing.T) {
 
 	require.NoError(t, DB.Model(second).Update("model_multipliers", `{"gpt-6-astra":3}`).Error)
 	InvalidateSubscriptionPlanCache(second.Id)
-	replayed, err := PreConsumeUserSubscription("plan-group-override", 701, "gpt-6-astra", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
+	replayed, err := PreConsumeUserSubscription("plan-group-override", 701, "gpt-6-astra", "", 0, 300, func(ratio float64) (int64, error) { return int64(100 * ratio), nil })
 	require.NoError(t, err)
 	assert.Equal(t, 1.5, replayed.GroupRatio)
 	assert.EqualValues(t, 150, replayed.PreConsumed)
@@ -99,12 +99,14 @@ func TestSubscriptionModelMultiplierSQLiteStartupMigration(t *testing.T) {
 			if !existing {
 				require.NoError(t, db.Create(&SubscriptionPlan{Id: 1, Title: "Plus", PriceAmount: 99}).Error)
 			}
-			require.NoError(t, db.Model(&SubscriptionPlan{}).Where("id = ?", 1).Update("model_multipliers", `{"gpt-6-astra":2}`).Error)
+			require.NoError(t, db.Model(&SubscriptionPlan{}).Where("id = ?", 1).Updates(map[string]any{"model_multipliers": `{"gpt-6-astra":2}`, "billing_groups": `["A","B"]`}).Error)
 			var plan SubscriptionPlan
 			require.NoError(t, db.First(&plan, 1).Error)
 			assert.Equal(t, "Plus", plan.Title)
 			assert.Equal(t, float64(99), plan.PriceAmount)
 			assert.JSONEq(t, `{"gpt-6-astra":2}`, plan.ModelMultipliers)
+			require.NotNil(t, plan.BillingGroups)
+			assert.JSONEq(t, `["A","B"]`, *plan.BillingGroups)
 		})
 	}
 }

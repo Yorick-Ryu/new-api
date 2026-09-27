@@ -27,6 +27,7 @@ import {
   type SubscriptionPlan,
   type SubscriptionQuotaWindowConfig,
 } from '../types'
+import { parseBillingGroups } from './billing-groups'
 import { parseModelMultipliers } from './model-multipliers'
 
 const quotaWindowFormSchema = z.object({
@@ -42,64 +43,76 @@ const quotaWindowFormSchema = z.object({
 })
 
 export function getPlanFormSchema(t: TFunction) {
-  return z.object({
-    title: z.string().min(1, t('Please enter plan title')),
-    subtitle: z.string().optional(),
-    price_amount: z.coerce.number().min(0, t('Please enter amount')),
-    duration_unit: z.enum(['year', 'month', 'day', 'hour', 'custom']),
-    duration_value: z.coerce.number().min(1),
-    custom_seconds: z.coerce.number().min(0).optional(),
-    quota_reset_period: z.enum([
-      'never',
-      'daily',
-      'weekly',
-      'monthly',
-      'custom',
-    ]),
-    quota_reset_custom_seconds: z.coerce.number().min(0).optional(),
-    enabled: z.boolean(),
-    sort_order: z.coerce.number(),
-    allow_balance_pay: z.boolean(),
-    allow_renewal: z.boolean(),
-    allow_wallet_overflow: z.boolean(),
-    max_purchase_per_user: z.coerce.number().min(0),
-    total_amount: z.coerce.number().min(0),
-    quota_windows: z.array(quotaWindowFormSchema).max(2),
-    model_multipliers: z
-      .array(
-        z.object({
-          model: z
-            .string()
-            .trim()
-            .min(1)
-            .max(200)
-            .refine(
-              (name) => !name.includes('*'),
-              t('Enter an exact model name')
-            ),
-          multiplier: z.coerce.number().min(0.001).max(1000),
+  return z
+    .object({
+      title: z.string().min(1, t('Please enter plan title')),
+      subtitle: z.string().optional(),
+      price_amount: z.coerce.number().min(0, t('Please enter amount')),
+      duration_unit: z.enum(['year', 'month', 'day', 'hour', 'custom']),
+      duration_value: z.coerce.number().min(1),
+      custom_seconds: z.coerce.number().min(0).optional(),
+      quota_reset_period: z.enum([
+        'never',
+        'daily',
+        'weekly',
+        'monthly',
+        'custom',
+      ]),
+      quota_reset_custom_seconds: z.coerce.number().min(0).optional(),
+      enabled: z.boolean(),
+      sort_order: z.coerce.number(),
+      allow_balance_pay: z.boolean(),
+      allow_renewal: z.boolean(),
+      allow_wallet_overflow: z.boolean(),
+      max_purchase_per_user: z.coerce.number().min(0),
+      total_amount: z.coerce.number().min(0),
+      quota_windows: z.array(quotaWindowFormSchema).max(2),
+      model_multipliers: z
+        .array(
+          z.object({
+            model: z
+              .string()
+              .trim()
+              .min(1)
+              .max(200)
+              .refine(
+                (name) => !name.includes('*'),
+                t('Enter an exact model name')
+              ),
+            multiplier: z.coerce.number().min(0.001).max(1000),
+          })
+        )
+        .max(100)
+        .superRefine((rows, ctx) => {
+          const names = new Set<string>()
+          rows.forEach((row, index) => {
+            if (names.has(row.model)) {
+              ctx.addIssue({
+                code: 'custom',
+                path: [index, 'model'],
+                message: t('Model names must be unique'),
+              })
+            }
+            names.add(row.model)
+          })
+        }),
+      restrict_groups: z.boolean(),
+      billing_groups: z.array(z.string().min(1).max(64)).max(128),
+      upgrade_group: z.string().optional(),
+      downgrade_group: z.string().optional(),
+      stripe_price_id: z.string().optional(),
+      creem_product_id: z.string().optional(),
+      waffo_pancake_product_id: z.string().optional(),
+    })
+    .superRefine((values, ctx) => {
+      if (values.restrict_groups && values.billing_groups.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['billing_groups'],
+          message: t('Select at least one billing group'),
         })
-      )
-      .max(100)
-      .superRefine((rows, ctx) => {
-        const names = new Set<string>()
-        rows.forEach((row, index) => {
-          if (names.has(row.model)) {
-            ctx.addIssue({
-              code: 'custom',
-              path: [index, 'model'],
-              message: t('Model names must be unique'),
-            })
-          }
-          names.add(row.model)
-        })
-      }),
-    upgrade_group: z.string().optional(),
-    downgrade_group: z.string().optional(),
-    stripe_price_id: z.string().optional(),
-    creem_product_id: z.string().optional(),
-    waffo_pancake_product_id: z.string().optional(),
-  })
+      }
+    })
 }
 
 export type PlanFormValues = z.infer<ReturnType<typeof getPlanFormSchema>>
@@ -122,6 +135,8 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   total_amount: 0,
   quota_windows: [],
   model_multipliers: [],
+  restrict_groups: false,
+  billing_groups: [],
   upgrade_group: '',
   downgrade_group: '',
   stripe_price_id: '',
@@ -169,6 +184,8 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     total_amount: quotaUnitsToDollars(Number(plan.total_amount || 0)),
     quota_windows: quotaWindows,
     model_multipliers: parseModelMultipliers(plan.model_multipliers),
+    restrict_groups: parseBillingGroups(plan.billing_groups).length > 0,
+    billing_groups: parseBillingGroups(plan.billing_groups),
     upgrade_group: plan.upgrade_group || '',
     downgrade_group: plan.downgrade_group || '',
     stripe_price_id: plan.stripe_price_id || '',
@@ -178,9 +195,11 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
 }
 
 export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
+  const { restrict_groups, billing_groups, ...planValues } = values
   return {
     plan: {
-      ...values,
+      ...planValues,
+      billing_groups: restrict_groups ? JSON.stringify(billing_groups) : '',
       price_amount: Number(values.price_amount || 0),
       currency: 'USD',
       duration_value: Number(values.duration_value || 0),

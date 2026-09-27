@@ -188,6 +188,9 @@ type SubscriptionPlan struct {
 	// into independent counter rows only when a new subscription is created.
 	QuotaWindows string `json:"quota_windows" gorm:"type:text"`
 
+	// NULL/empty means unrestricted. Updated plan rules apply to future requests.
+	BillingGroups *string `json:"billing_groups" gorm:"type:text"`
+
 	// Per-model group ratio overrides, captured after selecting subscription funding.
 	ModelMultipliers string `json:"model_multipliers" gorm:"type:text"`
 
@@ -1442,7 +1445,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 }
 
 // PreConsumeUserSubscription tries the preferred active subscription first, then expiry order.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, preferredSubscriptionId int, amount int64, quotaForGroupRatio ...func(float64) (int64, error)) (*SubscriptionPreConsumeResult, error) {
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, usingGroup string, preferredSubscriptionId int, amount int64, quotaForGroupRatio ...func(float64) (int64, error)) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1469,6 +1472,20 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			var sub UserSubscription
 			if err := tx.Where("id = ?", existing.UserSubscriptionId).First(&sub).Error; err != nil {
 				return err
+			}
+			if sub.UserId != userId {
+				return errors.New("subscription reservation user mismatch")
+			}
+			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
+			if err != nil {
+				return err
+			}
+			allowed, err := plan.AllowsBillingGroup(usingGroup)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				return ErrNoEligibleSubscription
 			}
 			returnValue.UserSubscriptionId = sub.Id
 			returnValue.PreConsumed = existing.PreConsumed
@@ -1502,12 +1519,21 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 				break
 			}
 		}
+		eligible := false
 		for _, candidate := range subs {
 			sub := candidate
 			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
 			if err != nil {
 				return err
 			}
+			allowed, err := plan.AllowsBillingGroup(usingGroup)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				continue
+			}
+			eligible = true
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
@@ -1591,6 +1617,9 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed
 			return nil
+		}
+		if !eligible {
+			return ErrNoEligibleSubscription
 		}
 		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 	})

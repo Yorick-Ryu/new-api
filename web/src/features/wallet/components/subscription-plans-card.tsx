@@ -56,6 +56,7 @@ import {
   formatPrimaryQuotaLabel,
   parseQuotaWindows,
 } from '@/features/subscriptions/lib'
+import { parseBillingGroups } from '@/features/subscriptions/lib/billing-groups'
 import type {
   PlanRecord,
   UserSubscriptionRecord,
@@ -634,7 +635,11 @@ export function SubscriptionPlansCard({
               const reached = !renewal && limit > 0 && count >= limit
               const quotaWindows = parseQuotaWindows(plan)
 
+              const billingGroups = parseBillingGroups(plan.billing_groups)
               const benefits = [
+                billingGroups.length > 0
+                  ? `${t('Applicable Groups')}: ${billingGroups.join(', ')}`
+                  : null,
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
                 totalAmount > 0
                   ? `${formatPrimaryQuotaLabel(plan, t)}: ${formatQuota(totalAmount)}`

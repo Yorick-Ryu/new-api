@@ -6983,6 +6983,11 @@
     "Restore default configuration": "Restore default configuration",
     "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.": "Sync the latest model capabilities and order from openai/codex. Your custom field overrides are preserved.",
     "Save changes before switching models.": "Save changes before switching models.",
-    "Sync official configuration": "Sync official configuration"
+    "Sync official configuration": "Sync official configuration",
+    "Restrict subscription billing groups": "プランの対象グループを制限",
+    "Only selected groups can use this plan. Other groups use wallet balance. Applies to existing subscriptions on future requests.": "選択したグループのみプラン枠を使用できます。それ以外はウォレット残高を使用します。既存の契約にも次回のリクエストから適用されます。",
+    "Applicable Groups": "対象グループ",
+    "All accessible groups": "アクセス可能なすべてのグループ",
+    "Select at least one billing group": "対象グループを1つ以上選択してください"
   }
 }
