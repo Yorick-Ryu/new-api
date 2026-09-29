@@ -51,6 +51,7 @@ function requests(
   options: {
     groups?: string[]
     groupsFail?: boolean
+    claudeModels?: Record<string, string[] | Promise<string[]>>
     models?: string[]
     creationFails?: boolean
     keyFails?: boolean
@@ -71,14 +72,13 @@ function requests(
     if (config.url === '/api/user/models') {
       if (config.params.client_version === 'claude') {
         data = {
-          data: [
-            {
-              id:
-                config.params.group === 'claude'
-                  ? 'claude-opus-test'
-                  : 'claude-sonnet-test',
-            },
-          ],
+          data: (
+            (await options.claudeModels?.[config.params.group]) ?? [
+              config.params.group === 'claude'
+                ? 'claude-opus-test'
+                : 'claude-sonnet-test',
+            ]
+          ).map((id) => ({ id })),
           has_more: false,
         }
       } else {
@@ -835,11 +835,6 @@ it('Claude setup requires a permitted group and creates CodexBei · CC with that
         .hasAttribute('disabled')
     ).toBe(false)
   )
-  expect(
-    screen
-      .getByRole('button', { name: 'One-click setup' })
-      .hasAttribute('disabled')
-  ).toBe(true)
   await user.click(
     within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
   )
@@ -925,3 +920,118 @@ it.each([
     expect(calls.every((call) => call.method === 'get')).toBe(true)
   }
 )
+
+it.each([
+  {
+    groups: ['claude', 'claude-kiro'],
+    expected: 'claude-opus-test',
+    group: 'claude',
+  },
+  {
+    groups: ['claude-kiro', 'claude'],
+    expected: 'claude-sonnet-test',
+    group: 'claude-kiro',
+  },
+  {
+    groups: ['claude-kiro'],
+    expected: 'claude-sonnet-test',
+    group: 'claude-kiro',
+  },
+])(
+  'automatically loads the first available Claude group in server order: $group',
+  async ({ groups, expected, group }) => {
+    requests({ groups })
+    renderDialog()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+    await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+        expected
+      )
+    )
+    expect(
+      within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+    ).toHaveTextContent(group)
+    expect(
+      screen.getByRole('button', { name: 'One-click setup' })
+    ).toBeEnabled()
+  }
+)
+
+it('skips an empty first Claude group and configures a model from the next group', async () => {
+  const { calls, launch } = requests({ claudeModels: { claude: [] } })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'claude-sonnet-test'
+    )
+  )
+  expect(
+    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+  ).toHaveTextContent('claude-kiro')
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  const created = calls.find((call) => call.url === '/api/token/')
+  expect(JSON.parse(created?.data).group).toBe('claude-kiro')
+})
+
+it('shows loading until all Claude groups have been checked before showing no models', async () => {
+  let resolveModels!: (models: string[]) => void
+  const pending = new Promise<string[]>((resolve) => {
+    resolveModels = resolve
+  })
+  const { calls } = requests({
+    claudeModels: { claude: [], 'claude-kiro': pending },
+  })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await waitFor(() =>
+    expect(calls.some((call) => call.params?.group === 'claude-kiro')).toBe(
+      true
+    )
+  )
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+    'Loading'
+  )
+  expect(screen.queryByText('No models available')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'One-click setup' })).toBeDisabled()
+  resolveModels([])
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'No models available'
+    )
+  )
+  expect(screen.getByRole('button', { name: 'One-click setup' })).toBeDisabled()
+  expect(calls.every((call) => call.method === 'get')).toBe(true)
+})
+
+it('preserves a manually selected empty Claude group instead of automatically switching it back', async () => {
+  requests({ claudeModels: { 'claude-kiro': [] } })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'claude-opus-test'
+    )
+  )
+  await user.click(
+    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+  )
+  await user.click(await screen.findByRole('option', { name: /^claude-kiro/ }))
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'No models available'
+    )
+  )
+  expect(
+    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
+  ).toHaveTextContent('claude-kiro')
+})

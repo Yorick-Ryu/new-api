@@ -101,21 +101,6 @@ export function DesktopSetupDialog(props: {
   const [launched, setLaunched] = useState(false)
   const version = useRef(0)
   const downloads = props.downloads ?? setupDownloads()
-  useEffect(() => {
-    version.current += 1
-    setLaunched(false)
-    return () => {
-      version.current += 1
-    }
-  }, [
-    props.open,
-    props.baseUrl,
-    props.showDownloads,
-    props.userId,
-    agent,
-    selectedGroup,
-  ])
-
   const groupsQuery = useQuery({
     queryKey: ['codexbei', 'groups', props.userId],
     enabled: props.open && !props.showDownloads && agent === 'claude',
@@ -130,51 +115,83 @@ export function DesktopSetupDialog(props: {
       desc: info.desc,
       ratio: info.ratio,
     }))
-  const group = agent === 'codex' ? 'default' : selectedGroup
-  const groupReady =
-    agent === 'codex' || groups.some((item) => item.value === group)
+  let candidateGroups = groups.map((item) => item.value)
+  if (agent === 'codex') {
+    candidateGroups = ['default']
+  } else if (candidateGroups.includes(selectedGroup)) {
+    // An explicit user choice takes precedence over automatic selection.
+    candidateGroups = [selectedGroup]
+  }
+  const groupReady = candidateGroups.length > 0
 
   const modelsQuery = useQuery({
-    queryKey: ['codexbei', 'catalog', props.userId, agent, group],
+    queryKey: ['codexbei', 'catalog', props.userId, agent, candidateGroups],
     enabled: props.open && !props.showDownloads && groupReady,
-    queryFn: async () => {
-      const result = await api.get<{
-        data?: { id: string }[]
-        models?: {
-          slug: string
-          visibility: string
-          supported_in_api: boolean
-        }[]
-      }>('/api/user/models', {
-        params: {
-          group,
-          client_version: agent === 'claude' ? 'claude' : 'codexbei',
-        },
-      })
-      if (agent === 'claude') {
-        if (!Array.isArray(result.data.data)) {
-          throw new Error('Models unavailable')
+    queryFn: async ({ signal }) => {
+      // Preserve group order and stop as soon as a usable catalog is found.
+      for (const candidateGroup of candidateGroups) {
+        const result = await api.get<{
+          data?: { id: string }[]
+          models?: {
+            slug: string
+            visibility: string
+            supported_in_api: boolean
+          }[]
+        }>('/api/user/models', {
+          signal,
+          params: {
+            group: candidateGroup,
+            client_version: agent === 'claude' ? 'claude' : 'codexbei',
+          },
+        })
+        let models: string[]
+        if (agent === 'claude') {
+          if (!Array.isArray(result.data.data)) {
+            throw new Error('Models unavailable')
+          }
+          models = result.data.data
+            .map((item) => item.id)
+            .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
+        } else {
+          if (!Array.isArray(result.data.models)) {
+            throw new Error('Models unavailable')
+          }
+          // The dedicated Codex catalog owns ordering; do not sort by name here.
+          models = result.data.models
+            .filter(
+              (model) =>
+                model.visibility === 'list' &&
+                model.supported_in_api &&
+                /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
+            )
+            .map((model) => model.slug)
         }
-        return result.data.data
-          .map((item) => item.id)
-          .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
+        if (models.length) return { group: candidateGroup, models }
       }
-      if (!Array.isArray(result.data.models)) {
-        throw new Error('Models unavailable')
-      }
-      // The dedicated Codex catalog owns ordering; do not sort by name here.
-      return result.data.models
-        .filter(
-          (model) =>
-            model.visibility === 'list' &&
-            model.supported_in_api &&
-            /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
-        )
-        .map((model) => model.slug)
+      return { group: candidateGroups[0] ?? '', models: [] }
     },
     retry: false,
   })
-  const models = modelsQuery.data ?? []
+  const group = modelsQuery.data?.group ?? candidateGroups[0] ?? ''
+  const models = modelsQuery.data?.models ?? []
+  const modelsLoading =
+    modelsQuery.isFetching || (agent === 'claude' && groupsQuery.isFetching)
+
+  useEffect(() => {
+    version.current += 1
+    setLaunched(false)
+    return () => {
+      version.current += 1
+    }
+  }, [
+    props.open,
+    props.baseUrl,
+    props.showDownloads,
+    props.userId,
+    agent,
+    group,
+  ])
+
   let model = models.includes(selectedModel) ? selectedModel : (models[0] ?? '')
   if (!models.includes(selectedModel) && models.includes('gpt-6-astra')) {
     model = 'gpt-6-astra'
@@ -290,11 +307,9 @@ export function DesktopSetupDialog(props: {
                       value={model}
                       models={models}
                       disabled={
-                        launch.isPending ||
-                        modelsQuery.isFetching ||
-                        !models.length
+                        launch.isPending || modelsLoading || !models.length
                       }
-                      loading={modelsQuery.isFetching}
+                      loading={modelsLoading}
                       onValueChange={(value) => {
                         setSelectedModel(value)
                         setLaunched(false)
