@@ -189,3 +189,5 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 ## Address configuration
 
 API and business origins, compatibility, and release checks: [docs/site-addresses.md](docs/site-addresses.md).
+
+Local UI previews must use the existing local NewAPI test environment and the real application frontend. Do not create standalone preview pages/frontends, preview-only API mocks, or data-seeding scripts for visual previews.
