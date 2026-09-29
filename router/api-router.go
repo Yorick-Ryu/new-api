@@ -302,6 +302,7 @@ func SetApiRouter(router *gin.Engine) {
 
 		usageRoute := apiRouter.Group("/usage")
 		usageRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
+		usageRoute.GET("/quota", middleware.TokenAuthReadOnly(), controller.GetQuotaUsage)
 		{
 			tokenUsageRoute := usageRoute.Group("/token")
 			tokenUsageRoute.Use(middleware.TokenAuthReadOnly())
