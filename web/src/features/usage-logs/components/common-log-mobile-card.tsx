@@ -72,10 +72,6 @@ export function CommonLogMobileCard<TData>(props: {
   const model = formatModelName(log)
   const config = getLogTypeConfig(log.type)
   const group = log.group || other?.group || ''
-  const groupRatio =
-    other?.user_group_ratio != null && other.user_group_ratio !== -1
-      ? other.user_group_ratio
-      : other?.group_ratio
   const fields: Record<FieldName, LogField> = {
     model: {
       label: t('Model'),
@@ -278,14 +274,6 @@ export function CommonLogMobileCard<TData>(props: {
               </div>
             )
           })}
-          {groupRatio != null &&
-            groupRatio !== 1 &&
-            Number.isFinite(groupRatio) &&
-            props.cells.has('token_name') && (
-              <div className='text-muted-foreground col-span-2 [overflow-wrap:anywhere]'>
-                {t('Group Ratio')}: {groupRatio}×
-              </div>
-            )}
         </div>
       )}
       {showTokens && (
