@@ -447,14 +447,6 @@ export function SubscriptionPlansCard({
           )}
 
           {hasAny && (
-            <p className='text-muted-foreground mt-3 text-xs'>
-              {t(
-                'Use the preferred subscription first. If unavailable or its quota is insufficient, try other subscriptions by earliest expiry.'
-              )}
-            </p>
-          )}
-
-          {hasAny && (
             <div className='mt-3 max-h-[32rem] divide-y overflow-y-auto rounded-xl border'>
               {allSubscriptions.map((sub) => {
                 const subscription = sub.subscription
