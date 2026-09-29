@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +46,27 @@ func GetQuotaUsage(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgAuthUserBanned)})
 		return
 	}
+	// Resolve the same candidate groups used by request routing.
+	group := token.Group
+	if group == "" {
+		group = user.Group
+	}
+	groups := []string{group}
+	if group == "auto" {
+		groups = nil
+		if service.GroupInUserUsableGroups(user.Group, "auto") {
+			autoGroups, err := token.GetAutoGroups()
+			if err == nil {
+				if len(autoGroups) == 0 {
+					groups = service.GetUserAutoGroup(user.Group)
+				} else {
+					groups = service.FilterUserTokenAutoGroups(user.Group, autoGroups)
+				}
+			}
+		}
+	} else if token.Group != "" && !service.IsUserSelectableGroup(user.Group, group) {
+		groups = nil
+	}
 	subscriptions, err := model.GetAllActiveUserSubscriptions(userID)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
@@ -56,7 +78,7 @@ func GetQuotaUsage(c *gin.Context) {
 	}
 	var plans []model.SubscriptionPlan
 	if len(planIDs) > 0 {
-		if err := model.DB.Select("id", "title", "quota_reset_period", "quota_reset_custom_seconds").Where("id IN ?", planIDs).Find(&plans).Error; err != nil {
+		if err := model.DB.Select("id", "title", "quota_reset_period", "quota_reset_custom_seconds", "billing_groups").Where("id IN ?", planIDs).Find(&plans).Error; err != nil {
 			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
 			return
 		}
@@ -68,7 +90,25 @@ func GetQuotaUsage(c *gin.Context) {
 	items := make([]gin.H, 0, len(subscriptions))
 	for _, summary := range subscriptions {
 		sub := summary.Subscription
-		plan := planByID[sub.PlanId]
+		plan, found := planByID[sub.PlanId]
+		if !found {
+			continue
+		}
+		eligible := false
+		for _, group := range groups {
+			allowed, err := plan.AllowsBillingGroup(group)
+			if err != nil {
+				common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+				return
+			}
+			if allowed {
+				eligible = true
+				break
+			}
+		}
+		if !eligible {
+			continue
+		}
 		periodUnit, periodValue := "never", int64(0)
 		switch model.NormalizeResetPeriod(plan.QuotaResetPeriod) {
 		case model.SubscriptionResetDaily:

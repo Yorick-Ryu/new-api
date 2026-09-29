@@ -10,6 +10,8 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -186,6 +188,46 @@ func TestQuotaUsageSnapshotAndAuthorization(t *testing.T) {
 	}
 	assert.NotContains(t, rec.Body.String(), `"quota_windows"`)
 	assert.NotContains(t, rec.Body.String(), `"next_reset_at"`)
+	// Only plans usable by at least one currently allowed routing group are exposed.
+	oldAuto, oldUsable, oldRatios := setting.AutoGroups2JsonString(), setting.UserUsableGroups2JSONString(), ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(oldAuto))
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(oldUsable))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldRatios))
+	})
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["A","B"]`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"A":"A","B":"B","auto":"Auto"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"A":1,"B":1}`))
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", user.Id).Update("group", "A").Error)
+	require.NoError(t, db.Model(&model.SubscriptionPlan{}).Where("title = ?", "Plus 月卡").Update("billing_groups", `["A"]`).Error)
+	require.NoError(t, db.Model(&model.SubscriptionPlan{}).Where("title = ?", "Ultra 月卡").Update("billing_groups", `["B"]`).Error)
+	for _, tc := range []struct {
+		name, group, auto string
+		want              []string
+	}{
+		{"fixed A", "A", "", []string{"Plus 月卡"}},
+		{"fixed B", "B", "", []string{"Ultra 月卡"}},
+		{"inherit user", "", "", []string{"Plus 月卡"}},
+		{"unavailable fixed", "revoked", "", []string{}},
+		{"auto inherited intersection", "auto", "", []string{"Plus 月卡", "Ultra 月卡"}},
+		{"auto explicit intersection", "auto", `["B"]`, []string{"Ultra 月卡"}},
+		{"auto no intersection", "auto", `["revoked"]`, []string{}},
+		{"auto invalid does not fall back", "auto", `invalid`, []string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, db.Model(&model.Token{}).Where("id = ?", token.Id).Updates(map[string]any{"group": tc.group, "auto_groups": tc.auto}).Error)
+			rec := request(auth)
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.NoError(t, common.Unmarshal(rec.Body.Bytes(), &body))
+			require.True(t, body.Success)
+			names := []string{}
+			for _, sub := range body.Data.Subscriptions {
+				names = append(names, sub.Name)
+			}
+			assert.ElementsMatch(t, tc.want, names)
+			assert.Equal(t, 500000, body.Data.Wallet.Remaining)
+		})
+	}
 	require.NoError(t, db.Model(&model.User{}).Where("id = ?", user.Id).Update("status", common.UserStatusDisabled).Error)
 	assert.Equal(t, http.StatusForbidden, request(auth).Code)
 	require.NoError(t, db.Delete(&model.Token{}, token.Id).Error)
