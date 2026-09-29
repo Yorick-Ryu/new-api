@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Agent",
+    "Failed to load groups": "Failed to load groups",
     "Show response model": "Show response model",
     "On": "On",
     "Admins only": "Admins only",

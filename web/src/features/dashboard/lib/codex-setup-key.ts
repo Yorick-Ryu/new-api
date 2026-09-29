@@ -22,7 +22,8 @@ import { getApiKeys } from '@/features/keys/api'
 // never be treated as an empty list. Desktop IP allowlists cannot be verified here.
 export async function findCodexSetupKey(
   model: string,
-  isCurrent: () => boolean
+  isCurrent: () => boolean,
+  group = 'default'
 ): Promise<number | null> {
   let scanned = 0
   for (let page = 1; ; page += 1) {
@@ -43,7 +44,7 @@ export async function findCodexSetupKey(
       (key) =>
         key.id > 0 &&
         key.status === 1 &&
-        key.group === 'default' &&
+        key.group === group &&
         (key.expired_time === -1 || key.expired_time > now) &&
         (key.unlimited_quota === true || key.remain_quota > 0) &&
         !(key.allow_ips ?? '').trim() &&

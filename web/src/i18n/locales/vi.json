@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Tác nhân",
+    "Failed to load groups": "Không thể tải nhóm",
     "Show response model": "Hiển thị mô hình phản hồi",
     "On": "Bật",
     "Admins only": "Chỉ quản trị viên",

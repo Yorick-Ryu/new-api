@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "工具",
+    "Failed to load groups": "群組載入失敗",
     "Show response model": "顯示回應模型",
     "On": "開啟",
     "Admins only": "僅管理員可見",

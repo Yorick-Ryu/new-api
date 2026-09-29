@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Agent",
+    "Failed to load groups": "Impossible de charger les groupes",
     "Show response model": "Afficher le modèle de réponse",
     "On": "Activé",
     "Admins only": "Administrateurs uniquement",

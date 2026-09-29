@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "Агент",
+    "Failed to load groups": "Не удалось загрузить группы",
     "Show response model": "Показывать модель ответа",
     "On": "Включено",
     "Admins only": "Только администраторам",

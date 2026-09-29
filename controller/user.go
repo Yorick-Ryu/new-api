@@ -632,14 +632,22 @@ func GetUserModels(c *gin.Context) {
 			group = user.Group
 		}
 		if _, allowed := groups[group]; !allowed {
+			if c.Query("client_version") == "claude" {
+				c.JSON(http.StatusOK, gin.H{"data": []any{}, "has_more": false, "first_id": "", "last_id": ""})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{"models": []any{}})
 			return
 		}
-		// Reuse the Codex API catalog, including availability, billing and order,
+		// Reuse the selected client catalog and its availability checks,
 		// before the setup flow has created an API key.
 		common.SetContextKey(c, constant.ContextKeyUserGroup, user.Group)
 		common.SetContextKey(c, constant.ContextKeyTokenGroup, group)
-		ListModels(c, constant.ChannelTypeOpenAI)
+		if c.Query("client_version") == "claude" {
+			ListModels(c, constant.ChannelTypeAnthropic)
+		} else {
+			ListModels(c, constant.ChannelTypeOpenAI)
+		}
 		return
 	}
 	var groupsToQuery []string

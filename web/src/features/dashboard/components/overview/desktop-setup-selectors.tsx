@@ -27,18 +27,32 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export function SetupAgentSelect(props: { disabled: boolean }) {
+export function SetupAgentSelect(props: {
+  disabled: boolean
+  value: 'codex' | 'claude'
+  onValueChange: (value: 'codex' | 'claude') => void
+}) {
   const { t } = useTranslation()
   return (
-    <Select value='codex' disabled={props.disabled}>
+    <Select
+      value={props.value}
+      disabled={props.disabled}
+      onValueChange={(value) => {
+        if (value === 'codex' || value === 'claude') props.onValueChange(value)
+      }}
+    >
       <SelectTrigger
         id='codexbei-agent'
-        aria-label='Agent'
-        className='bg-background hover:bg-accent/50 w-32 shrink-0 rounded-lg px-2.5 py-1.5 shadow-xs data-[size=default]:h-9'
+        aria-label={t('Agent')}
+        className='bg-background hover:bg-accent/50 w-40 shrink-0 rounded-lg px-2.5 py-1.5 shadow-xs data-[size=default]:h-9'
       >
         <SelectValue>
-          <OpenAI size={16} aria-hidden='true' />
-          ChatGPT
+          {props.value === 'claude' ? (
+            <Claude.Color size={16} aria-hidden='true' />
+          ) : (
+            <OpenAI size={16} aria-hidden='true' />
+          )}
+          {props.value === 'claude' ? 'Claude Code' : 'ChatGPT'}
         </SelectValue>
       </SelectTrigger>
       <SelectContent
@@ -46,15 +60,15 @@ export function SetupAgentSelect(props: { disabled: boolean }) {
         align='start'
         alignItemWithTrigger={false}
         sideOffset={4}
-        className='min-w-52 rounded-xl p-1'
+        className='min-w-0 rounded-xl p-1'
       >
         <SelectItem value='codex' className='min-h-8 pr-8 pl-2.5'>
           <OpenAI size={16} aria-hidden='true' />
           ChatGPT
         </SelectItem>
-        <SelectItem value='claude' disabled className='min-h-8 pr-8 pl-2.5'>
+        <SelectItem value='claude' className='min-h-8 pr-8 pl-2.5'>
           <Claude.Color size={16} aria-hidden='true' />
-          Claude Code · {t('Coming soon')}
+          Claude Code
         </SelectItem>
       </SelectContent>
     </Select>

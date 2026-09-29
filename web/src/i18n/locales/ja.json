@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "エージェント",
+    "Failed to load groups": "グループを読み込めませんでした",
     "Show response model": "応答モデルを表示",
     "On": "オン",
     "Admins only": "管理者のみ",

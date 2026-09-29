@@ -30,12 +30,15 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { createApiKey, fetchTokenKey } from '@/features/keys/api'
-import { api } from '@/lib/api'
+import { ApiKeyGroupCombobox } from '@/features/keys/components/api-key-group-combobox'
+import { api, getUserGroups } from '@/lib/api'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
 import { findCodexSetupKey } from '../../lib/codex-setup-key'
 import {
   buildDesktopSetupLink,
   InvalidDesktopSetupUrlError,
+  type SetupAgent,
 } from '../../lib/desktop-setup-link'
 import { DesktopSetupDownloads } from './desktop-setup-downloads'
 import { SetupAgentSelect, SetupModelSelect } from './desktop-setup-selectors'
@@ -93,67 +96,134 @@ export function DesktopSetupDialog(props: {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedModel, setSelectedModel] = useState('')
+  const [agent, setAgent] = useState<SetupAgent>('codex')
+  const [selectedGroup, setSelectedGroup] = useState('')
   const [launched, setLaunched] = useState(false)
   const version = useRef(0)
   const downloads = props.downloads ?? setupDownloads()
+  const groupsQuery = useQuery({
+    queryKey: ['codexbei', 'groups', props.userId],
+    enabled: props.open && !props.showDownloads && agent === 'claude',
+    queryFn: async () => requireServerSuccess(await getUserGroups()),
+    retry: false,
+  })
+  const groups = Object.entries(groupsQuery.data?.data ?? {})
+    .filter(([name]) => name === 'claude' || name === 'claude-kiro')
+    .map(([name, info]) => ({
+      value: name,
+      label: name,
+      desc: info.desc,
+      ratio: info.ratio,
+    }))
+  let candidateGroups = groups.map((item) => item.value)
+  if (agent === 'codex') {
+    candidateGroups = ['default']
+  } else if (candidateGroups.includes(selectedGroup)) {
+    // An explicit user choice takes precedence over automatic selection.
+    candidateGroups = [selectedGroup]
+  }
+  const groupReady = candidateGroups.length > 0
+
+  const modelsQuery = useQuery({
+    queryKey: ['codexbei', 'catalog', props.userId, agent, candidateGroups],
+    enabled: props.open && !props.showDownloads && groupReady,
+    queryFn: async ({ signal }) => {
+      // Preserve group order and stop as soon as a usable catalog is found.
+      for (const candidateGroup of candidateGroups) {
+        const result = await api.get<{
+          data?: { id: string }[]
+          models?: {
+            slug: string
+            visibility: string
+            supported_in_api: boolean
+          }[]
+        }>('/api/user/models', {
+          signal,
+          params: {
+            group: candidateGroup,
+            client_version: agent === 'claude' ? 'claude' : 'codexbei',
+          },
+        })
+        let models: string[]
+        if (agent === 'claude') {
+          if (!Array.isArray(result.data.data)) {
+            throw new Error('Models unavailable')
+          }
+          models = result.data.data
+            .map((item) => item.id)
+            .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
+        } else {
+          if (!Array.isArray(result.data.models)) {
+            throw new Error('Models unavailable')
+          }
+          // The dedicated Codex catalog owns ordering; do not sort by name here.
+          models = result.data.models
+            .filter(
+              (model) =>
+                model.visibility === 'list' &&
+                model.supported_in_api &&
+                /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
+            )
+            .map((model) => model.slug)
+        }
+        if (models.length) return { group: candidateGroup, models }
+      }
+      return { group: candidateGroups[0] ?? '', models: [] }
+    },
+    retry: false,
+  })
+  const group = modelsQuery.data?.group ?? candidateGroups[0] ?? ''
+  const models = modelsQuery.data?.models ?? []
+  const modelsLoading =
+    modelsQuery.isFetching || (agent === 'claude' && groupsQuery.isFetching)
+
   useEffect(() => {
     version.current += 1
     setLaunched(false)
     return () => {
       version.current += 1
     }
-  }, [props.open, props.baseUrl, props.showDownloads])
+  }, [
+    props.open,
+    props.baseUrl,
+    props.showDownloads,
+    props.userId,
+    agent,
+    group,
+  ])
 
-  const modelsQuery = useQuery({
-    queryKey: ['codexbei', 'codex-catalog', props.userId, 'default'],
-    enabled: props.open && !props.showDownloads,
-    queryFn: async () => {
-      const result = await api.get<{
-        models?: {
-          slug: string
-          visibility: string
-          supported_in_api: boolean
-        }[]
-      }>('/api/user/models', {
-        params: { group: 'default', client_version: 'codexbei' },
-      })
-      if (!Array.isArray(result.data.models)) {
-        throw new Error('Models unavailable')
-      }
-      // The dedicated Codex catalog owns ordering; do not sort by name here.
-      return result.data.models
-        .filter(
-          (model) =>
-            model.visibility === 'list' &&
-            model.supported_in_api &&
-            /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
-        )
-        .map((model) => model.slug)
-    },
-    retry: false,
-  })
-  const models = modelsQuery.data ?? []
   let model = models.includes(selectedModel) ? selectedModel : (models[0] ?? '')
   if (!models.includes(selectedModel) && models.includes('gpt-6-astra')) {
     model = 'gpt-6-astra'
   }
 
   const launch = useMutation({
-    mutationFn: async (selection: { model: string; version: number }) => {
+    mutationFn: async (selection: {
+      model: string
+      version: number
+      agent: SetupAgent
+      group: string
+    }) => {
       // Validate everything before creating a key. Credentials are never stored in React state.
       buildDesktopSetupLink(
         props.baseUrl,
         'sk-validation-placeholder-only',
-        selection.model
+        selection.model,
+        selection.agent
       )
       let tokenId = await findCodexSetupKey(
         selection.model,
-        () => selection.version === version.current
+        () => selection.version === version.current,
+        selection.group
       )
+      if (selection.version !== version.current) return
       if (!tokenId) {
         const created = await createApiKey({
-          name: 'CodexBei · ChatGPT',
-          group: 'default',
+          name:
+            selection.agent === 'claude'
+              ? 'CodexBei · CC'
+              : 'CodexBei · ChatGPT',
+          group: selection.group,
           expired_time: -1,
           remain_quota: 0,
           unlimited_quota: true,
@@ -181,7 +251,8 @@ export function DesktopSetupDialog(props: {
       const link = buildDesktopSetupLink(
         props.baseUrl,
         result.data.key,
-        selection.model
+        selection.model,
+        selection.agent
       )
       window.location.assign(link)
       setLaunched(true)
@@ -218,17 +289,27 @@ export function DesktopSetupDialog(props: {
                 components={{
                   start: <span className='shrink-0 whitespace-nowrap' />,
                   middle: <span className='shrink-0 whitespace-nowrap' />,
-                  agent: <SetupAgentSelect disabled={launch.isPending} />,
+                  agent: (
+                    <SetupAgentSelect
+                      value={agent}
+                      disabled={launch.isPending}
+                      onValueChange={(value) => {
+                        version.current += 1
+                        setAgent(value)
+                        setSelectedModel('')
+                        setLaunched(false)
+                        launch.reset()
+                      }}
+                    />
+                  ),
                   model: (
                     <SetupModelSelect
                       value={model}
                       models={models}
                       disabled={
-                        launch.isPending ||
-                        modelsQuery.isFetching ||
-                        !models.length
+                        launch.isPending || modelsLoading || !models.length
                       }
-                      loading={modelsQuery.isFetching}
+                      loading={modelsLoading}
                       onValueChange={(value) => {
                         setSelectedModel(value)
                         setLaunched(false)
@@ -239,23 +320,71 @@ export function DesktopSetupDialog(props: {
                 }}
               />
             </div>
-            <p className='text-muted-foreground text-xs leading-relaxed'>
-              {t(
-                'An API key is configured for your selection and created automatically if no suitable key is available.'
-              )}
-            </p>
-            {modelsQuery.isError && (
-              <div role='alert' className='text-destructive text-sm'>
-                {t('Could not load models.')}{' '}
-                <Button
-                  variant='link'
-                  size='sm'
-                  onClick={() => void modelsQuery.refetch()}
-                >
-                  {t('Retry')}
-                </Button>
+            {agent === 'claude' && (
+              <div
+                className='flex flex-col gap-2'
+                role='group'
+                aria-label={t('Group')}
+              >
+                <ApiKeyGroupCombobox
+                  size='compact'
+                  searchable={false}
+                  placeholder={
+                    groupsQuery.isFetching ? t('Loading') : undefined
+                  }
+                  options={groups}
+                  value={group}
+                  disabled={
+                    launch.isPending || groupsQuery.isFetching || !groups.length
+                  }
+                  onValueChange={(value) => {
+                    version.current += 1
+                    setSelectedGroup(value)
+                    setSelectedModel('')
+                    setLaunched(false)
+                    launch.reset()
+                  }}
+                />
+                {!groupsQuery.isFetching &&
+                  !groupsQuery.isError &&
+                  !groups.length && <p role='status'>{t('No group found.')}</p>}
+                {groupsQuery.isError && (
+                  <div role='alert'>
+                    {t('Failed to load groups')}{' '}
+                    <Button
+                      variant='link'
+                      size='sm'
+                      onClick={() => void groupsQuery.refetch()}
+                    >
+                      {t('Retry')}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
+            <div className='flex flex-col gap-2'>
+              <p className='text-muted-foreground text-xs leading-relaxed'>
+                {t(
+                  'An API key is configured for your selection and created automatically if no suitable key is available.'
+                )}
+              </p>
+              {modelsQuery.isError && (
+                <div
+                  role='alert'
+                  className='text-destructive flex flex-wrap items-baseline gap-2 text-xs leading-relaxed'
+                >
+                  <span>{t('Could not load models.')}</span>
+                  <Button
+                    variant='link'
+                    size='sm'
+                    className='h-auto p-0 text-xs leading-relaxed font-normal'
+                    onClick={() => void modelsQuery.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </div>
+              )}
+            </div>
             {!props.hasCredits && (
               <p className='text-muted-foreground text-xs'>
                 {t('Add credits before use.')}{' '}
@@ -268,13 +397,16 @@ export function DesktopSetupDialog(props: {
               className='h-10 rounded-lg'
               disabled={
                 !model ||
+                !groupReady ||
+                (agent === 'claude' &&
+                  (groupsQuery.isFetching || groupsQuery.isError)) ||
                 launch.isPending ||
                 modelsQuery.isFetching ||
                 modelsQuery.isError
               }
               onClick={() => {
                 setLaunched(false)
-                launch.mutate({ model, version: version.current })
+                launch.mutate({ model, version: version.current, agent, group })
               }}
             >
               {launch.isPending ? t('Configuring...') : t('One-click setup')}
