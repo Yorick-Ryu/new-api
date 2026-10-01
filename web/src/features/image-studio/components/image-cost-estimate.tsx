@@ -62,7 +62,7 @@ export function ImageCostEstimate(props: ImageCostEstimateProps) {
     staleTime: 60000,
     refetchInterval: 60000,
     retry: false,
-    meta: { errorToast: false },
+    meta: { errorRedirect: false },
   })
   const model = pricing.data?.data?.find(
     (item) => item.model_name === props.input.model

@@ -18,8 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Images } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState } from '@/components/empty-state'
@@ -61,12 +62,32 @@ function ImageStudioWorkspace() {
   const options = useQuery({
     queryKey: ['image-studio-options', userID],
     queryFn: getImageOptions,
+    meta: { errorRedirect: false },
   })
   const jobs = useQuery({
     queryKey,
     queryFn: getImageJobs,
+    meta: { errorRedirect: false },
     refetchInterval: (query) => imageJobsRefetchInterval(query.state.data),
   })
+  const previousJobs = useRef(new Map<string, ImageJob['status']>())
+  const notifiedJobs = useRef(new Set<string>())
+  useEffect(() => {
+    if (!jobs.data) return
+    for (const job of jobs.data) {
+      const previous = previousJobs.current.get(job.id)
+      if (
+        previous &&
+        previous !== job.status &&
+        (job.status === 'failed' || job.status === 'unknown') &&
+        !notifiedJobs.current.has(job.id)
+      ) {
+        notifiedJobs.current.add(job.id)
+        toast.error(t(job.error || 'Image generation failed; check usage logs'))
+      }
+    }
+    previousJobs.current = new Map(jobs.data.map((job) => [job.id, job.status]))
+  }, [jobs.data, t])
   useEffect(
     () => () => {
       void client.cancelQueries({ queryKey: ['image-studio-jobs', userID] })
@@ -181,7 +202,8 @@ function ImageStudioWorkspace() {
                   reference={reference}
                   referencePending={copyReference.isPending}
                   onReferenceStateChange={setReferenceState}
-                  onCreated={() => {
+                  onCreated={(id) => {
+                    previousJobs.current.set(id, 'queued')
                     void client.invalidateQueries({ queryKey })
                   }}
                 />

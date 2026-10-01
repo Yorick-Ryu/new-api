@@ -37,7 +37,7 @@ export function ImageAssetView(props: { asset: ImageAsset; cover?: boolean }) {
     staleTime: 5 * 60 * 1000,
     retry: false,
     enabled: !props.asset.unavailable,
-    meta: { errorToast: false },
+    meta: { errorToast: false, errorRedirect: false },
   })
   if (props.asset.unavailable || failed || image.isError) {
     return (

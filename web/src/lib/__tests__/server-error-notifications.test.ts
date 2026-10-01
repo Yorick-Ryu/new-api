@@ -442,3 +442,25 @@ it('rejects an unsuccessful setting update so callers cannot proceed as if it sa
   unmount()
   client.clear()
 })
+
+it('keeps a handled HTTP 500 on the current page while still showing its error toast', async () => {
+  const redirect = vi.fn()
+  const notify = vi.spyOn(toast, 'error').mockReturnValue('error')
+  const client = createAppQueryClient(redirect)
+  const failure = {
+    response: { status: 500, data: { message: 'Image service unavailable' } },
+  }
+  await expect(
+    client.fetchQuery({
+      queryKey: ['image error'],
+      queryFn: async () => {
+        throw failure
+      },
+      retry: false,
+      meta: { errorRedirect: false },
+    })
+  ).rejects.toBe(failure)
+  expect(notify).toHaveBeenCalledWith('Image service unavailable')
+  expect(redirect).not.toHaveBeenCalled()
+  client.clear()
+})

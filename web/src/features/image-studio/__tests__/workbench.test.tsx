@@ -27,11 +27,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { PricingData } from '@/features/pricing/types'
 import { api } from '@/lib/api'
+import { createAppQueryClient } from '@/lib/query-client'
 import { useAuthStore } from '@/stores/auth-store'
 import {
   DEFAULT_CURRENCY_CONFIG,
@@ -1381,4 +1383,111 @@ describe('Image workbench', () => {
       })
     }
   })
+})
+
+it('preserves the image prompt when a background pricing request returns HTTP 500', async () => {
+  const redirect = vi.fn()
+  const notify = vi.spyOn(toast, 'error').mockReturnValue('error')
+  const client = createAppQueryClient(redirect)
+  const view = render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <ImageStudio />
+      </TooltipProvider>
+    </QueryClientProvider>
+  )
+  const prompt = await screen.findByRole('textbox', { name: 'Image prompt' })
+  fireEvent.change(prompt, { target: { value: 'Keep this prompt' } })
+  await waitFor(() =>
+    expect(client.getQueryData(['image-studio-pricing', 1])).toBeDefined()
+  )
+  vi.mocked(api.get).mockRejectedValue({
+    response: {
+      status: 500,
+      data: { message: 'Pricing temporarily unavailable' },
+    },
+  })
+  await act(async () => {
+    await client.refetchQueries({ queryKey: ['image-studio-pricing', 1] })
+  })
+  expect(redirect).not.toHaveBeenCalled()
+  expect(notify).toHaveBeenCalledWith('Pricing temporarily unavailable')
+  expect(prompt).toHaveValue('Keep this prompt')
+  view.unmount()
+  client.clear()
+})
+
+it.each(['failed', 'unknown'] as const)(
+  'notifies once when a running image task becomes %s without clearing the prompt',
+  async (status) => {
+    const notify = vi.spyOn(toast, 'error').mockReturnValue('error')
+    const client = createAppQueryClient()
+    const running = { ...job, status: 'running' as const, assets: [] }
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([running])
+    const view = render(
+      <QueryClientProvider client={client}>
+        <TooltipProvider>
+          <ImageStudio />
+        </TooltipProvider>
+      </QueryClientProvider>
+    )
+    const prompt = await screen.findByRole('textbox', { name: 'Image prompt' })
+    fireEvent.change(prompt, { target: { value: 'Keep this prompt' } })
+    await waitFor(() =>
+      expect(client.getQueryData(['image-studio-jobs', 1])).toEqual([running])
+    )
+    const failed = {
+      ...running,
+      status,
+      error: 'Image generation failed; check usage logs',
+    }
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([failed])
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['image-studio-jobs', 1] })
+    })
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['image-studio-jobs', 1] })
+    })
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(prompt).toHaveValue('Keep this prompt')
+    view.unmount()
+    client.clear()
+  }
+)
+
+it('notifies when a newly submitted task has already failed on its first poll, but leaves old failures silent', async () => {
+  const notify = vi.spyOn(toast, 'error').mockReturnValue('error')
+  const failed = {
+    ...job,
+    status: 'failed' as const,
+    assets: [],
+    error: 'Image generation failed; check usage logs',
+  }
+  vi.mocked(imageAPI.getImageJobs).mockResolvedValue([
+    { ...failed, id: 'old-failure' },
+  ])
+  vi.spyOn(api, 'post').mockImplementation(async () => {
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([failed])
+    return { data: { success: true, data: { id: job.id } } }
+  })
+  const client = createAppQueryClient()
+  const view = render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <ImageStudio />
+      </TooltipProvider>
+    </QueryClientProvider>
+  )
+  const prompt = await screen.findByRole('textbox', { name: 'Image prompt' })
+  await waitFor(() =>
+    expect(client.getQueryData(['image-studio-jobs', 1])).toBeDefined()
+  )
+  expect(notify).not.toHaveBeenCalled()
+  fireEvent.change(prompt, { target: { value: 'Keep this prompt' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+  await waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+  expect(prompt).toHaveValue('Keep this prompt')
+  view.unmount()
+  client.clear()
 })
