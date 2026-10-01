@@ -32,6 +32,7 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
 
 function PopoverContent({
   className,
+  keepMounted,
   align = 'center',
   alignOffset = 0,
   side = 'bottom',
@@ -41,8 +42,7 @@ function PopoverContent({
   collisionBoundary,
   collisionAvoidance,
   ...props
-}: PopoverPrimitive.Popup.Props &
-  Pick<
+}: PopoverPrimitive.Popup.Props & { keepMounted?: boolean } & Pick<
     PopoverPrimitive.Positioner.Props,
     | 'align'
     | 'alignOffset'
@@ -55,7 +55,7 @@ function PopoverContent({
   >) {
   const container = usePortalContainer()
   return (
-    <PopoverPrimitive.Portal container={container}>
+    <PopoverPrimitive.Portal container={container} keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

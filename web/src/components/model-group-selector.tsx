@@ -83,6 +83,10 @@ interface GroupOption {
 }
 
 interface ModelSelectorProps {
+  showLabelOnMobile?: boolean
+  searchable?: boolean
+  showCategories?: boolean
+  matchTriggerWidth?: boolean
   selectedModel: string
   models: ModelOption[]
   onModelChange: (value: string) => void
@@ -104,33 +108,59 @@ const ModelTriggerButton = React.forwardRef<
     currentLabel: string
     triggerClassName?: string
     isDisabled?: boolean
+    showLabelOnMobile?: boolean
   }
->(({ currentLabel, triggerClassName, isDisabled, ...props }, ref) => (
-  <Button
-    ref={ref}
-    variant='outline'
-    role='combobox'
-    size='sm'
-    disabled={isDisabled}
-    className={cn(
-      'flex h-8 items-center gap-2 border px-3 font-medium',
-      'justify-center p-0 sm:w-auto sm:justify-start sm:px-3',
-      'w-8',
-      'bg-background text-foreground',
-      'hover:bg-accent transition-colors',
-      'focus:!ring-0 focus:!outline-none',
-      'shadow-none',
-      triggerClassName
-    )}
-    {...props}
-  >
-    <CpuIcon className='text-muted-foreground block size-4 sm:hidden' />
-    <span className='text-muted-foreground sm:text-foreground hidden truncate text-xs sm:block'>
-      {currentLabel}
-    </span>
-    <ChevronsUpDown className='text-muted-foreground hidden h-4 w-4 opacity-50 sm:block' />
-  </Button>
-))
+>(
+  (
+    {
+      currentLabel,
+      triggerClassName,
+      isDisabled,
+      showLabelOnMobile = false,
+      ...props
+    },
+    ref
+  ) => (
+    <Button
+      ref={ref}
+      variant='outline'
+      role='combobox'
+      aria-label={currentLabel}
+      size='sm'
+      disabled={isDisabled}
+      className={cn(
+        'flex h-8 items-center gap-2 border px-3 font-medium',
+        showLabelOnMobile
+          ? 'w-full justify-start px-3'
+          : 'w-8 justify-center p-0 sm:w-auto sm:justify-start sm:px-3',
+        'bg-background text-foreground',
+        'hover:bg-accent transition-colors',
+        'focus:!ring-0 focus:!outline-none',
+        'shadow-none',
+        triggerClassName
+      )}
+      {...props}
+    >
+      {!showLabelOnMobile && (
+        <CpuIcon className='text-muted-foreground block size-4 sm:hidden' />
+      )}
+      <span
+        className={cn(
+          'text-muted-foreground sm:text-foreground truncate text-xs',
+          showLabelOnMobile ? 'block' : 'hidden sm:block'
+        )}
+      >
+        {currentLabel}
+      </span>
+      <ChevronsUpDown
+        className={cn(
+          'text-muted-foreground h-4 w-4 opacity-50',
+          showLabelOnMobile ? 'ml-auto block' : 'hidden sm:block'
+        )}
+      />
+    </Button>
+  )
+)
 
 ModelTriggerButton.displayName = 'ModelTriggerButton'
 
@@ -175,7 +205,17 @@ GroupTriggerButton.displayName = 'GroupTriggerButton'
  * Styled following Scira's form-component design patterns
  */
 export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
-  ({ selectedModel, models, onModelChange, className, disabled = false }) => {
+  ({
+    selectedModel,
+    models,
+    onModelChange,
+    className,
+    disabled = false,
+    showLabelOnMobile = false,
+    searchable = true,
+    showCategories = true,
+    matchTriggerWidth = false,
+  }) => {
     const { t } = useTranslation()
     const [open, setOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -245,7 +285,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
         filter={() => 1}
         shouldFilter={false}
       >
-        {!isMobile && (
+        {!isMobile && searchable && (
           <CommandInput
             placeholder={t('Search models...')}
             className='h-9'
@@ -265,17 +305,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
             Object.entries(filteredModels).map(
               ([category, categoryModels], categoryIndex) => (
                 <CommandGroup key={category}>
-                  {categoryIndex > 0 && (
+                  {showCategories && categoryIndex > 0 && (
                     <div className='border-border my-1 border-t' />
                   )}
-                  <div
-                    className={cn(
-                      'text-muted-foreground px-2 py-1 font-medium',
-                      isMobile ? 'text-xs' : 'text-[10px]'
-                    )}
-                  >
-                    {t('{{category}} Models', { category })}
-                  </div>
+                  {showCategories && (
+                    <div
+                      className={cn(
+                        'text-muted-foreground px-2 py-1 font-medium',
+                        isMobile ? 'text-xs' : 'text-[10px]'
+                      )}
+                    >
+                      {t('{{category}} Models', { category })}
+                    </div>
+                  )}
                   {categoryModels.map((model) => (
                     <CommandItem
                       key={model.value}
@@ -320,6 +362,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerTrigger asChild>
           <ModelTriggerButton
+            showLabelOnMobile={showLabelOnMobile}
             currentLabel={currentModel?.label || t('Model')}
             triggerClassName={className}
             isDisabled={disabled}
@@ -342,6 +385,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
         <PopoverTrigger
           render={
             <ModelTriggerButton
+              showLabelOnMobile={showLabelOnMobile}
               currentLabel={currentModel?.label || t('Model')}
               triggerClassName={className}
               isDisabled={disabled}
@@ -350,7 +394,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
           }
         />
         <PopoverContent
-          className='bg-popover z-40 w-[90vw] max-w-[20em] rounded-lg border p-0 !shadow-none sm:w-[20em]'
+          className={cn(
+            'bg-popover z-40 rounded-lg border p-0 !shadow-none',
+            matchTriggerWidth
+              ? 'w-(--anchor-width)'
+              : 'w-[90vw] max-w-[20em] sm:w-[20em]'
+          )}
           align='start'
           side='bottom'
           sideOffset={4}

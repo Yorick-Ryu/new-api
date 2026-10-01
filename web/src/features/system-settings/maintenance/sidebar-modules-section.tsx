@@ -96,6 +96,10 @@ export function SidebarModulesSection({
         title: t('Chat'),
         description: t('Access previous conversations and start new ones.'),
       },
+      image_studio: {
+        title: t('Image generation'),
+        description: t('Create images and view recent generations.'),
+      },
     },
     console: {
       detail: {

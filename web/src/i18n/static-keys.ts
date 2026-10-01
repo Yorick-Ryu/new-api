@@ -825,4 +825,16 @@ export const STATIC_I18N_KEYS = [
   'Vendor name and icon must not exceed 128 characters.',
   'Shown',
   'Not shown',
+  // Image workbench messages returned by the server.
+  'Default group is unavailable for this account',
+  'Image generation requires a dashboard session',
+  'Use application/json for image requests',
+  'Unable to prepare image API key',
+  'API key limit reached; remove an unused key before generating images',
+  'Image API key must use the default group',
+  'Image model is not allowed by the image API key',
+  'Image API key is unavailable',
+  'Image storage is unavailable',
+  'Invalid image task IDs',
+  'Failed to delete local images. Please try again.',
 ] as const

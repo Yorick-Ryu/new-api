@@ -72,6 +72,11 @@ export function SidebarModulesCard() {
           title: t('Chat'),
           description: t('Chat session management'),
         },
+        {
+          key: 'image_studio',
+          title: t('Image generation'),
+          description: t('Create images and view recent generations.'),
+        },
       ],
     },
     {
