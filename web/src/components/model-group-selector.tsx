@@ -147,8 +147,10 @@ const ModelTriggerButton = React.forwardRef<
       )}
       <span
         className={cn(
-          'text-muted-foreground sm:text-foreground truncate text-xs',
-          showLabelOnMobile ? 'block' : 'hidden sm:block'
+          'truncate',
+          showLabelOnMobile
+            ? 'text-foreground block text-sm'
+            : 'text-muted-foreground hidden text-xs sm:block sm:text-foreground'
         )}
       >
         {currentLabel}
@@ -279,6 +281,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
     // Shared command content
     const renderModelCommandContent = () => (
       <Command
+        defaultValue={selectedModel}
         className={cn(
           isMobile
             ? 'h-full flex-1 rounded-lg border-0 bg-transparent'

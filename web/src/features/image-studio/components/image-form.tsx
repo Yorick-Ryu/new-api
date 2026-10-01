@@ -229,6 +229,7 @@ export function ImageForm(props: ImageFormProps) {
               </FieldLabel>
               <Textarea
                 id='image-prompt'
+                data-mobile-compact
                 placeholder={t('Describe the image you want to create…')}
                 rows={4}
                 onKeyDown={(event) => {
@@ -241,7 +242,7 @@ export function ImageForm(props: ImageFormProps) {
                     event.currentTarget.form?.requestSubmit()
                   }
                 }}
-                className='min-h-28 resize-y'
+                className='min-h-28 resize-y text-sm'
                 maxLength={16000}
                 aria-invalid={!!form.formState.errors.prompt}
                 {...form.register('prompt')}
@@ -253,7 +254,7 @@ export function ImageForm(props: ImageFormProps) {
               )}
             </Field>
             <div className='flex flex-wrap items-end gap-4'>
-              <Field className='min-w-0 shrink-0 sm:w-40'>
+              <Field className='w-36 max-w-full min-w-0 shrink-0'>
                 <FieldLabel>{t('Model')}</FieldLabel>
                 <ModelSelector
                   showLabelOnMobile
@@ -324,47 +325,6 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               )}
-              <Field className='w-auto min-w-20 shrink-0'>
-                <FieldLabel>{t('Aspect ratio')}</FieldLabel>
-                <Popover>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type='button'
-                        variant='outline'
-                        className='justify-start tabular-nums'
-                        disabled={busy}
-                        aria-label={t('Aspect ratio')}
-                      />
-                    }
-                  >
-                    <RatioIcon className='size-4 shrink-0' aria-hidden='true' />
-                    {ratioSize ? formatAspectRatio(ratioSize) : t('Free ratio')}
-                  </PopoverTrigger>
-                  <PopoverContent
-                    keepMounted
-                    align='start'
-                    aria-label={t('Aspect ratio')}
-                    className='w-[360px] max-w-[calc(100vw-2rem)]'
-                  >
-                    <ImageSizePicker
-                      mode='ratio'
-                      sizes={capability?.sizes ?? ['']}
-                      customSize={!!capability?.custom_size}
-                      value={size}
-                      ratioSize={ratioSize}
-                      disabled={busy}
-                      onChange={() => {}}
-                      onRatioChange={(value) => {
-                        setRatioSize(value)
-                        form.setValue('size', '', {
-                          shouldValidate: true,
-                        })
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </Field>
               <Field className='w-auto shrink-0'>
                 <FieldLabel>{t('Image size')}</FieldLabel>
                 <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
@@ -403,6 +363,47 @@ export function ImageForm(props: ImageFormProps) {
                         })
                         if (value) setRatioSize('')
                       }}
+                      onRatioChange={(value) => {
+                        setRatioSize(value)
+                        form.setValue('size', '', {
+                          shouldValidate: true,
+                        })
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </Field>
+              <Field className='w-auto min-w-20 shrink-0'>
+                <FieldLabel>{t('Aspect ratio')}</FieldLabel>
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type='button'
+                        variant='outline'
+                        className='justify-start tabular-nums'
+                        disabled={busy}
+                        aria-label={t('Aspect ratio')}
+                      />
+                    }
+                  >
+                    <RatioIcon className='size-4 shrink-0' aria-hidden='true' />
+                    {ratioSize ? formatAspectRatio(ratioSize) : t('Free ratio')}
+                  </PopoverTrigger>
+                  <PopoverContent
+                    keepMounted
+                    align='start'
+                    aria-label={t('Aspect ratio')}
+                    className='w-[360px] max-w-[calc(100vw-2rem)]'
+                  >
+                    <ImageSizePicker
+                      mode='ratio'
+                      sizes={capability?.sizes ?? ['']}
+                      customSize={!!capability?.custom_size}
+                      value={size}
+                      ratioSize={ratioSize}
+                      disabled={busy}
+                      onChange={() => {}}
                       onRatioChange={(value) => {
                         setRatioSize(value)
                         form.setValue('size', '', {
@@ -528,7 +529,7 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               </Field>
-              <div className='flex w-full items-end gap-4 sm:w-auto sm:flex-1'>
+              <div className='flex flex-1 items-end gap-4'>
                 <ImageCostEstimate
                   input={{ model, size: size || ratioSize, quality, n: count }}
                 />

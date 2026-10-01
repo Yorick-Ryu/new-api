@@ -117,7 +117,7 @@ For commercial licensing, please contact support@quantumnous.com
   @media screen and (max-width: 767px) {
     input,
     select,
-    textarea {
+    textarea:not([data-mobile-compact]) {
       font-size: 16px !important;
     }
   }
