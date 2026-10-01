@@ -528,17 +528,19 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               </Field>
-              <ImageCostEstimate
-                input={{ model, size: size || ratioSize, quality, n: count }}
-              />
-              <Button
-                type='submit'
-                className='w-full sm:ml-auto sm:w-auto'
-                disabled={busy || !props.options.available || !capability}
-              >
-                {busy ? <Spinner /> : <Sparkles className='size-4' />}
-                {t('Generate image')}
-              </Button>
+              <div className='flex w-full items-end gap-4 sm:w-auto sm:flex-1'>
+                <ImageCostEstimate
+                  input={{ model, size: size || ratioSize, quality, n: count }}
+                />
+                <Button
+                  type='submit'
+                  className='shrink-0'
+                  disabled={busy || !props.options.available || !capability}
+                >
+                  {busy ? <Spinner /> : <Sparkles className='size-4' />}
+                  {t('Generate image')}
+                </Button>
+              </div>
             </div>
           </FieldGroup>
         </form>

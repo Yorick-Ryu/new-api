@@ -87,7 +87,7 @@ export function ImageCostEstimate(props: ImageCostEstimateProps) {
   }
 
   return (
-    <Field className='w-40 max-w-full min-w-0 shrink-0 sm:w-44'>
+    <Field className='min-w-20 flex-1'>
       <div className='flex h-5 items-center gap-1'>
         <FieldLabel>{t('Estimated image cost')}</FieldLabel>
         {estimate?.scope === 'output' && (
