@@ -413,13 +413,15 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	var requests atomic.Int32
 	response := imageStudioTestResponse(t)
 	var reject atomic.Bool
+	var rejection atomic.Value
+	rejection.Store(`{"error":{"message":"test failure","type":"upstream"}}`)
 	var expectedEditFiles atomic.Int32
 	expectedEditFiles.Store(1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
 		if reject.Load() {
 			w.WriteHeader(503)
-			_, _ = w.Write([]byte(`{"error":{"message":"test failure","type":"upstream"}}`))
+			_, _ = w.Write([]byte(rejection.Load().(string)))
 			return
 		}
 		if r.URL.Path == "/v1/images/edits" {
@@ -560,6 +562,21 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 		return db.First(&refunded, owner.Id).Error == nil && refunded.Quota == beforeFailure.Quota
 	}, 3*time.Second, 10*time.Millisecond, "ordinary rejected requests use the asynchronous relay refund path")
 
+	// An explicit upstream authorization rejection is a failed task, not an
+	// uncertain generation, even when the provider reports it as HTTP 503.
+	rejection.Store(`{"error":{"message":"auth_unavailable: no auth available","type":"authentication_error","code":"auth_unavailable"}}`)
+	denied := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), RequestHash: "auth-rejection", Request: job.Request, Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix()}
+	require.NoError(t, db.Create(denied).Error)
+	worker.execute(denied)
+	require.NoError(t, db.First(denied, "id = ?", denied.ID).Error)
+	assert.Equal(t, "failed", denied.Status)
+	assert.Equal(t, "Image generation failed; service temporarily unavailable. Please try again later.", denied.Error)
+	assert.Equal(t, int32(5), requests.Load(), "an authorization rejection must not replay the generation")
+	require.Eventually(t, func() bool {
+		var refunded model.User
+		return db.First(&refunded, owner.Id).Error == nil && refunded.Quota == beforeFailure.Quota
+	}, 3*time.Second, 10*time.Millisecond)
+
 	// Credential changes made after submission are enforced again by the worker.
 	require.NoError(t, db.First(token, token.Id).Error)
 	baselineToken := *token
@@ -586,7 +603,7 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 			worker.execute(blocked)
 			require.NoError(t, db.First(blocked, "id = ?", blocked.ID).Error)
 			assert.Equal(t, "failed", blocked.Status)
-			assert.Equal(t, int32(4), requests.Load(), "invalid credentials must never reach upstream")
+			assert.Equal(t, int32(5), requests.Load(), "invalid credentials must never reach upstream")
 			require.NoError(t, baselineToken.Update())
 		})
 	}
@@ -600,7 +617,7 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	worker.execute(blocked)
 	require.NoError(t, db.First(blocked, "id = ?", blocked.ID).Error)
 	assert.Equal(t, "failed", blocked.Status)
-	assert.Equal(t, int32(4), requests.Load(), "insufficient wallet quota must fail before upstream")
+	assert.Equal(t, int32(5), requests.Load(), "insufficient wallet quota must fail before upstream")
 	require.NoError(t, db.First(&subscription, subscription.Id).Error)
 	assert.Zero(t, subscription.AmountUsed, "generations, edits and failed requests never consume subscription quota")
 	var reservationCount int64

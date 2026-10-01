@@ -730,3 +730,55 @@ For commercial licensing, please contact support@quantumnous.com
     display: none;
   }
 }
+
+/* Theme-colored pending image animation, shared by cards and details. */
+.image-studio-pending::before,
+.image-studio-pending::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    var(--primary) 1px,
+    transparent 1.15px
+  );
+  background-size: 9px 9px;
+  mask-image: radial-gradient(
+    ellipse at center,
+    #000 0%,
+    #0009 35%,
+    transparent 70%
+  );
+  mask-size: 75% 75%;
+  mask-repeat: no-repeat;
+  animation: image-studio-dot-drift 7s ease-in-out infinite;
+}
+.image-studio-pending::after {
+  animation-delay: -3s;
+  animation-duration: 8.5s;
+  mask-size: 65% 65%;
+}
+@keyframes image-studio-dot-drift {
+  0%,
+  100% {
+    mask-position: 10% 20%;
+    opacity: 0.3;
+  }
+  30% {
+    mask-position: 90% 45%;
+    opacity: 0.85;
+  }
+  65% {
+    mask-position: 25% 95%;
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .image-studio-pending::before,
+  .image-studio-pending::after {
+    animation: none;
+    mask-position: center;
+    opacity: 0.6;
+  }
+}

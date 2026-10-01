@@ -3075,6 +3075,7 @@
     "Image expired": "Image expired",
     "Image generation": "Génération d’images",
     "Image Generation": "Génération d'images",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "La génération a échoué. Le service est temporairement indisponible. Veuillez réessayer plus tard.",
     "Image generation failed; check usage logs": "Image generation failed; check usage logs",
     "Image generation is not available yet. Please try again later.": "La génération d’images n’est pas encore disponible. Réessayez plus tard.",
     "Image generation requires a dashboard session": "La génération d’images nécessite une session connectée au tableau de bord",

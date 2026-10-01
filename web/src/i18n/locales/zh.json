@@ -3109,6 +3109,7 @@
     "Image expired": "图片已过期",
     "Image generation": "图片生成",
     "Image Generation": "图片生成",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "生成失败，服务暂不可用，请稍后重试。",
     "Image generation failed; check usage logs": "生成失败，可在使用日志中查看详情。",
     "Image generation is not available yet. Please try again later.": "图片生成暂未开放，请稍后再试。",
     "Image generation requires a dashboard session": "图片生成需要使用控制台登录会话",

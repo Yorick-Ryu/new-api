@@ -3075,6 +3075,7 @@
     "Image expired": "Image expired",
     "Image generation": "Tạo ảnh",
     "Image Generation": "Tạo hình ảnh",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "Tạo ảnh thất bại. Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
     "Image generation failed; check usage logs": "Image generation failed; check usage logs",
     "Image generation is not available yet. Please try again later.": "Tính năng tạo ảnh chưa khả dụng. Vui lòng thử lại sau.",
     "Image generation requires a dashboard session": "Bạn cần đăng nhập vào bảng điều khiển để tạo ảnh",

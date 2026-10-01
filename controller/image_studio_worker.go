@@ -270,12 +270,7 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 	req.RemoteAddr = net.JoinHostPort(job.ClientIP, "0")
 	engine.ServeHTTP(response, req)
 	if response.status >= 400 {
-		status := "failed"
-		message := "Image generation failed; check usage logs"
-		if response.status >= 500 || response.status == 408 {
-			status = "unknown"
-			message = "Image result could not be confirmed"
-		}
+		status, message := classifyImageStudioFailure(response.status, response.errorBody)
 		w.setStatus(job, status, message)
 		return errors.New("image relay failed")
 	}
@@ -303,16 +298,22 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 }
 
 type imageStudioResponseWriter struct {
-	header http.Header
-	file   *os.File
-	status int
-	size   int
-	err    error
+	header    http.Header
+	file      *os.File
+	status    int
+	size      int
+	err       error
+	errorBody []byte
 }
 
 func (w *imageStudioResponseWriter) Header() http.Header    { return w.header }
 func (w *imageStudioResponseWriter) WriteHeader(status int) { w.status = status }
 func (w *imageStudioResponseWriter) Write(data []byte) (int, error) {
+	// Retain only a bounded error envelope for classification. Never expose its
+	// upstream message (which may contain credentials) in the task record.
+	if w.status >= 400 && len(w.errorBody) < (64<<10)+1 {
+		w.errorBody = append(w.errorBody, data[:min(len(data), (64<<10)+1-len(w.errorBody))]...)
+	}
 	if w.size+len(data) > imageStudioResponseLimit {
 		w.err = errors.New("image result exceeds size limit")
 		return 0, w.err
@@ -516,4 +517,39 @@ func (w *imageStudioWorker) cleanup() {
 	// Server prompt/parameter rows are delivery metadata, not browser history.
 	// Billing logs keep the normal system retention policy.
 	_ = model.DeleteOldImageStudioJobs(now - int64(model.ImageStudioRetention.Seconds()))
+}
+
+// classifyImageStudioFailure separates definite rejections from requests whose
+// completion cannot be established. An arbitrary 5xx response is not evidence
+// that retrying a paid generation would be safe.
+func classifyImageStudioFailure(status int, body []byte) (string, string) {
+	failed := "Image generation failed; check usage logs"
+	unavailable := "Image generation failed; service temporarily unavailable. Please try again later."
+	if status == http.StatusRequestTimeout || status == http.StatusGatewayTimeout {
+		return "unknown", "Image result could not be confirmed"
+	}
+	if status < 500 {
+		if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests {
+			return "failed", unavailable
+		}
+		return "failed", failed
+	}
+	var envelope struct {
+		Error types.OpenAIError `json:"error"`
+	}
+	if len(body) <= 64<<10 && common.Unmarshal(body, &envelope) == nil {
+		code, _ := envelope.Error.Code.(string)
+		for _, marker := range []string{code, envelope.Error.Type} {
+			switch marker {
+			case "auth_unavailable", "authentication_error", "refresh_token_reused", "channel:no_available_key", "channel:invalid_key", "get_channel_failed", "insufficient_quota", "rate_limit_exceeded":
+				return "failed", unavailable
+			}
+		}
+		// Some OpenAI-compatible relays preserve the CPA error identifier only
+		// at the start of the message. Do not match arbitrary text or HTML.
+		if strings.HasPrefix(strings.TrimSpace(envelope.Error.Message), "auth_unavailable:") {
+			return "failed", unavailable
+		}
+	}
+	return "unknown", "Image result could not be confirmed"
 }

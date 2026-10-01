@@ -3075,6 +3075,7 @@
     "Image expired": "Image expired",
     "Image generation": "Генерация изображений",
     "Image Generation": "Генерация изображений",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "Не удалось создать изображение. Сервис временно недоступен. Повторите попытку позже.",
     "Image generation failed; check usage logs": "Image generation failed; check usage logs",
     "Image generation is not available yet. Please try again later.": "Генерация изображений пока недоступна. Попробуйте позже.",
     "Image generation requires a dashboard session": "Для генерации изображений необходимо войти в панель управления",

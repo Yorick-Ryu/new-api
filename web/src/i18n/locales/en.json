@@ -3109,6 +3109,7 @@
     "Image expired": "Image expired",
     "Image generation": "Image generation",
     "Image Generation": "Image Generation",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "Image generation failed; service temporarily unavailable. Please try again later.",
     "Image generation failed; check usage logs": "Image generation failed; check usage logs",
     "Image generation is not available yet. Please try again later.": "Image generation is not available yet. Please try again later.",
     "Image generation requires a dashboard session": "Image generation requires a dashboard session",

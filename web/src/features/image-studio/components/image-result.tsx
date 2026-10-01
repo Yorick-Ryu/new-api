@@ -23,12 +23,10 @@ import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
 import { EmptyState } from '@/components/empty-state'
-import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatQuotaWithCurrency } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
@@ -138,13 +136,13 @@ export function ImageResult(props: ImageResultProps) {
           ) : (
             <div
               role={active ? 'status' : undefined}
-              className='relative flex aspect-square w-full items-center justify-center p-3'
+              className={cn(
+                'relative flex aspect-square w-full items-center justify-center p-3',
+                active && 'image-studio-pending'
+              )}
             >
               {active ? (
-                <>
-                  <Skeleton className='absolute inset-0 motion-reduce:animate-none' />
-                  <LoadingState inline size='sm' message={status} />
-                </>
+                <span className='sr-only'>{status}</span>
               ) : (
                 <span className='text-muted-foreground text-sm whitespace-normal'>
                   {status}
@@ -229,13 +227,21 @@ export function ImageResult(props: ImageResultProps) {
       >
         <div className='grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'>
           <div className='min-w-0'>
-            {!originals.length && (
-              <EmptyState
-                className='min-h-0 py-6 md:p-6'
-                title={status}
-                description={job.error ? t(job.error) : undefined}
-              />
-            )}
+            {!originals.length &&
+              (active ? (
+                <div
+                  role='status'
+                  className='image-studio-pending relative aspect-square w-full overflow-hidden'
+                >
+                  <span className='sr-only'>{status}</span>
+                </div>
+              ) : (
+                <EmptyState
+                  className='min-h-0 py-6 md:p-6'
+                  title={status}
+                  description={job.error ? t(job.error) : undefined}
+                />
+              ))}
             {overview && (
               <div className='grid grid-cols-2 gap-3'>
                 {originals.map((asset, index) => (

@@ -3075,6 +3075,7 @@
     "Image expired": "Image expired",
     "Image generation": "画像生成",
     "Image Generation": "画像生成",
+    "Image generation failed; service temporarily unavailable. Please try again later.": "画像の生成に失敗しました。サービスを一時的に利用できません。しばらくしてから再試行してください。",
     "Image generation failed; check usage logs": "Image generation failed; check usage logs",
     "Image generation is not available yet. Please try again later.": "画像生成はまだ利用できません。しばらくしてからお試しください。",
     "Image generation requires a dashboard session": "画像を生成するにはダッシュボードへのログインが必要です",
