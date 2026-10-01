@@ -1,3 +1,13 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  cleanup,
+  within,
+} from '@testing-library/react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -16,16 +26,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  cleanup,
-  within,
-} from '@testing-library/react'
+import i18next from 'i18next'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -146,6 +147,14 @@ function wrapper(props: { children: React.ReactNode }) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   previousCurrency = useSystemConfigStore.getState().config.currency
   useSystemConfigStore
     .getState()
@@ -163,6 +172,7 @@ beforeEach(() => {
   })
 })
 afterEach(() => {
+  vi.unstubAllGlobals()
   cleanup()
   useSystemConfigStore.getState().setConfig({ currency: previousCurrency })
   useAuthStore.getState().auth.setUser(null)
@@ -179,7 +189,9 @@ describe('Image workbench', () => {
     ).toBeInTheDocument()
     expect(await screen.findByText('No images yet')).toBeInTheDocument()
     expect(screen.queryByText(/remaining|expires in/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Select images' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Select records' })
+    ).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeDisabled()
   })
   it('disables generation when image storage is unavailable', async () => {
@@ -942,7 +954,8 @@ describe('Image workbench', () => {
     expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
       'Generating…'
     )
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('button', { name: 'Delete image' })).toBeDisabled()
   })
   it('allows reusing expired parameters without offering downloads', () => {
     const reuse = vi.fn()
@@ -956,9 +969,8 @@ describe('Image workbench', () => {
       />,
       { wrapper }
     )
-    expect(
-      screen.queryByRole('button', { name: 'Download' })
-    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     fireEvent.click(screen.getByRole('button', { name: 'Reuse parameters' }))
     expect(reuse).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'task-one' })
@@ -971,8 +983,14 @@ describe('Image workbench', () => {
       (await screen.findAllByRole('button', { name: 'Retry' })).length
     ).toBeGreaterThan(0)
   })
-  it('opens the image preview and allows using the image as a reference', () => {
-    const reference = vi.fn()
+  it('opens details and closes only after adding the reference succeeds', async () => {
+    let finish!: () => void
+    const reference = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        })
+    )
     render(
       <ImageResult
         job={job}
@@ -983,12 +1001,46 @@ describe('Image workbench', () => {
       />,
       { wrapper }
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Image details')
     fireEvent.click(screen.getByRole('button', { name: 'Use as reference' }))
-    expect(reference).toHaveBeenCalledWith(job, 'task-one-0-original')
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Preview generated image' })
+    await waitFor(() =>
+      expect(reference).toHaveBeenCalledWith(job, 'task-one-0-original')
     )
-    expect(screen.getByRole('dialog')).toHaveAccessibleName('Image Preview')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await act(async () => finish())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+  })
+  it('shows one compact card per generation and reuses parameters from its details', async () => {
+    const second = {
+      ...job,
+      id: 'task-two',
+      quota: 100000,
+      input: {
+        ...job.input,
+        prompt: 'A blue lake',
+        size: '1024x1024',
+        quality: 'high',
+      },
+    }
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([second, job])
+    render(<ImageStudio />, { wrapper })
+    const lake = await screen.findByRole('article', { name: 'A blue lake' })
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+    expect(within(lake).queryByText('1024×1024')).not.toBeInTheDocument()
+    fireEvent.click(within(lake).getByRole('button', { name: 'Details' }))
+    const details = screen.getByRole('dialog')
+    expect(within(details).getByText('1024×1024')).toBeInTheDocument()
+    expect(within(details).getByText('High')).toBeInTheDocument()
+    expect(within(details).getByText('Generation cost')).toBeInTheDocument()
+    fireEvent.click(
+      within(details).getByRole('button', { name: 'Reuse parameters' })
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('Image prompt')).toHaveValue('A blue lake')
+    )
   })
   it('requires confirmation before removing a history entry', async () => {
     vi.mocked(imageAPI.getImageJobs).mockResolvedValue([job])
@@ -1002,7 +1054,8 @@ describe('Image workbench', () => {
       .spyOn(imageAPI, 'deleteImageJobs')
       .mockResolvedValue(undefined)
     render(<ImageStudio />, { wrapper })
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete image' }))
     expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
       'Delete image generation?'
     )
@@ -1010,47 +1063,58 @@ describe('Image workbench', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(remove).not.toHaveBeenCalled()
   })
-  it('selects one image from a batch and deletes only that image after confirmation', async () => {
-    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([batchJob])
+  it('selects records by card without opening details and downloads only selected images', async () => {
+    const load = vi
+      .spyOn(imageAPI, 'getImageURL')
+      .mockResolvedValue('blob:download')
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {})
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([
+      batchJob,
+      { ...job, id: 'another', input: { ...job.input, prompt: 'Another' } },
+    ])
+    render(<ImageStudio />, { wrapper })
+    const select = screen.getByRole('button', { name: 'Select records' })
+    await waitFor(() => expect(select).toBeEnabled())
+    fireEvent.click(select)
+    const card = screen.getByRole('article', { name: 'A small house' })
+    fireEvent.click(
+      within(card).getByRole('button', { name: 'Preview generated image' })
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const checkbox = within(card).getByRole('checkbox')
+    expect(checkbox).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Download selected' }))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2))
+    expect(load).toHaveBeenCalledWith('task-one-0-original', true)
+    expect(load).toHaveBeenCalledWith('task-one-1-original', true)
+    fireEvent.click(within(card).getByRole('button', { name: 'Download' }))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(4))
+    expect(checkbox).toBeChecked()
+    fireEvent.click(within(card).getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Image details')
+    expect(checkbox).toBeChecked()
+  })
+  it('opens a group overview before viewing and deleting one image', async () => {
     const remove = vi
       .spyOn(imageAPI, 'deleteImageAssets')
       .mockResolvedValue(undefined)
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([batchJob])
     render(<ImageStudio />, { wrapper })
-    const selectImages = screen.getByRole('button', { name: 'Select images' })
-    await waitFor(() => expect(selectImages).toBeEnabled())
-    fireEvent.click(selectImages)
-    const first = screen.getByRole('checkbox', {
-      name: 'Select image 1: A small house',
-    })
-    const second = screen.getByRole('checkbox', {
-      name: 'Select image 2: A small house',
-    })
-    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
-    fireEvent.click(first)
-    expect(first).toBeChecked()
-    expect(second).not.toBeChecked()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete selected images' })
-    )
-    let dialog = await screen.findByRole('alertdialog', {
-      name: 'Delete selected images?',
-    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'View image 2' }))
+    expect(screen.getByRole('button', { name: 'Download image' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Previous image' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete image' }))
+    const confirm = await screen.findByRole('alertdialog')
     expect(remove).not.toHaveBeenCalled()
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    expect(remove).not.toHaveBeenCalled()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete selected images' })
-    )
-    dialog = await screen.findByRole('alertdialog', {
-      name: 'Delete selected images?',
-    })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
     await waitFor(() =>
-      expect(remove).toHaveBeenCalledWith(['task-one-0-original'])
-    )
-    expect(remove).toHaveBeenCalledTimes(1)
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(remove).toHaveBeenCalledWith(['task-one-1-original'])
     )
   })
   it('clears finished history after confirmation while keeping a running generation', async () => {
@@ -1079,10 +1143,10 @@ describe('Image workbench', () => {
         vi.mocked(imageAPI.getImageJobs).mockResolvedValue([running])
       })
     render(<ImageStudio />, { wrapper })
-    const selectImages = screen.getByRole('button', { name: 'Select images' })
+    const selectImages = screen.getByRole('button', { name: 'Select records' })
     await waitFor(() => expect(selectImages).toBeEnabled())
     fireEvent.click(selectImages)
-    fireEvent.click(screen.getByRole('button', { name: 'Select all images' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select all' }))
     expect(screen.getAllByRole('checkbox')).toHaveLength(2)
     for (const checkbox of screen.getAllByRole('checkbox')) {
       expect(checkbox).toBeChecked()
@@ -1090,9 +1154,6 @@ describe('Image workbench', () => {
     expect(
       screen.queryByRole('checkbox', { name: /Still generating/ })
     ).not.toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('button', { name: /Generating… Still generating/ })
-    )
     expect(await screen.findByRole('status', { name: '' })).toHaveTextContent(
       'Generating…'
     )
@@ -1119,32 +1180,25 @@ describe('Image workbench', () => {
     )
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeDisabled()
   })
-  it('keeps the selected-image deletion dialog open and shows an asynchronous deletion failure', async () => {
+  it('keeps the selected-record deletion dialog open and shows an asynchronous deletion failure', async () => {
     vi.mocked(imageAPI.getImageJobs).mockResolvedValue([batchJob])
     let rejectDeletion!: (reason: Error) => void
-    const remove = vi.spyOn(imageAPI, 'deleteImageAssets').mockReturnValue(
+    const remove = vi.spyOn(imageAPI, 'deleteImageJobs').mockReturnValue(
       new Promise<void>((_resolve, reject) => {
         rejectDeletion = reject
       })
     )
     render(<ImageStudio />, { wrapper })
-    const selectImages = screen.getByRole('button', { name: 'Select images' })
+    const selectImages = screen.getByRole('button', { name: 'Select records' })
     await waitFor(() => expect(selectImages).toBeEnabled())
     fireEvent.click(selectImages)
-    fireEvent.click(screen.getByRole('button', { name: 'Select all images' }))
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete selected images' })
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Select all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected' }))
     const dialog = await screen.findByRole('alertdialog', {
-      name: 'Delete selected images?',
+      name: 'Delete selected records?',
     })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
-    await waitFor(() =>
-      expect(remove).toHaveBeenCalledWith([
-        'task-one-0-original',
-        'task-one-1-original',
-      ])
-    )
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(['task-one']))
     await waitFor(() =>
       expect(
         within(dialog).getByRole('button', { name: 'Delete' })
@@ -1155,7 +1209,7 @@ describe('Image workbench', () => {
       await within(dialog).findByText('Browser storage is unavailable')
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('alertdialog', { name: 'Delete selected images?' })
+      screen.getByRole('alertdialog', { name: 'Delete selected records?' })
     ).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeEnabled()
   })
@@ -1181,17 +1235,14 @@ describe('Image workbench', () => {
       />,
       { wrapper }
     )
-    expect(
-      screen.getByText(
-        'This image was not saved in this browser and is no longer available. You can generate it again using the saved prompt.'
-      )
-    ).toBeInTheDocument()
+    expect(screen.getByText('Image unavailable')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(
       screen.getByRole('button', { name: 'Use as reference' })
     ).toBeDisabled()
     expect(
-      screen.getByRole('button', { name: 'Preview generated image' })
+      screen.getByRole('button', { name: 'Download image' })
     ).toBeDisabled()
     expect(load).not.toHaveBeenCalled()
   })
@@ -1244,5 +1295,90 @@ describe('Image workbench', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled()
     expect(screen.getByText('Completed')).toBeInTheDocument()
+  })
+  it('appends generated references without replacing the prompt or existing references and caps at four', async () => {
+    const onState = vi.fn()
+    const props = {
+      options,
+      reuse: null,
+      onCreated: vi.fn(),
+      onReferenceStateChange: onState,
+    }
+    const view = render(<ImageForm {...props} reference={null} />, { wrapper })
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Keep my prompt' },
+    })
+    for (let i = 1; i <= 5; i++) {
+      view.rerender(
+        <ImageForm
+          {...props}
+          reference={{ id: `ref-${i}`, name: `Reference ${i}` }}
+        />
+      )
+    }
+    expect(screen.getByLabelText('Image prompt')).toHaveValue('Keep my prompt')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    )
+    expect(
+      screen.getAllByRole('button', { name: /Remove reference image:/ })
+    ).toHaveLength(4)
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove reference image: Reference 1',
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: 'Remove reference image: Reference 5',
+      })
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeDisabled()
+    expect(onState).toHaveBeenLastCalledWith({ count: 4, enabled: true })
+  })
+  it('updates details, actions and the shared close label when language changes', async () => {
+    const french = (await import('@/i18n/locales/fr.json')).default.translation
+    const chinese = (await import('@/i18n/locales/zh-TW.json')).default
+      .translation
+    i18next.addResourceBundle('fr', 'translation', french)
+    i18next.addResourceBundle('zhTW', 'translation', chinese)
+    render(
+      <ImageResult
+        job={job}
+        canEdit
+        onReuse={vi.fn()}
+        onReference={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    try {
+      await act(async () => {
+        await i18next.changeLanguage('fr')
+      })
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        french['Image details']
+      )
+      expect(
+        screen.getByRole('button', { name: french['Download image'] })
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: french['Close'] })
+      ).toBeInTheDocument()
+      await act(async () => {
+        await i18next.changeLanguage('zhTW')
+      })
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        chinese['Image details']
+      )
+      expect(
+        screen.getByRole('button', { name: chinese['Delete image'] })
+      ).toBeInTheDocument()
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en')
+      })
+    }
   })
 })

@@ -38,6 +38,7 @@ import {
   deleteImageJobs,
   getImageJobs,
   getImageOptions,
+  imageJobsRefetchInterval,
   isImageJobActive,
   releaseImageURLs,
   type ImageInput,
@@ -45,7 +46,6 @@ import {
 } from './api'
 import { ImageForm } from './components/image-form'
 import { ImageGallery } from './components/image-gallery'
-import { ImageResult } from './components/image-result'
 
 export function ImageStudio() {
   const userID = useAuthStore((state) => state.auth.user?.id)
@@ -65,8 +65,7 @@ function ImageStudioWorkspace() {
   const jobs = useQuery({
     queryKey,
     queryFn: getImageJobs,
-    refetchInterval: (query) =>
-      query.state.data?.some(isImageJobActive) ? 3000 : 120000,
+    refetchInterval: (query) => imageJobsRefetchInterval(query.state.data),
   })
   useEffect(
     () => () => {
@@ -78,18 +77,21 @@ function ImageStudioWorkspace() {
     },
     [client, userID]
   )
-  const [selectedID, setSelectedID] = useState('')
   const [reuse, setReuse] = useState<{
     input: ImageInput
     version: number
   } | null>(null)
+  const [referenceState, setReferenceState] = useState({
+    count: 0,
+    enabled: false,
+  })
   const [reference, setReference] = useState<{
     id: string
     name: string
   } | null>(null)
   const [deleting, setDeleting] = useState<{
     ids: string[]
-    kind: 'images' | 'job' | 'all'
+    kind: 'images' | 'job' | 'records' | 'all'
   } | null>(null)
   const remove = useMutation({
     mutationFn: async (target: NonNullable<typeof deleting>) => {
@@ -107,20 +109,17 @@ function ImageStudioWorkspace() {
     },
   })
   const copyReference = useMutation({
-    mutationFn: async (value: { job: ImageJob; assetID: string }) => ({
-      id: await cloneImageReference(value.assetID),
-      job: value.job,
-    }),
-    onSuccess: ({ id, job }) => {
-      setReuse({
-        input: { ...job.input, reference_id: undefined, reference_ids: [id] },
-        version: Date.now(),
-      })
-      setReference({ id, name: t('Generated image') })
+    mutationFn: async (value: { job: ImageJob; assetID: string }) => {
+      if (referenceState.count >= 4) {
+        throw new Error(t('You can add up to 4 reference images.'))
+      }
+      if (!referenceState.enabled) {
+        throw new Error(t('Image editing is not supported by this model'))
+      }
+      return cloneImageReference(value.assetID)
     },
+    onSuccess: (id) => setReference({ id, name: t('Generated image') }),
   })
-  const selected =
-    jobs.data?.find((job) => job.id === selectedID) ?? jobs.data?.[0]
   let deleteTitle = t('Delete image generation?')
   let deleteDescription = t(
     'The images and this history entry will be removed. Billing records are kept.'
@@ -130,6 +129,11 @@ function ImageStudioWorkspace() {
     deleteDescription = t(
       'The selected {{amount}} images will be removed from this browser. This cannot be undone. Billing records are kept.',
       { amount: formatNumber(deleting.ids.length, locale) }
+    )
+  } else if (deleting?.kind === 'records') {
+    deleteTitle = t('Delete selected records?')
+    deleteDescription = t(
+      'The selected records and their images will be removed from this browser. This cannot be undone. Billing records are kept.'
     )
   } else if (deleting?.kind === 'all') {
     deleteTitle = t('Clear all image history?')
@@ -175,16 +179,17 @@ function ImageStudioWorkspace() {
                   options={options.data}
                   reuse={reuse}
                   reference={reference}
-                  onCreated={(id) => {
-                    setSelectedID(id)
+                  referencePending={copyReference.isPending}
+                  onReferenceStateChange={setReferenceState}
+                  onCreated={() => {
                     void client.invalidateQueries({ queryKey })
                   }}
                 />
               </>
             )}
-            <section aria-label={t('Recent generations')} className='space-y-4'>
+            <section aria-label={t('Generated images')} className='space-y-4'>
               <h2 className='text-base font-semibold'>
-                {t('Recent generations')}
+                {t('Generated images')}
               </h2>
               <p className='text-muted-foreground text-sm'>
                 {t(
@@ -206,9 +211,34 @@ function ImageStudioWorkspace() {
               )}
               <ImageGallery
                 jobs={jobs.data ?? []}
-                selectedJobID={selected?.id}
                 busy={remove.isPending}
-                onSelectJob={setSelectedID}
+                canEdit={() =>
+                  referenceState.enabled &&
+                  referenceState.count < 4 &&
+                  !copyReference.isPending
+                }
+                onReuse={(job) => {
+                  setReference(null)
+                  setReuse({
+                    input: {
+                      ...job.input,
+                      reference_id: undefined,
+                      reference_ids: undefined,
+                    },
+                    version: Date.now(),
+                  })
+                }}
+                onReference={(job, assetID) =>
+                  copyReference.mutateAsync({ job, assetID })
+                }
+                onDelete={(job) => {
+                  remove.reset()
+                  setDeleting({ kind: 'job', ids: [job.id] })
+                }}
+                onDeleteJobs={(ids) => {
+                  remove.reset()
+                  setDeleting({ kind: 'records', ids })
+                }}
                 onDeleteAssets={(ids) => {
                   remove.reset()
                   setDeleting({ kind: 'images', ids })
@@ -228,35 +258,6 @@ function ImageStudioWorkspace() {
                   icon={Images}
                   title={t('No images yet')}
                   description={t('Your recent generations will appear here.')}
-                />
-              )}
-              {selected && (
-                <ImageResult
-                  key={selected?.id ?? 'empty'}
-                  job={selected}
-                  canEdit={
-                    !!options.data?.models.find(
-                      (item) => item.model === selected?.input.model
-                    )?.editing && !copyReference.isPending
-                  }
-                  onReuse={(job) => {
-                    setReference(null)
-                    setReuse({
-                      input: {
-                        ...job.input,
-                        reference_id: undefined,
-                        reference_ids: undefined,
-                      },
-                      version: Date.now(),
-                    })
-                  }}
-                  onReference={(job, assetID) =>
-                    copyReference.mutate({ job, assetID })
-                  }
-                  onDelete={(job) => {
-                    remove.reset()
-                    setDeleting({ kind: 'job', ids: [job.id] })
-                  }}
                 />
               )}
             </section>

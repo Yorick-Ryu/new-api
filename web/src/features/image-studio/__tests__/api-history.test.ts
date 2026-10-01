@@ -100,6 +100,34 @@ function serveGeneration() {
 }
 
 describe('local image API history', () => {
+  it('polls only active tasks or results still awaiting local delivery', async () => {
+    const { studio } = await signedIn()
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(false)
+    serveGeneration()
+    await studio.createImageJob(input, 'request-a')
+    http.get.mockRejectedValue(new Error('Offline'))
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(3000)
+    serveGeneration()
+    const deliver = http.get.getMockImplementation()
+    if (!deliver) throw new Error('Missing generation response fixture')
+    http.get.mockImplementation((url: string) =>
+      url.endsWith('/original-a/content')
+        ? Promise.reject(new Error('Download interrupted'))
+        : deliver(url)
+    )
+    const pending = await studio.getImageJobs()
+    expect(pending[0].status).toBe('success')
+    expect(studio.imageJobsRefetchInterval(pending)).toBe(3000)
+    serveGeneration()
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(false)
+    for (const status of ['queued', 'running', 'saving']) {
+      expect(studio.imageJobsRefetchInterval([{ ...job, status }])).toBe(3000)
+    }
+    for (const status of ['failed', 'unknown', 'expired']) {
+      expect(studio.imageJobsRefetchInterval([{ ...job, status }])).toBe(false)
+    }
+  })
+
   it('shows only jobs registered by this browser and downloads through owned asset endpoints', async () => {
     const { studio } = await signedIn()
     serveGeneration()

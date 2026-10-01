@@ -21,6 +21,9 @@ import { useMutation } from '@tanstack/react-query'
 import {
   ImagePlus,
   Images,
+  RectangleHorizontal,
+  RectangleVertical,
+  Square,
   Scan,
   SlidersHorizontal,
   Sparkles,
@@ -99,6 +102,8 @@ type ImageFormProps = {
   options: ImageOptions
   reuse: { input: ImageInput; version: number } | null
   reference: { id: string; name: string } | null
+  referencePending?: boolean
+  onReferenceStateChange?: (state: { count: number; enabled: boolean }) => void
   onCreated: (id: string) => void
 }
 
@@ -114,6 +119,13 @@ export function ImageForm(props: ImageFormProps) {
   const quality = form.watch('quality')
   const count = form.watch('n')
   const [ratioSize, setRatioSize] = useState('')
+  const [ratioWidth, ratioHeight] = ratioSize.split('x').map(Number)
+  let RatioIcon = Scan
+  if (ratioSize) {
+    if (ratioWidth === ratioHeight) RatioIcon = Square
+    else if (ratioWidth > ratioHeight) RatioIcon = RectangleHorizontal
+    else RatioIcon = RectangleVertical
+  }
   const [sizeOpen, setSizeOpen] = useState(false)
   const [qualityOpen, setQualityOpen] = useState(false)
   const [countOpen, setCountOpen] = useState(false)
@@ -151,15 +163,39 @@ export function ImageForm(props: ImageFormProps) {
       setReferences([])
     }
   }, [props.reuse, form])
+  const appliedReference = useRef<ImageReference | null>(null)
   useEffect(() => {
-    if (props.reference) {
-      form.setValue('reference_id', undefined)
-      form.setValue('reference_ids', [props.reference.id])
-      setReferences([props.reference])
+    if (!props.reference || appliedReference.current === props.reference) return
+    appliedReference.current = props.reference
+    if (
+      references.length >= 4 ||
+      references.some((item) => item.id === props.reference?.id)
+    ) {
+      return
     }
-  }, [props.reference, props.reuse, form])
+    const next = [...references, props.reference]
+    form.setValue('reference_id', undefined)
+    form.setValue(
+      'reference_ids',
+      next.map((item) => item.id)
+    )
+    setReferences(next)
+  }, [props.reference, references, form])
+  const onReferenceStateChange = props.onReferenceStateChange
+  useEffect(() => {
+    onReferenceStateChange?.({
+      count: references.length,
+      enabled: !!capability?.editing && !uploading && !create.isPending,
+    })
+  }, [
+    references.length,
+    capability?.editing,
+    uploading,
+    create.isPending,
+    onReferenceStateChange,
+  ])
 
-  const busy = create.isPending || uploading
+  const busy = create.isPending || uploading || !!props.referencePending
   const qualityLabels: Record<string, string> = {
     low: t('Low'),
     medium: t('Medium'),
@@ -244,7 +280,7 @@ export function ImageForm(props: ImageFormProps) {
                       <Button
                         type='button'
                         variant='outline'
-                        className='w-32 justify-start tabular-nums'
+                        className='max-w-full justify-start tabular-nums'
                         disabled={busy || !props.options.available}
                         aria-label={t('Reference images (up to 4)')}
                       />
@@ -252,7 +288,11 @@ export function ImageForm(props: ImageFormProps) {
                   >
                     <ImagePlus className='size-4' />
                     <span className='truncate'>{t('Reference images')}</span>
-                    {references.length > 0 && `${references.length}/4`}
+                    {references.length > 0 && (
+                      <span className='shrink-0 font-mono tabular-nums'>
+                        {formatNumber(references.length, locale)}/4
+                      </span>
+                    )}
                   </PopoverTrigger>
                   <PopoverContent
                     keepMounted
@@ -277,7 +317,7 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               )}
-              <Field className='w-20 shrink-0'>
+              <Field className='w-auto min-w-20 shrink-0'>
                 <FieldLabel>{t('Aspect ratio')}</FieldLabel>
                 <Popover>
                   <PopoverTrigger
@@ -291,7 +331,7 @@ export function ImageForm(props: ImageFormProps) {
                       />
                     }
                   >
-                    <Scan className='size-4' />
+                    <RatioIcon className='size-4 shrink-0' aria-hidden='true' />
                     {ratioSize ? formatAspectRatio(ratioSize) : t('Free ratio')}
                   </PopoverTrigger>
                   <PopoverContent
@@ -366,7 +406,7 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               </Field>
-              <Field className='w-20 shrink-0'>
+              <Field className='w-auto min-w-20 shrink-0'>
                 <FieldLabel>{t('Quality')}</FieldLabel>
                 <Popover open={qualityOpen} onOpenChange={setQualityOpen}>
                   <PopoverTrigger
@@ -375,6 +415,7 @@ export function ImageForm(props: ImageFormProps) {
                         type='button'
                         variant='outline'
                         disabled={busy}
+                        className='justify-start'
                         aria-label={t('Choose image quality')}
                       />
                     }
@@ -421,7 +462,7 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               </Field>
-              <Field className='w-16 shrink-0'>
+              <Field className='w-auto min-w-16 shrink-0'>
                 <FieldLabel>{t('Number of images')}</FieldLabel>
                 <Popover open={countOpen} onOpenChange={setCountOpen}>
                   <PopoverTrigger
@@ -435,7 +476,10 @@ export function ImageForm(props: ImageFormProps) {
                       />
                     }
                   >
-                    <Images className='size-4' />×{formatNumber(count, locale)}
+                    <Images className='size-4 shrink-0' />
+                    <span className='inline-block w-[2ch] shrink-0 text-center font-mono tabular-nums'>
+                      ×{formatNumber(count, locale)}
+                    </span>
                   </PopoverTrigger>
                   <PopoverContent
                     align='start'

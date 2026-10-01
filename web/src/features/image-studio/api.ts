@@ -55,6 +55,7 @@ export type ImageJob = {
   expires_at: number
   storage_error?: boolean
   delivery_expired?: boolean
+  pending_delivery?: boolean
   input: ImageInput
   error?: string
   quota?: number
@@ -210,7 +211,7 @@ export async function getImageJobs(): Promise<ImageJob[]> {
       }
       assets.push({ ...asset, url })
     }
-    result.push({ ...entry.job, assets })
+    result.push({ ...entry.job, assets, pending_delivery: !entry.cached })
   }
   assertCurrentUser(userID)
   return result
@@ -335,6 +336,12 @@ export async function getImageURL(
   assertCurrentUser(userID)
   return url
 }
+export function imageJobsRefetchInterval(jobs?: ImageJob[]): number | false {
+  return jobs?.some((job) => isImageJobActive(job) || job.pending_delivery)
+    ? 3000
+    : false
+}
+
 export function isImageJobActive(job: ImageJob): boolean {
   return ['queued', 'running', 'saving'].includes(job.status)
 }

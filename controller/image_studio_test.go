@@ -477,6 +477,17 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 		}
 	}
 	token := imageStudioTokenContract(t, db, owner)
+	// Even an account configured to use subscriptions exclusively must pay for
+	// workbench generations and edits from its wallet.
+	originalSetting := owner.Setting
+	require.NoError(t, db.Model(owner).Update("setting", `{"billing_preference":"subscription_only"}`).Error)
+	plan := model.SubscriptionPlan{Title: "image funding regression", Enabled: true, TotalAmount: 1000000}
+	require.NoError(t, db.Create(&plan).Error)
+	subscription := model.UserSubscription{UserId: owner.Id, PlanId: plan.Id, AmountTotal: 1000000, Status: "active", StartTime: time.Now().Add(-time.Hour).Unix(), EndTime: time.Now().Add(time.Hour).Unix()}
+	require.NoError(t, db.Create(&subscription).Error)
+	eligibility, err := model.GetSubscriptionBillingEligibility(owner.Id, "default")
+	require.NoError(t, err)
+	require.True(t, eligibility.HasEligible)
 	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), RequestHash: "relay", Request: `{"model":"gpt-image-1","prompt":"a small house","n":1}`, Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix(), LeaseUntil: time.Now().Add(20 * time.Minute).Unix()}
 	require.NoError(t, db.Create(job).Error)
 	worker.execute(job)
@@ -582,6 +593,23 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	var quotaAfterAuthFailures model.User
 	require.NoError(t, db.First(&quotaAfterAuthFailures, owner.Id).Error)
 	assert.Equal(t, beforeFailure.Quota, quotaAfterAuthFailures.Quota)
+	// An available subscription must not fund a job when the wallet is empty.
+	require.NoError(t, db.Model(owner).Update("quota", 0).Error)
+	blocked := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: job.Request, Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix()}
+	require.NoError(t, db.Create(blocked).Error)
+	worker.execute(blocked)
+	require.NoError(t, db.First(blocked, "id = ?", blocked.ID).Error)
+	assert.Equal(t, "failed", blocked.Status)
+	assert.Equal(t, int32(4), requests.Load(), "insufficient wallet quota must fail before upstream")
+	require.NoError(t, db.First(&subscription, subscription.Id).Error)
+	assert.Zero(t, subscription.AmountUsed, "generations, edits and failed requests never consume subscription quota")
+	var reservationCount int64
+	require.NoError(t, db.Model(&model.SubscriptionPreConsumeRecord{}).Where("user_id = ?", owner.Id).Count(&reservationCount).Error)
+	assert.Zero(t, reservationCount)
+	require.NoError(t, db.First(&current, owner.Id).Error)
+	assert.Zero(t, current.Quota)
+	assert.Equal(t, "subscription_only", current.GetSetting().BillingPreference, "normal API billing preference is unchanged")
+	require.NoError(t, db.Model(owner).Updates(map[string]any{"quota": beforeFailure.Quota, "setting": originalSetting}).Error)
 	require.NoError(t, db.Model(owner).Update("status", common.UserStatusDisabled).Error)
 	_, err = imageStudioCapabilities(owner.Id)
 	assert.Error(t, err)

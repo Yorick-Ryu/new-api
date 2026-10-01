@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -253,6 +254,11 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 	})
 	engine.POST(requestPath, middleware.TokenAuth(), middleware.SystemPerformanceCheck(), middleware.ModelRequestRateLimit(), middleware.Distribute(), func(c *gin.Context) {
 		service.GetChannelConstraints(c).AddPin(taskdto.ChannelPin{ChannelId: c.GetInt("channel_id"), Source: taskdto.PinSourceOriginTask, Rank: taskdto.PinRankOriginTask, RetryMode: taskdto.PinRetrySingleAttempt})
+		// Workbench jobs always use wallet funding. Override only this authenticated
+		// request's settings copy, never the user's saved billing preference.
+		settings, _ := common.GetContextKeyType[imagedto.UserSetting](c, constant.ContextKeyUserSetting)
+		settings.BillingPreference = "wallet_only"
+		common.SetContextKey(c, constant.ContextKeyUserSetting, settings)
 		Relay(c, types.RelayFormatOpenAIImage)
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestPath, &body)

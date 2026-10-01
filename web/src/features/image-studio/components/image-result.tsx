@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMutation, useQueries } from '@tanstack/react-query'
-import { Download, ImagePlus, Images, RotateCcw, Trash2 } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { Download, ImagePlus, Info, RotateCcw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,53 +26,52 @@ import { EmptyState } from '@/components/empty-state'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatQuotaWithCurrency } from '@/lib/currency'
-import { useAuthStore } from '@/stores/auth-store'
+import { formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { useSystemConfigStore } from '@/stores/system-config-store'
 
-import { getImageURL, isImageJobActive, type ImageJob } from '../api'
+import { isImageJobActive, type ImageJob } from '../api'
+import { downloadImages } from '../lib/download-images'
+import { ImageAssetView } from './image-asset-view'
+import { ImageViewer } from './image-viewer'
 
 type ImageResultProps = {
-  job?: ImageJob
+  job: ImageJob
   canEdit: boolean
+  busy?: boolean
+  selected?: boolean
+  onSelect?: () => void
   onReuse: (job: ImageJob) => void
-  onReference: (job: ImageJob, assetId: string) => void
+  onReference: (job: ImageJob, assetId: string) => void | Promise<unknown>
   onDelete: (job: ImageJob) => void
+  onDeleteAssets?: (ids: string[]) => void
 }
 
 export function ImageResult(props: ImageResultProps) {
-  const { t } = useTranslation()
-  const userID = useAuthStore((state) => state.auth.user?.id)
-  const [preview, setPreview] = useState('')
-  const [failedImages, setFailedImages] = useState<string[]>([])
-  const download = useMutation({
-    mutationFn: async (id: string) => {
-      const url = await getImageURL(id, true)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'image'
-      link.rel = 'noopener'
-      link.click()
-    },
-  })
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  useSystemConfigStore((state) => state.config.currency)
+  const [open, setOpen] = useState(false)
+  const [initialSlide, setInitialSlide] = useState<number | null>(null)
+  const [slide, setSlide] = useState(0)
   const job = props.job
-  const originals =
-    job?.assets.filter((asset) => asset.kind === 'original') ?? []
-  const imageURLs = useQueries({
-    queries: originals.map((asset) => ({
-      queryKey: ['image-studio-asset', userID, asset.id],
-      queryFn: () => getImageURL(asset.id),
-      initialData: asset.url || undefined,
-      staleTime: 5 * 60 * 1000,
-      retry: false,
-      enabled: !asset.unavailable,
-    })),
+  const originals = job.assets.filter((asset) => asset.kind === 'original')
+  const active = isImageJobActive(job)
+  const overview = initialSlide === null && originals.length > 1
+  const current = originals[Math.min(slide, originals.length - 1)]
+  const downloadable = originals.filter((asset) => !asset.unavailable)
+  const download = useMutation({ mutationFn: downloadImages })
+  const reference = useMutation({
+    mutationFn: async () => {
+      if (current) await props.onReference(job, current.id)
+    },
+    onSuccess: () => setOpen(false),
   })
-  const dimensions = /^(\d+)x(\d+)$/.exec(job?.input.size ?? '')
-  const aspectRatio = dimensions
-    ? `${dimensions[1]} / ${dimensions[2]}`
-    : '1 / 1'
   const statusLabels: Record<string, string> = {
     queued: t('Queued'),
     running: t('Generating…'),
@@ -82,187 +81,276 @@ export function ImageResult(props: ImageResultProps) {
     unknown: t('Result unconfirmed'),
     expired: t('Image unavailable'),
   }
-
+  const status = statusLabels[job.status] ?? job.status
+  const qualityLabels: Record<string, string> = {
+    low: t('Low'),
+    medium: t('Medium'),
+    high: t('High'),
+    hd: t('HD'),
+    standard: t('Standard'),
+  }
+  const created = new Intl.DateTimeFormat(locale, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(job.created_at * 1000))
+  const openDetails = () => {
+    setInitialSlide(null)
+    setSlide(0)
+    setOpen(true)
+  }
   return (
-    <Card className='min-w-0' data-card-hover='false'>
-      <CardHeader className='flex-row items-center justify-between'>
-        <CardTitle>{t('Generated images')}</CardTitle>
-        {job && (
-          <Badge variant='secondary'>
-            {statusLabels[job.status] ?? job.status}
-          </Badge>
+    <>
+      <Card
+        size='sm'
+        role='article'
+        aria-label={job.input.prompt}
+        data-card-hover='false'
+        className={cn(
+          'relative min-w-0 gap-0 overflow-hidden py-0 data-[size=sm]:gap-0 data-[size=sm]:py-0',
+          props.selected && 'ring-primary ring-2'
         )}
-      </CardHeader>
-      <CardContent>
-        {!job && (
-          <EmptyState
-            icon={Images}
-            title={t('Your next image starts here')}
-            description={t(
-              'Write a prompt, choose a model, and generate your first image.'
-            )}
-          />
-        )}
-        {job && isImageJobActive(job) && (
-          <div
-            role='status'
-            aria-live='polite'
-            className='space-y-4 motion-reduce:[&_.animate-spin]:animate-none'
-          >
-            <div className='grid grid-cols-2 gap-4 lg:grid-cols-4'>
-              {Array.from({ length: job.input.n }, (_, index) => (
-                <div
-                  key={index}
-                  className='relative overflow-hidden rounded-lg'
-                  style={{ aspectRatio }}
-                >
+        onClickCapture={
+          props.selected === undefined
+            ? undefined
+            : (event) => {
+                if (
+                  (event.target as HTMLElement).closest('[data-record-actions]')
+                ) {
+                  return
+                }
+                event.preventDefault()
+                event.stopPropagation()
+                if (!active && !props.busy) props.onSelect?.()
+              }
+        }
+      >
+        <Button
+          variant='ghost'
+          className='bg-muted/40 relative h-auto w-full overflow-hidden rounded-none p-0'
+          aria-label={t('Preview generated image')}
+          onClick={openDetails}
+        >
+          {originals[0] ? (
+            <ImageAssetView asset={originals[0]} cover />
+          ) : (
+            <div
+              role={active ? 'status' : undefined}
+              className='relative flex aspect-square w-full items-center justify-center p-3'
+            >
+              {active ? (
+                <>
                   <Skeleton className='absolute inset-0 motion-reduce:animate-none' />
-                  <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 p-3'>
-                    <LoadingState
-                      inline
-                      size='sm'
-                      message={statusLabels[job.status]}
-                    />
-                    <Badge variant='secondary' className='max-w-full truncate'>
-                      {job.input.model}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                  <LoadingState inline size='sm' message={status} />
+                </>
+              ) : (
+                <span className='text-muted-foreground text-sm whitespace-normal'>
+                  {status}
+                </span>
+              )}
             </div>
-            <p className='text-muted-foreground text-sm'>
-              {t('You can leave this page and return to view the result.')}
-            </p>
-          </div>
-        )}
-        {job && !isImageJobActive(job) && originals.length === 0 && (
-          <EmptyState
-            icon={Images}
-            title={statusLabels[job.status]}
-            description={
-              job.error
-                ? t(job.error)
-                : t('Generate again using the saved prompt and parameters.')
-            }
+          )}
+          <Badge
+            variant='secondary'
+            className='absolute end-2 bottom-2 max-w-[calc(100%-1rem)] truncate font-mono tabular-nums'
+          >
+            {t('{{amount}} images', {
+              amount: formatNumber(originals.length || job.input.n, locale),
+            })}
+          </Badge>
+        </Button>
+        {props.selected !== undefined && !active && (
+          <Checkbox
+            className='bg-background absolute start-2 top-2'
+            checked={props.selected}
+            disabled={props.busy}
+            aria-label={t('Select generation: {{prompt}}', {
+              prompt: job.input.prompt,
+            })}
+            onCheckedChange={() => props.onSelect?.()}
           />
         )}
-        {originals.length > 0 && (
-          <div className='grid grid-cols-1 gap-4 xl:grid-cols-2'>
-            {originals.map((asset, index) => (
-              <div
-                key={asset.id}
-                className='motion-safe:animate-in motion-safe:fade-in-0 min-w-0 space-y-3 motion-safe:duration-300'
-              >
-                <Button
-                  variant='ghost'
-                  className='bg-muted/40 h-auto w-full overflow-hidden p-0'
-                  aria-label={t('Preview generated image')}
-                  disabled={!imageURLs[index]?.data}
-                  onClick={() => setPreview(imageURLs[index]?.data ?? '')}
-                >
-                  {!asset.unavailable && imageURLs[index]?.isPending && (
-                    <Skeleton className='aspect-square w-full motion-reduce:animate-none' />
-                  )}
-                  {asset.unavailable && (
-                    <span className='p-8 text-sm whitespace-normal'>
-                      {t(
-                        'This image was not saved in this browser and is no longer available. You can generate it again using the saved prompt.'
-                      )}
-                    </span>
-                  )}
-                  {(failedImages.includes(asset.id) ||
-                    imageURLs[index]?.isError) && (
-                    <span className='p-12'>{t('Failed to load image')}</span>
-                  )}
-                  {imageURLs[index]?.data &&
-                    !failedImages.includes(asset.id) && (
-                      <img
-                        src={imageURLs[index].data}
-                        alt={t('Generated image')}
-                        className='max-h-[520px] w-full object-contain'
-                        onError={() =>
-                          setFailedImages((current) => [...current, asset.id])
-                        }
-                      />
-                    )}
-                </Button>
-                <div className='flex flex-wrap gap-2'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    disabled={download.isPending || !!asset.unavailable}
-                    onClick={() => download.mutate(asset.id)}
-                  >
-                    <Download className='size-4' />
-                    {t('Download')}
-                  </Button>
-                  {props.canEdit && job && (
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      disabled={!!asset.unavailable}
-                      onClick={() => props.onReference(job, asset.id)}
-                    >
-                      <ImagePlus className='size-4' />
-                      {t('Use as reference')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+        <CardContent className='flex min-w-0 flex-col gap-2 p-3'>
+          <p className='truncate text-xs' title={job.input.prompt}>
+            {job.input.prompt}
+          </p>
+          <div className='text-muted-foreground flex min-w-0 flex-wrap justify-between gap-x-2 gap-y-1 text-xs'>
+            <span className='truncate' title={job.input.model}>
+              {job.input.model}
+            </span>
+            <time dateTime={new Date(job.created_at * 1000).toISOString()}>
+              {created}
+            </time>
           </div>
-        )}
-        {job && (
-          <div className='mt-6 space-y-3 border-t pt-4'>
-            <p className='text-muted-foreground text-xs'>{job.input.model}</p>
-            {job.quota !== undefined && (
-              <p className='text-muted-foreground text-xs'>
-                {t('Actual cost')}: {formatQuotaWithCurrency(job.quota)}
-              </p>
+          <span className='sr-only'>{status}</span>
+          <div
+            data-record-actions
+            className='grid grid-cols-1 gap-2 sm:grid-cols-2'
+          >
+            <Button
+              variant='outline'
+              size='sm'
+              className='min-w-0'
+              onClick={openDetails}
+            >
+              <Info />
+              <span className='truncate'>{t('Details')}</span>
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              className='min-w-0'
+              disabled={download.isPending || !downloadable.length}
+              onClick={() =>
+                download.mutate(downloadable.map((asset) => asset.id))
+              }
+            >
+              <Download />
+              <span className='truncate'>{t('Download')}</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={t('Image details')}
+        contentClassName='sm:max-w-4xl'
+      >
+        <div className='grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'>
+          <div className='min-w-0'>
+            {!originals.length && (
+              <EmptyState
+                className='min-h-0 py-6 md:p-6'
+                title={status}
+                description={job.error ? t(job.error) : undefined}
+              />
             )}
+            {overview && (
+              <div className='grid grid-cols-2 gap-3'>
+                {originals.map((asset, index) => (
+                  <Button
+                    key={asset.id}
+                    variant='ghost'
+                    className='bg-muted relative h-auto overflow-hidden p-0'
+                    aria-label={t('View image {{number}}', {
+                      number: formatNumber(index + 1, locale),
+                    })}
+                    onClick={() => {
+                      setInitialSlide(index)
+                      setSlide(index)
+                    }}
+                  >
+                    <ImageAssetView asset={asset} cover />
+                    <Badge
+                      variant='secondary'
+                      className='absolute end-2 bottom-2 font-mono tabular-nums'
+                    >
+                      {formatNumber(index + 1, locale)}/
+                      {formatNumber(originals.length, locale)}
+                    </Badge>
+                  </Button>
+                ))}
+              </div>
+            )}
+            {!overview && originals.length > 0 && (
+              <ImageViewer
+                key={originals.map((asset) => asset.id).join(',')}
+                assets={originals}
+                initialIndex={Math.min(initialSlide ?? 0, originals.length - 1)}
+                onSelect={setSlide}
+              />
+            )}
+          </div>
+          <div className='flex min-w-0 flex-col gap-4'>
             <p className='max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap'>
               {job.input.prompt}
             </p>
+            <dl className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
+              <dt className='text-muted-foreground'>{t('Model')}</dt>
+              <dd className='break-words'>{job.input.model}</dd>
+              <dt className='text-muted-foreground'>{t('Image size')}</dt>
+              <dd>{job.input.size.replace('x', '×') || t('Auto')}</dd>
+              <dt className='text-muted-foreground'>{t('Quality')}</dt>
+              <dd>{qualityLabels[job.input.quality] ?? t('Auto')}</dd>
+              <dt className='text-muted-foreground'>{t('Number of images')}</dt>
+              <dd className='font-mono tabular-nums'>
+                {formatNumber(job.input.n, locale)}
+              </dd>
+              <dt className='text-muted-foreground'>{t('Generation cost')}</dt>
+              <dd className='font-mono break-words tabular-nums'>
+                {job.quota === undefined
+                  ? t('Result unconfirmed')
+                  : formatQuotaWithCurrency(job.quota, { locale })}
+              </dd>
+              <dt className='text-muted-foreground'>{t('Created time')}</dt>
+              <dd>{created}</dd>
+            </dl>
             <div className='flex flex-wrap gap-2'>
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => props.onReuse(job)}
+                disabled={
+                  download.isPending ||
+                  (overview
+                    ? !downloadable.length
+                    : !current || !!current.unavailable)
+                }
+                onClick={() =>
+                  download.mutate(
+                    overview
+                      ? downloadable.map((asset) => asset.id)
+                      : [current.id]
+                  )
+                }
               >
-                <RotateCcw className='size-4' />
+                <Download />
+                {overview ? t('Download all') : t('Download image')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                disabled={props.busy || reference.isPending}
+                onClick={() => {
+                  props.onReuse(job)
+                  setOpen(false)
+                }}
+              >
+                <RotateCcw />
                 {t('Reuse parameters')}
               </Button>
               <Button
-                variant='ghost'
+                variant='destructive'
                 size='sm'
-                disabled={isImageJobActive(job)}
-                onClick={() => props.onDelete(job)}
+                disabled={props.busy || active || reference.isPending}
+                onClick={() => {
+                  if (!overview && originals.length > 1) {
+                    props.onDeleteAssets?.([current.id])
+                  } else props.onDelete(job)
+                }}
               >
-                <Trash2 className='size-4' />
-                {t('Delete')}
+                <Trash2 />
+                {overview ? t('Delete all') : t('Delete image')}
               </Button>
+              {!overview && current && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={
+                    !props.canEdit ||
+                    props.busy ||
+                    reference.isPending ||
+                    current.unavailable
+                  }
+                  onClick={() => reference.mutate()}
+                >
+                  <ImagePlus />
+                  {t('Use as reference')}
+                </Button>
+              )}
             </div>
           </div>
-        )}
-      </CardContent>
-      <Dialog
-        open={!!preview}
-        onOpenChange={(open) => {
-          if (!open) setPreview('')
-        }}
-        title={t('Image Preview')}
-        description={t('Generated image')}
-        contentClassName='sm:max-w-4xl'
-        contentHeight='auto'
-      >
-        {preview && (
-          <img
-            src={preview}
-            alt={t('Generated image')}
-            className='max-h-[75vh] w-full object-contain'
-          />
-        )}
+        </div>
       </Dialog>
-    </Card>
+    </>
   )
 }

@@ -16,182 +16,129 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ListChecks, Trash2 } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { Download, ListChecks, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
-import { isImageJobActive, type ImageAsset, type ImageJob } from '../api'
+import { isImageJobActive, type ImageJob } from '../api'
+import { downloadImages } from '../lib/download-images'
+import { ImageResult } from './image-result'
 
 type ImageGalleryProps = {
   jobs: ImageJob[]
-  selectedJobID?: string
   busy: boolean
-  onSelectJob: (id: string) => void
+  canEdit: (job: ImageJob) => boolean
+  onReuse: (job: ImageJob) => void
+  onReference: (job: ImageJob, assetID: string) => void | Promise<unknown>
+  onDelete: (job: ImageJob) => void
+  onDeleteJobs: (ids: string[]) => void
   onDeleteAssets: (ids: string[]) => void
   onClearAll: () => void
 }
-
 export function ImageGallery(props: ImageGalleryProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [selecting, setSelecting] = useState(false)
   const [checkedIDs, setCheckedIDs] = useState<string[]>([])
-  const items = props.jobs.flatMap<{
-    id: string
-    job: ImageJob
-    asset?: ImageAsset
-  }>((job) => {
-    const originals = job.assets.filter((asset) => asset.kind === 'original')
-    if (!originals.length) return [{ id: job.id, job, asset: undefined }]
-    return originals.map((asset) => ({ id: asset.id, job, asset }))
-  })
-  const selectableIDs = items
-    .filter((item) => item.asset && !isImageJobActive(item.job))
-    .map((item) => item.id)
-  const selectedIDs = checkedIDs.filter((id) => selectableIDs.includes(id))
-  const statusLabels: Record<string, string> = {
-    queued: t('Queued'),
-    running: t('Generating…'),
-    saving: t('Saving image…'),
-    success: t('Completed'),
-    failed: t('Failed'),
-    unknown: t('Result unconfirmed'),
-    expired: t('Image unavailable'),
-  }
-
+  const selectable = props.jobs.filter((job) => !isImageJobActive(job))
+  const selected = selectable.filter((job) => checkedIDs.includes(job.id))
+  const downloadIDs = selected.flatMap((job) =>
+    job.assets
+      .filter((asset) => asset.kind === 'original' && !asset.unavailable)
+      .map((asset) => asset.id)
+  )
+  const download = useMutation({ mutationFn: downloadImages })
   return (
-    <div className='space-y-4'>
+    <div className='flex flex-col gap-4'>
       <div className='flex flex-wrap items-center gap-2'>
         <Button
           variant='outline'
           size='sm'
-          disabled={props.busy || (!selecting && !selectableIDs.length)}
+          disabled={props.busy || (!selecting && !selectable.length)}
           onClick={() => {
             setSelecting(!selecting)
             setCheckedIDs([])
           }}
         >
-          <ListChecks className='size-4' />
-          {selecting ? t('Done') : t('Select images')}
+          <ListChecks />
+          {selecting ? t('Done') : t('Select records')}
         </Button>
         {selecting && (
           <>
             <Button
               variant='ghost'
               size='sm'
-              disabled={props.busy || !selectableIDs.length}
-              onClick={() => setCheckedIDs(selectableIDs)}
+              disabled={props.busy || !selectable.length}
+              onClick={() => setCheckedIDs(selectable.map((job) => job.id))}
             >
-              {t('Select all images')}
+              {t('Select all')}
             </Button>
             <span className='text-muted-foreground text-xs' aria-live='polite'>
-              {t('{{amount}} images selected', {
-                amount: formatNumber(selectedIDs.length, locale),
+              {t('{{amount}} records selected', {
+                amount: formatNumber(selected.length, locale),
               })}
             </span>
             <Button
+              variant='outline'
+              size='sm'
+              disabled={props.busy || download.isPending || !downloadIDs.length}
+              onClick={() => download.mutate(downloadIDs)}
+            >
+              <Download />
+              {t('Download selected')}
+            </Button>
+            <Button
               variant='destructive'
               size='sm'
-              disabled={props.busy || !selectedIDs.length}
-              onClick={() => props.onDeleteAssets(selectedIDs)}
+              disabled={props.busy || !selected.length}
+              onClick={() => props.onDeleteJobs(selected.map((job) => job.id))}
             >
-              <Trash2 className='size-4' />
-              {t('Delete selected images')}
+              <Trash2 />
+              {t('Delete selected')}
             </Button>
           </>
         )}
         <Button
-          variant='ghost'
+          variant='destructive'
           size='sm'
-          className='ml-auto'
-          disabled={
-            props.busy || !props.jobs.some((job) => !isImageJobActive(job))
-          }
+          className='ms-auto'
+          disabled={props.busy || !selectable.length}
           onClick={props.onClearAll}
         >
-          <Trash2 className='size-4' />
+          <Trash2 />
           {t('Clear all')}
         </Button>
       </div>
-      <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5'>
-        {items.map((item, index) => {
-          const thumbnail = item.job.assets.find(
-            (asset) =>
-              asset.kind === 'thumbnail' &&
-              asset.id === item.asset?.id.replace(/-original$/, '-thumbnail')
-          )
-          const canSelect = !!item.asset && !isImageJobActive(item.job)
-          const checked = selectedIDs.includes(item.id)
-          return (
-            <div key={item.id} className='relative min-w-0'>
-              <Button
-                variant='outline'
-                aria-pressed={
-                  selecting ? checked : props.selectedJobID === item.job.id
-                }
-                disabled={props.busy}
-                onClick={() => {
-                  if (selecting && canSelect) {
-                    setCheckedIDs((ids) =>
-                      checked
-                        ? ids.filter((id) => id !== item.id)
-                        : [...ids, item.id]
-                    )
-                  } else {
-                    props.onSelectJob(item.job.id)
-                  }
-                }}
-                className='aria-pressed:ring-primary h-auto w-full min-w-0 flex-col items-stretch overflow-hidden p-0 text-start aria-pressed:ring-2'
-              >
-                {thumbnail?.url ? (
-                  <img
-                    src={thumbnail.url}
-                    alt={item.job.input.prompt}
-                    loading='lazy'
-                    className='bg-muted aspect-square w-full object-cover'
-                  />
-                ) : (
-                  <div className='bg-muted/50 text-muted-foreground flex aspect-square items-center justify-center text-xs'>
-                    {item.asset?.unavailable
-                      ? t('Image unavailable')
-                      : (statusLabels[item.job.status] ?? item.job.status)}
-                  </div>
-                )}
-                <div className='w-full min-w-0 space-y-1 p-3'>
-                  <p className='truncate text-xs font-normal'>
-                    {item.job.input.prompt}
-                  </p>
-                  <p className='text-muted-foreground truncate text-[11px]'>
-                    {item.job.input.model}
-                  </p>
-                </div>
-              </Button>
-              {selecting && canSelect && (
-                <Checkbox
-                  className='bg-background absolute top-3 left-3 size-5'
-                  checked={checked}
-                  disabled={props.busy}
-                  aria-label={t('Select image {{number}}: {{prompt}}', {
-                    number: formatNumber(index + 1, locale),
-                    prompt: item.job.input.prompt,
-                  })}
-                  onCheckedChange={(value) =>
-                    setCheckedIDs((ids) =>
-                      value
-                        ? [...ids.filter((id) => id !== item.id), item.id]
-                        : ids.filter((id) => id !== item.id)
-                    )
-                  }
-                />
-              )}
-            </div>
-          )
-        })}
+      <div className='grid grid-cols-2 items-start gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
+        {props.jobs.map((job) => (
+          <ImageResult
+            key={job.id}
+            job={job}
+            busy={props.busy}
+            canEdit={props.canEdit(job)}
+            onReuse={props.onReuse}
+            onReference={props.onReference}
+            onDelete={props.onDelete}
+            onDeleteAssets={props.onDeleteAssets}
+            selected={
+              selecting
+                ? selected.some((item) => item.id === job.id)
+                : undefined
+            }
+            onSelect={() =>
+              setCheckedIDs((ids) =>
+                ids.includes(job.id)
+                  ? ids.filter((id) => id !== job.id)
+                  : [...ids, job.id]
+              )
+            }
+          />
+        ))}
       </div>
     </div>
   )

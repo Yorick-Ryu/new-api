@@ -126,7 +126,7 @@ export function ImageCostEstimate(props: ImageCostEstimateProps) {
           role='status'
           aria-label={t('Estimated image cost')}
           title={value}
-          className='truncate text-sm font-medium tabular-nums'
+          className='truncate font-mono text-sm font-medium tabular-nums'
         >
           {value}
         </span>
