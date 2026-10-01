@@ -3135,7 +3135,7 @@
     "Image Tokens": "图像 Token",
     "Image unavailable": "图片不可用",
     "Images and history are saved in this browser for 24 hours. Download anything you want to keep.": "图片和历史记录保存在当前浏览器，24 小时后清理。请及时下载需要保留的作品。",
-    "Images and history are saved in this browser until you delete them. Clearing browser data also removes them.": "图片和历史记录保存在当前浏览器，直到你主动删除。清除浏览器数据也会移除这些内容。",
+    "Images and history are saved in this browser until you delete them. Clearing browser data also removes them.": "生成结果仅保存在本机浏览器，清除浏览器数据可能会删除这些内容。",
     "Images are saved for 24 hours. Download the images you want to keep.": "图片仅保存 24 小时，请及时下载需要保留的作品。",
     "Imagine the pricing table has three groups: default (ratio 1.0), premium (ratio 0.5), and vip (ratio 0.8). Users whose account is in the vip group get user-level perks, and premium is a cheaper channel pool that users can pick for their tokens.": "假设定价分组表里有三个分组：default（倍率 1.0）、premium（倍率 0.5）、vip（倍率 0.8）。账号在 vip 分组的用户享受用户级待遇，premium 则是一个更便宜的渠道池，用户建令牌时可以选它。",
     "Import from URL": "从 URL 导入",
