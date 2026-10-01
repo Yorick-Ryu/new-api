@@ -7056,6 +7056,7 @@
     "With this subscription, {{multipliers}}": "訂閱內 {{multipliers}}",
     "Without additional conditions, only the type above is used for pruning.": "未新增附加條件時，僅使用上方 type 進行清理。",
     "Without linked models": "無關聯模型",
+    "Workbench": "工作台",
     "Worked example": "完整示例",
     "Worker Access Key": "Worker 存取金鑰",
     "Worker instances do not run master-only background tasks.": "worker 實例不執行僅限 master 的背景任務。",

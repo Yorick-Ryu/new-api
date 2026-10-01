@@ -7056,6 +7056,7 @@
     "With this subscription, {{multipliers}}": "Trong gói đăng ký, {{multipliers}}",
     "Without additional conditions, only the type above is used for pruning.": "Không có điều kiện bổ sung, chỉ type ở trên được sử dụng để dọn dẹp.",
     "Without linked models": "Không có mô hình liên kết",
+    "Workbench": "Không gian làm việc",
     "Worked example": "Ví dụ minh họa",
     "Worker Access Key": "Khóa truy cập nhân viên",
     "Worker instances do not run master-only background tasks.": "Phiên bản worker không chạy các tác vụ nền chỉ dành cho master.",

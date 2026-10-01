@@ -24,7 +24,6 @@ import {
   CreditCard,
   Crown,
   FileText,
-  FlaskConical,
   Gift,
   HeartPulse,
   ImagePlus,
@@ -32,6 +31,7 @@ import {
   LayoutDashboard,
   ListTodo,
   MessageSquare,
+  MessageSquareText,
   PlugZap,
   Radio,
   ServerCog,
@@ -62,12 +62,12 @@ export function useSidebarData(): SidebarData {
     navGroups: [
       {
         id: 'chat',
-        title: t('Chat'),
+        title: t('Workbench'),
         items: [
           {
             title: t('Playground'),
             url: '/playground',
-            icon: FlaskConical,
+            icon: MessageSquareText,
           },
           {
             title: t('Image generation'),

@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -37,6 +36,8 @@ import { PlaygroundInputControls } from './playground-input-controls'
 import { PlaygroundInputTools } from './playground-input-tools'
 
 interface PlaygroundInputProps {
+  text: string
+  onTextChange: (text: string) => void
   config: PlaygroundConfig
   onSubmit: (text: string) => void
   onStop?: () => void
@@ -63,6 +64,8 @@ interface PlaygroundInputProps {
 }
 
 export function PlaygroundInput({
+  text,
+  onTextChange,
   config,
   onSubmit,
   onStop,
@@ -82,14 +85,13 @@ export function PlaygroundInput({
   parameterEnabled,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
-  const [text, setText] = useState('')
 
   const handleSubmit = (message: PromptInputMessage) => {
     const submittableText = getSubmittableInputText(message, disabled)
 
     if (!submittableText) return
     onSubmit(submittableText)
-    setText('')
+    onTextChange('')
   }
 
   return (
@@ -106,7 +108,7 @@ export function PlaygroundInput({
           spellCheck={false}
           className='min-h-20 px-5 pt-4 pb-3 leading-7 md:min-h-24 md:text-base'
           disabled={disabled}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => onTextChange(event.target.value)}
           placeholder={t('Ask anything')}
           value={text}
         />

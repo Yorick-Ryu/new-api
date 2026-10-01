@@ -7056,6 +7056,7 @@
     "With this subscription, {{multipliers}}": "このサブスクリプションでは、{{multipliers}}",
     "Without additional conditions, only the type above is used for pruning.": "追加条件がない場合、上記のtypeのみが削除に使用されます。",
     "Without linked models": "関連モデルなし",
+    "Workbench": "ワークスペース",
     "Worked example": "具体例",
     "Worker Access Key": "Workerアクセスキー",
     "Worker instances do not run master-only background tasks.": "worker インスタンスは master 専用のバックグラウンドタスクを実行しません。",

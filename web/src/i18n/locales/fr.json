@@ -7056,6 +7056,7 @@
     "With this subscription, {{multipliers}}": "Avec cet abonnement, {{multipliers}}",
     "Without additional conditions, only the type above is used for pruning.": "Sans conditions supplémentaires, seul le type ci-dessus est utilisé pour le nettoyage.",
     "Without linked models": "Sans modèle associé",
+    "Workbench": "Espace de travail",
     "Worked example": "Exemple détaillé",
     "Worker Access Key": "Clé d'accès du Worker",
     "Worker instances do not run master-only background tasks.": "Les instances worker n’exécutent pas les tâches d’arrière-plan réservées au master.",
