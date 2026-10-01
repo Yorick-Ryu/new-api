@@ -54,6 +54,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
+import { getLobeIcon } from '@/lib/lobe-icon'
+import { resolveModelProvider } from '@/lib/model-provider'
 import { getServerErrorMessage } from '@/lib/server-error-message'
 
 import { createImageJob, type ImageInput, type ImageOptions } from '../api'
@@ -254,18 +256,21 @@ export function ImageForm(props: ImageFormProps) {
               )}
             </Field>
             <div className='flex flex-wrap items-end gap-4'>
-              <Field className='w-36 max-w-full min-w-0 shrink-0'>
+              <Field className='w-60 max-w-full min-w-0 shrink-0'>
                 <FieldLabel>{t('Model')}</FieldLabel>
                 <ModelSelector
                   showLabelOnMobile
                   matchTriggerWidth
-                  popupClassName='min-w-48'
                   searchable={false}
                   showCategories={false}
                   selectedModel={model}
                   models={props.options.models.map((item) => ({
                     value: item.model,
                     label: item.model,
+                    icon: getLobeIcon(
+                      resolveModelProvider(item.model)?.icon,
+                      16
+                    ),
                   }))}
                   disabled={busy || !props.options.available}
                   className='w-full'

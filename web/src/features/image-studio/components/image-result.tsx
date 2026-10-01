@@ -32,6 +32,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatQuotaWithCurrency } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
+import { getLobeIcon } from '@/lib/lobe-icon'
+import { resolveModelProvider } from '@/lib/model-provider'
 import { cn } from '@/lib/utils'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -60,6 +62,7 @@ export function ImageResult(props: ImageResultProps) {
   const [initialSlide, setInitialSlide] = useState<number | null>(null)
   const [slide, setSlide] = useState(0)
   const job = props.job
+  const provider = resolveModelProvider(job.input.model)
   const originals = job.assets.filter((asset) => asset.kind === 'original')
   const active = isImageJobActive(job)
   const overview = initialSlide === null && originals.length > 1
@@ -174,8 +177,16 @@ export function ImageResult(props: ImageResultProps) {
             {job.input.prompt}
           </p>
           <div className='text-muted-foreground flex min-w-0 flex-wrap justify-between gap-x-2 gap-y-1 text-xs'>
-            <span className='truncate' title={job.input.model}>
-              {job.input.model}
+            <span
+              className='flex min-w-0 items-center gap-1'
+              title={job.input.model}
+            >
+              {provider && (
+                <span className='flex shrink-0' aria-hidden='true'>
+                  {getLobeIcon(provider.icon, 14)}
+                </span>
+              )}
+              <span className='truncate'>{job.input.model}</span>
             </span>
             <time dateTime={new Date(job.created_at * 1000).toISOString()}>
               {created}
@@ -267,7 +278,14 @@ export function ImageResult(props: ImageResultProps) {
             </p>
             <dl className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
               <dt className='text-muted-foreground'>{t('Model')}</dt>
-              <dd className='break-words'>{job.input.model}</dd>
+              <dd className='flex min-w-0 items-center gap-1.5'>
+                {provider && (
+                  <span className='flex shrink-0' aria-hidden='true'>
+                    {getLobeIcon(provider.icon, 16)}
+                  </span>
+                )}
+                <span className='min-w-0 break-words'>{job.input.model}</span>
+              </dd>
               <dt className='text-muted-foreground'>{t('Image size')}</dt>
               <dd>{job.input.size.replace('x', '×') || t('Auto')}</dd>
               <dt className='text-muted-foreground'>{t('Quality')}</dt>

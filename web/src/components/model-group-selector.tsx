@@ -70,6 +70,7 @@ import {
 interface ModelOption {
   label: string
   value: string
+  icon?: React.ReactNode
   category?: string
   description?: string
 }
@@ -107,6 +108,7 @@ const ModelTriggerButton = React.forwardRef<
   React.ComponentRef<typeof Button>,
   React.ComponentPropsWithoutRef<typeof Button> & {
     currentLabel: string
+    modelIcon?: React.ReactNode
     triggerClassName?: string
     isDisabled?: boolean
     showLabelOnMobile?: boolean
@@ -115,6 +117,7 @@ const ModelTriggerButton = React.forwardRef<
   (
     {
       currentLabel,
+      modelIcon,
       triggerClassName,
       isDisabled,
       showLabelOnMobile = false,
@@ -142,7 +145,12 @@ const ModelTriggerButton = React.forwardRef<
       )}
       {...props}
     >
-      {!showLabelOnMobile && (
+      {modelIcon && (
+        <span className='flex shrink-0' aria-hidden='true'>
+          {modelIcon}
+        </span>
+      )}
+      {!showLabelOnMobile && !modelIcon && (
         <CpuIcon className='text-muted-foreground block size-4 sm:hidden' />
       )}
       <span
@@ -337,6 +345,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
                       )}
                     >
                       <div className='flex min-w-0 flex-1 items-center gap-1'>
+                        {model.icon && (
+                          <span className='flex shrink-0' aria-hidden='true'>
+                            {model.icon}
+                          </span>
+                        )}
                         <div
                           className={cn(
                             'truncate font-medium',
@@ -370,6 +383,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
           <ModelTriggerButton
             showLabelOnMobile={showLabelOnMobile}
             currentLabel={currentModel?.label || t('Model')}
+            modelIcon={currentModel?.icon}
             triggerClassName={className}
             isDisabled={disabled}
             aria-expanded={open}
@@ -393,6 +407,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
             <ModelTriggerButton
               showLabelOnMobile={showLabelOnMobile}
               currentLabel={currentModel?.label || t('Model')}
+              modelIcon={currentModel?.icon}
               triggerClassName={className}
               isDisabled={disabled}
               aria-expanded={open}
