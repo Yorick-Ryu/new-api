@@ -87,6 +87,7 @@ interface ModelSelectorProps {
   searchable?: boolean
   showCategories?: boolean
   matchTriggerWidth?: boolean
+  popupClassName?: string
   selectedModel: string
   models: ModelOption[]
   onModelChange: (value: string) => void
@@ -215,6 +216,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
     searchable = true,
     showCategories = true,
     matchTriggerWidth = false,
+    popupClassName,
   }) => {
     const { t } = useTranslation()
     const [open, setOpen] = useState(false)
@@ -323,6 +325,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
                       key={model.value}
                       value={model.value}
                       onSelect={handleModelChange}
+                      showIndicator={false}
                       className={cn(
                         'mb-0.5 flex items-center justify-between rounded-lg px-2 py-1.5 text-xs',
                         'transition-all duration-200',
@@ -398,7 +401,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = React.memo(
             'bg-popover z-40 rounded-lg border p-0 !shadow-none',
             matchTriggerWidth
               ? 'w-(--anchor-width)'
-              : 'w-[90vw] max-w-[20em] sm:w-[20em]'
+              : 'w-[90vw] max-w-[20em] sm:w-[20em]',
+            popupClassName
           )}
           align='start'
           side='bottom'

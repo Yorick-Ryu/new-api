@@ -153,7 +153,13 @@ export function ImageForm(props: ImageFormProps) {
 
   useEffect(() => {
     if (!form.getValues('model') && props.options.models[0]) {
-      form.setValue('model', props.options.models[0].model)
+      const defaultModel = props.options.models.find(
+        (item) => item.model === 'gpt-image-2.5'
+      )
+      form.setValue(
+        'model',
+        defaultModel?.model ?? props.options.models[0].model
+      )
     }
   }, [props.options.models, form])
   useEffect(() => {
@@ -247,11 +253,12 @@ export function ImageForm(props: ImageFormProps) {
               )}
             </Field>
             <div className='flex flex-wrap items-end gap-4'>
-              <Field className='min-w-0 shrink-0 sm:w-48'>
+              <Field className='min-w-0 shrink-0 sm:w-40'>
                 <FieldLabel>{t('Model')}</FieldLabel>
                 <ModelSelector
                   showLabelOnMobile
                   matchTriggerWidth
+                  popupClassName='min-w-48'
                   searchable={false}
                   showCategories={false}
                   selectedModel={model}
