@@ -102,11 +102,15 @@ function serveGeneration() {
 describe('local image API history', () => {
   it('polls only active tasks or results still awaiting local delivery', async () => {
     const { studio } = await signedIn()
-    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(false)
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(
+      false
+    )
     serveGeneration()
     await studio.createImageJob(input, 'request-a')
     http.get.mockRejectedValue(new Error('Offline'))
-    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(3000)
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(
+      3000
+    )
     serveGeneration()
     const deliver = http.get.getMockImplementation()
     if (!deliver) throw new Error('Missing generation response fixture')
@@ -119,7 +123,9 @@ describe('local image API history', () => {
     expect(pending[0].status).toBe('success')
     expect(studio.imageJobsRefetchInterval(pending)).toBe(3000)
     serveGeneration()
-    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(false)
+    expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(
+      false
+    )
     for (const status of ['queued', 'running', 'saving']) {
       expect(studio.imageJobsRefetchInterval([{ ...job, status }])).toBe(3000)
     }
@@ -368,4 +374,26 @@ describe('local image API history', () => {
     expect(await studio.getImageJobs()).toHaveLength(1)
     expect(http.delete).not.toHaveBeenCalled()
   })
+})
+
+it('normalizes omitted automatic parameters from both remote results and cached history', async () => {
+  const { studio } = await signedIn()
+  serveGeneration()
+  await studio.createImageJob(input, 'request-a')
+  http.get.mockResolvedValue({
+    data: {
+      success: true,
+      data: [
+        {
+          ...job,
+          status: 'unknown',
+          assets: [],
+          input: { model: input.model, prompt: input.prompt, n: input.n },
+        },
+      ],
+    },
+  })
+  expect((await studio.getImageJobs())[0].input).toEqual(input)
+  http.get.mockRejectedValue(new Error('Offline'))
+  expect((await studio.getImageJobs())[0].input).toEqual(input)
 })

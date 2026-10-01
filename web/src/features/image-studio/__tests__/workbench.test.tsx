@@ -1491,3 +1491,25 @@ it('notifies when a newly submitted task has already failed on its first poll, b
   view.unmount()
   client.clear()
 })
+
+it('renders automatic parameters when the server omits empty size and quality fields', async () => {
+  const input = { model: job.input.model, prompt: job.input.prompt, n: 1 }
+  const remoteJob: ImageJob = JSON.parse(
+    JSON.stringify({ ...job, input, status: 'unknown', assets: [] })
+  )
+  render(
+    <ImageResult
+      job={remoteJob}
+      canEdit
+      onReuse={vi.fn()}
+      onReference={vi.fn()}
+      onDelete={vi.fn()}
+    />,
+    { wrapper }
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+  expect(
+    await screen.findByRole('heading', { name: 'Image details' })
+  ).toBeInTheDocument()
+  expect(screen.getAllByText('Auto')).toHaveLength(2)
+})

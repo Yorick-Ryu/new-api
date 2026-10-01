@@ -211,7 +211,16 @@ export async function getImageJobs(): Promise<ImageJob[]> {
       }
       assets.push({ ...asset, url })
     }
-    result.push({ ...entry.job, assets, pending_delivery: !entry.cached })
+    result.push({
+      ...entry.job,
+      input: {
+        ...entry.job.input,
+        size: entry.job.input.size ?? '',
+        quality: entry.job.input.quality ?? '',
+      },
+      assets,
+      pending_delivery: !entry.cached,
+    })
   }
   assertCurrentUser(userID)
   return result

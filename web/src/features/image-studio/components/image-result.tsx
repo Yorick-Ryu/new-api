@@ -287,7 +287,7 @@ export function ImageResult(props: ImageResultProps) {
                 <span className='min-w-0 break-words'>{job.input.model}</span>
               </dd>
               <dt className='text-muted-foreground'>{t('Image size')}</dt>
-              <dd>{job.input.size.replace('x', '×') || t('Auto')}</dd>
+              <dd>{job.input.size?.replace('x', '×') || t('Auto')}</dd>
               <dt className='text-muted-foreground'>{t('Quality')}</dt>
               <dd>{qualityLabels[job.input.quality] ?? t('Auto')}</dd>
               <dt className='text-muted-foreground'>{t('Number of images')}</dt>
