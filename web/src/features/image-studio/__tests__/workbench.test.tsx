@@ -43,6 +43,7 @@ import {
 import * as imageAPI from '../api'
 import type { ImageJob, ImageOptions } from '../api'
 import { ImageForm } from '../components/image-form'
+import { ImageReferencePreview } from '../components/image-references'
 import { ImageResult } from '../components/image-result'
 import { ImageStudio } from '../index'
 
@@ -746,6 +747,92 @@ describe('Image workbench', () => {
     ).toBeInTheDocument()
     expect(post).not.toHaveBeenCalled()
   })
+  it('gives long model names the remaining detail width after the labels', async () => {
+    const model = 'gpt-image-2.5-sunburst'
+    render(
+      <ImageResult
+        job={{ ...job, input: { ...job.input, model } }}
+          canEdit
+        onReference={vi.fn()}
+        onReuse={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Image details' })
+    const value = within(dialog).getByText(model)
+    expect(value.closest('dl')).toHaveClass(
+      'grid-cols-[max-content_minmax(0,1fr)]'
+    )
+    expect(value).toHaveClass('break-words')
+  })
+  it('opens a reference thumbnail without the upload popover and removes it from the form', async () => {
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={{
+          id: 'preview-ref',
+          name: 'reference.png',
+          url: 'blob:reference-preview',
+        }}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    expect(screen.getByRole('img', { name: 'reference.png' })).toHaveAttribute(
+      'src',
+      'blob:reference-preview'
+    )
+    expect(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    ).toHaveTextContent('1/4')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Image Preview: reference.png' })
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Image Preview' })
+    expect(
+      within(dialog).getByRole('img', { name: 'reference.png' })
+    ).toHaveAttribute('src', 'blob:reference-preview')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Remove reference image: reference.png',
+      })
+    )
+    expect(
+      screen.queryByRole('group', { name: 'Reference images' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    ).not.toHaveTextContent('1/4')
+  })
+  it('releases an uploaded reference preview URL when the thumbnail is removed', () => {
+    const createURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:uploaded-reference')
+    const revokeURL = vi.spyOn(URL, 'revokeObjectURL')
+    const blob = new File(['image'], 'reference.png', { type: 'image/png' })
+    const view = render(
+      <ImageReferencePreview
+        reference={{ id: 'ref', name: blob.name, blob }}
+        disabled={false}
+        onRemove={vi.fn()}
+      />,
+      { wrapper }
+    )
+    expect(createURL).toHaveBeenCalledWith(blob)
+    expect(screen.getByRole('img', { name: blob.name })).toHaveAttribute(
+      'src',
+      'blob:uploaded-reference'
+    )
+    view.unmount()
+    expect(revokeURL).toHaveBeenCalledWith('blob:uploaded-reference')
+  })
   it('uploads four references, removes one, and submits the remaining references in order', async () => {
     let finishUploads!: () => void
     const uploadsReady = new Promise<void>((resolve) => {
@@ -793,6 +880,9 @@ describe('Image workbench', () => {
       ).toBeDisabled()
     )
     finishUploads()
+    await waitFor(() =>
+      expect(screen.getAllByRole('img', { name: /ref-\d.png/ })).toHaveLength(4)
+    )
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Remove reference image: ref-2.png',

@@ -35,6 +35,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import {
   cloneImageReference,
+  getImageURL,
   deleteImageAssets,
   deleteImageJobs,
   getImageJobs,
@@ -109,6 +110,7 @@ function ImageStudioWorkspace() {
   const [reference, setReference] = useState<{
     id: string
     name: string
+    url: string
   } | null>(null)
   const [deleting, setDeleting] = useState<{
     ids: string[]
@@ -137,9 +139,12 @@ function ImageStudioWorkspace() {
       if (!referenceState.enabled) {
         throw new Error(t('Image editing is not supported by this model'))
       }
-      return cloneImageReference(value.assetID)
+      const url = await getImageURL(value.assetID)
+      const id = await cloneImageReference(value.assetID)
+      return { id, url }
     },
-    onSuccess: (id) => setReference({ id, name: t('Generated image') }),
+    onSuccess: (reference) =>
+      setReference({ ...reference, name: t('Generated image') }),
   })
   let deleteTitle = t('Delete image generation?')
   let deleteDescription = t(

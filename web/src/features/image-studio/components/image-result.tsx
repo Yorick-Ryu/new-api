@@ -404,7 +404,7 @@ export function ImageResult(props: ImageResultProps) {
             <p className='max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap'>
               {job.input.prompt}
             </p>
-            <dl className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
+            <dl className='grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm'>
               <dt className='text-muted-foreground'>{t('Model')}</dt>
               <dd className='flex min-w-0 items-center gap-1.5'>
                 {provider && (

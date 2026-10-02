@@ -61,7 +61,11 @@ import { getServerErrorMessage } from '@/lib/server-error-message'
 import { createImageJob, type ImageInput, type ImageOptions } from '../api'
 import { formatAspectRatio } from '../lib/aspect-ratio'
 import { ImageCostEstimate } from './image-cost-estimate'
-import { ImageReferences, type ImageReference } from './image-references'
+import {
+  ImageReferences,
+  ImageReferencePreview,
+  type ImageReference,
+} from './image-references'
 import { ImageSizePicker } from './image-size-picker'
 
 const schema = z.object({
@@ -103,7 +107,7 @@ const defaults: ImageInput = {
 type ImageFormProps = {
   options: ImageOptions
   reuse: { input: ImageInput; version: number } | null
-  reference: { id: string; name: string } | null
+  reference: ImageReference | null
   referencePending?: boolean
   onReferenceStateChange?: (state: { count: number; enabled: boolean }) => void
   onCreated: (id: string) => void
@@ -255,6 +259,32 @@ export function ImageForm(props: ImageFormProps) {
                 </FieldError>
               )}
             </Field>
+            {references.length > 0 && (
+              <div
+                className='flex flex-wrap gap-3'
+                role='group'
+                aria-label={t('Reference images')}
+              >
+                {references.map((reference) => (
+                  <ImageReferencePreview
+                    key={reference.id}
+                    reference={reference}
+                    disabled={busy}
+                    onRemove={() => {
+                      const next = references.filter(
+                        (item) => item.id !== reference.id
+                      )
+                      setReferences(next)
+                      form.setValue('reference_id', undefined)
+                      form.setValue(
+                        'reference_ids',
+                        next.map((item) => item.id)
+                      )
+                    }}
+                  />
+                ))}
+              </div>
+            )}
             <div className='flex flex-wrap items-end gap-4'>
               <Field className='w-60 max-w-full min-w-0 shrink-0'>
                 <FieldLabel>{t('Model')}</FieldLabel>

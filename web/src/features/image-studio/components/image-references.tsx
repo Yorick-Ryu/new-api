@@ -21,6 +21,7 @@ import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import {
   Field,
@@ -33,7 +34,12 @@ import { getServerErrorMessage } from '@/lib/server-error-message'
 
 import { uploadReference } from '../api'
 
-export type ImageReference = { id: string; name: string }
+export type ImageReference = {
+  id: string
+  name: string
+  blob?: Blob
+  url?: string
+}
 
 type ImageReferencesProps = {
   value: ImageReference[]
@@ -53,6 +59,7 @@ export function ImageReferences(props: ImageReferencesProps) {
         files.map(async (file) => ({
           id: await uploadReference(file),
           name: file.name,
+          blob: file,
         }))
       ),
   })
@@ -136,29 +143,68 @@ export function ImageReferences(props: ImageReferencesProps) {
           {t('Uploading…')}
         </span>
       )}
-      {props.value.map((reference) => (
-        <div
-          key={reference.id}
-          className='flex min-w-0 items-center gap-2 text-xs'
-        >
-          <span className='min-w-0 flex-1 truncate'>{reference.name}</span>
+    </Field>
+  )
+}
+
+export function ImageReferencePreview(props: {
+  reference: ImageReference
+  disabled: boolean
+  onRemove: () => void
+}) {
+  const { t } = useTranslation()
+  const [url, setURL] = useState(props.reference.url)
+  useEffect(() => {
+    if (!props.reference.blob) {
+      setURL(props.reference.url)
+      return
+    }
+    const objectURL = URL.createObjectURL(props.reference.blob)
+    setURL(objectURL)
+    return () => URL.revokeObjectURL(objectURL)
+  }, [props.reference.blob, props.reference.url])
+  return (
+    <div className='relative size-14 shrink-0'>
+      <Dialog
+        title={t('Image Preview')}
+        trigger={
           <Button
             type='button'
-            size='icon-xs'
-            variant='ghost'
-            disabled={busy}
-            aria-label={`${t('Remove reference image')}: ${reference.name}`}
-            onClick={() => {
-              props.onChange(
-                props.value.filter((item) => item.id !== reference.id)
-              )
-              setError('')
-            }}
+            variant='outline'
+            className='size-14 overflow-hidden p-0'
+            aria-label={`${t('Image Preview')}: ${props.reference.name}`}
           >
-            <X className='size-4' />
+            {url ? (
+              <img
+                src={url}
+                alt={props.reference.name}
+                className='size-full object-cover'
+              />
+            ) : (
+              <ImagePlus aria-hidden='true' />
+            )}
           </Button>
-        </div>
-      ))}
-    </Field>
+        }
+      >
+        {url && (
+          <img
+            src={url}
+            alt={props.reference.name}
+            className='max-h-[65vh] w-full rounded-lg object-contain'
+          />
+        )}
+      </Dialog>
+      <Button
+        type='button'
+        size='icon-xs'
+        variant='outline'
+        className='bg-background absolute -top-1 -right-1 size-5 rounded-full'
+        disabled={props.disabled}
+        aria-label={`${t('Remove reference image')}: ${props.reference.name}`}
+        onClick={props.onRemove}
+      >
+        <X className='size-3' aria-hidden='true' />
+      </Button>
+    </div>
   )
 }
