@@ -265,9 +265,9 @@ export function ImageResult(props: ImageResultProps) {
           <p className='truncate text-xs' title={job.input.prompt}>
             {job.input.prompt}
           </p>
-          <div className='text-foreground flex min-w-0 flex-wrap justify-between gap-x-2 gap-y-1 text-xs'>
+          <div className='text-foreground flex min-w-0 items-center gap-2 text-xs'>
             <span
-              className='flex min-w-0 items-center gap-1'
+              className='flex min-w-0 flex-1 items-center gap-1 overflow-hidden'
               title={job.input.model}
             >
               {provider && (
@@ -277,7 +277,11 @@ export function ImageResult(props: ImageResultProps) {
               )}
               <span className='truncate'>{job.input.model}</span>
             </span>
-            <time dateTime={new Date(job.created_at * 1000).toISOString()}>
+            <time
+              className='max-w-full shrink-0 truncate'
+              title={created}
+              dateTime={new Date(job.created_at * 1000).toISOString()}
+            >
               {created}
             </time>
           </div>
