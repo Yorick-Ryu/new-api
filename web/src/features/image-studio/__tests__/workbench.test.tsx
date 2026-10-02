@@ -43,6 +43,7 @@ import {
 import * as imageAPI from '../api'
 import type { ImageJob, ImageOptions } from '../api'
 import { ImageForm } from '../components/image-form'
+import { ImageGallery } from '../components/image-gallery'
 import { ImageReferencePreview } from '../components/image-references'
 import { ImageResult } from '../components/image-result'
 import { ImageStudio } from '../index'
@@ -1935,4 +1936,66 @@ it('keeps the original card and switches images in one dialog with vertical arro
   fireEvent.keyDown(first, { key: 'ArrowUp' })
   expect(second).toHaveAttribute('aria-pressed', 'true')
   expect(second).toHaveFocus()
+})
+
+it('lays nine equal-height results across responsive grid columns and remeasures changed heights', () => {
+  let height = 300
+  const callbacks: Array<() => void> = []
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+    () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 200,
+      bottom: height,
+      width: 200,
+      height,
+      toJSON: () => ({}),
+    })
+  )
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+  )
+  render(
+    <ImageGallery
+      jobs={Array.from({ length: 9 }, (_, i) => ({ ...job, id: `equal-${i}` }))}
+      busy={false}
+      canEdit={() => true}
+      onReuse={vi.fn()}
+      onReference={vi.fn()}
+      onDelete={vi.fn()}
+      onDeleteJobs={vi.fn()}
+      onDeleteAssets={vi.fn()}
+      onClearAll={vi.fn()}
+    />,
+    { wrapper }
+  )
+  const cards = screen.getAllByRole('article')
+  expect(cards).toHaveLength(9)
+  const grid = cards[0].parentElement?.parentElement
+  expect(grid).toHaveClass(
+    'grid',
+    'grid-cols-2',
+    'lg:grid-cols-4',
+    'auto-rows-[1px]'
+  )
+  for (const card of cards) {
+    expect(card.parentElement).toHaveStyle({ gridRowEnd: 'span 300' })
+  }
+  act(() => {
+    height = 450
+    callbacks.forEach((callback) => callback())
+  })
+  for (const card of cards) {
+    expect(card.parentElement).toHaveStyle({ gridRowEnd: 'span 450' })
+  }
 })

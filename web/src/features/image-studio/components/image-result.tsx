@@ -278,7 +278,7 @@ export function ImageResult(props: ImageResultProps) {
               <span className='truncate'>{job.input.model}</span>
             </span>
             <time
-              className='max-w-full shrink-0 truncate'
+              className='hidden max-w-full shrink-0 truncate md:block'
               title={created}
               dateTime={new Date(job.created_at * 1000).toISOString()}
             >
@@ -286,14 +286,11 @@ export function ImageResult(props: ImageResultProps) {
             </time>
           </div>
           <span className='sr-only'>{status}</span>
-          <div
-            data-record-actions
-            className='grid grid-cols-1 gap-2 sm:grid-cols-2'
-          >
+          <div data-record-actions className='grid grid-cols-2 gap-2'>
             <Button
               variant='outline'
               size='sm'
-              className='min-w-0'
+              className='min-w-0 gap-1 px-1.5'
               onClick={openDetails}
             >
               <Info />
@@ -302,7 +299,7 @@ export function ImageResult(props: ImageResultProps) {
             <Button
               variant='outline'
               size='sm'
-              className='min-w-0'
+              className='min-w-0 gap-1 px-1.5'
               disabled={download.isPending || !downloadable.length}
               onClick={() =>
                 download.mutate(downloadable.map((asset) => asset.id))

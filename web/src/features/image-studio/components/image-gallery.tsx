@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
 import { Download, ListChecks, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -114,9 +114,9 @@ export function ImageGallery(props: ImageGalleryProps) {
           {t('Clear all')}
         </Button>
       </div>
-      <div className='columns-2 gap-3 md:columns-3 lg:columns-4 xl:columns-5'>
+      <div className='grid auto-rows-[1px] grid-cols-2 items-start gap-x-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
         {props.jobs.map((job) => (
-          <div key={job.id} className='break-inside-avoid pb-3'>
+          <ImageGalleryItem key={job.id}>
             <ImageResult
               job={job}
               busy={props.busy}
@@ -138,9 +138,33 @@ export function ImageGallery(props: ImageGalleryProps) {
                 )
               }
             />
-          </div>
+          </ImageGalleryItem>
         ))}
       </div>
+    </div>
+  )
+}
+
+function ImageGalleryItem({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [rows, setRows] = useState(1)
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const measure = () =>
+      setRows(Math.max(1, Math.ceil(element.getBoundingClientRect().height)))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <div
+      ref={ref}
+      className='min-w-0 pb-3'
+      style={{ gridRowEnd: `span ${rows}` }}
+    >
+      {children}
     </div>
   )
 }
