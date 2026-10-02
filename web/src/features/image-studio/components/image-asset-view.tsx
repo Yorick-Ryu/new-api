@@ -26,7 +26,11 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { getImageURL, type ImageAsset } from '../api'
 
-export function ImageAssetView(props: { asset: ImageAsset; cover?: boolean }) {
+export function ImageAssetView(props: {
+  asset: ImageAsset
+  cover?: boolean
+  className?: string
+}) {
   const { t } = useTranslation()
   const userID = useAuthStore((state) => state.auth.user?.id)
   const [failed, setFailed] = useState(false)
@@ -60,7 +64,8 @@ export function ImageAssetView(props: { asset: ImageAsset; cover?: boolean }) {
         'bg-muted w-full',
         props.cover
           ? 'aspect-square object-cover'
-          : 'max-h-[55vh] rounded-lg object-contain'
+          : 'max-h-[55vh] rounded-lg object-contain',
+        props.className
       )}
       onError={() => setFailed(true)}
     />

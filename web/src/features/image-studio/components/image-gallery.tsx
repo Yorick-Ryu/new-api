@@ -114,30 +114,31 @@ export function ImageGallery(props: ImageGalleryProps) {
           {t('Clear all')}
         </Button>
       </div>
-      <div className='grid grid-cols-2 items-start gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
+      <div className='columns-2 gap-3 md:columns-3 lg:columns-4 xl:columns-5'>
         {props.jobs.map((job) => (
-          <ImageResult
-            key={job.id}
-            job={job}
-            busy={props.busy}
-            canEdit={props.canEdit(job)}
-            onReuse={props.onReuse}
-            onReference={props.onReference}
-            onDelete={props.onDelete}
-            onDeleteAssets={props.onDeleteAssets}
-            selected={
-              selecting
-                ? selected.some((item) => item.id === job.id)
-                : undefined
-            }
-            onSelect={() =>
-              setCheckedIDs((ids) =>
-                ids.includes(job.id)
-                  ? ids.filter((id) => id !== job.id)
-                  : [...ids, job.id]
-              )
-            }
-          />
+          <div key={job.id} className='break-inside-avoid pb-3'>
+            <ImageResult
+              job={job}
+              busy={props.busy}
+              canEdit={props.canEdit(job)}
+              onReuse={props.onReuse}
+              onReference={props.onReference}
+              onDelete={props.onDelete}
+              onDeleteAssets={props.onDeleteAssets}
+              selected={
+                selecting
+                  ? selected.some((item) => item.id === job.id)
+                  : undefined
+              }
+              onSelect={() =>
+                setCheckedIDs((ids) =>
+                  ids.includes(job.id)
+                    ? ids.filter((id) => id !== job.id)
+                    : [...ids, job.id]
+                )
+              }
+            />
+          </div>
         ))}
       </div>
     </div>

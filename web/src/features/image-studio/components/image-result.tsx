@@ -192,7 +192,10 @@ export function ImageResult(props: ImageResultProps) {
           onClick={openDetails}
         >
           {originals[0] ? (
-            <ImageAssetView asset={originals[0]} cover />
+            <ImageAssetView
+              asset={originals[0]}
+              className='h-auto max-h-none rounded-none'
+            />
           ) : (
             <div
               role={active ? 'status' : undefined}
