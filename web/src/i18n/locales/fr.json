@@ -7129,6 +7129,10 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "An identical image task is already in progress": "Une génération identique est déjà en cours",
+    "Generate another set with the same prompt and settings?": "Générer un autre lot avec la même description et les mêmes paramètres ?",
+    "Generate another set": "Générer un autre lot",
+    "Image aspect ratio: {{ratio}}": "Format de l’image : {{ratio}}"
   }
 }

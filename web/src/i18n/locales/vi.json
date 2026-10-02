@@ -7129,6 +7129,10 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "An identical image task is already in progress": "Nội dung giống hệt đang được tạo",
+    "Generate another set with the same prompt and settings?": "Tạo thêm một bộ với cùng lời nhắc và cài đặt?",
+    "Generate another set": "Tạo thêm một bộ",
+    "Image aspect ratio: {{ratio}}": "Tỷ lệ khung hình: {{ratio}}"
   }
 }

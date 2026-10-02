@@ -132,6 +132,7 @@ func GetOrCreateImageStudioToken(userID int, imageModels []string) (*Token, erro
 	return &token, nil
 }
 
+var ErrImageStudioDuplicate = errors.New("identical image task is active")
 var ErrImageStudioBusy = errors.New("too many active image tasks")
 var ErrImageStudioConflict = errors.New("request key already used with different parameters")
 var ErrImageStudioReferences = errors.New("invalid reference image selections")
@@ -155,7 +156,7 @@ func ValidateImageStudioReferenceIDs(ids []string) error {
 
 // CreateImageStudioJob serializes submissions per user, including concurrent
 // retries. The unique key also protects installations using SQLite.
-func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string) (*ImageStudioJob, error) {
+func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string, confirmDuplicate bool) (*ImageStudioJob, error) {
 	if err := ValidateImageStudioReferenceIDs(referenceIDs); err != nil {
 		return nil, err
 	}
@@ -174,6 +175,15 @@ func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string) (*ImageStu
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+		if !confirmDuplicate && job.RequestHash != "" {
+			var duplicates int64
+			if err := tx.Model(&ImageStudioJob{}).Where("user_id = ? AND parent_id = ? AND request_hash = ? AND status IN ?", job.UserID, "", job.RequestHash, []string{"queued", "running", "saving", "group"}).Count(&duplicates).Error; err != nil {
+				return err
+			}
+			if duplicates > 0 {
+				return ErrImageStudioDuplicate
+			}
 		}
 		var active int64
 		if err := tx.Model(&ImageStudioJob{}).Where("user_id = ? AND parent_id = ? AND status IN ?", job.UserID, "", []string{"queued", "running", "saving", "group"}).Count(&active).Error; err != nil {

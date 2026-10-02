@@ -28,7 +28,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -49,7 +49,6 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { isImageJobActive, type ImageJob } from '../api'
 import { downloadImages } from '../lib/download-images'
 import { ImageAssetView } from './image-asset-view'
-import { ImageViewer } from './image-viewer'
 
 type ImageResultProps = {
   job: ImageJob
@@ -68,13 +67,12 @@ export function ImageResult(props: ImageResultProps) {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   useSystemConfigStore((state) => state.config.currency)
   const [open, setOpen] = useState(false)
-  const [initialSlide, setInitialSlide] = useState<number | null>(null)
-  const [slide, setSlide] = useState(0)
+  const thumbnailButtons = useRef<Array<HTMLButtonElement | null>>([])
+  const [selectedSlotID, setSelectedSlotID] = useState<string | null>(null)
   const job = props.job
   const provider = resolveModelProvider(job.input.model)
   const originals = job.assets.filter((asset) => asset.kind === 'original')
   const active = isImageJobActive(job)
-  const ResultState = job.status === 'failed' ? ErrorState : EmptyState
   const statusIcons: Record<string, typeof CircleAlert> = {
     failed: CircleAlert,
     unknown: CircleHelp,
@@ -94,9 +92,39 @@ export function ImageResult(props: ImageResultProps) {
       status: 'success',
       error: undefined,
     }))
-  const overview = initialSlide === null && slots.length > 1
+  const selectedSlot =
+    slots.find((item) => item.id === selectedSlotID) ?? slots[0]
+  const current = selectedSlot
+    ? originals.find((asset) => asset.id === selectedSlot.asset_id)
+    : originals[0]
+  const selectedStatus = selectedSlot?.status ?? job.status
+  const ResultState = selectedStatus === 'failed' ? ErrorState : EmptyState
+  const selectedPending = ['queued', 'running', 'saving'].includes(
+    selectedStatus
+  )
   const completed = slots.filter((item) => item.status === 'success').length
-  const current = originals[Math.min(slide, originals.length - 1)]
+  useEffect(() => {
+    if (!open || slots.length < 2) return
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      if (
+        (event.target as HTMLElement).closest(
+          'input,textarea,[contenteditable="true"],[role="alertdialog"]'
+        )
+      ) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      const count = Math.min(slots.length, 4)
+      const index = slots.findIndex((item) => item.id === selectedSlot?.id)
+      const next = (index + (event.key === 'ArrowUp' ? -1 : 1) + count) % count
+      setSelectedSlotID(slots[next].id)
+      thumbnailButtons.current[next]?.focus()
+    }
+    document.addEventListener('keydown', keydown, true)
+    return () => document.removeEventListener('keydown', keydown, true)
+  }, [open, slots, selectedSlot?.id])
   const downloadable = originals.filter((asset) => !asset.unavailable)
   const download = useMutation({ mutationFn: downloadImages })
   const reference = useMutation({
@@ -128,8 +156,7 @@ export function ImageResult(props: ImageResultProps) {
     timeStyle: 'short',
   }).format(new Date(job.created_at * 1000))
   const openDetails = () => {
-    setInitialSlide(null)
-    setSlide(0)
+    setSelectedSlotID(null)
     setOpen(true)
   }
   return (
@@ -160,7 +187,7 @@ export function ImageResult(props: ImageResultProps) {
       >
         <Button
           variant='ghost'
-          className='bg-muted/40 relative h-auto w-full overflow-hidden rounded-none p-0'
+          className='bg-muted/40 relative h-auto w-full overflow-hidden rounded-none border-0 p-0'
           aria-label={t('Preview generated image')}
           onClick={openDetails}
         >
@@ -287,117 +314,100 @@ export function ImageResult(props: ImageResultProps) {
         contentClassName='sm:max-w-4xl'
       >
         <div className='grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'>
-          <div
-            className={cn(
-              'min-w-0',
-              !originals.length && 'flex flex-col justify-center'
-            )}
-          >
-            {!originals.length &&
-              !overview &&
-              (active ? (
+          <div className='flex min-w-0 items-stretch gap-3 self-start'>
+            <div
+              className='bg-muted/40 flex aspect-square min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg [&_img]:h-full [&_img]:max-h-full'
+              aria-label={t('Image Preview')}
+              role='region'
+            >
+              {current && <ImageAssetView key={current.id} asset={current} />}
+              {!current && selectedPending && (
                 <div
                   role='status'
                   className='image-studio-pending relative aspect-square w-full overflow-hidden'
                 >
-                  <span className='sr-only'>{status}</span>
+                  <span className='sr-only'>
+                    {statusLabels[selectedStatus] ?? selectedStatus}
+                  </span>
                 </div>
-              ) : (
+              )}
+              {!current && !selectedPending && (
                 <ResultState
-                  icon={statusIcons[job.status]}
-                  className='min-h-0 py-6 md:p-6'
-                  title={status}
-                  description={job.error ? t(job.error) : undefined}
+                  icon={statusIcons[selectedStatus]}
+                  className={cn(
+                    'min-h-0 p-3',
+                    '[&_[data-slot=empty-header]]:flex-row [&_[data-slot=empty-header]]:flex-wrap [&_[data-slot=empty-header]]:justify-center',
+                    '[&_[data-slot=empty-icon]]:mb-0 [&_[data-slot=empty-icon]]:size-4 [&_[data-slot=empty-icon]]:bg-transparent [&_[data-slot=empty-icon]_svg]:size-4',
+                    '[&_[data-slot=empty-description]]:basis-full [&_[data-slot=empty-content]:empty]:hidden'
+                  )}
+                  title={statusLabels[selectedStatus] ?? selectedStatus}
+                  description={
+                    selectedSlot?.error || job.error
+                      ? t(selectedSlot?.error || job.error || '')
+                      : undefined
+                  }
                 />
-              ))}
-            {overview && (
-              <div className='grid grid-cols-2 gap-3'>
-                {slots.map((item, index) => {
-                  const assetIndex = originals.findIndex(
-                    (asset) => asset.id === item.asset_id
-                  )
-                  const asset = originals[assetIndex]
-                  const pending = ['queued', 'running', 'saving'].includes(
-                    item.status
-                  )
-                  const Icon = statusIcons[item.status] ?? ImageOff
-                  return asset ? (
-                    <Button
-                      key={item.id}
-                      variant='ghost'
-                      className='bg-muted relative h-auto overflow-hidden p-0'
-                      aria-label={t('View image {{number}}', {
-                        number: formatNumber(index + 1, locale),
-                      })}
-                      onClick={() => {
-                        setInitialSlide(assetIndex)
-                        setSlide(assetIndex)
-                      }}
-                    >
-                      <ImageAssetView asset={asset} cover />
-                      <Badge
-                        variant='secondary'
-                        className='absolute end-2 bottom-2 min-w-[4ch] justify-center font-mono tabular-nums'
+              )}
+            </div>
+            {slots.length > 1 && (
+              <div className='relative w-[18%] max-w-20 shrink-0'>
+                <div className='absolute inset-0 grid grid-rows-4 gap-2'>
+                  {slots.slice(0, 4).map((item, index) => {
+                    const asset = originals.find(
+                      (image) => image.id === item.asset_id
+                    )
+                    const pending = ['queued', 'running', 'saving'].includes(
+                      item.status
+                    )
+                    const Icon = statusIcons[item.status] ?? ImageOff
+                    return (
+                      <Button
+                        key={item.id}
+                        ref={(element) => {
+                          thumbnailButtons.current[index] = element
+                        }}
+                        variant='ghost'
+                        aria-label={t('View image {{number}}', {
+                          number: formatNumber(index + 1, locale),
+                        })}
+                        aria-pressed={selectedSlot?.id === item.id}
+                        className={cn(
+                          'bg-muted relative h-full min-h-0 w-full overflow-hidden rounded-md border-0 p-0 [&_img]:h-full',
+                          selectedSlot?.id === item.id &&
+                            'after:ring-primary after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-2 after:ring-inset'
+                        )}
+                        onClick={() => setSelectedSlotID(item.id)}
                       >
-                        {formatNumber(index + 1, locale)}/
-                        {formatNumber(slots.length, locale)}
-                      </Badge>
-                    </Button>
-                  ) : (
-                    <div
-                      key={item.id}
-                      role={pending ? 'status' : undefined}
-                      className={cn(
-                        'bg-muted relative flex aspect-square items-center justify-center overflow-hidden rounded-md p-3',
-                        pending && 'image-studio-pending'
-                      )}
-                      aria-label={t('Image {{number}}: {{status}}', {
-                        number: formatNumber(index + 1, locale),
-                        status: statusLabels[item.status] ?? item.status,
-                      })}
-                    >
-                      {pending ? (
-                        <span className='sr-only'>
-                          {statusLabels[item.status]}
-                        </span>
-                      ) : (
-                        <div className='flex flex-col items-center gap-2 text-center text-sm'>
-                          <Icon
+                        {asset ? (
+                          <ImageAssetView key={asset.id} asset={asset} cover />
+                        ) : (
+                          <span
+                            role={pending ? 'status' : undefined}
+                            aria-label={t('Image {{number}}: {{status}}', {
+                              number: formatNumber(index + 1, locale),
+                              status: statusLabels[item.status] ?? item.status,
+                            })}
                             className={cn(
-                              'size-6',
-                              item.status === 'failed' && 'text-destructive'
+                              'flex size-full items-center justify-center',
+                              pending && 'image-studio-pending'
                             )}
-                            aria-hidden='true'
-                          />
-                          <span>
-                            {statusLabels[item.status] ?? item.status}
+                          >
+                            {!pending && (
+                              <Icon
+                                className={cn(
+                                  'size-5',
+                                  item.status === 'failed' && 'text-destructive'
+                                )}
+                                aria-hidden='true'
+                              />
+                            )}
                           </span>
-                          {item.error && (
-                            <p className='text-muted-foreground text-xs'>
-                              {t(item.error)}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      <Badge
-                        variant='secondary'
-                        className='absolute end-2 bottom-2 min-w-[4ch] justify-center font-mono tabular-nums'
-                      >
-                        {formatNumber(index + 1, locale)}/
-                        {formatNumber(slots.length, locale)}
-                      </Badge>
-                    </div>
-                  )
-                })}
+                        )}
+                      </Button>
+                    )
+                  })}
+                </div>
               </div>
-            )}
-            {!overview && originals.length > 0 && (
-              <ImageViewer
-                key={originals.map((asset) => asset.id).join(',')}
-                assets={originals}
-                initialIndex={Math.min(initialSlide ?? 0, originals.length - 1)}
-                onSelect={setSlide}
-              />
             )}
           </div>
           <div className='flex min-w-0 flex-col gap-4'>
@@ -436,22 +446,26 @@ export function ImageResult(props: ImageResultProps) {
                 variant='outline'
                 size='sm'
                 disabled={
-                  download.isPending ||
-                  (overview
-                    ? !downloadable.length
-                    : !current || !!current.unavailable)
+                  download.isPending || !current || !!current.unavailable
                 }
-                onClick={() =>
-                  download.mutate(
-                    overview
-                      ? downloadable.map((asset) => asset.id)
-                      : [current.id]
-                  )
-                }
+                onClick={() => current && download.mutate([current.id])}
               >
                 <Download />
-                {overview ? t('Download all') : t('Download image')}
+                {t('Download image')}
               </Button>
+              {slots.length > 1 && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={download.isPending || !downloadable.length}
+                  onClick={() =>
+                    download.mutate(downloadable.map((asset) => asset.id))
+                  }
+                >
+                  <Download />
+                  {t('Download all')}
+                </Button>
+              )}
               <Button
                 variant='outline'
                 size='sm'
@@ -467,17 +481,33 @@ export function ImageResult(props: ImageResultProps) {
               <Button
                 variant='destructive'
                 size='sm'
-                disabled={props.busy || active || reference.isPending}
+                disabled={
+                  props.busy ||
+                  active ||
+                  reference.isPending ||
+                  (slots.length > 1 && (!current || !props.onDeleteAssets))
+                }
                 onClick={() => {
-                  if (!overview && originals.length > 1) {
+                  if (slots.length > 1 && current) {
                     props.onDeleteAssets?.([current.id])
                   } else props.onDelete(job)
                 }}
               >
                 <Trash2 />
-                {overview ? t('Delete all') : t('Delete image')}
+                {t('Delete image')}
               </Button>
-              {!overview && current && (
+              {slots.length > 1 && (
+                <Button
+                  variant='destructive'
+                  size='sm'
+                  disabled={props.busy || active || reference.isPending}
+                  onClick={() => props.onDelete(job)}
+                >
+                  <Trash2 />
+                  {t('Delete all')}
+                </Button>
+              )}
+              {current && (
                 <Button
                   variant='outline'
                   size='sm'

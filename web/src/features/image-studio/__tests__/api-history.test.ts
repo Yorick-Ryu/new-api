@@ -100,6 +100,32 @@ function serveGeneration() {
 }
 
 describe('local image API history', () => {
+  it('removes the unsubmitted placeholder on duplicate conflict and sends confirmation only when requested', async () => {
+    const { studio } = await signedIn()
+    const { imageHistory } = await import('../lib/local-history')
+    const conflict = Object.assign(new Error('duplicate'), {
+      isAxiosError: true,
+      response: { status: 409, data: { code: 'image_task_duplicate' } },
+    })
+    http.post.mockRejectedValueOnce(conflict)
+    await expect(studio.createImageJob(input, 'duplicate-key')).rejects.toBe(
+      conflict
+    )
+    expect(await imageHistory.list(1)).toHaveLength(0)
+    expect(http.post.mock.calls[0][2].headers).not.toHaveProperty(
+      'X-Confirm-Duplicate'
+    )
+    http.post.mockResolvedValueOnce({
+      data: { success: true, data: { id: 'confirmed-task' } },
+    })
+    await studio.createImageJob(input, 'duplicate-key', true)
+    expect(http.post.mock.calls[1][2].headers).toEqual({
+      'Idempotency-Key': 'duplicate-key',
+      'X-Confirm-Duplicate': 'true',
+    })
+    expect(await imageHistory.list(1)).toHaveLength(1)
+  })
+
   it('polls only active tasks or results still awaiting local delivery', async () => {
     const { studio } = await signedIn()
     expect(studio.imageJobsRefetchInterval(await studio.getImageJobs())).toBe(

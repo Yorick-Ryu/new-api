@@ -7129,6 +7129,10 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "An identical image task is already in progress": "同じ内容の画像を生成中です",
+    "Generate another set with the same prompt and settings?": "同じプロンプトと設定でもう一組生成しますか？",
+    "Generate another set": "もう一組生成",
+    "Image aspect ratio: {{ratio}}": "画像の縦横比：{{ratio}}"
   }
 }

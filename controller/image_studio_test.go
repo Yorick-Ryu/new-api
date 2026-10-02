@@ -72,19 +72,20 @@ func TestImageStudioDatabaseMatrix(t *testing.T) {
 						assert.Contains(t, legacy.Request, `"reference_id":"legacy-reference"`)
 					}
 
+					imageStudioDuplicateContract(t, db, &owner)
 					store, restoreStorage := imageStudioTestStore(t)
 					worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "test-node"}
 					now := time.Now().Unix()
 					job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: "first", Request: `{"model":"gpt-image-1","prompt":"a small house","n":1}`, Status: "queued", CreatedAt: now, UpdatedAt: now}
-					saved, err := model.CreateImageStudioJob(job, nil)
+					saved, err := model.CreateImageStudioJob(job, nil, false)
 					require.NoError(t, err)
 					retry := *job
 					retry.ID = uuid.NewString()
-					repeated, err := model.CreateImageStudioJob(&retry, nil)
+					repeated, err := model.CreateImageStudioJob(&retry, nil, false)
 					require.NoError(t, err)
 					assert.Equal(t, saved.ID, repeated.ID)
 					retry.RequestHash = "different"
-					_, err = model.CreateImageStudioJob(&retry, nil)
+					_, err = model.CreateImageStudioJob(&retry, nil, false)
 					assert.ErrorIs(t, err, model.ErrImageStudioConflict)
 					// The DB uniqueness constraint protects callers outside the submit helper too.
 					retry.RequestHash = "first"
@@ -164,7 +165,7 @@ func TestImageStudioDatabaseMatrix(t *testing.T) {
 					reference := model.ImageStudioAsset{ID: uuid.NewString(), UserID: owner.Id, Kind: "reference", ObjectKey: "references/protected", ExpiresAt: now + 60}
 					require.NoError(t, model.CreateImageStudioReference(&reference))
 					protected := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: "protected", Status: "queued", CreatedAt: now}
-					_, err = model.CreateImageStudioJob(protected, []string{reference.ID})
+					_, err = model.CreateImageStudioJob(protected, []string{reference.ID}, false)
 					require.NoError(t, err)
 					require.NoError(t, db.Model(&reference).Update("expires_at", now-1).Error)
 					worker.cleanup()
@@ -197,7 +198,7 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	} {
 		require.NoError(t, db.Create(&bad).Error)
 		job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "queued", CreatedAt: now}
-		_, err := model.CreateImageStudioJob(job, []string{ids[0], ids[1], ids[2], bad.ID})
+		_, err := model.CreateImageStudioJob(job, []string{ids[0], ids[1], ids[2], bad.ID}, false)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "every reference must be owned, live and a reference upload")
 		var count int64
 		require.NoError(t, db.Model(&model.ImageStudioJob{}).Where("id = ?", job.ID).Count(&count).Error)
@@ -205,11 +206,11 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 		require.NoError(t, db.Where("id = ?", bad.ID).Delete(&model.ImageStudioAsset{}).Error)
 	}
 	for _, invalid := range [][]string{{ids[0], ids[0]}, {ids[0], ids[1], ids[2], ids[3], "fifth"}} {
-		_, err := model.CreateImageStudioJob(&model.ImageStudioJob{UserID: owner.Id}, invalid)
+		_, err := model.CreateImageStudioJob(&model.ImageStudioJob{UserID: owner.Id}, invalid, false)
 		assert.ErrorIs(t, err, model.ErrImageStudioReferences)
 	}
 	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "queued", CreatedAt: now}
-	_, err := model.CreateImageStudioJob(job, ids)
+	_, err := model.CreateImageStudioJob(job, ids, false)
 	require.NoError(t, err)
 	var links []model.ImageStudioJobReference
 	require.NoError(t, db.Where("job_id = ?", job.ID).Find(&links).Error)
@@ -232,7 +233,7 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 		assert.Equal(t, job.ExpiresAt, asset.ExpiresAt, "all reference expiries follow the successful job")
 	}
 	shared := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "queued", CreatedAt: now}
-	_, err = model.CreateImageStudioJob(shared, ids[3:])
+	_, err = model.CreateImageStudioJob(shared, ids[3:], false)
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -375,6 +376,26 @@ func imageStudioTokenContract(t *testing.T, db *gorm.DB, owner *model.User) *mod
 		require.True(t, submitted.Success)
 		assert.NotContains(t, recorder.Body.String(), token.Key)
 	}
+	for _, confirm := range []bool{false, true} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Set("id", owner.Id)
+		c.Request = httptest.NewRequest("POST", "/api/image-studio/jobs", strings.NewReader(`{"model":"gpt-image-1","prompt":"test automatic key","n":1}`))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.Header.Set("Idempotency-Key", uuid.NewString())
+		if confirm {
+			c.Request.Header.Set("X-Confirm-Duplicate", "true")
+		}
+		CreateImageStudioJob(c)
+		if confirm {
+			require.Equal(t, 200, recorder.Code)
+		} else {
+			require.Equal(t, 409, recorder.Code)
+			assert.Contains(t, recorder.Body.String(), `"code":"image_task_duplicate"`)
+		}
+	}
+	// Leave only the original task active for the remaining relay tests.
+	require.NoError(t, db.Model(&model.ImageStudioJob{}).Where("user_id = ? AND request_key <> ?", owner.Id, requestKey).Update("status", "failed").Error)
 	var submittedJobs []model.ImageStudioJob
 	require.NoError(t, db.Where("user_id = ? AND request_key = ?", owner.Id, requestKey).Find(&submittedJobs).Error)
 	require.Len(t, submittedJobs, 1)
@@ -537,7 +558,7 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	multiInput, err := common.Marshal(imageStudioInput{Model: "gpt-image-1", Prompt: "combine these references", N: 1, ReferenceIDs: referenceIDs})
 	require.NoError(t, err)
 	multiEdit := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), RequestHash: "four-references", Request: string(multiInput), Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix()}
-	_, err = model.CreateImageStudioJob(multiEdit, referenceIDs)
+	_, err = model.CreateImageStudioJob(multiEdit, referenceIDs, false)
 	require.NoError(t, err)
 	expectedEditFiles.Store(4)
 	worker.execute(multiEdit)
@@ -654,11 +675,11 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	reject.Store(false)
 	group := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), RequestHash: "split-four", Request: strings.Replace(multiEdit.Request, `"n":1`, `"n":4`, 1), Status: "queued", CreatedAt: time.Now().Unix()}
 	require.Contains(t, group.Request, `"n":4`)
-	_, err = model.CreateImageStudioJob(group, referenceIDs)
+	_, err = model.CreateImageStudioJob(group, referenceIDs, false)
 	require.NoError(t, err)
 	duplicate := *group
 	duplicate.ID = uuid.NewString()
-	existing, err := model.CreateImageStudioJob(&duplicate, referenceIDs)
+	existing, err := model.CreateImageStudioJob(&duplicate, referenceIDs, false)
 	require.NoError(t, err)
 	require.Equal(t, group.ID, existing.ID)
 	var children []model.ImageStudioJob
@@ -947,5 +968,39 @@ func TestImageStudioGroupStatus(t *testing.T) {
 			}
 			require.Equal(t, tc.want, model.ImageStudioGroupStatus(children))
 		})
+	}
+}
+
+func imageStudioDuplicateContract(t *testing.T, db *gorm.DB, owner *model.User) {
+	for _, status := range []string{"queued", "running", "saving", "group"} {
+		original := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: "duplicate-test", Status: status}
+		require.NoError(t, db.Create(original).Error)
+		duplicate := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: original.RequestHash, Status: "queued"}
+		_, err := model.CreateImageStudioJob(duplicate, nil, false)
+		require.ErrorIs(t, err, model.ErrImageStudioDuplicate)
+		var count int64
+		require.NoError(t, db.Model(&model.ImageStudioJob{}).Where("id = ?", duplicate.ID).Count(&count).Error)
+		require.Zero(t, count)
+		// Explicit repeat is admitted, and retrying that submission remains idempotent.
+		accepted, err := model.CreateImageStudioJob(duplicate, nil, true)
+		require.NoError(t, err)
+		retried, err := model.CreateImageStudioJob(duplicate, nil, true)
+		require.NoError(t, err)
+		require.Equal(t, accepted.ID, retried.ID)
+		changed := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: "changed-parameters", Status: "queued"}
+		_, err = model.CreateImageStudioJob(changed, nil, false)
+		require.NoError(t, err)
+		overflow := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: original.RequestHash, Status: "queued"}
+		_, err = model.CreateImageStudioJob(overflow, nil, true)
+		require.ErrorIs(t, err, model.ErrImageStudioBusy)
+		require.NoError(t, db.Where("id IN ?", []string{original.ID, accepted.ID, changed.ID}).Delete(&model.ImageStudioJob{}).Error)
+	}
+	for _, status := range []string{"success", "failed", "unknown", "partial", "expired"} {
+		original := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: "terminal-repeat", Status: status}
+		require.NoError(t, db.Create(original).Error)
+		next := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), RequestHash: original.RequestHash, Status: "queued"}
+		_, err := model.CreateImageStudioJob(next, nil, false)
+		require.NoError(t, err)
+		require.NoError(t, db.Where("id IN ?", []string{original.ID, next.ID}).Delete(&model.ImageStudioJob{}).Error)
 	}
 }

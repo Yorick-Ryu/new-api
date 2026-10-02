@@ -57,6 +57,18 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
     props.value !== '' &&
     (customSelected || !props.sizes.includes(props.value))
   const [width = '', height = ''] = props.value.split('x')
+  const [invalidWidth, invalidHeight] = [width, height].map((value) => {
+    const pixels = Number(value)
+    return (
+      !Number.isInteger(pixels) ||
+      pixels <= 0 ||
+      pixels > 3840 ||
+      pixels % 16 !== 0
+    )
+  })
+  // A combined size constraint applies to both fields only when each edge is valid.
+  const widthError = !!props.error && (invalidWidth || !invalidHeight)
+  const heightError = !!props.error && (invalidHeight || !invalidWidth)
   const ratioSizes = props.customSize
     ? [...new Set([...props.sizes, '1152x1536', '1536x1152'])]
     : props.sizes
@@ -93,7 +105,7 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
   return (
     <>
       {props.mode !== 'ratio' && (
-        <Field data-invalid={!!props.error} className='gap-2.5'>
+        <Field className='gap-2.5'>
           <FieldTitle>{t('Image size')}</FieldTitle>
           <ToggleGroup
             aria-label={t('Image size')}
@@ -146,7 +158,7 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
                     pattern='[0-9]*'
                     value={width}
                     disabled={props.disabled}
-                    aria-invalid={!!props.error}
+                    aria-invalid={widthError}
                     aria-describedby='image-size-limits'
                     onChange={(event) => {
                       const value = event.target.value
@@ -166,7 +178,7 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
                     pattern='[0-9]*'
                     value={height}
                     disabled={props.disabled}
-                    aria-invalid={!!props.error}
+                    aria-invalid={heightError}
                     aria-describedby='image-size-limits'
                     onChange={(event) => {
                       const value = event.target.value
@@ -177,15 +189,21 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
                   />
                 </Field>
               </div>
-              <FieldDescription id='image-size-limits'>
-                {t(
-                  'Width and height must be multiples of 16 and no greater than 3840, with 655,360 to 8,294,400 total pixels and an aspect ratio no greater than 3:1.'
-                )}
-              </FieldDescription>
+              {props.error ? (
+                <FieldError id='image-size-limits'>{t(props.error)}</FieldError>
+              ) : (
+                <FieldDescription id='image-size-limits'>
+                  {t(
+                    'Width and height must be multiples of 16 and no greater than 3840, with 655,360 to 8,294,400 total pixels and an aspect ratio no greater than 3:1.'
+                  )}
+                </FieldDescription>
+              )}
             </div>
           )}
-          {props.error && (
-            <FieldError className='[contain:inline-size]'>{t(props.error)}</FieldError>
+          {!isCustom && props.error && (
+            <FieldError className='[contain:inline-size]'>
+              {t(props.error)}
+            </FieldError>
           )}
         </Field>
       )}

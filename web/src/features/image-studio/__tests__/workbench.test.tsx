@@ -396,6 +396,9 @@ describe('Image workbench', () => {
         />,
         { wrapper }
       )
+      fireEvent.change(screen.getByLabelText('Image prompt'), {
+        target: { value: 'A small house' },
+      })
       const ratioTrigger = screen.getByRole('button', { name: 'Aspect ratio' })
       fireEvent.click(ratioTrigger)
       const ratios = within(
@@ -407,18 +410,96 @@ describe('Image workbench', () => {
         screen.getByRole('button', { name: 'Choose image size' })
       ).toHaveTextContent('Auto')
       fireEvent.click(ratioTrigger)
-      fireEvent.change(screen.getByLabelText('Image prompt'), {
-        target: { value: 'A small house' },
-      })
       fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
       await waitFor(() => expect(onCreated).toHaveBeenCalledWith('ratio-task'))
       expect(post).toHaveBeenCalledWith(
         '/api/image-studio/jobs',
-        expect.objectContaining({ model: 'gpt-image-2', size }),
+        expect.objectContaining({
+          model: 'gpt-image-2',
+          size,
+          prompt: `A small house\n\nImage aspect ratio: ${ratio}`,
+        }),
         expect.any(Object)
       )
     }
   )
+  it('updates only the inserted ratio line when switching ratios and removes it for free ratio', async () => {
+    render(
+      <ImageForm
+        options={{
+          ...options,
+          models: [{ ...options.models[0], custom_size: true }],
+        }}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    const prompt = screen.getByLabelText('Image prompt')
+    const original = 'A poster showing the text 16:9.\nKeep this sentence.'
+    fireEvent.change(prompt, { target: { value: original } })
+    fireEvent.click(screen.getByRole('button', { name: 'Aspect ratio' }))
+    const ratios = within(
+      await screen.findByRole('group', { name: 'Aspect ratio' })
+    )
+    fireEvent.click(ratios.getByRole('button', { name: /3:4/ }))
+    expect(prompt).toHaveValue(`${original}\n\nImage aspect ratio: 3:4`)
+    fireEvent.click(ratios.getByRole('button', { name: /4:3/ }))
+    expect(prompt).toHaveValue(`${original}\n\nImage aspect ratio: 4:3`)
+    fireEvent.click(ratios.getByRole('button', { name: /Free ratio/ }))
+    expect(prompt).toHaveValue(original)
+  })
+  it('clears the reused automatic ratio without adding size instructions when selecting a fixed size', async () => {
+    render(
+      <ImageForm
+        options={options}
+        reuse={{
+          version: 1,
+          input: {
+            model: options.models[0].model,
+            prompt: 'A lake\n\nImage aspect ratio: 3:4',
+            size: '1152x1536',
+            quality: '',
+            n: 1,
+          },
+        }}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Choose image size' }))
+    const sizes = within(
+      await screen.findByRole('group', { name: 'Image size' })
+    )
+    fireEvent.click(sizes.getByRole('button', { name: '1024×1024' }))
+    expect(screen.getByLabelText('Image prompt')).toHaveValue('A lake')
+    fireEvent.click(sizes.getByRole('button', { name: 'Auto' }))
+    expect(screen.getByLabelText('Image prompt')).toHaveValue('A lake')
+  })
+  it('preserves a user-edited ratio sentence when switching back to free ratio', async () => {
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    const prompt = screen.getByLabelText('Image prompt')
+    fireEvent.click(screen.getByRole('button', { name: 'Aspect ratio' }))
+    const ratios = within(
+      await screen.findByRole('group', { name: 'Aspect ratio' })
+    )
+    fireEvent.click(ratios.getByRole('button', { name: /1:1/ }))
+    fireEvent.change(prompt, {
+      target: { value: 'My own square image instructions.' },
+    })
+    fireEvent.click(ratios.getByRole('button', { name: /Free ratio/ }))
+    expect(prompt).toHaveValue('My own square image instructions.')
+  })
   it('switches a selected ratio to a custom size and submits the chosen quality', async () => {
     const post = vi.spyOn(api, 'post').mockResolvedValue({
       data: { success: true, data: { id: 'task-one' } },
@@ -505,18 +586,41 @@ describe('Image workbench', () => {
       reason: 'a dimension is not a multiple of 16',
       width: '1025',
       height: '1024',
+      invalid: 'width',
     },
-    { reason: 'the pixel limit is exceeded', width: '3840', height: '2176' },
+    {
+      reason: 'the pixel limit is exceeded',
+      width: '3840',
+      height: '2176',
+      invalid: 'both',
+    },
+    {
+      reason: 'height is not a multiple of 16',
+      width: '1024',
+      height: '1025',
+      invalid: 'height',
+    },
     {
       reason: 'the pixel count is below the minimum',
       width: '624',
       height: '1024',
+      invalid: 'both',
     },
-    { reason: 'the aspect ratio exceeds 3:1', width: '3072', height: '1008' },
-    { reason: 'a dimension is zero', width: '0', height: '1024' },
+    {
+      reason: 'the aspect ratio exceeds 3:1',
+      width: '3072',
+      height: '1008',
+      invalid: 'both',
+    },
+    {
+      reason: 'a dimension is zero',
+      width: '0',
+      height: '1024',
+      invalid: 'width',
+    },
   ])(
     'rejects a custom size when $reason without creating a paid task',
-    async ({ width, height }) => {
+    async ({ width, height, invalid }) => {
       const post = vi.spyOn(api, 'post').mockResolvedValue({
         data: { success: true, data: { id: 'task-one' } },
       })
@@ -568,7 +672,17 @@ describe('Image workbench', () => {
       })
       fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
       expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement()
-      expect(screen.getByRole('textbox', { name: 'Width' })).toBeInvalid()
+      expect(screen.getByRole('textbox', { name: 'Width' })).toHaveAttribute(
+        'aria-invalid',
+        String(invalid !== 'height')
+      )
+      expect(screen.getByRole('textbox', { name: 'Height' })).toHaveAttribute(
+        'aria-invalid',
+        String(invalid !== 'width')
+      )
+      expect(
+        screen.getByRole('button', { name: 'Choose image size' })
+      ).not.toHaveAttribute('aria-invalid', 'true')
       expect(post).not.toHaveBeenCalled()
     }
   )
@@ -747,12 +861,140 @@ describe('Image workbench', () => {
     ).toBeInTheDocument()
     expect(post).not.toHaveBeenCalled()
   })
+  it('submits with Enter once while preserving Shift+Enter and IME confirmation', async () => {
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'keyboard-task' })
+    const onCreated = vi.fn()
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={null}
+        onCreated={onCreated}
+      />,
+      { wrapper }
+    )
+    const prompt = screen.getByLabelText('Image prompt')
+    fireEvent.change(prompt, { target: { value: 'A small house' } })
+    expect(fireEvent.keyDown(prompt, { key: 'Enter', shiftKey: true })).toBe(
+      true
+    )
+    expect(fireEvent.keyDown(prompt, { key: 'Enter', isComposing: true })).toBe(
+      true
+    )
+    expect(fireEvent.keyDown(prompt, { key: 'Enter', keyCode: 229 })).toBe(true)
+    fireEvent.keyDown(prompt, { key: 'Enter', repeat: true })
+    expect(create).not.toHaveBeenCalled()
+    fireEvent.keyDown(prompt, { key: 'Enter' })
+    fireEvent.keyDown(prompt, { key: 'Enter' })
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('keyboard-task'))
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(create.mock.calls[0][0].prompt).toBe('A small house')
+  })
+  it('validates an empty prompt when pressing Enter', async () => {
+    const create = vi.spyOn(imageAPI, 'createImageJob')
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.keyDown(screen.getByLabelText('Image prompt'), { key: 'Enter' })
+    expect(
+      await screen.findByText('Enter a prompt of up to 16,000 characters')
+    ).toBeInTheDocument()
+    expect(create).not.toHaveBeenCalled()
+  })
+  it('requires confirmation for an active duplicate and keeps confirmed retries on one request key', async () => {
+    const conflict = Object.assign(new Error('duplicate'), {
+      isAxiosError: true,
+      response: { status: 409, data: { code: 'image_task_duplicate' } },
+    })
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockRejectedValueOnce(conflict)
+      .mockResolvedValueOnce({ id: 'repeated-task' })
+    const onCreated = vi.fn()
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={null}
+        onCreated={onCreated}
+      />,
+      { wrapper }
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Same prompt' },
+    })
+    const button = screen.getByRole('button', { name: 'Generate image' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    const dialog = await screen.findByRole('alertdialog')
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(onCreated).not.toHaveBeenCalled()
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Generate another set' })
+    )
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Generate another set' })
+    )
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('repeated-task'))
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(create.mock.calls[1]).toEqual([
+      create.mock.calls[0][0],
+      create.mock.calls[0][1],
+      true,
+    ])
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+  it('cancels a duplicate without generating and submits a changed prompt without confirmation', async () => {
+    const conflict = Object.assign(new Error('duplicate'), {
+      isAxiosError: true,
+      response: { status: 409, data: { code: 'image_task_duplicate' } },
+    })
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockRejectedValueOnce(conflict)
+      .mockResolvedValueOnce({ id: 'different-task' })
+    render(
+      <ImageForm
+        options={options}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Original prompt' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    )
+    expect(create).toHaveBeenCalledTimes(1)
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Different prompt' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2))
+    expect(create.mock.calls[1][0].prompt).toBe('Different prompt')
+    expect(create.mock.calls[1][1]).not.toBe(create.mock.calls[0][1])
+    expect(create.mock.calls[1][2]).toBe(false)
+  })
   it('gives long model names the remaining detail width after the labels', async () => {
     const model = 'gpt-image-2.5-sunburst'
     render(
       <ImageResult
         job={{ ...job, input: { ...job.input, model } }}
-          canEdit
+        canEdit
         onReference={vi.fn()}
         onReuse={vi.fn()}
         onDelete={vi.fn()}
@@ -1188,7 +1430,7 @@ describe('Image workbench', () => {
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Image details')
     expect(checkbox).toBeChecked()
   })
-  it('opens a group overview before viewing and deleting one image', async () => {
+  it('opens one detail dialog to switch and delete individual images', async () => {
     const remove = vi
       .spyOn(imageAPI, 'deleteImageAssets')
       .mockResolvedValue(undefined)
@@ -1198,9 +1440,7 @@ describe('Image workbench', () => {
     expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'View image 2' }))
     expect(screen.getByRole('button', { name: 'Download image' })).toBeEnabled()
-    expect(
-      screen.getByRole('button', { name: 'Previous image' })
-    ).toBeInTheDocument()
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'Delete image' }))
     const confirm = await screen.findByRole('alertdialog')
     expect(remove).not.toHaveBeenCalled()
@@ -1633,6 +1873,16 @@ it('shows completed images alongside pending and failed slots without waiting fo
   expect(screen.getByText('1/4')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /^Download$/ })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+  const preview = screen.getByRole('region', { name: 'Image Preview' })
+  const firstThumbnail = screen.getByRole('button', { name: 'View image 1' })
+  fireEvent.keyDown(firstThumbnail, { key: 'ArrowUp' })
+  expect(screen.getByRole('button', { name: 'View image 4' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  expect(within(preview).getByText('Queued')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'View image 3' }))
+  expect(within(preview).getByText('Failed')).toBeInTheDocument()
   expect(
     await screen.findByRole('button', { name: 'View image 1' })
   ).toBeEnabled()
@@ -1647,4 +1897,42 @@ it('shows completed images alongside pending and failed slots without waiting fo
   ).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Delete all' })).toBeDisabled()
+})
+
+it('keeps the original card and switches images in one dialog with vertical arrow keys', async () => {
+  render(
+    <ImageResult
+      job={batchJob}
+      canEdit
+      onReuse={vi.fn()}
+      onReference={vi.fn()}
+      onDelete={vi.fn()}
+    />,
+    { wrapper }
+  )
+  const card = screen.getByRole('article', { name: batchJob.input.prompt })
+  expect(
+    within(card).queryByRole('button', { name: 'View image 1' })
+  ).not.toBeInTheDocument()
+  fireEvent.click(within(card).getByRole('button', { name: 'Details' }))
+  const dialog = screen.getByRole('dialog')
+  const preview = within(dialog).getByRole('region', { name: 'Image Preview' })
+  const first = within(dialog).getByRole('button', { name: 'View image 1' })
+  const second = within(dialog).getByRole('button', { name: 'View image 2' })
+  expect(first).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(second)
+  expect(second).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  await waitFor(() =>
+    expect(within(preview).getByRole('img')).toHaveAttribute(
+      'src',
+      'blob:second-original'
+    )
+  )
+  fireEvent.keyDown(second, { key: 'ArrowDown' })
+  expect(first).toHaveAttribute('aria-pressed', 'true')
+  expect(first).toHaveFocus()
+  fireEvent.keyDown(first, { key: 'ArrowUp' })
+  expect(second).toHaveAttribute('aria-pressed', 'true')
+  expect(second).toHaveFocus()
 })

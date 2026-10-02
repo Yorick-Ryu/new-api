@@ -16,9 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { isAxiosError } from 'axios'
 import { t } from 'i18next'
 
 import { api } from '@/lib/api'
+import { markServerErrorHandled } from '@/lib/handle-server-error'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -232,9 +234,18 @@ export async function getImageJobs(): Promise<ImageJob[]> {
   assertCurrentUser(userID)
   return result
 }
+export function isDuplicateImageRequest(error: unknown): boolean {
+  return (
+    isAxiosError(error) &&
+    error.response?.status === 409 &&
+    error.response.data?.code === 'image_task_duplicate'
+  )
+}
+
 export async function createImageJob(
   input: ImageInput,
-  key: string
+  key: string,
+  confirmDuplicate = false
 ): Promise<{ id: string }> {
   const userID = currentUser()
   const now = Math.floor(Date.now() / 1000)
@@ -259,7 +270,10 @@ export async function createImageJob(
   try {
     assertCurrentUser(userID)
     const response = await api.post(`${base}/jobs`, input, {
-      headers: { 'Idempotency-Key': key },
+      headers: {
+        'Idempotency-Key': key,
+        ...(confirmDuplicate ? { 'X-Confirm-Duplicate': 'true' } : {}),
+      },
     })
     requireServerSuccess(response.data)
     const result: { id: string } = response.data.data
@@ -270,6 +284,11 @@ export async function createImageJob(
     assertCurrentUser(userID)
     return result
   } catch (error) {
+    if (isDuplicateImageRequest(error)) {
+      markServerErrorHandled(error)
+      await imageHistory.discardRejectedSubmission(userID, key)
+      throw error
+    }
     if (!entry.remote) {
       entry.job = {
         ...entry.job,

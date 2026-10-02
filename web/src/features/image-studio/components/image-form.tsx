@@ -33,6 +33,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ModelSelector } from '@/components/model-group-selector'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -51,14 +52,19 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { toIntlLocale } from '@/i18n/languages'
+import { INTERFACE_LANGUAGE_OPTIONS, toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { resolveModelProvider } from '@/lib/model-provider'
 import { getServerErrorMessage } from '@/lib/server-error-message'
 
-import { createImageJob, type ImageInput, type ImageOptions } from '../api'
+import {
+  createImageJob,
+  isDuplicateImageRequest,
+  type ImageInput,
+  type ImageOptions,
+} from '../api'
 import { formatAspectRatio } from '../lib/aspect-ratio'
 import { ImageCostEstimate } from './image-cost-estimate'
 import {
@@ -125,6 +131,28 @@ export function ImageForm(props: ImageFormProps) {
   const quality = form.watch('quality')
   const count = form.watch('n')
   const [ratioSize, setRatioSize] = useState('')
+  const automaticRatioLine = useRef('')
+  function updatePromptRatio(value: string) {
+    const ratio = formatAspectRatio(value)
+    const next = ratio ? t('Image aspect ratio: {{ratio}}', { ratio }) : ''
+    const lines = form.getValues('prompt').split('\n')
+    const previousIndex = automaticRatioLine.current
+      ? lines.lastIndexOf(automaticRatioLine.current)
+      : -1
+    if (previousIndex >= 0) {
+      if (next) lines[previousIndex] = next
+      else {
+        lines.splice(previousIndex, 1)
+        if (previousIndex === lines.length && lines.at(-1) === '') lines.pop()
+      }
+    } else if (next) {
+      if (lines.join('\n')) lines.push('')
+      else lines.length = 0
+      lines.push(next)
+    }
+    automaticRatioLine.current = next
+    form.setValue('prompt', lines.join('\n'), { shouldDirty: true })
+  }
   const [ratioWidth, ratioHeight] = ratioSize.split('x').map(Number)
   let RatioIcon = Scan
   if (ratioSize) {
@@ -139,20 +167,37 @@ export function ImageForm(props: ImageFormProps) {
   const [references, setReferences] = useState<ImageReference[]>([])
   const [uploading, setUploading] = useState(false)
   const request = useRef<{ fingerprint: string; key: string } | null>(null)
+  const submitting = useRef(false)
+  const [duplicate, setDuplicate] = useState<ImageInput | null>(null)
   const create = useMutation({
-    mutationFn: (input: ImageInput) => {
+    mutationFn: ({
+      input,
+      confirmDuplicate = false,
+    }: {
+      input: ImageInput
+      confirmDuplicate?: boolean
+    }) => {
       const fingerprint = JSON.stringify(input)
       if (request.current?.fingerprint !== fingerprint) {
         request.current = { fingerprint, key: crypto.randomUUID() }
       }
-      return createImageJob(input, request.current.key)
+      return createImageJob(input, request.current.key, confirmDuplicate)
     },
-    onError: (error) =>
+    onError: (error, variables) => {
+      if (isDuplicateImageRequest(error)) {
+        setDuplicate(variables.input)
+        return
+      }
       handleServerError(error, undefined, {
         title: t(getServerErrorMessage(error)),
-      }),
+      })
+    },
+    onSettled: () => {
+      submitting.current = false
+    },
     onSuccess: (result) => {
       request.current = null
+      setDuplicate(null)
       props.onCreated(result.id)
     },
   })
@@ -171,10 +216,16 @@ export function ImageForm(props: ImageFormProps) {
   useEffect(() => {
     if (props.reuse) {
       form.reset(props.reuse.input)
+      const ratio = formatAspectRatio(props.reuse.input.size)
+      const lastLine = props.reuse.input.prompt.split('\n').at(-1)
+      automaticRatioLine.current =
+        INTERFACE_LANGUAGE_OPTIONS.map(({ code }) =>
+          i18n.t('Image aspect ratio: {{ratio}}', { ratio, lng: code })
+        ).find((line) => ratio && line === lastLine) ?? ''
       setRatioSize('')
       setReferences([])
     }
-  }, [props.reuse, form])
+  }, [props.reuse, form, i18n])
   const appliedReference = useRef<ImageReference | null>(null)
   useEffect(() => {
     if (!props.reference || appliedReference.current === props.reference) return
@@ -220,13 +271,23 @@ export function ImageForm(props: ImageFormProps) {
       <CardContent>
         <form
           noValidate
-          onSubmit={form.handleSubmit(
-            (input) =>
-              create.mutate({ ...input, size: input.size || ratioSize }),
-            (errors) => {
-              if (errors.size) setSizeOpen(true)
+          onSubmit={(event) => {
+            if (submitting.current) {
+              event.preventDefault()
+              return
             }
-          )}
+            submitting.current = true
+            void form.handleSubmit(
+              (input) =>
+                create.mutate({
+                  input: { ...input, size: input.size || ratioSize },
+                }),
+              (errors) => {
+                submitting.current = false
+                if (errors.size) setSizeOpen(true)
+              }
+            )(event)
+          }}
         >
           <FieldGroup>
             <Field data-invalid={!!form.formState.errors.prompt}>
@@ -237,18 +298,21 @@ export function ImageForm(props: ImageFormProps) {
                 id='image-prompt'
                 data-mobile-compact
                 placeholder={t('Describe the image you want to create…')}
-                rows={4}
+                rows={3}
                 onKeyDown={(event) => {
                   if (
-                    (event.ctrlKey || event.metaKey) &&
                     event.key === 'Enter' &&
-                    !busy
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing &&
+                    event.nativeEvent.keyCode !== 229
                   ) {
                     event.preventDefault()
-                    event.currentTarget.form?.requestSubmit()
+                    if (!busy && !event.repeat) {
+                      event.currentTarget.form?.requestSubmit()
+                    }
                   }
                 }}
-                className='min-h-28 resize-y text-sm'
+                className='min-h-20 resize-y text-sm'
                 maxLength={16000}
                 aria-invalid={!!form.formState.errors.prompt}
                 {...form.register('prompt')}
@@ -307,6 +371,7 @@ export function ImageForm(props: ImageFormProps) {
                   onModelChange={(value) => {
                     form.setValue('model', value)
                     form.setValue('size', '')
+                    updatePromptRatio('')
                     setRatioSize('')
                     form.setValue('quality', '')
                     form.setValue('n', 1)
@@ -371,7 +436,6 @@ export function ImageForm(props: ImageFormProps) {
                         className='justify-start tabular-nums'
                         disabled={busy}
                         aria-label={t('Choose image size')}
-                        aria-invalid={!!form.formState.errors.size}
                       />
                     }
                   >
@@ -393,12 +457,14 @@ export function ImageForm(props: ImageFormProps) {
                       error={form.formState.errors.size?.message}
                       disabled={busy}
                       onChange={(value) => {
+                        if (value) updatePromptRatio('')
                         form.setValue('size', value, {
                           shouldValidate: true,
                         })
                         if (value) setRatioSize('')
                       }}
                       onRatioChange={(value) => {
+                        updatePromptRatio(value)
                         setRatioSize(value)
                         form.setValue('size', '', {
                           shouldValidate: true,
@@ -440,6 +506,7 @@ export function ImageForm(props: ImageFormProps) {
                       disabled={busy}
                       onChange={() => {}}
                       onRatioChange={(value) => {
+                        updatePromptRatio(value)
                         setRatioSize(value)
                         form.setValue('size', '', {
                           shouldValidate: true,
@@ -580,6 +647,21 @@ export function ImageForm(props: ImageFormProps) {
             </div>
           </FieldGroup>
         </form>
+        <ConfirmDialog
+          open={duplicate !== null}
+          onOpenChange={(open) => {
+            if (!open) setDuplicate(null)
+          }}
+          title={t('An identical image task is already in progress')}
+          desc={t('Generate another set with the same prompt and settings?')}
+          confirmText={t('Generate another set')}
+          isLoading={create.isPending}
+          handleConfirm={() => {
+            if (!duplicate || submitting.current) return
+            submitting.current = true
+            create.mutate({ input: duplicate, confirmDuplicate: true })
+          }}
+        />
       </CardContent>
     </Card>
   )

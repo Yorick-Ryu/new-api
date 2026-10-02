@@ -410,6 +410,27 @@ export class ImageHistoryStore {
     return value
   }
 
+  // A server-rejected submission never became a job. Discard its placeholder
+  // without a deletion marker so the same idempotency key can be confirmed.
+  async discardRejectedSubmission(
+    userID: number,
+    requestKey: string
+  ): Promise<void> {
+    const id = `pending:${requestKey}`
+    const db = await this.open()
+    const transaction = db.transaction('jobs', 'readwrite')
+    const jobs = transaction.objectStore('jobs')
+    const request = jobs.get([userID, id])
+    request.onsuccess = () => {
+      const entry = request.result as HistoryEntry | undefined
+      if (entry && !entry.remote) jobs.delete([userID, id])
+    }
+    await transactionResult(transaction)
+    const key = this.key(userID, id)
+    this.memoryJobs.delete(key)
+    this.failures.delete(key)
+  }
+
   async deleteJob(userID: number, id: string): Promise<void> {
     await this.deleteJobs(userID, [id])
   }

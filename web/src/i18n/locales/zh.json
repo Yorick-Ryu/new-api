@@ -7220,6 +7220,10 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "An identical image task is already in progress": "相同内容正在生成",
+    "Generate another set with the same prompt and settings?": "是否使用相同的提示词和参数再生成一组？",
+    "Generate another set": "再生成一组",
+    "Image aspect ratio: {{ratio}}": "画面比例：{{ratio}}"
   }
 }

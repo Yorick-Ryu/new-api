@@ -7129,6 +7129,10 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "An identical image task is already in progress": "Такая же генерация уже выполняется",
+    "Generate another set with the same prompt and settings?": "Создать ещё один набор с тем же запросом и настройками?",
+    "Generate another set": "Создать ещё один набор",
+    "Image aspect ratio: {{ratio}}": "Соотношение сторон изображения: {{ratio}}"
   }
 }

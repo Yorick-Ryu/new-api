@@ -233,9 +233,11 @@ func CreateImageStudioJob(c *gin.Context) {
 	now := time.Now().Unix()
 	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: c.GetInt("id"), TokenID: token.Id, ClientIP: c.ClientIP(), RequestKey: requestKey, RequestHash: hex.EncodeToString(digest[:]), Request: string(encoded), Status: "queued", CreatedAt: now, UpdatedAt: now}
 	references, _ := imageStudioReferences(input) // Validated before encoding the request.
-	saved, err := model.CreateImageStudioJob(job, references)
+	saved, err := model.CreateImageStudioJob(job, references, c.GetHeader("X-Confirm-Duplicate") == "true")
 	if err != nil {
 		switch {
+		case errors.Is(err, model.ErrImageStudioDuplicate):
+			c.JSON(409, gin.H{"success": false, "code": "image_task_duplicate", "message": "An identical image task is already in progress"})
 		case errors.Is(err, model.ErrImageStudioBusy):
 			c.JSON(429, gin.H{"success": false, "message": "Too many active image tasks"})
 		case errors.Is(err, model.ErrImageStudioConflict):
