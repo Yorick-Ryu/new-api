@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Image {{number}}: {{status}}": "Ảnh {{number}}: {{status}}",
+    "Partially completed": "Hoàn thành một phần",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

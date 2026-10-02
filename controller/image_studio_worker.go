@@ -114,6 +114,11 @@ func (w *imageStudioWorker) setStatus(job *model.ImageStudioJob, status, message
 
 func (w *imageStudioWorker) execute(job *model.ImageStudioJob) {
 	defer func() {
+		if err := model.RefreshImageStudioGroup(job.ParentID); err != nil {
+			common.SysError("image studio group update failed")
+		}
+	}()
+	defer func() {
 		if recover() != nil {
 			w.setStatus(job, "unknown", "Image result could not be confirmed")
 		}
@@ -512,6 +517,14 @@ func (w *imageStudioWorker) cleanup() {
 		}
 		if info, err := entry.Info(); err == nil && info.ModTime().Add(model.ImageStudioRetention).Unix() <= now {
 			_ = os.Remove(filepath.Join(w.directory, entry.Name()))
+		}
+	}
+	// Reconcile parents after interrupted or expired children, including crashes
+	// between publishing a child result and updating its parent.
+	var groups []model.ImageStudioJob
+	if model.DB.Where("status = ?", "group").Find(&groups).Error == nil {
+		for _, group := range groups {
+			_ = model.RefreshImageStudioGroup(group.ID)
 		}
 	}
 	// Server prompt/parameter rows are delivery metadata, not browser history.

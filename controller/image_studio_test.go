@@ -52,6 +52,9 @@ func TestImageStudioDatabaseMatrix(t *testing.T) {
 						require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}))
 						require.NoError(t, db.Create(&model.ImageStudioAsset{ID: "legacy-reference", UserID: 781, Kind: "reference", ObjectKey: "references/legacy", ExpiresAt: time.Now().Add(time.Hour).Unix()}).Error)
 						require.NoError(t, db.Create(&model.ImageStudioJob{ID: "legacy-single-job", UserID: 781, RequestKey: uuid.NewString(), ReferenceID: "legacy-reference", Request: `{"model":"gpt-image-1","prompt":"legacy","n":1,"reference_id":"legacy-reference"}`, Status: "failed", CreatedAt: time.Now().Unix()}).Error)
+						// Upgrade the prior schema, before parent/slot columns existed.
+						require.NoError(t, db.Migrator().DropColumn(&model.ImageStudioJob{}, "ParentID"))
+						require.NoError(t, db.Migrator().DropColumn(&model.ImageStudioJob{}, "Slot"))
 					}
 					// Representative pre-feature data must survive both the upgrade and rerun.
 					owner := model.User{Id: 781, Username: "image-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
@@ -646,6 +649,84 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 	require.NoError(t, db.First(&unchangedUser, owner.Id).Error)
 	assert.Equal(t, "private-image-test", unchangedUser.Group)
 	require.NoError(t, db.Model(owner).Update("group", "default").Error)
+	// A grouped submission is atomically split and idempotent. Each child goes
+	// through the ordinary wallet relay with n=1, including all references.
+	reject.Store(false)
+	group := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), RequestHash: "split-four", Request: strings.Replace(multiEdit.Request, `"n":1`, `"n":4`, 1), Status: "queued", CreatedAt: time.Now().Unix()}
+	require.Contains(t, group.Request, `"n":4`)
+	_, err = model.CreateImageStudioJob(group, referenceIDs)
+	require.NoError(t, err)
+	duplicate := *group
+	duplicate.ID = uuid.NewString()
+	existing, err := model.CreateImageStudioJob(&duplicate, referenceIDs)
+	require.NoError(t, err)
+	require.Equal(t, group.ID, existing.ID)
+	var children []model.ImageStudioJob
+	require.NoError(t, db.Where("parent_id = ?", group.ID).Order("slot").Find(&children).Error)
+	require.Len(t, children, 4)
+	startRequests := requests.Load()
+	var groupWallet model.User
+	require.NoError(t, db.First(&groupWallet, owner.Id).Error)
+	readGroup := func() imageStudioJobView {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Set("id", owner.Id)
+		c.Request = httptest.NewRequest("GET", "/api/image-studio/jobs?ids="+group.ID, nil)
+		ListImageStudioJobs(c)
+		require.Equal(t, 200, recorder.Code)
+		var response struct {
+			Data []imageStudioJobView `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+		require.Len(t, response.Data, 1)
+		return response.Data[0]
+	}
+	view := readGroup()
+	require.Equal(t, "queued", view.Status)
+	require.Len(t, view.Items, 4)
+	for index := range children {
+		child, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+		require.NoError(t, err)
+		require.NotNil(t, child)
+		require.Equal(t, group.ID, child.ParentID)
+		var single imageStudioInput
+		require.NoError(t, common.Unmarshal([]byte(child.Request), &single))
+		require.Equal(t, uint(1), single.N)
+		reject.Store(index == 1)
+		worker.execute(child)
+		if index == 0 {
+			view = readGroup()
+			require.Equal(t, "running", view.Status)
+			require.Len(t, view.Assets, 2, "successful image is available before the group completes")
+			_, err := model.GetImageStudioAsset(owner.Id, view.Assets[0].ID)
+			require.NoError(t, err)
+		}
+	}
+	require.Equal(t, startRequests+4, requests.Load(), "one request per image without replay")
+	view = readGroup()
+	require.Equal(t, "partial", view.Status)
+	require.Len(t, view.Assets, 6)
+	require.Eventually(t, func() bool { return readGroup().Quota != nil }, 3*time.Second, 10*time.Millisecond)
+	view = readGroup()
+	require.Greater(t, *view.Quota, 0)
+	require.Eventually(t, func() bool {
+		var wallet model.User
+		return db.First(&wallet, owner.Id).Error == nil && groupWallet.Quota-wallet.Quota == *view.Quota
+	}, 3*time.Second, 10*time.Millisecond, "group cost equals successful child charges after rejected-child refund")
+	var finalGroup model.ImageStudioJob
+	require.NoError(t, db.First(&finalGroup, "id = ?", group.ID).Error)
+	require.Equal(t, "partial", finalGroup.Status)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Set("id", owner.Id)
+	c.Params = gin.Params{{Key: "id", Value: group.ID}}
+	c.Request = httptest.NewRequest("DELETE", "/api/image-studio/jobs/"+group.ID, nil)
+	DeleteImageStudioJob(c)
+	require.Equal(t, 200, recorder.Code)
+	var deletedChildren int64
+	require.NoError(t, db.Model(&model.ImageStudioJob{}).Where("parent_id = ? AND deleted_at > 0", group.ID).Count(&deletedChildren).Error)
+	require.Equal(t, int64(4), deletedChildren)
+
 }
 
 func TestImageStudioValidationAndResponseShapes(t *testing.T) {
@@ -844,3 +925,27 @@ type imageStudioReleasedUser struct {
 }
 
 func (imageStudioReleasedUser) TableName() string { return "users" }
+
+func TestImageStudioGroupStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		states []string
+		want   string
+	}{
+		{"all queued", []string{"queued", "queued"}, "queued"},
+		{"early success", []string{"success", "running"}, "running"},
+		{"partial success", []string{"success", "failed"}, "partial"},
+		{"all completed", []string{"success", "success"}, "success"},
+		{"all rejected", []string{"failed", "failed"}, "failed"},
+		{"all expired", []string{"expired", "expired"}, "expired"},
+		{"uncertain child", []string{"success", "unknown"}, "unknown"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			children := make([]model.ImageStudioJob, len(tc.states))
+			for i, state := range tc.states {
+				children[i].Status = state
+			}
+			require.Equal(t, tc.want, model.ImageStudioGroupStatus(children))
+		})
+	}
+}

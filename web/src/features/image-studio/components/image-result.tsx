@@ -17,12 +17,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
-import { Download, ImagePlus, Info, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  CircleAlert,
+  CircleHelp,
+  Download,
+  ImageOff,
+  LoaderCircle,
+  ImagePlus,
+  Info,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
 import { EmptyState } from '@/components/empty-state'
+import { ErrorState } from '@/components/error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -63,7 +74,28 @@ export function ImageResult(props: ImageResultProps) {
   const provider = resolveModelProvider(job.input.model)
   const originals = job.assets.filter((asset) => asset.kind === 'original')
   const active = isImageJobActive(job)
-  const overview = initialSlide === null && originals.length > 1
+  const ResultState = job.status === 'failed' ? ErrorState : EmptyState
+  const statusIcons: Record<string, typeof CircleAlert> = {
+    failed: CircleAlert,
+    unknown: CircleHelp,
+    expired: ImageOff,
+    partial: CircleAlert,
+  }
+  const StatusIcon = statusIcons[job.status]
+  // Hidden/deleted local images must not reappear as empty group slots.
+  const slots =
+    job.items?.filter(
+      (item) =>
+        !item.asset_id || originals.some((asset) => asset.id === item.asset_id)
+    ) ??
+    originals.map((asset) => ({
+      id: asset.id,
+      asset_id: asset.id,
+      status: 'success',
+      error: undefined,
+    }))
+  const overview = initialSlide === null && slots.length > 1
+  const completed = slots.filter((item) => item.status === 'success').length
   const current = originals[Math.min(slide, originals.length - 1)]
   const downloadable = originals.filter((asset) => !asset.unavailable)
   const download = useMutation({ mutationFn: downloadImages })
@@ -79,6 +111,7 @@ export function ImageResult(props: ImageResultProps) {
     saving: t('Saving image…'),
     success: t('Completed'),
     failed: t('Failed'),
+    partial: t('Partially completed'),
     unknown: t('Result unconfirmed'),
     expired: t('Image unavailable'),
   }
@@ -144,7 +177,16 @@ export function ImageResult(props: ImageResultProps) {
               {active ? (
                 <span className='sr-only'>{status}</span>
               ) : (
-                <span className='text-muted-foreground text-sm whitespace-normal'>
+                <span className='text-muted-foreground flex items-center justify-center gap-2 text-sm whitespace-normal'>
+                  {StatusIcon && (
+                    <StatusIcon
+                      className={cn(
+                        'size-4 shrink-0',
+                        job.status === 'failed' && 'text-destructive'
+                      )}
+                      aria-hidden='true'
+                    />
+                  )}
                   {status}
                 </span>
               )}
@@ -152,11 +194,30 @@ export function ImageResult(props: ImageResultProps) {
           )}
           <Badge
             variant='secondary'
-            className='absolute end-2 bottom-2 max-w-[calc(100%-1rem)] truncate font-mono tabular-nums'
+            className='absolute end-2 bottom-2 max-w-[calc(100%-1rem)] min-w-[5rem] justify-center gap-1 truncate font-mono tabular-nums'
           >
-            {t('{{amount}} images', {
-              amount: formatNumber(originals.length || job.input.n, locale),
-            })}
+            {job.items ? (
+              <>
+                {active && (
+                  <LoaderCircle
+                    className='size-3 motion-safe:animate-spin'
+                    aria-hidden='true'
+                  />
+                )}
+                {!active && StatusIcon && (
+                  <StatusIcon className='size-3' aria-label={status} />
+                )}
+                <span>{t('Completed')}</span>
+                <span className='inline-block w-[3ch] text-center font-mono tabular-nums'>
+                  {formatNumber(completed, locale)}/
+                  {formatNumber(slots.length, locale)}
+                </span>
+              </>
+            ) : (
+              t('{{amount}} images', {
+                amount: formatNumber(originals.length || job.input.n, locale),
+              })
+            )}
           </Badge>
         </Button>
         {props.selected !== undefined && !active && (
@@ -174,7 +235,7 @@ export function ImageResult(props: ImageResultProps) {
           <p className='truncate text-xs' title={job.input.prompt}>
             {job.input.prompt}
           </p>
-          <div className='text-muted-foreground flex min-w-0 flex-wrap justify-between gap-x-2 gap-y-1 text-xs'>
+          <div className='text-foreground flex min-w-0 flex-wrap justify-between gap-x-2 gap-y-1 text-xs'>
             <span
               className='flex min-w-0 items-center gap-1'
               title={job.input.model}
@@ -226,8 +287,14 @@ export function ImageResult(props: ImageResultProps) {
         contentClassName='sm:max-w-4xl'
       >
         <div className='grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'>
-          <div className='min-w-0'>
+          <div
+            className={cn(
+              'min-w-0',
+              !originals.length && 'flex flex-col justify-center'
+            )}
+          >
             {!originals.length &&
+              !overview &&
               (active ? (
                 <div
                   role='status'
@@ -236,7 +303,8 @@ export function ImageResult(props: ImageResultProps) {
                   <span className='sr-only'>{status}</span>
                 </div>
               ) : (
-                <EmptyState
+                <ResultState
+                  icon={statusIcons[job.status]}
                   className='min-h-0 py-6 md:p-6'
                   title={status}
                   description={job.error ? t(job.error) : undefined}
@@ -244,29 +312,83 @@ export function ImageResult(props: ImageResultProps) {
               ))}
             {overview && (
               <div className='grid grid-cols-2 gap-3'>
-                {originals.map((asset, index) => (
-                  <Button
-                    key={asset.id}
-                    variant='ghost'
-                    className='bg-muted relative h-auto overflow-hidden p-0'
-                    aria-label={t('View image {{number}}', {
-                      number: formatNumber(index + 1, locale),
-                    })}
-                    onClick={() => {
-                      setInitialSlide(index)
-                      setSlide(index)
-                    }}
-                  >
-                    <ImageAssetView asset={asset} cover />
-                    <Badge
-                      variant='secondary'
-                      className='absolute end-2 bottom-2 font-mono tabular-nums'
+                {slots.map((item, index) => {
+                  const assetIndex = originals.findIndex(
+                    (asset) => asset.id === item.asset_id
+                  )
+                  const asset = originals[assetIndex]
+                  const pending = ['queued', 'running', 'saving'].includes(
+                    item.status
+                  )
+                  const Icon = statusIcons[item.status] ?? ImageOff
+                  return asset ? (
+                    <Button
+                      key={item.id}
+                      variant='ghost'
+                      className='bg-muted relative h-auto overflow-hidden p-0'
+                      aria-label={t('View image {{number}}', {
+                        number: formatNumber(index + 1, locale),
+                      })}
+                      onClick={() => {
+                        setInitialSlide(assetIndex)
+                        setSlide(assetIndex)
+                      }}
                     >
-                      {formatNumber(index + 1, locale)}/
-                      {formatNumber(originals.length, locale)}
-                    </Badge>
-                  </Button>
-                ))}
+                      <ImageAssetView asset={asset} cover />
+                      <Badge
+                        variant='secondary'
+                        className='absolute end-2 bottom-2 min-w-[4ch] justify-center font-mono tabular-nums'
+                      >
+                        {formatNumber(index + 1, locale)}/
+                        {formatNumber(slots.length, locale)}
+                      </Badge>
+                    </Button>
+                  ) : (
+                    <div
+                      key={item.id}
+                      role={pending ? 'status' : undefined}
+                      className={cn(
+                        'bg-muted relative flex aspect-square items-center justify-center overflow-hidden rounded-md p-3',
+                        pending && 'image-studio-pending'
+                      )}
+                      aria-label={t('Image {{number}}: {{status}}', {
+                        number: formatNumber(index + 1, locale),
+                        status: statusLabels[item.status] ?? item.status,
+                      })}
+                    >
+                      {pending ? (
+                        <span className='sr-only'>
+                          {statusLabels[item.status]}
+                        </span>
+                      ) : (
+                        <div className='flex flex-col items-center gap-2 text-center text-sm'>
+                          <Icon
+                            className={cn(
+                              'size-6',
+                              item.status === 'failed' && 'text-destructive'
+                            )}
+                            aria-hidden='true'
+                          />
+                          <span>
+                            {statusLabels[item.status] ?? item.status}
+                          </span>
+                          {item.error && (
+                            <p className='text-muted-foreground text-xs'>
+                              {t(item.error)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      <Badge
+                        variant='secondary'
+                        className='absolute end-2 bottom-2 min-w-[4ch] justify-center font-mono tabular-nums'
+                      >
+                        {formatNumber(index + 1, locale)}/
+                        {formatNumber(slots.length, locale)}
+                      </Badge>
+                    </div>
+                  )
+                })}
               </div>
             )}
             {!overview && originals.length > 0 && (

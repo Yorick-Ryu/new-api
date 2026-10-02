@@ -1513,3 +1513,48 @@ it('renders automatic parameters when the server omits empty size and quality fi
   ).toBeInTheDocument()
   expect(screen.getAllByText('Auto')).toHaveLength(2)
 })
+
+it('shows completed images alongside pending and failed slots without waiting for the group', async () => {
+  const grouped: ImageJob = {
+    ...job,
+    status: 'running',
+    input: { ...job.input, n: 4 },
+    items: [
+      { id: 'one', status: 'success', asset_id: job.assets[0].id },
+      { id: 'two', status: 'running' },
+      {
+        id: 'three',
+        status: 'failed',
+        error: 'Image generation failed; check usage logs',
+      },
+      { id: 'four', status: 'queued' },
+    ],
+  }
+  render(
+    <ImageResult
+      job={grouped}
+      canEdit
+      onReuse={vi.fn()}
+      onReference={vi.fn()}
+      onDelete={vi.fn()}
+    />,
+    { wrapper }
+  )
+  expect(screen.getByText('1/4')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /^Download$/ })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+  expect(
+    await screen.findByRole('button', { name: 'View image 1' })
+  ).toBeEnabled()
+  expect(
+    screen.getByRole('status', { name: 'Image 2: Generating…' })
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('status', { name: 'Image 4: Queued' })
+  ).toBeInTheDocument()
+  expect(
+    screen.getByText('Image generation failed; check usage logs')
+  ).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Delete all' })).toBeDisabled()
+})

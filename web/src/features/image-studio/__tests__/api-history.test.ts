@@ -397,3 +397,46 @@ it('normalizes omitted automatic parameters from both remote results and cached 
   http.get.mockRejectedValue(new Error('Offline'))
   expect((await studio.getImageJobs())[0].input).toEqual(input)
 })
+
+it('caches early group images while continuing to poll unfinished children', async () => {
+  const { studio } = await signedIn()
+  serveGeneration()
+  await studio.createImageJob({ ...input, n: 2 }, 'request-a')
+  let status = 'running'
+  http.get.mockImplementation(async (url: string) => {
+    if (url === '/api/image-studio/jobs') {
+      return {
+        data: {
+          success: true,
+          data: [
+            {
+              ...job,
+              status,
+              items: [
+                { id: 'first', status: 'success', asset_id: 'original-a' },
+                {
+                  id: 'second',
+                  status: status === 'running' ? 'running' : 'failed',
+                },
+              ],
+            },
+          ],
+        },
+      }
+    }
+    return { data: new Blob(['image bytes'], { type: 'image/png' }) }
+  })
+  const pending = await studio.getImageJobs()
+  expect(pending[0].assets).toHaveLength(2)
+  expect(studio.imageJobsRefetchInterval(pending)).toBe(3000)
+  http.get.mockRejectedValue(new Error('Offline'))
+  studio.releaseImageURLs()
+  expect(await studio.getImageURL('original-a')).toBe('blob:local-image')
+  status = 'partial'
+  http.get.mockResolvedValue({
+    data: { success: true, data: [{ ...job, status }] },
+  })
+  const finished = await studio.getImageJobs()
+  expect(finished[0].status).toBe('partial')
+  expect(studio.imageJobsRefetchInterval(finished)).toBe(false)
+})

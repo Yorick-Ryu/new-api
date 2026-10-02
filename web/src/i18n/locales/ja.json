@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Image {{number}}: {{status}}": "画像 {{number}}：{{status}}",
+    "Partially completed": "一部完了",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

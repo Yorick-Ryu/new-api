@@ -257,7 +257,14 @@ type imageStudioAssetView struct {
 	Kind string `json:"kind"`
 	URL  string `json:"url"`
 }
+type imageStudioItemView struct {
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Error   string `json:"error,omitempty"`
+	AssetID string `json:"asset_id,omitempty"`
+}
 type imageStudioJobView struct {
+	Items      []imageStudioItemView  `json:"items,omitempty"`
 	ID         string                 `json:"id"`
 	RequestKey string                 `json:"request_key"`
 	Status     string                 `json:"status"`
@@ -271,7 +278,7 @@ type imageStudioJobView struct {
 
 func ListImageStudioJobs(c *gin.Context) {
 	var jobs []model.ImageStudioJob
-	query := model.DB.Where("user_id = ? AND deleted_at = 0", c.GetInt("id"))
+	query := model.DB.Where("user_id = ? AND parent_id = ? AND deleted_at = 0", c.GetInt("id"), "")
 	limit := 50
 	var selectedIDs, selectedKeys []string
 	for _, selection := range []struct {
@@ -313,6 +320,18 @@ func ListImageStudioJobs(c *gin.Context) {
 	for _, job := range jobs {
 		ids = append(ids, job.ID)
 	}
+	var children []model.ImageStudioJob
+	if len(ids) > 0 {
+		if err := model.DB.Where("user_id = ? AND parent_id IN ?", c.GetInt("id"), ids).Order("slot").Find(&children).Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	grouped := make(map[string][]model.ImageStudioJob)
+	for _, child := range children {
+		grouped[child.ParentID] = append(grouped[child.ParentID], child)
+		ids = append(ids, child.ID)
+	}
 	if len(ids) > 0 && model.LOG_DB != nil {
 		var logs []model.Log
 		if err := model.LOG_DB.Select("request_id", "quota").Where("user_id = ? AND type = ? AND request_id IN ?", c.GetInt("id"), model.LogTypeConsume, ids).Find(&logs).Error; err != nil {
@@ -320,7 +339,7 @@ func ListImageStudioJobs(c *gin.Context) {
 			return
 		}
 		for _, log := range logs {
-			costs[log.RequestId] = log.Quota
+			costs[log.RequestId] += log.Quota
 		}
 	}
 	result := make([]imageStudioJobView, 0, len(jobs))
@@ -337,14 +356,49 @@ func ListImageStudioJobs(c *gin.Context) {
 		if job.ExpiresAt > 0 && job.ExpiresAt <= now {
 			view.Status = "expired"
 		}
-		if view.Status == "success" {
-			var assets []model.ImageStudioAsset
-			if err := model.DB.Where("job_id = ? AND user_id = ? AND expires_at > ?", job.ID, job.UserID, now).Order("id").Find(&assets).Error; err != nil {
-				common.ApiError(c, err)
-				return
+		members := []model.ImageStudioJob{job}
+		if group := grouped[job.ID]; len(group) > 0 {
+			for i := range group {
+				if group[i].ExpiresAt > 0 && group[i].ExpiresAt <= now {
+					group[i].Status = "expired"
+				}
 			}
-			for _, asset := range assets {
-				view.Assets = append(view.Assets, imageStudioAssetView{ID: asset.ID, Kind: asset.Kind, URL: "/api/image-studio/assets/" + url.PathEscape(asset.ID) + "/content"})
+			members = group
+			view.Status = model.ImageStudioGroupStatus(group)
+			view.ExpiresAt = job.CreatedAt + int64(model.ImageStudioRetention.Seconds())
+			total, known := 0, true
+			for _, child := range group {
+				view.ExpiresAt = max(view.ExpiresAt, child.ExpiresAt)
+				if quota, ok := costs[child.ID]; ok {
+					total += quota
+				} else if child.Status != "failed" {
+					known = false
+				}
+			}
+			if known {
+				view.Quota = &total
+			}
+		}
+		for _, member := range members {
+			item := imageStudioItemView{ID: member.ID, Status: member.Status, Error: member.Error}
+			if member.ExpiresAt > 0 && member.ExpiresAt <= now {
+				item.Status = "expired"
+			}
+			if item.Status == "success" {
+				var assets []model.ImageStudioAsset
+				if err := model.DB.Where("job_id = ? AND user_id = ? AND expires_at > ?", member.ID, job.UserID, now).Order("id").Find(&assets).Error; err != nil {
+					common.ApiError(c, err)
+					return
+				}
+				for _, asset := range assets {
+					view.Assets = append(view.Assets, imageStudioAssetView{ID: asset.ID, Kind: asset.Kind, URL: "/api/image-studio/assets/" + url.PathEscape(asset.ID) + "/content"})
+					if asset.Kind == "original" {
+						item.AssetID = asset.ID
+					}
+				}
+			}
+			if len(grouped[job.ID]) > 0 {
+				view.Items = append(view.Items, item)
 			}
 		}
 		result = append(result, view)
@@ -354,22 +408,30 @@ func ListImageStudioJobs(c *gin.Context) {
 
 func DeleteImageStudioJob(c *gin.Context) {
 	var job model.ImageStudioJob
-	if err := model.DB.Where("id = ? AND user_id = ? AND deleted_at = 0", c.Param("id"), c.GetInt("id")).First(&job).Error; err != nil {
+	if err := model.DB.Where("id = ? AND user_id = ? AND parent_id = ? AND deleted_at = 0", c.Param("id"), c.GetInt("id"), "").First(&job).Error; err != nil {
 		c.Status(404)
 		return
 	}
-	if job.Status == "queued" || job.Status == "running" || job.Status == "saving" {
+	if job.Status == "queued" || job.Status == "running" || job.Status == "saving" || job.Status == "group" {
 		c.JSON(409, gin.H{"success": false, "message": "Wait for the image task to finish"})
 		return
 	}
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&job).Updates(map[string]any{"deleted_at": time.Now().Unix(), "expires_at": time.Now().Unix()}).Error; err != nil {
+		var members []model.ImageStudioJob
+		if err := tx.Where("user_id = ? AND (id = ? OR parent_id = ?)", job.UserID, job.ID, job.ID).Find(&members).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&model.ImageStudioAsset{}).Where("job_id = ? AND user_id = ?", job.ID, job.UserID).Update("expires_at", time.Now().Unix()).Error; err != nil {
+		ids := make([]string, 0, len(members))
+		for _, member := range members {
+			ids = append(ids, member.ID)
+		}
+		if err := tx.Model(&model.ImageStudioJob{}).Where("id IN ?", ids).Updates(map[string]any{"deleted_at": time.Now().Unix(), "expires_at": time.Now().Unix()}).Error; err != nil {
 			return err
 		}
-		return tx.Where("job_id = ?", job.ID).Delete(&model.ImageStudioJobReference{}).Error
+		if err := tx.Model(&model.ImageStudioAsset{}).Where("job_id IN ? AND user_id = ?", ids, job.UserID).Update("expires_at", time.Now().Unix()).Error; err != nil {
+			return err
+		}
+		return tx.Where("job_id IN ?", ids).Delete(&model.ImageStudioJobReference{}).Error
 	})
 	if err != nil {
 		common.ApiError(c, err)

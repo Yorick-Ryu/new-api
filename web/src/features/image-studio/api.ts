@@ -47,7 +47,14 @@ export type ImageAsset = {
   url: string
   unavailable?: boolean
 }
+export type ImageJobItem = {
+  id: string
+  status: string
+  error?: string
+  asset_id?: string
+}
 export type ImageJob = {
+  items?: ImageJobItem[]
   id: string
   request_key?: string
   status: string
@@ -179,8 +186,8 @@ export async function getImageJobs(): Promise<ImageJob[]> {
         await finishExpiredDelivery(userID, entry)
         continue
       }
-      if (job.status === 'success') {
-        let complete = entry.job.assets.length > 0
+      if (entry.job.assets.length > 0) {
+        let complete = !isImageJobActive(job)
         for (const asset of entry.job.assets) {
           try {
             await cacheImageAsset(userID, entry, asset.id)

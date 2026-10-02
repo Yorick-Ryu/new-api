@@ -1,15 +1,17 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/google/uuid"
 	"gorm.io/gorm/logger"
-	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -21,6 +23,8 @@ const ImageStudioMaxReferences = 4
 // ImageStudioJob is a durable workbench request. Request contains parameters,
 // never credentials or image bytes. A running job is never automatically replayed.
 type ImageStudioJob struct {
+	ParentID    string `json:"-" gorm:"type:varchar(64);not null;default:'';index"`
+	Slot        int    `json:"-"`
 	ID          string `json:"id" gorm:"type:varchar(64);primaryKey"`
 	UserID      int    `json:"-" gorm:"uniqueIndex:idx_image_studio_request;index"`
 	TokenID     int    `json:"-"`
@@ -172,7 +176,7 @@ func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string) (*ImageStu
 			return err
 		}
 		var active int64
-		if err := tx.Model(&ImageStudioJob{}).Where("user_id = ? AND status IN ?", job.UserID, []string{"queued", "running", "saving"}).Count(&active).Error; err != nil {
+		if err := tx.Model(&ImageStudioJob{}).Where("user_id = ? AND parent_id = ? AND status IN ?", job.UserID, "", []string{"queued", "running", "saving", "group"}).Count(&active).Error; err != nil {
 			return err
 		}
 		if active >= 3 {
@@ -188,12 +192,48 @@ func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string) (*ImageStu
 		if len(referenceIDs) > 0 {
 			job.ReferenceID = referenceIDs[0]
 		}
+		var input map[string]json.RawMessage
+		if err := common.Unmarshal([]byte(job.Request), &input); job.Request != "" && err != nil {
+			return err
+		}
+		count := 1
+		if raw := input["n"]; raw != nil {
+			if err := common.Unmarshal(raw, &count); err != nil {
+				return err
+			}
+		}
+		if count < 1 || count > 4 {
+			return errors.New("invalid image count")
+		}
+		if count > 1 {
+			job.Status = "group"
+		}
 		if err := tx.Create(job).Error; err != nil {
 			return err
 		}
 		for _, referenceID := range referenceIDs {
 			if err := tx.Create(&ImageStudioJobReference{JobID: job.ID, AssetID: referenceID}).Error; err != nil {
 				return err
+			}
+		}
+		if count > 1 {
+			input["n"] = json.RawMessage("1")
+			payload, err := common.Marshal(input)
+			if err != nil {
+				return err
+			}
+			for slot := range count {
+				child := *job
+				child.ID, child.RequestKey = uuid.NewString(), uuid.NewString()
+				child.ParentID, child.Slot, child.Status, child.Request = job.ID, slot, "queued", string(payload)
+				if err := tx.Create(&child).Error; err != nil {
+					return err
+				}
+				for _, referenceID := range referenceIDs {
+					if err := tx.Create(&ImageStudioJobReference{JobID: child.ID, AssetID: referenceID}).Error; err != nil {
+						return err
+					}
+				}
 			}
 		}
 		result = *job
@@ -298,4 +338,72 @@ func GetImageStudioAsset(userID int, id string) (*ImageStudioAsset, error) {
 		}
 	}
 	return &asset, nil
+}
+
+// ImageStudioGroupStatus preserves uncertain and partially successful results.
+func ImageStudioGroupStatus(children []ImageStudioJob) string {
+	var success, failed, expired, unknown, queued, active int
+	for _, child := range children {
+		switch child.Status {
+		case "success":
+			success++
+		case "failed":
+			failed++
+		case "expired":
+			expired++
+			failed++
+		case "queued":
+			queued++
+			active++
+		case "running", "saving":
+			active++
+		default:
+			unknown++
+		}
+	}
+	if queued == len(children) && queued > 0 {
+		return "queued"
+	}
+	if active > 0 {
+		return "running"
+	}
+	if unknown > 0 || len(children) == 0 {
+		return "unknown"
+	}
+	if success == len(children) {
+		return "success"
+	}
+	if expired == len(children) {
+		return "expired"
+	}
+	if failed == len(children) {
+		return "failed"
+	}
+	return "partial"
+}
+
+// Only children are claimable. Parent rows track admission and group deletion.
+func RefreshImageStudioGroup(parentID string) error {
+	if parentID == "" {
+		return nil
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var parent ImageStudioJob
+		if err := lockForUpdate(tx).Where("id = ?", parentID).First(&parent).Error; err != nil {
+			return err
+		}
+		var children []ImageStudioJob
+		if err := tx.Where("parent_id = ?", parentID).Find(&children).Error; err != nil {
+			return err
+		}
+		status := ImageStudioGroupStatus(children)
+		if status == "queued" || status == "running" {
+			status = "group"
+		}
+		expires := int64(0)
+		for _, child := range children {
+			expires = max(expires, child.ExpiresAt)
+		}
+		return tx.Model(&parent).Updates(map[string]any{"status": status, "expires_at": expires, "updated_at": time.Now().Unix()}).Error
+	})
 }
