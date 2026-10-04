@@ -34,8 +34,8 @@ import { BanRecords } from '../ban-records'
 
 function setup() {
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/verify/methods')
-      {return {
+    if (url === '/api/verify/methods') {
+      return {
         data: {
           success: true,
           data: {
@@ -45,7 +45,8 @@ function setup() {
             password_encryption_enabled: false,
           },
         },
-      }}
+      }
+    }
     return {
       data: {
         success: true,
@@ -74,8 +75,8 @@ function setup() {
     }
   })
   const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
-    if (url === '/api/verify')
-      {return {
+    if (url === '/api/verify') {
+      return {
         data: {
           success: true,
           data: {
@@ -85,7 +86,8 @@ function setup() {
             expires_at: Math.floor(Date.now() / 1000) + 60,
           },
         },
-      }}
+      }
+    }
     if (url === '/api/user/manage') return { data: { success: true } }
     throw new Error(`Unexpected POST ${url}`)
   })
