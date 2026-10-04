@@ -18,6 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -26,63 +32,91 @@ import { api } from '@/lib/api'
 
 import { BanRecords } from '../ban-records'
 
-const { requestVerification } = vi.hoisted(() => ({
-  requestVerification: vi.fn(),
-}))
-vi.mock('@/features/auth/secure-verification', () => ({
-  useSecureVerification: () => ({
-    requestVerification,
-    isActive: false,
-    dialogProps: {},
-  }),
-  SecureVerificationDialog: () => null,
-}))
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
-}))
-vi.mock('../ban-record-details', () => ({ BanRecordDetails: () => null }))
 function setup() {
-  vi.spyOn(api, 'get').mockResolvedValue({
-    data: {
-      success: true,
-      data: [
-        {
-          id: 12,
-          user_id: 405,
-          created_at: 1,
-          action: 'banned',
-          ban_lifted: false,
-          can_unban: true,
-          reason: 'test',
+  vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/verify/methods')
+      {return {
+        data: {
+          success: true,
+          data: {
+            scope: 'admin.user.manage',
+            methods: [{ method: '2fa', available: true }],
+            oauth_providers: [],
+            password_encryption_enabled: false,
+          },
         },
-      ],
-    },
+      }}
+    return {
+      data: {
+        success: true,
+        data: [
+          {
+            id: 12,
+            user_id: 405,
+            created_at: 1,
+            action: 'banned',
+            ban_lifted: false,
+            can_unban: true,
+            reason: 'test',
+            rules: '[]',
+            error_summary: '',
+            request_id: '',
+            channel_id: 1,
+            model: '',
+            version: '',
+            http_status: 400,
+            user_status: 2,
+            lifted_at: null,
+            lifted_by: null,
+          },
+        ],
+      },
+    }
   })
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true } })
+  const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
+    if (url === '/api/verify')
+      {return {
+        data: {
+          success: true,
+          data: {
+            proof_token: 'test-proof',
+            method: '2fa',
+            scope: 'admin.user.manage',
+            expires_at: Math.floor(Date.now() / 1000) + 60,
+          },
+        },
+      }}
+    if (url === '/api/user/manage') return { data: { success: true } }
+    throw new Error(`Unexpected POST ${url}`)
+  })
+  const router = createRouter({
+    routeTree: createRootRoute({ component: BanRecords }),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
   render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <BanRecords />
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
   return post
 }
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
-  requestVerification.mockReset()
 })
+
 it('requires a proof bound to the target user before lifting the selected occurrence', async () => {
-  requestVerification.mockResolvedValue({ proof_token: 'test-proof' })
   const post = setup()
   await userEvent.click(await screen.findByRole('button', { name: 'Lift ban' }))
+  const code = await screen.findByLabelText('Authenticator code or backup code')
+  expect(post).not.toHaveBeenCalled()
+  await userEvent.type(code, '123456')
+  await userEvent.click(screen.getByRole('button', { name: 'Verify' }))
   await waitFor(() =>
     expect(post).toHaveBeenCalledWith(
       '/api/user/manage',
@@ -93,17 +127,25 @@ it('requires a proof bound to the target user before lifting the selected occurr
       })
     )
   )
-  expect(requestVerification).toHaveBeenCalledWith(
+  expect(post).toHaveBeenCalledWith(
+    '/api/verify',
     expect.objectContaining({
       scope: 'admin.user.manage',
       context: { user_id: 405, action: 'enable' },
-    })
+    }),
+    expect.anything()
   )
 })
+
 it('leaves the account untouched when verification is cancelled', async () => {
-  requestVerification.mockResolvedValue(null)
   const post = setup()
   await userEvent.click(await screen.findByRole('button', { name: 'Lift ban' }))
-  await waitFor(() => expect(requestVerification).toHaveBeenCalled())
+  await screen.findByLabelText('Authenticator code or backup code')
+  await userEvent.keyboard('{Escape}')
+  await waitFor(() =>
+    expect(
+      screen.queryByLabelText('Authenticator code or backup code')
+    ).toBeNull()
+  )
   expect(post).not.toHaveBeenCalled()
 })

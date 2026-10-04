@@ -36,6 +36,7 @@ import {
   SecureVerificationDialog,
   useSecureVerification,
 } from '@/features/auth/secure-verification'
+import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
 
 import { autoBanApi, type BanEvent } from './api'
@@ -66,7 +67,7 @@ export function BanRecords() {
       if (lifted) toast.success(t('Ban lifted successfully'))
     },
     onError: (error) => {
-      toast.error(AuthOperationError.from(error).message)
+      handleServerError(AuthOperationError.from(error))
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['auto-ban-events'] })
