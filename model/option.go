@@ -289,6 +289,12 @@ func validateOptionValue(key string, value string) error {
 		_, err := ParseModelDisplayOrder(value)
 		return err
 	}
+	if key == legacyAccessTokenRetireAtKey {
+		return errLegacyRetireAtReadOnly
+	}
+	if err := operation_setting.ValidateQuotaOption(key, value); err != nil {
+		return err
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
@@ -403,7 +409,7 @@ func updateOptionMap(key string, value string) (err error) {
 			return err
 		}
 	}
-	if key == retiredThemeOptionKey || key == "LogModelDetailsAdminOnlyEnabled" {
+	if key == retiredThemeOptionKey || key == "LogModelDetailsAdminOnlyEnabled" || key == legacyAccessTokenRetireAtKey {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
 		common.OptionMapRWMutex.Unlock()

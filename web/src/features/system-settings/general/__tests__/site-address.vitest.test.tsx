@@ -63,6 +63,7 @@ async function openSettings() {
             SiteAddress: 'https://example.com',
             SiteAllowedOrigins: 'https://www.example.com',
             legal: {},
+            general_setting: { docs_link: '' },
           }}
         />
       </SettingsPageProvider>

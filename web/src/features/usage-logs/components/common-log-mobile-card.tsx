@@ -152,7 +152,7 @@ export function CommonLogMobileCard<TData>(props: {
           </div>
         )}
         {fields.cost.visible && costCell && (
-          <div className='ml-auto max-w-full min-w-0 self-center [overflow-wrap:anywhere] [&>.inline-flex]:max-w-full [&>.inline-flex]:flex-wrap [&_[data-slot=status-badge]]:h-auto [&_[data-slot=status-badge]]:min-h-6 [&_[data-slot=status-badge]]:flex-wrap'>
+          <div className='ml-auto max-w-full min-w-0 self-center [overflow-wrap:anywhere] [&_[data-slot=status-badge]]:h-auto [&_[data-slot=status-badge]]:min-h-6 [&_[data-slot=status-badge]]:flex-wrap [&>.inline-flex]:max-w-full [&>.inline-flex]:flex-wrap'>
             {flexRender(costCell.column.columnDef.cell, costCell.getContext())}
           </div>
         )}
@@ -191,6 +191,7 @@ export function CommonLogMobileCard<TData>(props: {
                   isStream={log.is_stream}
                   isTask={other?.is_task === true}
                   isWebSocket={other?.ws === true}
+                  isSyncTask={other?.task_sync === true}
                   tokensPerSecond={
                     log.use_time > 0 && log.completion_tokens > 0
                       ? log.completion_tokens / log.use_time

@@ -18,7 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
 
+import { manageUser } from '@/features/users/api'
 import { api } from '@/lib/api'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
 import type { BanSettings, BanRule } from './lib/schema'
 
@@ -89,15 +91,9 @@ function normalizeSettings(result: SettingsResponse): BanSettings {
 }
 
 export const autoBanApi = {
-  async lift(event: BanEvent): Promise<void> {
-    unwrap(
-      (
-        await api.post<Envelope<unknown>>('/api/user/manage', {
-          id: event.user_id,
-          action: 'enable',
-          auto_ban_event_id: event.id,
-        })
-      ).data
+  async lift(event: BanEvent, proofToken: string): Promise<void> {
+    requireServerSuccess(
+      await manageUser(event.user_id, 'enable', proofToken, event.id)
     )
   },
   async get(): Promise<BanSettings> {

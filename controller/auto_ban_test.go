@@ -5,6 +5,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestAutoBanAllUserKeysDeniedAndManualEnableRestoresAccess(t *testing.T) {
 	require.NotNil(t, events[0].UserStatus)
 	assert.Equal(t, common.UserStatusDisabled, *events[0].UserStatus)
 
-	recorder := performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable"}`, user.Id))
+	recorder := performAutoBanEnableRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable"}`, user.Id))
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), `"success":true`)
 	for _, key := range keys {
@@ -199,7 +200,7 @@ func TestAutoBanLiftIsScopedToOneOccurrence(t *testing.T) {
 	require.NoError(t, db.Create(&user).Error)
 	first := model.AutoBanEvent{EventKey: "first-ban", UserID: user.Id, Mode: "ban"}
 	require.NoError(t, model.ApplyAutoBanEvent(&first))
-	response := performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	response := performAutoBanEnableRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
 	require.Contains(t, response.Body.String(), `"success":true`)
 	require.NoError(t, db.First(&first, first.ID).Error)
 	require.NotNil(t, first.LiftedAt)
@@ -219,12 +220,12 @@ func TestAutoBanLiftIsScopedToOneOccurrence(t *testing.T) {
 	assert.False(t, events[2].CanUnban)
 	assert.True(t, events[2].BanLifted)
 	assert.Equal(t, first.LiftedAt, events[2].LiftedAt)
-	response = performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	response = performAutoBanEnableRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
 	assert.Equal(t, http.StatusConflict, response.Code)
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusDisabled, user.Status)
 	// User management must also persist the resolution.
-	response = performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable"}`, user.Id))
+	response = performAutoBanEnableRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable"}`, user.Id))
 	require.Contains(t, response.Body.String(), `"success":true`)
 	require.NoError(t, db.First(&second, second.ID).Error)
 	require.NotNil(t, second.LiftedAt)
@@ -247,7 +248,7 @@ func TestAutoBanResolvedRecordStaysResolvedOnOlderPage(t *testing.T) {
 	assert.True(t, events[0].BanLifted)
 	assert.False(t, events[0].CanUnban)
 	assert.Nil(t, events[0].LiftedAt, "a saved resolution does not require a fabricated timestamp")
-	response := performManageUserRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
+	response := performAutoBanEnableRequest(t, fmt.Sprintf(`{"id":%d,"action":"enable","auto_ban_event_id":%d}`, user.Id, first.ID))
 	assert.Equal(t, http.StatusConflict, response.Code)
 	require.NoError(t, db.First(&user, user.Id).Error)
 	assert.Equal(t, common.UserStatusDisabled, user.Status)
@@ -289,4 +290,26 @@ func TestAutoBanRecordStatusComesOnlyFromSavedResolution(t *testing.T) {
 		assert.False(t, event.BanLifted, "neither an enabled user nor a later ban may infer resolution")
 		assert.False(t, event.CanUnban, "an enabled account cannot be enabled again from a record")
 	}
+}
+
+func performAutoBanEnableRequest(t *testing.T, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	var request struct {
+		ID int `json:"id"`
+	}
+	require.NoError(t, common.UnmarshalJsonStr(body, &request))
+	var operator model.User
+	if err := model.DB.First(&operator, 9999).Error; err != nil {
+		operator = createQuotaTestOperator(t, model.DB, common.RoleRootUser)
+	}
+	require.NoError(t, model.PublishUserAuthCache(operator.Id))
+	bundle, err := service.CreateLoginSession(operator.Id, "password", "127.0.0.1", "auto-ban-test")
+	require.NoError(t, err)
+	identity, err := service.ParseAccessToken(bundle.AccessToken)
+	require.NoError(t, err)
+	binding, err := service.BindVerificationOperation(service.VerificationOperation{Scope: service.VerificationScopeAdminUserManage, Context: []byte(fmt.Sprintf(`{"user_id":%d,"action":"enable"}`, request.ID))})
+	require.NoError(t, err)
+	proof, _, err := service.IssueSecurityProof(identity, service.VerificationMethodPassword, binding)
+	require.NoError(t, err)
+	return performVerifiedManageUserRequest(t, body, identity, proof)
 }

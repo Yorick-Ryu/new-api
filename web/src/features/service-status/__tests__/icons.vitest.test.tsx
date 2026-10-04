@@ -35,12 +35,15 @@ it.each([
   ['GLM-5.2', 'Zhipu'],
   ['MiniMax-M2.5', 'Minimax'],
   ['LongCat-2.0', 'LongCat'],
-])('shows the brand icon for %s without configured metadata', (name, title) => {
-  mount(name)
-  expect(screen.getByTitle(title)).toBeTruthy()
-})
-it('preserves an explicitly configured icon over the model-name fallback', () => {
+])(
+  'shows the brand icon for %s without configured metadata',
+  async (name, title) => {
+    mount(name)
+    expect(await screen.findByTitle(title)).toBeTruthy()
+  }
+)
+it('preserves an explicitly configured icon over the model-name fallback', async () => {
   mount('grok-4.6', 'OpenAI')
-  expect(screen.getByTitle('OpenAI')).toBeTruthy()
+  expect(await screen.findByTitle('OpenAI')).toBeTruthy()
   expect(screen.queryByTitle('Grok')).toBeNull()
 })

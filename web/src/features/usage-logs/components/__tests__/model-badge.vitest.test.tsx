@@ -40,7 +40,6 @@ it('opens requested, mapped and returned model details from the warning with the
           requested_model: 'requested',
           upstream_model: 'mapped',
           returned_model: 'returned',
-          mismatch: true,
         }}
       />
     </I18nextProvider>
@@ -80,7 +79,6 @@ it('shows a dated model difference in details without a mismatch warning', async
           requested_model: 'requested',
           upstream_model: 'requested',
           returned_model: 'requested-2026-09-01',
-          mismatch: false,
         }}
       />
     </I18nextProvider>
@@ -116,7 +114,6 @@ it('keeps unchanged model badges copyable without a redundant details trigger', 
           requested_model: 'requested',
           upstream_model: 'requested',
           returned_model: 'requested',
-          mismatch: false,
         }}
       />
     </I18nextProvider>

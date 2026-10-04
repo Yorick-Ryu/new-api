@@ -32,8 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  SecureVerificationDialog,
+  useSecureVerification,
+} from '@/features/auth/secure-verification'
+import { AuthOperationError } from '@/lib/secure-verification'
 
-import { autoBanApi } from './api'
+import { autoBanApi, type BanEvent } from './api'
 import { BanRecordAction } from './ban-record-action'
 import { BanRecordDetails } from './ban-record-details'
 
@@ -45,10 +50,23 @@ export function BanRecords() {
     queryKey: ['auto-ban-events', before],
     queryFn: () => autoBanApi.events(before),
   })
+  const verification = useSecureVerification()
   const unban = useMutation({
-    mutationFn: autoBanApi.lift,
-    onSuccess: async () => {
-      toast.success(t('Ban lifted successfully'))
+    mutationFn: async (event: BanEvent) => {
+      const proof = await verification.requestVerification({
+        scope: 'admin.user.manage',
+        context: { user_id: event.user_id, action: 'enable' },
+        title: t('Verify to enable user'),
+      })
+      if (!proof) return false
+      await autoBanApi.lift(event, proof.proof_token)
+      return true
+    },
+    onSuccess: (lifted) => {
+      if (lifted) toast.success(t('Ban lifted successfully'))
+    },
+    onError: (error) => {
+      toast.error(AuthOperationError.from(error).message)
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['auto-ban-events'] })
@@ -62,6 +80,7 @@ export function BanRecords() {
   }
   return (
     <section className='min-w-0 space-y-4'>
+      <SecureVerificationDialog {...verification.dialogProps} />
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <h2 className='text-sm font-medium'>{t('Automatic ban records')}</h2>
         <Button
