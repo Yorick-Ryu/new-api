@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Delete02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Button } from '@/components/ui/button'
 
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
@@ -28,6 +35,8 @@ import {
 } from './hooks'
 
 export function Playground() {
+  const { t } = useTranslation()
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const {
     config,
@@ -65,8 +74,11 @@ export function Playground() {
   })
 
   const handleClearMessages = () => {
+    if (isGenerating || isLoadingMessages || messages.length === 0) return
     handleEditOpenChange(false)
     clearMessages()
+    setClearConfirmOpen(false)
+    toast.success(t('Conversation cleared'))
   }
 
   const { isLoadingModels } = usePlaygroundOptions({
@@ -79,6 +91,35 @@ export function Playground() {
 
   return (
     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
+      <header className='flex shrink-0 justify-end px-4 pt-3 pb-1'>
+        <Button
+          className='text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+          disabled={isGenerating || isLoadingMessages || messages.length === 0}
+          onClick={() => setClearConfirmOpen(true)}
+          size='sm'
+          type='button'
+          variant='outline'
+        >
+          <HugeiconsIcon
+            icon={Delete02Icon}
+            data-icon='inline-start'
+            aria-hidden='true'
+          />
+          {t('Clear chat history')}
+        </Button>
+      </header>
+      <ConfirmDialog
+        destructive
+        disabled={isGenerating || isLoadingMessages || messages.length === 0}
+        desc={t(
+          'All playground messages saved in this browser will be removed. This cannot be undone.'
+        )}
+        confirmText={t('Clear')}
+        handleConfirm={handleClearMessages}
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title={t('Clear chat history?')}
+      />
       {/* Full-width scroll container: scrolling works even over side whitespace */}
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
         <PlaygroundChat
@@ -111,13 +152,11 @@ export function Playground() {
           models={models}
           onGroupChange={(value) => updateConfig('group', value)}
           onConfigChange={updateConfig}
-          onClearMessages={handleClearMessages}
           onModelChange={(value) => updateConfig('model', value)}
           onParameterEnabledChange={updateParameterEnabled}
           onStop={stopGeneration}
           onSubmit={handleSendMessage}
           parameterEnabled={parameterEnabled}
-          hasMessages={messages.length > 0}
         />
       </div>
     </div>

@@ -138,7 +138,7 @@ export function MessageActions({
     })
   }
 
-  if (hasContent && onEdit) {
+  if (isUser && hasContent && onEdit) {
     actions.push({
       disabled: isGenerating,
       icon: Edit,
