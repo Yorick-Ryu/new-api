@@ -110,11 +110,98 @@ func TestBusinessActivityUsesSeparateConsumeLogsAndDeduplicatesUsers(t *testing.
 	}).Error)
 	activity, err := getBusinessActivity(context.Background(), start, start+43200, start-86400, start-43200)
 	require.NoError(t, err)
-	assert.Equal(t, &BusinessActivity{Users: 1, PreviousUsers: 1, LastDayUsers: 1, SevenDayUsers: 3}, activity)
+	assert.Equal(t, &BusinessActivity{Users: 1, PreviousUsers: 1}, activity)
 	require.NoError(t, logDB.Migrator().DropTable(&Log{}))
 	data, err := GetBusinessDashboard(context.Background(), 1, 0, time.Unix(start+43200, 0))
 	require.NoError(t, err)
 	assert.Nil(t, data.Activity)
+}
+
+func TestBusinessActivityIndexAndPeriodsAcrossDatabases(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			setupBusinessDatabase(t)
+			var driver gorm.Dialector
+			switch dialect {
+			case "sqlite":
+				driver = sqlite.Open(filepath.Join(t.TempDir(), "activity.db"))
+			case "mysql":
+				dsn := os.Getenv("TEST_MYSQL_DSN")
+				if dsn == "" {
+					t.Skip("TEST_MYSQL_DSN not configured")
+				}
+				driver = mysql.Open(dsn)
+			case "postgres":
+				dsn := os.Getenv("TEST_POSTGRES_DSN")
+				if dsn == "" {
+					t.Skip("TEST_POSTGRES_DSN not configured")
+				}
+				driver = postgres.Open(dsn)
+			}
+			db, err := gorm.Open(driver, &gorm.Config{})
+			require.NoError(t, err)
+			LOG_DB = db
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = sqlDB.Close() })
+			var version string
+			versionSQL := "SELECT VERSION()"
+			if dialect == "sqlite" {
+				versionSQL = "SELECT sqlite_version()"
+			}
+			require.NoError(t, db.Raw(versionSQL).Scan(&version).Error)
+			t.Logf("%s version: %s", dialect, version)
+			for _, scenario := range []string{"fresh", "upgrade"} {
+				t.Run(scenario, func(t *testing.T) {
+					require.NoError(t, db.Migrator().DropTable(&Log{}))
+					require.NoError(t, db.AutoMigrate(&Log{}))
+					if scenario == "upgrade" {
+						// The released log schema differs only by this new index.
+						require.NoError(t, db.Migrator().DropIndex(&Log{}, "idx_logs_type_created_user"))
+					}
+					rows := []Log{
+						{Id: 1, UserId: 1, Type: LogTypeConsume, CreatedAt: 100, Content: "preserved"},
+						{Id: 2, UserId: 1, Type: LogTypeConsume, CreatedAt: 101},
+						{Id: 3, UserId: 2, Type: LogTypeConsume, CreatedAt: 200},
+						{Id: 4, UserId: 3, Type: LogTypeConsume, CreatedAt: 250},
+						{Id: 5, UserId: 4, Type: LogTypeConsume, CreatedAt: 300},
+						{Id: 6, UserId: 0, Type: LogTypeConsume, CreatedAt: 220},
+						{Id: 7, UserId: 5, Type: LogTypeError, CreatedAt: 220},
+						{Id: 8, UserId: 6, Type: LogTypeConsume, CreatedAt: 50},
+					}
+					require.NoError(t, db.Create(&rows).Error)
+					for range 2 {
+						require.NoError(t, db.AutoMigrate(&Log{}))
+					}
+					recorder := &migrationSQLRecorder{}
+					require.NoError(t, db.Session(&gorm.Session{Logger: recorder}).AutoMigrate(&Log{}))
+					assert.Empty(t, recorder.schemaMutations(), "repeated startup must leave the log schema unchanged")
+					assert.True(t, db.Migrator().HasIndex(&Log{}, "idx_logs_type_created_user"))
+					assert.True(t, db.Migrator().HasIndex(&Log{}, "idx_created_at_type"))
+					var saved []Log
+					require.NoError(t, db.Order("id").Find(&saved).Error)
+					assert.Equal(t, rows, saved)
+					assert.Error(t, db.Create(&Log{Id: 1}).Error, "primary-key uniqueness must survive migration")
+					for _, tc := range []struct {
+						name                                   string
+						start, end, previousStart, previousEnd int64
+						want                                   BusinessActivity
+					}{
+						{"same elapsed time", 200, 250, 100, 150, BusinessActivity{Users: 1, PreviousUsers: 1}},
+						{"full periods", 200, 300, 100, 200, BusinessActivity{Users: 2, PreviousUsers: 1}},
+						{"custom adjacent windows", 250, 300, 200, 250, BusinessActivity{Users: 1, PreviousUsers: 1}},
+						{"empty periods", 400, 450, 350, 400, BusinessActivity{}},
+					} {
+						t.Run(tc.name, func(t *testing.T) {
+							got, err := getBusinessActivity(context.Background(), tc.start, tc.end, tc.previousStart, tc.previousEnd)
+							require.NoError(t, err)
+							assert.Equal(t, &tc.want, got)
+						})
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestBusinessRenewalCohortIncludesEarlyLateAndUnrenewedExpiries(t *testing.T) {

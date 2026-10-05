@@ -558,8 +558,6 @@ it('renders the new filters and growth metrics in the selected Chinese locale', 
   data.activity = {
     users: 8,
     previous_users: 4,
-    last_day_users: 2,
-    seven_day_users: 8,
   }
   data.plans = [
     {

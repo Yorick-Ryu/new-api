@@ -44,8 +44,6 @@ export interface BusinessDashboardData {
   activity: {
     users: number
     previous_users: number
-    last_day_users: number
-    seven_day_users: number
   } | null
   subscription_health: {
     active: number

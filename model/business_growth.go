@@ -31,8 +31,6 @@ type BusinessSales struct {
 type BusinessActivity struct {
 	Users         int64 `json:"users"`
 	PreviousUsers int64 `json:"previous_users"`
-	LastDayUsers  int64 `json:"last_day_users"`
-	SevenDayUsers int64 `json:"seven_day_users"`
 }
 
 type BusinessSubscriptionHealth struct {
@@ -125,15 +123,15 @@ func getBusinessActivity(ctx context.Context, start, end, previousStart, previou
 		return nil, nil
 	}
 	result := &BusinessActivity{}
-	local := time.Unix(end-1, 0).In(time.FixedZone("UTC+8", 28800))
-	lastDay := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location()).Unix()
-	sevenDay := lastDay - 6*86400
-	minimum := previousStart
-	if sevenDay < minimum {
-		minimum = sevenDay
-	}
-	err := LOG_DB.WithContext(ctx).Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, minimum, end).
-		Select("COUNT(DISTINCT CASE WHEN created_at >= ? THEN user_id END) AS users, COUNT(DISTINCT CASE WHEN created_at >= ? AND created_at < ? THEN user_id END) AS previous_users, COUNT(DISTINCT CASE WHEN created_at >= ? THEN user_id END) AS last_day_users, COUNT(DISTINCT CASE WHEN created_at >= ? THEN user_id END) AS seven_day_users", start, previousStart, previousEnd, lastDay, sevenDay).Scan(result).Error
+	// Only scan the two displayed periods, including their exclusive end bounds.
+	// Shortcuts compare the same elapsed time, leaving a gap between periods.
+	db := LOG_DB.WithContext(ctx)
+	current := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, start, end).
+		Select("COUNT(DISTINCT user_id) AS users")
+	previous := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, previousStart, previousEnd).
+		Select("COUNT(DISTINCT user_id) AS users")
+	err := db.Table("(?) AS current_activity, (?) AS previous_activity", current, previous).
+		Select("current_activity.users, previous_activity.users AS previous_users").Scan(result).Error
 	return result, err
 }
 
