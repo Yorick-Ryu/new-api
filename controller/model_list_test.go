@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -576,4 +577,162 @@ func TestClaudeSetupCatalogRespectsGroupPermissionsAndMatchesTokenCatalog(t *tes
 			assert.JSONEq(t, tokenResponse.Body.String(), recorder.Body.String())
 		})
 	}
+}
+
+func TestGetUserModelsPlaygroundFiltersCapabilitiesAndUsesDisplayOrder(t *testing.T) {
+	oldDB, oldLogDB := model.DB, model.LOG_DB
+	oldMemory, oldRedis := common.MemoryCacheEnabled, common.RedisEnabled
+	oldMainType, oldLogType := common.MainDatabaseType(), common.LogDatabaseType()
+	oldSettings := *model_setting.GetGlobalSettings()
+	common.OptionMapRWMutex.Lock()
+	oldOptions := common.OptionMap
+	common.OptionMap = map[string]string{model.ModelDisplayOrderOptionKey: `["gpt-image-2","private-chat","z-chat","gpt-4o"]`}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = oldDB, oldLogDB
+		common.MemoryCacheEnabled, common.RedisEnabled = oldMemory, oldRedis
+		common.SetDatabaseTypes(oldMainType, oldLogType)
+		*model_setting.GetGlobalSettings() = oldSettings
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = oldOptions
+		common.OptionMapRWMutex.Unlock()
+		model.InvalidatePricingCache()
+	})
+	common.MemoryCacheEnabled = false
+	*model_setting.GetGlobalSettings() = model_setting.GlobalSettings{
+		ChatCompletionsToResponsesPolicy: model_setting.ChatCompletionsToResponsesPolicy{
+			Enabled: true, AllChannels: true, ModelPatterns: []string{`^gpt-6-sol$`},
+		},
+	}
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{Id: 1201, Username: "playground-catalog-user", Group: "default", Status: common.UserStatusEnabled}).Error)
+	channels := []model.Channel{
+		{Id: 1, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled},
+		{Id: 2, Type: constant.ChannelTypeAnthropic, Status: common.ChannelStatusEnabled},
+		{Id: 3, Type: constant.ChannelTypeCodex, Status: common.ChannelStatusEnabled},
+		{Id: 4, Type: constant.ChannelTypeAdvancedCustom, Status: common.ChannelStatusEnabled,
+			OtherSettings: `{"advanced_custom":{"advanced_routes":[{"incoming_path":"/v1/embeddings","upstream_path":"/v1/embeddings","models":["custom-vector"]},{"incoming_path":"/v1/chat/completions","upstream_path":"/v1/chat/completions","models":["custom-chat"]}]}}`},
+		{Id: 5, Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled},
+		{Id: 6, Type: constant.ChannelTypeGemini, Status: common.ChannelStatusEnabled},
+	}
+	require.NoError(t, db.Create(&channels).Error)
+	abilities := []model.Ability{
+		{Group: "default", Model: "claude-sonnet-4-5", ChannelId: 2, Enabled: true},
+		{Group: "default", Model: "gpt-6-sol", ChannelId: 3, Enabled: true},
+		{Group: "default", Model: "gpt-6-astra", ChannelId: 3, Enabled: true},
+		{Group: "default", Model: "custom-vector", ChannelId: 4, Enabled: true},
+		{Group: "default", Model: "custom-chat", ChannelId: 4, Enabled: true},
+		{Group: "default", Model: "custom-task", ChannelId: 5, Enabled: true},
+		{Group: "default", Model: "gemini-2.5-pro", ChannelId: 6, Enabled: true},
+		{Group: "default", Model: "gemini-2.5-flash-image", ChannelId: 6, Enabled: true},
+		{Group: "private", Model: "private-chat", ChannelId: 1, Enabled: true},
+		// A chat route in another group must not make this group's vector route usable.
+		{Group: "private", Model: "custom-vector", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "disabled-chat", ChannelId: 1, Enabled: false},
+	}
+	for _, name := range []string{"z-chat", "a-chat", "gpt-4o", "gpt-image-2", "text-embedding-3-small", "bge-m3", "whisper-1", "tts-1", "gpt-4o-mini-transcribe", "omni-moderation-latest", "gpt-4o-realtime-preview", "rerank-v3.5", "sora-2", "custom-picture"} {
+		abilities = append(abilities, model.Ability{Group: "default", Model: name, ChannelId: 1, Enabled: true})
+	}
+	require.NoError(t, db.Create(&abilities).Error)
+	require.NoError(t, db.Create(&model.Model{ModelName: "custom-picture", Status: 1, Endpoints: `{"image-generation":"/v1/images/generations"}`}).Error)
+	model.InvalidatePricingCache()
+
+	for _, tc := range []struct {
+		name, query string
+		want        []string
+	}{
+		{"chat capabilities and saved order", "group=default&purpose=playground", []string{"z-chat", "gpt-4o", "a-chat", "claude-sonnet-4-5", "custom-chat", "gemini-2.5-pro", "gpt-6-sol"}},
+		{"forbidden group stays empty", "group=private&purpose=playground", []string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?"+tc.query, nil)
+			ctx.Set("id", 1201)
+			GetUserModels(ctx)
+			assert.Equal(t, tc.want, decodeUserModelsResponse(t, recorder))
+		})
+	}
+
+	t.Run("general model list retains image and vector models", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default", nil)
+		ctx.Set("id", 1201)
+		GetUserModels(ctx)
+		names := decodeUserModelsResponse(t, recorder)
+		assert.Contains(t, names, "gpt-image-2")
+		assert.Contains(t, names, "custom-vector")
+	})
+
+	t.Run("saved order updates immediately and empty order falls back to names", func(t *testing.T) {
+		common.OptionMapRWMutex.Lock()
+		oldOrder := common.OptionMap[model.ModelDisplayOrderOptionKey]
+		common.OptionMapRWMutex.Unlock()
+		t.Cleanup(func() {
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[model.ModelDisplayOrderOptionKey] = oldOrder
+			common.OptionMapRWMutex.Unlock()
+		})
+		for _, tc := range []struct {
+			order string
+			want  []string
+		}{
+			{`["gpt-6-sol","z-chat"]`, []string{"gpt-6-sol", "z-chat", "a-chat", "claude-sonnet-4-5", "custom-chat", "gemini-2.5-pro", "gpt-4o"}},
+			{`[]`, []string{"a-chat", "claude-sonnet-4-5", "custom-chat", "gemini-2.5-pro", "gpt-4o", "gpt-6-sol", "z-chat"}},
+		} {
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[model.ModelDisplayOrderOptionKey] = tc.order
+			common.OptionMapRWMutex.Unlock()
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default&purpose=playground", nil)
+			ctx.Set("id", 1201)
+			GetUserModels(ctx)
+			assert.Equal(t, tc.want, decodeUserModelsResponse(t, recorder))
+		}
+	})
+
+	t.Run("passthrough cannot offer responses-only models as chat", func(t *testing.T) {
+		model_setting.GetGlobalSettings().PassThroughRequestEnabled = true
+		t.Cleanup(func() { model_setting.GetGlobalSettings().PassThroughRequestEnabled = false })
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default&purpose=playground", nil)
+		ctx.Set("id", 1201)
+		GetUserModels(ctx)
+		names := decodeUserModelsResponse(t, recorder)
+		assert.NotContains(t, names, "gpt-6-sol")
+		assert.Contains(t, names, "gpt-4o")
+	})
+
+	t.Run("auto groups deduplicate and follow display order across groups", func(t *testing.T) {
+		oldAuto := setting.AutoGroups2JsonString()
+		oldUsable := setting.UserUsableGroups2JSONString()
+		oldRatios := ratio_setting.GroupRatio2JSONString()
+		oldSpecial := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
+		t.Cleanup(func() {
+			require.NoError(t, setting.UpdateAutoGroupsByJsonString(oldAuto))
+			require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(oldUsable))
+			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldRatios))
+			ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Clear()
+			ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.AddAll(oldSpecial)
+		})
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["vip","default","private"]`))
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"auto":"Auto","default":"Default","vip":"VIP"}`))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"private":1}`))
+		ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Clear()
+		require.NoError(t, db.Create(&[]model.Ability{
+			{Group: "vip", Model: "a-vip-chat", ChannelId: 1, Enabled: true},
+			{Group: "vip", Model: "gpt-4o", ChannelId: 1, Enabled: true},
+			{Group: "vip", Model: "gpt-image-2", ChannelId: 1, Enabled: true},
+		}).Error)
+		model.InvalidatePricingCache()
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=auto&purpose=playground", nil)
+		ctx.Set("id", 1201)
+		GetUserModels(ctx)
+		assert.Equal(t, []string{"z-chat", "gpt-4o", "a-chat", "a-vip-chat", "claude-sonnet-4-5", "custom-chat", "gemini-2.5-pro", "gpt-6-sol"}, decodeUserModelsResponse(t, recorder))
+	})
 }
