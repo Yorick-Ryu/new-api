@@ -7280,6 +7280,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "檢視你的使用日誌、統計、任務和稽核日誌。",
     "Wallet pre-consume bypass threshold (USD)": "錢包免預扣門檻（美元）",
     "What do you want to change?": "你想修改什麼？",
-    "You can create up to {{count}} access tokens": "最多可建立 {{count}} 個存取令牌"
+    "You can create up to {{count}} access tokens": "最多可建立 {{count}} 個存取令牌",
+    "Uncharged usage": "未收取用量"
   }
 }

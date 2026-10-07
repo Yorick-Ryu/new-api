@@ -7280,6 +7280,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "利用ログ、統計、タスク、監査ログを表示します。",
     "Wallet pre-consume bypass threshold (USD)": "ウォレットの事前引き落とし省略額（USD）",
     "What do you want to change?": "何を変更しますか？",
-    "You can create up to {{count}} access tokens": "アクセストークンは最大 {{count}} 個まで作成できます"
+    "You can create up to {{count}} access tokens": "アクセストークンは最大 {{count}} 個まで作成できます",
+    "Uncharged usage": "未請求の使用量"
   }
 }

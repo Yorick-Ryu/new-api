@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -1794,4 +1795,54 @@ func postConsumeUserSubscriptionDeltaTx(tx *gorm.DB, userSubscriptionId int, del
 	}
 	sub.AmountUsed = newUsed
 	return tx.Save(&sub).Error
+}
+
+// SettleUserSubscriptionDelta caps final additional usage at the smallest
+// remaining allowance and returns the uncollected quota in subscription units.
+// Reservations and refunds keep their existing strict accounting behavior.
+func SettleUserSubscriptionDelta(userSubscriptionId int, delta int64) (int64, error) {
+	if delta <= 0 {
+		return 0, PostConsumeUserSubscriptionDelta(userSubscriptionId, delta)
+	}
+	if userSubscriptionId <= 0 || delta > common.MaxQuota {
+		return 0, errors.New("invalid subscription settlement delta")
+	}
+	var uncollected int64
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var sub UserSubscription
+		if err := lockForUpdate(tx).Where("id = ?", userSubscriptionId).First(&sub).Error; err != nil {
+			return err
+		}
+		if sub.AmountUsed < 0 {
+			return errors.New("invalid subscription used quota")
+		}
+		windows, err := findSubscriptionQuotaWindowsForUpdateTx(tx, &sub)
+		if err != nil {
+			return err
+		}
+		available := int64(math.MaxInt64) - sub.AmountUsed
+		if sub.AmountTotal > 0 {
+			available = max(sub.AmountTotal-sub.AmountUsed, 0)
+		}
+		for _, window := range windows {
+			if window.AmountUsed < 0 || window.AmountTotal < 0 {
+				return errors.New("invalid subscription window quota")
+			}
+			available = min(available, max(window.AmountTotal-window.AmountUsed, 0))
+		}
+		charged := min(delta, available)
+		uncollected = delta - charged
+		if charged == 0 {
+			return nil
+		}
+		if err := applySubscriptionQuotaWindowDeltaRowsTx(tx, windows, charged); err != nil {
+			return err
+		}
+		sub.AmountUsed += charged
+		return tx.Save(&sub).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return uncollected, nil
 }

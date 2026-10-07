@@ -22,7 +22,14 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -378,5 +385,40 @@ test.each(['missing schema', 'unsupported expression', 'unknown tier'])(
       matched_tier: scenario === 'unknown tier' ? 'old' : 'music',
     })
     expect(preview.textContent).toBe('Dynamic Pricing · No matching results')
+  }
+)
+
+test.each([4000, 0, undefined])(
+  'shows uncharged usage only for a positive subscription shortfall (%s)',
+  async (uncollected) => {
+    fireEvent.click(
+      renderPreview(
+        {
+          model_price: 0.25,
+          billing_source: 'subscription',
+          subscription_consumed: 1000,
+          subscription_uncollected_quota: uncollected,
+        },
+        false
+      )
+    )
+    const dialog = await screen.findByRole('dialog')
+    if (uncollected) {
+      await waitFor(() => {
+        const currentDialog = within(screen.getByRole('dialog'))
+        expect(currentDialog.getByText('Uncharged usage')).toBeVisible()
+        expect(currentDialog.getByText('$0.008')).toBeVisible()
+      })
+    } else {
+      expect(
+        within(dialog).queryByText('Uncharged usage')
+      ).not.toBeInTheDocument()
+    }
+    expect(
+      within(dialog).queryByText('Wallet deducted')
+    ).not.toBeInTheDocument()
+    expect(
+      within(dialog).queryByText('Actual usage (subscription rate)')
+    ).not.toBeInTheDocument()
   }
 )

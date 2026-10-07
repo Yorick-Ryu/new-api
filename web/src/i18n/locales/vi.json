@@ -7280,6 +7280,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "Xem nhật ký sử dụng, thống kê, tác vụ và nhật ký kiểm toán của bạn.",
     "Wallet pre-consume bypass threshold (USD)": "Ngưỡng ví được miễn khấu trừ trước (USD)",
     "What do you want to change?": "Bạn muốn thay đổi gì?",
-    "You can create up to {{count}} access tokens": "Bạn có thể tạo tối đa {{count}} token truy cập"
+    "You can create up to {{count}} access tokens": "Bạn có thể tạo tối đa {{count}} token truy cập",
+    "Uncharged usage": "Mức sử dụng chưa thu phí"
   }
 }

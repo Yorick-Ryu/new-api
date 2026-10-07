@@ -7371,6 +7371,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "View your usage logs, statistics, tasks, and audit logs.",
     "Wallet pre-consume bypass threshold (USD)": "Wallet pre-consume bypass threshold (USD)",
     "What do you want to change?": "What do you want to change?",
-    "You can create up to {{count}} access tokens": "You can create up to {{count}} access tokens"
+    "You can create up to {{count}} access tokens": "You can create up to {{count}} access tokens",
+    "Uncharged usage": "Uncharged usage"
   }
 }

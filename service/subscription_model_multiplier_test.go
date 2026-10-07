@@ -1,10 +1,15 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -469,4 +474,174 @@ func TestSubscriptionBillingGroupsFreeGroupRetryReselectsFunding(t *testing.T) {
 	}
 	require.NoError(t, info.Billing.Settle(0))
 	assert.Equal(t, 0, getUserQuota(t, 1))
+}
+
+// Run the same settlement contract against real SQLite, MySQL and PostgreSQL.
+func TestSubscriptionCappedSettlementDatabaseMatrix(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			dsn := os.Getenv("TEST_" + strings.ToUpper(dialect) + "_DSN")
+			if dialect != "sqlite" && dsn == "" {
+				t.Skip("isolated TEST database DSN not configured")
+			}
+			previousDB, previousLogDB := model.DB, model.LOG_DB
+			previousMain, previousLog := common.MainDatabaseType(), common.LogDatabaseType()
+			previousPath, previousMaster := common.SQLitePath, common.IsMasterNode
+			common.SQLitePath = filepath.Join(t.TempDir(), "capped-settlement.db")
+			common.IsMasterNode = true
+			t.Setenv("SQL_DSN", dsn)
+			t.Setenv("LOG_SQL_DSN", "")
+			t.Setenv("SQL_MAX_OPEN_CONNS", "8")
+			require.NoError(t, model.InitDB())
+			sqlDB, err := model.DB.DB()
+			require.NoError(t, err)
+			if dialect == "sqlite" {
+				sqlDB.SetMaxOpenConns(1)
+			}
+			require.NoError(t, model.InitLogDB())
+			t.Cleanup(func() {
+				require.NoError(t, sqlDB.Close())
+				model.DB, model.LOG_DB = previousDB, previousLogDB
+				common.SQLitePath, common.IsMasterNode = previousPath, previousMaster
+				common.SetDatabaseTypes(previousMain, previousLog)
+				require.NoError(t, model.InitLogDB())
+			})
+			versionSQL := "SELECT VERSION()"
+			if dialect == "sqlite" {
+				versionSQL = "SELECT sqlite_version()"
+			}
+			var version string
+			require.NoError(t, model.DB.Raw(versionSQL).Scan(&version).Error)
+			t.Logf("database: %s", version)
+			runSubscriptionCappedSettlementCases(t)
+		})
+	}
+}
+
+func runSubscriptionCappedSettlementCases(t *testing.T) {
+	for _, tc := range []struct {
+		name, pref, override                  string
+		allow                                 bool
+		primary, window, charged, uncollected int64
+		actual                                int
+	}{
+		{"primary_cap", "subscription_first", "{}", true, 100, 900, 100, 50, 150},
+		{"window_cap_astra", "subscription_first", `{"gpt-6-astra":2}`, true, 1000, 100, 100, 50, 150},
+		{"plan_forbids_wallet", "subscription_first", "{}", false, 1000, 100, 100, 50, 150},
+		{"subscription_only", "subscription_only", "{}", true, 1000, 100, 100, 50, 150},
+		{"equal_reservation", "subscription_first", "{}", true, 1000, 100, 20, 0, 20},
+		{"refund_unused", "subscription_first", "{}", true, 1000, 100, 5, 0, 5},
+		{"zero_usage", "subscription_first", "{}", true, 1000, 100, 0, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, info, _, sub := subscriptionMultiplierFixture(t, tc.override, tc.window)
+			require.NoError(t, model.DB.Model(sub).Updates(map[string]any{"amount_total": tc.primary, "allow_wallet_overflow": tc.allow}).Error)
+			info.RequestId = "capped-" + tc.name
+			info.UserSetting.BillingPreference = tc.pref
+			session, apiErr := NewBillingSession(ctx, info, 20)
+			require.Nil(t, apiErr)
+			require.Equal(t, BillingSourceSubscription, info.BillingSource)
+			require.NoError(t, session.Settle(tc.actual))
+			require.NoError(t, session.Settle(tc.actual))
+			session.Refund(ctx)
+			assert.False(t, session.NeedsRefund())
+			assertSubscriptionConsumption(t, sub.Id, tc.charged)
+			assert.Equal(t, 1000, getUserQuota(t, 1)) // Current request never falls back to the wallet.
+			other := model.NewLogOther()
+			appendBillingInfo(info, other)
+			assert.EqualValues(t, 0, other.Snapshot()["wallet_quota_deducted"])
+			assert.Equal(t, tc.charged, other.Snapshot()["subscription_consumed"])
+			if tc.uncollected > 0 {
+				assert.Equal(t, tc.uncollected, other.Snapshot()["subscription_uncollected_quota"])
+			} else {
+				assert.NotContains(t, other.Snapshot(), "subscription_uncollected_quota")
+			}
+			var token model.Token
+			require.NoError(t, model.DB.First(&token, 1).Error)
+			assert.Equal(t, 1000-tc.actual, token.RemainQuota)
+			if tc.uncollected > 0 {
+				// The next request follows existing preference/plan fallback, at wallet price.
+				nextInfo := &relaycommon.RelayInfo{UserId: 1, TokenId: 1, TokenKey: info.TokenKey, ForcePreConsume: true, OriginModelName: info.OriginModelName, RequestId: info.RequestId + "-next"}
+				nextInfo.UserSetting = info.UserSetting
+				nextInfo.PriceData.GroupRatioInfo.GroupRatio = 1
+				next, nextErr := NewBillingSession(ctx, nextInfo, 10)
+				if tc.allow && tc.pref != "subscription_only" {
+					require.Nil(t, nextErr)
+					assert.Equal(t, BillingSourceWallet, nextInfo.BillingSource)
+					require.NoError(t, next.Settle(10))
+					assert.Equal(t, 990, getUserQuota(t, 1))
+				} else {
+					require.NotNil(t, nextErr)
+					assert.Equal(t, 1000, getUserQuota(t, 1))
+				}
+			}
+		})
+	}
+	t.Run("atomic_rollback_and_retry", func(t *testing.T) {
+		ctx, info, _, sub := subscriptionMultiplierFixture(t, "{}", 100)
+		info.RequestId = "capped-rollback"
+		session, apiErr := NewBillingSession(ctx, info, 20)
+		require.Nil(t, apiErr)
+		const callback = "test:fail_capped_subscription_update"
+		require.NoError(t, model.DB.Callback().Update().Before("gorm:update").Register(callback, func(tx *gorm.DB) {
+			if tx.Statement.Table == "user_subscriptions" {
+				tx.AddError(errors.New("injected subscription update failure"))
+			}
+		}))
+		err := session.Settle(150)
+		require.NoError(t, model.DB.Callback().Update().Remove(callback))
+		require.ErrorContains(t, err, "injected subscription update failure")
+		assertSubscriptionConsumption(t, sub.Id, 20)
+		require.NoError(t, session.Settle(150))
+		assertSubscriptionConsumption(t, sub.Id, 100)
+	})
+	t.Run("smallest_of_multiple_windows", func(t *testing.T) {
+		ctx, info, _, sub := subscriptionMultiplierFixture(t, "{}", 100)
+		info.RequestId = "capped-windows"
+		require.NoError(t, model.DB.Create(&model.UserSubscriptionQuotaWindow{UserSubscriptionId: sub.Id, WindowKey: "week", Name: "Weekly", PeriodUnit: "week", PeriodValue: 1, AmountTotal: 60, WindowStart: sub.StartTime, NextResetTime: sub.StartTime + 7*86400}).Error)
+		session, apiErr := NewBillingSession(ctx, info, 20)
+		require.Nil(t, apiErr)
+		require.NoError(t, session.Settle(150))
+		require.NoError(t, model.DB.First(sub, sub.Id).Error)
+		assert.EqualValues(t, 60, sub.AmountUsed)
+		other := model.NewLogOther()
+		appendBillingInfo(info, other)
+		assert.EqualValues(t, 90, other.Snapshot()["subscription_uncollected_quota"])
+		var windows []model.UserSubscriptionQuotaWindow
+		require.NoError(t, model.DB.Where("user_subscription_id = ?", sub.Id).Find(&windows).Error)
+		require.Len(t, windows, 2)
+		for _, window := range windows {
+			assert.EqualValues(t, 60, window.AmountUsed)
+		}
+	})
+	t.Run("concurrent_requests_and_duplicate_settlement", func(t *testing.T) {
+		ctx, info, _, sub := subscriptionMultiplierFixture(t, "{}", 100)
+		info.RequestId = "capped-concurrent"
+		info.IsPlayground = true
+		first, apiErr := NewBillingSession(ctx, info, 20)
+		require.Nil(t, apiErr)
+		secondInfo := *info
+		secondInfo.RequestId += "-second"
+		second, apiErr := NewBillingSession(ctx, &secondInfo, 20)
+		require.Nil(t, apiErr)
+		start := make(chan struct{})
+		errs := make(chan error, 4)
+		var wg sync.WaitGroup
+		for _, session := range []*BillingSession{first, first, second, second} {
+			wg.Go(func() { <-start; errs <- session.Settle(100) })
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			require.NoError(t, err)
+		}
+		assertSubscriptionConsumption(t, sub.Id, 100)
+		firstLog, secondLog := model.NewLogOther(), model.NewLogOther()
+		appendBillingInfo(info, firstLog)
+		appendBillingInfo(&secondInfo, secondLog)
+		assert.EqualValues(t, 100, firstLog.Snapshot()["subscription_consumed"].(int64)+secondLog.Snapshot()["subscription_consumed"].(int64))
+		assert.EqualValues(t, 100, firstLog.Snapshot()["subscription_uncollected_quota"].(int64)+secondLog.Snapshot()["subscription_uncollected_quota"].(int64))
+		assert.Equal(t, 1000, getUserQuota(t, 1))
+	})
 }

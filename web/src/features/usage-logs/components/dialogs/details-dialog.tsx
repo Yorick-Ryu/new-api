@@ -1321,6 +1321,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {other.subscription_uncollected_quota != null &&
+              other.subscription_uncollected_quota > 0 && (
+                <DetailRow
+                  label={t('Uncharged usage')}
+                  value={formatLogQuota(other.subscription_uncollected_quota)}
+                  mono
+                />
+              )}
             {other.subscription_remain != null && (
               <DetailRow
                 label={t('Remaining')}

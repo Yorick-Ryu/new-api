@@ -89,6 +89,7 @@ type SubscriptionFunding struct {
 	preConsumed     int64 // Full reservation in subscription units
 	baseConsumed    int64 // Normal model charge before the subscription multiplier
 	consumed        int64 // Current subscription charge after the multiplier
+	uncollected     int64 // Final usage above the available subscription allowance
 	ModelMultiplier float64
 	GroupRatio      float64
 	relayInfo       *relaycommon.RelayInfo
@@ -175,11 +176,13 @@ func (s *SubscriptionFunding) Settle(delta int) error {
 	if err != nil {
 		return err
 	}
-	if err := model.PostConsumeUserSubscriptionDelta(s.subscriptionId, target-s.consumed); err != nil {
+	uncollected, err := model.SettleUserSubscriptionDelta(s.subscriptionId, target-s.consumed)
+	if err != nil {
 		return err
 	}
+	s.uncollected = uncollected
 	s.baseConsumed = targetBase
-	s.consumed = target
+	s.consumed = target - uncollected
 	return nil
 }
 

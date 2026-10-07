@@ -7280,6 +7280,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "Afficher vos journaux d’utilisation, statistiques, tâches et journaux d’audit.",
     "Wallet pre-consume bypass threshold (USD)": "Seuil sans pré-débit du portefeuille (USD)",
     "What do you want to change?": "Que souhaitez-vous modifier ?",
-    "You can create up to {{count}} access tokens": "Vous pouvez créer jusqu’à {{count}} jetons d’accès"
+    "You can create up to {{count}} access tokens": "Vous pouvez créer jusqu’à {{count}} jetons d’accès",
+    "Uncharged usage": "Utilisation non facturée"
   }
 }

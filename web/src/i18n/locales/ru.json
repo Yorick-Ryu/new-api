@@ -7280,6 +7280,7 @@
     "View your usage logs, statistics, tasks, and audit logs.": "Просмотр ваших журналов использования, статистики, задач и журнала аудита.",
     "Wallet pre-consume bypass threshold (USD)": "Порог кошелька без предсписания (USD)",
     "What do you want to change?": "Что вы хотите изменить?",
-    "You can create up to {{count}} access tokens": "Можно создать не более {{count}} токенов доступа"
+    "You can create up to {{count}} access tokens": "Можно создать не более {{count}} токенов доступа",
+    "Uncharged usage": "Неоплаченное использование"
   }
 }

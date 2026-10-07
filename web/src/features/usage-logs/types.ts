@@ -271,6 +271,7 @@ export interface LogOtherData {
   subscription_group_ratio?: number
   subscription_original_group_ratio?: number
   subscription_consumed?: number
+  subscription_uncollected_quota?: number
   subscription_remain?: number
   subscription_total?: number
 }
