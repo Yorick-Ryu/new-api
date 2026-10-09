@@ -31,6 +31,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
 	"github.com/samber/lo"
 
@@ -191,6 +192,17 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 	if info.ChannelType == constant.ChannelTypeAzure {
 		header.Set("api-key", info.ApiKey)
 		return nil
+	}
+	if info.ChannelType == constant.ChannelTypeOpenAI &&
+		(info.RelayMode == relayconstant.RelayModeResponses || info.RelayMode == relayconstant.RelayModeResponsesCompact) {
+		// Protocol identity is independent of cache affinity, including Guardian
+		// models and requests that omit prompt_cache_key. Explicit channel header
+		// overrides are still applied after this adaptor by the request transport.
+		for _, name := range operation_setting.CodexCliPassThroughHeaders() {
+			if values := c.Request.Header.Values(name); len(values) > 0 {
+				(*header)[http.CanonicalHeaderKey(name)] = append([]string(nil), values...)
+			}
+		}
 	}
 	if info.ChannelType == constant.ChannelTypeOpenAI && "" != info.Organization {
 		header.Set("OpenAI-Organization", info.Organization)

@@ -64,6 +64,7 @@ var codexCliPassThroughHeaders = []string{
 	"X-Codex-Parent-Thread-Id",
 	//"X-Codex-Installation-Id",
 	"X-OpenAI-Subagent",
+	"X-Codex-Guardian",
 	"X-OpenAI-Memgen-Request",
 	//"X-OAI-Attestation",
 	"X-ResponsesAPI-Include-Timing-Metrics",
@@ -84,6 +85,12 @@ var claudeCliPassThroughHeaders = []string{
 	"Anthropic-Beta",
 	"Anthropic-Dangerous-Direct-Browser-Access",
 	"Anthropic-Version",
+}
+
+// CodexCliPassThroughHeaders returns the protocol header allowlist. Forwarding
+// these headers must not depend on whether a cache affinity rule matched.
+func CodexCliPassThroughHeaders() []string {
+	return append([]string(nil), codexCliPassThroughHeaders...)
 }
 
 func buildPassHeaderTemplate(headers []string) map[string]any {

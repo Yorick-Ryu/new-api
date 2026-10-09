@@ -114,7 +114,7 @@ type responsesWSMessage struct {
 	err    error
 }
 
-// responsesWSControl is a client control event (response.cancel) whose
+// responsesWSControl is a client control event (cancel or interrupt) whose
 // envelope the read loop already parsed.
 type responsesWSControl struct {
 	body              []byte
@@ -270,7 +270,7 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat 
 			// Controls are owned by the active request too. In particular a cancel
 			// arriving during authentication must not precede its upstream create.
 			state := s.getCurrent()
-			if eventType != "response.cancel" || state == nil {
+			if (eventType != "response.cancel" && eventType != "response.interrupt") || state == nil {
 				s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(fmt.Errorf("unsupported websocket event %q", eventType)))
 				continue
 			}
