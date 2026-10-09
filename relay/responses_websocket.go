@@ -66,7 +66,8 @@ func responsesWSMaxMessageBytes() int64 {
 // responsesWSMaxPerUser caps concurrent Responses WebSocket sessions per user;
 // 0 disables the cap. Idle sessions hold a goroutine, a socket and an upstream
 // connection for up to WEBSOCKET_IDLE_TIMEOUT_MINUTES.
-var responsesWSMaxPerUser = common.GetEnvOrDefault("RESPONSES_WEBSOCKET_MAX_PER_USER", 8)
+// The environment override is read once at process startup.
+var responsesWSMaxPerUser = common.GetEnvOrDefault("RESPONSES_WEBSOCKET_MAX_PER_USER", 64)
 
 var (
 	responsesWSSlotMu sync.Mutex
