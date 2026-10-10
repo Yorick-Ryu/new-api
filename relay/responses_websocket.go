@@ -35,6 +35,7 @@ import (
 
 const responsesWSEventTypeResponseCreate = "response.create"
 const responsesWSWriteTimeout = 30 * time.Second
+const responsesWSTerminalHistoryLimit = 64
 
 // ResponsesWSRequestRunner executes the existing authentication and rate-limit
 // middleware around one complete request, without a second HTTP connection.
@@ -120,6 +121,7 @@ type responsesWSMessage struct {
 type responsesWSControl struct {
 	body              []byte
 	eventID, streamID string
+	responseID        string // Required only for response.interrupt.
 }
 
 // Only the request worker reads or changes billing state. Socket readers pass
@@ -133,6 +135,7 @@ type responsesWSCallState struct {
 	closeCode   int
 	closeReason string
 	streamID    string
+	responseID  string // Protected by the session's stateMu.
 }
 
 type responsesWSSession struct {
@@ -163,6 +166,10 @@ type responsesWSSession struct {
 	unregister    func()
 	stateMu       sync.Mutex
 	current       *responsesWSCallState
+	// Retain completed IDs for this downstream connection, including across a
+	// model switch, so an old interrupt can never be sent to the next response.
+	terminalResponses map[string]string // response ID -> stream ID; stateMu held
+	terminalOrder     []string
 
 	// These fields belong to the serial request worker and describe the actual
 	// established connection. Per-request token/user data is never stored here.
@@ -268,24 +275,23 @@ func responsesWebSocketHelper(c *gin.Context, client *websocket.Conn, heartbeat 
 			continue
 		}
 		if eventType != responsesWSEventTypeResponseCreate {
-			// Controls are owned by the active request too. In particular a cancel
-			// arriving during authentication must not precede its upstream create.
-			state := s.getCurrent()
-			if (eventType != "response.cancel" && eventType != "response.interrupt") || state == nil {
+			if eventType != "response.cancel" && eventType != "response.interrupt" {
 				s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(fmt.Errorf("unsupported websocket event %q", eventType)))
 				continue
 			}
-			if streamID != "" && streamID != state.streamID {
-				s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(errors.New("stream_id does not match the active response")))
-				continue
+			control := responsesWSControl{body: message, eventID: envelope.EventID, streamID: streamID}
+			if eventType == "response.interrupt" {
+				var interrupt struct {
+					ResponseID string `json:"response_id"`
+				}
+				if err := common.Unmarshal(message, &interrupt); err != nil || strings.TrimSpace(interrupt.ResponseID) == "" {
+					s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(errors.New("response.interrupt requires a non-empty string response_id")))
+					continue
+				}
+				control.responseID = interrupt.ResponseID
 			}
-			select {
-			case state.controls <- responsesWSControl{body: message, eventID: envelope.EventID, streamID: streamID}:
-			case <-state.done:
-			case <-s.ctx.Done():
-				return nil
-			default:
-				s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(errors.New("a response control event is already pending")))
+			if err := s.queueControl(control); err != nil {
+				s.sendError(envelope.EventID, streamID, newResponsesWSInvalidRequestError(err))
 			}
 			continue
 		}
@@ -512,7 +518,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 	idle := time.NewTimer(timeout)
 	defer idle.Stop()
 	accepted := false
-	var pendingControl []byte
+	var pendingControl *responsesWSControl
 	var sentControl []byte
 	var responseID string
 	for {
@@ -597,6 +603,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 						info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
 						s.lastResponseID = responseID
 						state.terminal, state.closeAfter = &incoming, ambiguous
+						s.recordTerminalResponse(state)
 						ConsumeResponsesQuota(c, info, accumulator.Finish())
 						return nil
 					}
@@ -615,6 +622,9 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 					accepted = true
 					if event.Response != nil && event.Response.ID != "" {
 						responseID = event.Response.ID
+						s.stateMu.Lock()
+						state.responseID = responseID
+						s.stateMu.Unlock()
 					}
 				}
 				if service.IsResponsesFailure(&event.ResponsesStreamResponse) {
@@ -636,36 +646,19 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 					service.RecordChannelAffinity(c, s.lockedChannelID)
 				}
 				state.terminal = &incoming
+				s.recordTerminalResponse(state)
 				ConsumeResponsesQuota(c, info, accumulator.Finish())
 				return nil
 			}
 			if err := s.writeClient(incoming.kind, incoming.body); err != nil {
 				s.shutdown()
 			}
-			if accepted && pendingControl != nil {
-				if err := s.writeControlEvent(websocket.TextMessage, pendingControl); err != nil {
-					s.shutdown()
-				}
-				var sent responsesWSCreateEvent
-				_ = common.Unmarshal(pendingControl, &sent)
-				s.lastControlEventID = sent.EventID
-				sentControl = pendingControl
-				pendingControl = nil
-			}
 		case control := <-state.controls:
 			if pendingControl != nil || sentControl != nil {
 				s.sendError(control.eventID, control.streamID, newResponsesWSInvalidRequestError(errors.New("a response control event is already pending")))
 				continue
 			}
-			if !accepted {
-				pendingControl = control.body
-				continue
-			}
-			if err := s.writeControlEvent(websocket.TextMessage, control.body); err != nil {
-				s.shutdown()
-			}
-			s.lastControlEventID = control.eventID
-			sentControl = control.body
+			pendingControl = &control
 		case <-idle.C:
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, context.DeadlineExceeded)
 			state.closeAfter = true
@@ -676,6 +669,71 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 			ConsumeResponsesQuota(c, info, accumulator.Finish())
 			return nil
 		}
+		// A control queued before response.created must wait for the response
+		// identity. Unknown interrupts must not cancel an unrelated generation.
+		if accepted && pendingControl != nil && (pendingControl.responseID == "" || responseID != "") {
+			if pendingControl.responseID != "" && pendingControl.responseID != responseID {
+				s.sendError(pendingControl.eventID, pendingControl.streamID, newResponsesWSInvalidRequestError(errors.New("response_id does not match the active response")))
+				pendingControl = nil
+				continue
+			}
+			if err := s.writeControlEvent(websocket.TextMessage, pendingControl.body); err != nil {
+				s.shutdown()
+			}
+			s.lastControlEventID = pendingControl.eventID
+			sentControl = pendingControl.body
+			pendingControl = nil
+		}
+	}
+}
+
+// Register before settlement and downstream delivery, since either can lag
+// behind upstream completion. queueControl sees history and current atomically.
+func (s *responsesWSSession) recordTerminalResponse(state *responsesWSCallState) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if state.responseID == "" {
+		return
+	}
+	if s.terminalResponses == nil {
+		s.terminalResponses = make(map[string]string)
+	}
+	if _, exists := s.terminalResponses[state.responseID]; !exists {
+		if len(s.terminalOrder) == responsesWSTerminalHistoryLimit {
+			delete(s.terminalResponses, s.terminalOrder[0])
+			s.terminalOrder = s.terminalOrder[1:]
+		}
+		s.terminalOrder = append(s.terminalOrder, state.responseID)
+	}
+	s.terminalResponses[state.responseID] = state.streamID
+}
+
+// queueControl checks terminal history and active state in one snapshot. A
+// known late interrupt is an idempotent no-op and produces no extra wire event.
+func (s *responsesWSSession) queueControl(control responsesWSControl) error {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if streamID, terminal := s.terminalResponses[control.responseID]; control.responseID != "" && terminal {
+		if control.streamID != "" && control.streamID != streamID {
+			return errors.New("stream_id does not match the completed response")
+		}
+		return nil
+	}
+	state := s.current
+	if state == nil {
+		return errors.New("no active response for websocket control event")
+	}
+	if control.streamID != "" && control.streamID != state.streamID {
+		return errors.New("stream_id does not match the active response")
+	}
+	if control.responseID != "" && state.responseID != "" && control.responseID != state.responseID {
+		return errors.New("response_id does not match the active response")
+	}
+	select {
+	case state.controls <- control:
+		return nil
+	default:
+		return errors.New("a response control event is already pending")
 	}
 }
 
