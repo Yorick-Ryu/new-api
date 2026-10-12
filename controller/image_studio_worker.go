@@ -541,6 +541,18 @@ func classifyImageStudioFailure(status int, body []byte) (string, string) {
 	if status == http.StatusRequestTimeout || status == http.StatusGatewayTimeout {
 		return "unknown", "Image result could not be confirmed"
 	}
+	// Local wallet rejection happens before dispatch and must not be presented
+	// as an upstream outage. Never forward arbitrary provider diagnostics.
+	if status == http.StatusForbidden && len(body) <= 64<<10 {
+		var envelope struct {
+			Error types.OpenAIError `json:"error"`
+		}
+		if common.Unmarshal(body, &envelope) == nil {
+			if code, ok := envelope.Error.Code.(string); ok && code == string(types.ErrorCodeInsufficientUserQuota) {
+				return "failed", "Insufficient balance for image generation. Please top up and try again."
+			}
+		}
+	}
 	if status < 500 {
 		if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests {
 			return "failed", unavailable

@@ -7284,6 +7284,8 @@
     "Wallet pre-consume bypass threshold (USD)": "Порог кошелька без предсписания (USD)",
     "What do you want to change?": "Что вы хотите изменить?",
     "You can create up to {{count}} access tokens": "Можно создать не более {{count}} токенов доступа",
-    "Uncharged usage": "Неоплаченное использование"
+    "Uncharged usage": "Неоплаченное использование",
+    "Insufficient balance for image generation. Please top up and try again.": "Недостаточно средств для генерации изображения. Пополните баланс и повторите попытку.",
+    "Not charged": "Не списано"
   }
 }

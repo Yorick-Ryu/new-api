@@ -7284,6 +7284,8 @@
     "Wallet pre-consume bypass threshold (USD)": "Seuil sans pré-débit du portefeuille (USD)",
     "What do you want to change?": "Que souhaitez-vous modifier ?",
     "You can create up to {{count}} access tokens": "Vous pouvez créer jusqu’à {{count}} jetons d’accès",
-    "Uncharged usage": "Utilisation non facturée"
+    "Uncharged usage": "Utilisation non facturée",
+    "Insufficient balance for image generation. Please top up and try again.": "Solde insuffisant pour générer une image. Rechargez votre compte et réessayez.",
+    "Not charged": "Non facturé"
   }
 }

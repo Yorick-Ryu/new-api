@@ -70,6 +70,16 @@ export function ImageResult(props: ImageResultProps) {
   const thumbnailButtons = useRef<Array<HTMLButtonElement | null>>([])
   const [selectedSlotID, setSelectedSlotID] = useState<string | null>(null)
   const job = props.job
+  let costLabel = t('Result unconfirmed')
+  if (job.quota !== undefined) {
+    costLabel = formatQuotaWithCurrency(job.quota, { locale })
+  } else if (
+    job.status === 'failed' &&
+    job.error ===
+      'Insufficient balance for image generation. Please top up and try again.'
+  ) {
+    costLabel = t('Not charged')
+  }
   const provider = resolveModelProvider(job.input.model)
   const originals = job.assets.filter((asset) => asset.kind === 'original')
   const active = isImageJobActive(job)
@@ -438,9 +448,7 @@ export function ImageResult(props: ImageResultProps) {
               </dd>
               <dt className='text-muted-foreground'>{t('Generation cost')}</dt>
               <dd className='font-mono break-words tabular-nums'>
-                {job.quota === undefined
-                  ? t('Result unconfirmed')
-                  : formatQuotaWithCurrency(job.quota, { locale })}
+                {costLabel}
               </dd>
               <dt className='text-muted-foreground'>{t('Created time')}</dt>
               <dd>{created}</dd>

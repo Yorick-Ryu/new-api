@@ -7284,6 +7284,8 @@
     "Wallet pre-consume bypass threshold (USD)": "錢包免預扣門檻（美元）",
     "What do you want to change?": "你想修改什麼？",
     "You can create up to {{count}} access tokens": "最多可建立 {{count}} 個存取令牌",
-    "Uncharged usage": "未收取用量"
+    "Uncharged usage": "未收取用量",
+    "Insufficient balance for image generation. Please top up and try again.": "餘額不足，無法完成本次生圖，請儲值後重試。",
+    "Not charged": "未扣費"
   }
 }

@@ -7284,6 +7284,8 @@
     "Wallet pre-consume bypass threshold (USD)": "Ngưỡng ví được miễn khấu trừ trước (USD)",
     "What do you want to change?": "Bạn muốn thay đổi gì?",
     "You can create up to {{count}} access tokens": "Bạn có thể tạo tối đa {{count}} token truy cập",
-    "Uncharged usage": "Mức sử dụng chưa thu phí"
+    "Uncharged usage": "Mức sử dụng chưa thu phí",
+    "Insufficient balance for image generation. Please top up and try again.": "Số dư không đủ để tạo ảnh. Vui lòng nạp tiền và thử lại.",
+    "Not charged": "Không tính phí"
   }
 }

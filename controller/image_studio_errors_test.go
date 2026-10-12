@@ -36,3 +36,11 @@ func TestImageStudioFailureClassification(t *testing.T) {
 		})
 	}
 }
+
+func TestImageStudioInsufficientBalanceMessage(t *testing.T) {
+	status, message := classifyImageStudioFailure(403, []byte(`{"error":{"code":"insufficient_user_quota","message":"预扣费额度失败"}}`))
+	assert.Equal(t, "failed", status)
+	assert.Equal(t, "Insufficient balance for image generation. Please top up and try again.", message)
+	_, message = classifyImageStudioFailure(403, []byte(`{"error":{"code":"access_denied","message":"insufficient_user_quota"}}`))
+	assert.NotContains(t, message, "Insufficient balance")
+}

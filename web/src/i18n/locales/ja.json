@@ -7284,6 +7284,8 @@
     "Wallet pre-consume bypass threshold (USD)": "ウォレットの事前引き落とし省略額（USD）",
     "What do you want to change?": "何を変更しますか？",
     "You can create up to {{count}} access tokens": "アクセストークンは最大 {{count}} 個まで作成できます",
-    "Uncharged usage": "未請求の使用量"
+    "Uncharged usage": "未請求の使用量",
+    "Insufficient balance for image generation. Please top up and try again.": "画像生成に必要な残高が不足しています。チャージして再試行してください。",
+    "Not charged": "課金なし"
   }
 }

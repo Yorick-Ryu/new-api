@@ -1999,3 +1999,46 @@ it('lays nine equal-height results across responsive grid columns and remeasures
     expect(card.parentElement).toHaveStyle({ gridRowEnd: 'span 450' })
   }
 })
+
+it('shows no charge for balance rejection while preserving unknown costs', async () => {
+  const rejection =
+    'Insufficient balance for image generation. Please top up and try again.'
+  const props = {
+    canEdit: true,
+    onReuse: vi.fn(),
+    onReference: vi.fn(),
+    onDelete: vi.fn(),
+  }
+  const view = render(
+    <ImageResult
+      {...props}
+      job={{
+        ...job,
+        status: 'failed',
+        error: rejection,
+        quota: undefined,
+        assets: [],
+      }}
+    />,
+    { wrapper }
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Image details' })
+  expect(within(dialog).getByText('Not charged')).toBeInTheDocument()
+  view.rerender(
+    <ImageResult
+      {...props}
+      job={{
+        ...job,
+        status: 'unknown',
+        error: undefined,
+        quota: undefined,
+        assets: [],
+      }}
+    />
+  )
+  expect(within(dialog).queryByText('Not charged')).not.toBeInTheDocument()
+  expect(
+    within(dialog).getAllByText('Result unconfirmed').length
+  ).toBeGreaterThan(0)
+})
