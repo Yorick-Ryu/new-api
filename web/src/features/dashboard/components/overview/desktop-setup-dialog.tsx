@@ -387,21 +387,6 @@ export function DesktopSetupDialog(props: {
                 </div>
               )}
             </div>
-            {agent === 'codex' &&
-              !!group &&
-              !modelsLoading &&
-              !modelsQuery.isError &&
-              !groupsQuery.isError && (
-                <p className='text-muted-foreground text-xs leading-relaxed'>
-                  {models.length
-                    ? t(
-                        'Only models with Codex configuration in this group are shown.'
-                      )
-                    : t(
-                        'No models with Codex configuration are available in this group.'
-                      )}
-                </p>
-              )}
             <div className='flex flex-col gap-2'>
               <p className='text-muted-foreground text-xs leading-relaxed'>
                 {t(
