@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Only models with Codex configuration in this group are shown.": "Показаны только модели этой группы с конфигурацией Codex.",
+    "No models with Codex configuration are available in this group.": "В этой группе нет моделей с конфигурацией Codex.",
+    "All groups": "Все группы",
+    "Select a group to view its enabled models. Model configuration is shared across groups.": "Выберите группу, чтобы увидеть её включённые модели. Настройки модели общие для всех групп.",
+    "Save changes before switching groups or models.": "Сохраните изменения перед сменой группы или модели.",
     "Image {{number}}: {{status}}": "Изображение {{number}}: {{status}}",
     "Partially completed": "Частично завершено",
     "360": "360",

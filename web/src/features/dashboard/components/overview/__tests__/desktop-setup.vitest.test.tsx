@@ -52,6 +52,7 @@ function requests(
     groups?: string[]
     groupsFail?: boolean
     claudeModels?: Record<string, string[] | Promise<string[]>>
+    codexModels?: Record<string, string[] | Promise<string[]>>
     models?: string[]
     creationFails?: boolean
     keyFails?: boolean
@@ -83,18 +84,22 @@ function requests(
         }
       } else {
         expect(config.params).toEqual({
-          group: 'default',
+          group: expect.any(String),
           client_version: 'codexbei',
+          purpose: 'desktop_setup',
         })
         data = options.modelsFail
           ? { success: false }
           : {
               models: (
-                options.models ?? [
-                  'gpt-6-astra',
-                  'gpt-5.6-terra',
-                  'gpt-5.6-sol',
-                ]
+                (await options.codexModels?.[config.params.group]) ??
+                (config.params.group === 'default'
+                  ? (options.models ?? [
+                      'gpt-6-astra',
+                      'gpt-5.6-terra',
+                      'gpt-5.6-sol',
+                    ])
+                  : [])
               ).map((slug) => ({
                 slug,
                 visibility: slug.startsWith('codex-auto-') ? 'hide' : 'list',
@@ -179,10 +184,14 @@ function renderDialog(
     </QueryClientProvider>
   )
   const view = render(content(true))
-  return { onConfirmed, close: () => view.rerender(content(false)) }
+  return {
+    onConfirmed,
+    close: () => view.rerender(content(false)),
+    reopen: () => view.rerender(content(true)),
+  }
 }
 
-it('opens without a key, loads only default group models and prefers the recommended available model', async () => {
+it('opens without a key, selects the default group and prefers the recommended available model', async () => {
   const { calls } = requests()
   renderDialog()
   await waitFor(() =>
@@ -1011,7 +1020,7 @@ it('shows loading until all Claude groups have been checked before showing no mo
   expect(calls.every((call) => call.method === 'get')).toBe(true)
 })
 
-it('preserves a manually selected empty Claude group instead of automatically switching it back', async () => {
+it('does not offer a Claude group with no available models', async () => {
   requests({ claudeModels: { 'claude-kiro': [] } })
   renderDialog()
   const user = userEvent.setup()
@@ -1025,13 +1034,121 @@ it('preserves a manually selected empty Claude group instead of automatically sw
   await user.click(
     within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
   )
-  await user.click(await screen.findByRole('option', { name: /^claude-kiro/ }))
+  expect(screen.queryByRole('option', { name: /^claude-kiro/ })).toBeNull()
+  expect(
+    await screen.findByRole('option', { name: /^claude / })
+  ).toBeInTheDocument()
+})
+
+it('ChatGPT switches groups and creates a key for the configured custom model only after confirmation', async () => {
+  const { calls, launch } = requests({
+    groups: ['default', 'antigravity', 'unconfigured'],
+    codexModels: {
+      antigravity: ['gemini-flash', 'claude-opus'],
+      unconfigured: [],
+    },
+    keys: [
+      {
+        id: 19,
+        status: 1,
+        group: 'default',
+        expired_time: -1,
+        unlimited_quota: true,
+        model_limits_enabled: false,
+      },
+    ],
+  })
+  renderDialog()
   await waitFor(() =>
     expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
-      'No models available'
+      'gpt-6-astra'
     )
   )
+  const user = userEvent.setup()
+  const group = within(screen.getByRole('group', { name: 'Group' })).getByRole(
+    'combobox'
+  )
+  await user.click(group)
+  await user.click(await screen.findByRole('option', { name: /^antigravity/ }))
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'gemini-flash'
+    )
+  )
+  expect(calls.every((call) => call.method === 'get')).toBe(true)
+  await user.click(screen.getByRole('combobox', { name: 'Model' }))
+  expect(screen.queryByRole('option', { name: 'gpt-6-astra' })).toBeNull()
+  await user.click(await screen.findByRole('option', { name: 'claude-opus' }))
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
   expect(
-    within(screen.getByRole('group', { name: 'Group' })).getByRole('combobox')
-  ).toHaveTextContent('claude-kiro')
+    JSON.parse(calls.find((call) => call.url === '/api/token/')?.data)
+  ).toMatchObject({ group: 'antigravity' })
+  expect(calls.some((call) => call.url === '/api/token/19/key')).toBe(false)
+  expect(
+    new URL(String(launch.mock.calls[0][0])).searchParams.get('model')
+  ).toBe('claude-opus')
+  await user.click(group)
+  expect(screen.queryByRole('option', { name: /^unconfigured/ })).toBeNull()
+  expect(
+    await screen.findByRole('option', { name: /^antigravity/ })
+  ).toBeInTheDocument()
+  expect(group).toHaveTextContent('antigravity')
+})
+
+it.each([
+  { groups: [], text: 'No group found.' },
+  { groupsFail: true, text: 'Failed to load groups' },
+])(
+  'ChatGPT does not configure a key when permitted groups are unavailable: $text',
+  async (options) => {
+    const { calls, launch } = requests(options)
+    renderDialog()
+    await screen.findByText(options.text)
+    expect(
+      screen.getByRole('button', { name: 'One-click setup' })
+    ).toBeDisabled()
+    expect(calls.every((call) => call.method === 'get')).toBe(true)
+    expect(calls.some((call) => call.url === '/api/user/models')).toBe(false)
+    expect(launch).not.toHaveBeenCalled()
+  }
+)
+
+it('prefers the default group regardless of server group order and resets to it when reopened', async () => {
+  requests({
+    groups: ['antigravity', 'default'],
+    codexModels: { antigravity: ['gemini-flash'] },
+  })
+  const view = renderDialog()
+  const group = within(screen.getByRole('group', { name: 'Group' })).getByRole(
+    'combobox'
+  )
+  await waitFor(() => expect(group).toHaveTextContent('default'))
+  const user = userEvent.setup()
+  await user.click(group)
+  await user.click(await screen.findByRole('option', { name: /^antigravity/ }))
+  expect(group).toHaveTextContent('antigravity')
+  view.close()
+  view.reopen()
+  await waitFor(() => expect(group).toHaveTextContent('default'))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+    'gpt-6-astra'
+  )
+})
+
+it('selects an available group when the default group has no configured models', async () => {
+  requests({
+    groups: ['default', 'antigravity'],
+    codexModels: { default: [], antigravity: ['gemini-flash'] },
+  })
+  renderDialog()
+  const group = within(screen.getByRole('group', { name: 'Group' })).getByRole(
+    'combobox'
+  )
+  await waitFor(() => expect(group).toHaveTextContent('antigravity'))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+    'gemini-flash'
+  )
+  await userEvent.click(group)
+  expect(screen.queryByRole('option', { name: /^default/ })).toBeNull()
 })

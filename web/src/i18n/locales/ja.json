@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Only models with Codex configuration in this group are shown.": "このグループで Codex の設定があるモデルのみ表示します。",
+    "No models with Codex configuration are available in this group.": "このグループには Codex の設定があるモデルがありません。",
+    "All groups": "すべてのグループ",
+    "Select a group to view its enabled models. Model configuration is shared across groups.": "グループを選択すると、有効なモデルが表示されます。同じモデルの設定はグループ間で共有されます。",
+    "Save changes before switching groups or models.": "グループやモデルを切り替える前に変更を保存してください。",
     "Image {{number}}: {{status}}": "画像 {{number}}：{{status}}",
     "Partially completed": "一部完了",
     "360": "360",

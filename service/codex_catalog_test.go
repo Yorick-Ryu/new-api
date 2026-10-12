@@ -11,6 +11,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSavedCodexProfileDeclaresCustomModelWithoutResponsesMetadata(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	options := common.OptionMap
+	common.OptionMap = map[string]string{CodexModelProfilesOptionKey: `{"gemini-configured":{"priority":1000,"context_window":262144},"unavailable":{"priority":0}}`}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = options
+		common.OptionMapRWMutex.Unlock()
+	})
+	available := []dto.OpenAIModels{
+		{Id: "gpt-6-astra"},
+		{Id: "gemini-configured", SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeGemini}},
+		{Id: "responses-unconfigured", SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAIResponse}},
+	}
+	for _, setup := range []bool{false, true} {
+		body, _, err := buildCodexModelCatalog(available, nil, setup)
+		require.NoError(t, err)
+		var catalog struct {
+			Models []struct {
+				Slug          string `json:"slug"`
+				ContextWindow int    `json:"context_window"`
+			} `json:"models"`
+		}
+		require.NoError(t, common.Unmarshal(body, &catalog))
+		want := 3
+		if setup {
+			want = 2
+		}
+		require.Len(t, catalog.Models, want)
+		assert.Equal(t, "gpt-6-astra", catalog.Models[0].Slug)
+		assert.Equal(t, "gemini-configured", catalog.Models[1].Slug)
+		assert.Equal(t, 262144, catalog.Models[1].ContextWindow)
+	}
+}
+
 func TestCodexCatalogPreservesCapabilitiesWithoutAddingModels(t *testing.T) {
 	body, _, err := BuildCodexModelCatalog([]dto.OpenAIModels{{Id: "gpt-6-astra"}}, nil)
 	require.NoError(t, err)

@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,6 +30,22 @@ func GetCodexModelProfileDefaults(c *gin.Context) {
 	for _, entry := range metadata {
 		names = append(names, entry.ModelName)
 	}
+	connections, err := model.GetModelConnections()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	groupModels := make(map[string][]string)
+	for group := range ratio_setting.GetGroupRatioCopy() {
+		groupModels[group] = []string{}
+	}
+	for _, connection := range connections {
+		groupModels[connection.Group] = append(groupModels[connection.Group], connection.Model)
+	}
+	for group, models := range groupModels {
+		slices.Sort(models)
+		groupModels[group] = slices.Compact(models)
+	}
 	snapshot, err := service.GetCodexOfficialSnapshot()
 	if err != nil {
 		common.ApiError(c, err)
@@ -37,7 +55,7 @@ func GetCodexModelProfileDefaults(c *gin.Context) {
 	if snapshot != nil {
 		syncInfo = &snapshot.CodexOfficialSyncInfo
 	}
-	common.ApiSuccess(c, gin.H{"profiles": profiles, "fallback": fallback, "models": names, "official_sync": syncInfo})
+	common.ApiSuccess(c, gin.H{"profiles": profiles, "fallback": fallback, "models": names, "group_models": groupModels, "official_sync": syncInfo})
 }
 
 func SyncOfficialCodexModelProfiles(c *gin.Context) {

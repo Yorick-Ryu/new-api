@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { JsonCodeEditor } from '@/components/json-code-editor'
 import { LoadingState } from '@/components/loading-state'
@@ -60,6 +61,7 @@ type CatalogDefaults = {
   profiles: Profiles
   fallback: Profile
   models: string[]
+  group_models: Record<string, string[]>
   official_sync: OfficialSyncInfo | null
 }
 
@@ -109,6 +111,7 @@ export function CodexSettingsCard(props: { overrides: string }) {
   const queryClient = useQueryClient()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [modelChoice, setModelChoice] = useState<string | null>(null)
+  const [groupChoice, setGroupChoice] = useState('')
   const updateOption = useUpdateOption()
   const overrides = useMemo(
     () => JSON.parse(props.overrides) as Profiles,
@@ -128,13 +131,15 @@ export function CodexSettingsCard(props: { overrides: string }) {
   const names = useMemo(() => {
     const data = defaults.data
     if (!data) return []
-    const models = [
-      ...new Set([
-        ...data.models,
-        ...Object.keys(overrides),
-        ...(modelChoice ? [modelChoice] : []),
-      ]),
-    ]
+    const models = groupChoice
+      ? [...new Set(data.group_models[groupChoice] ?? [])]
+      : [
+          ...new Set([
+            ...data.models,
+            ...Object.keys(overrides),
+            ...(modelChoice ? [modelChoice] : []),
+          ]),
+        ]
     const priority = (name: string): number => {
       const value =
         overrides[name]?.priority ??
@@ -148,8 +153,9 @@ export function CodexSettingsCard(props: { overrides: string }) {
       if (left === right) return 0
       return left < right ? -1 : 1
     })
-  }, [defaults.data, overrides, modelChoice])
-  const selectedModel = modelChoice ?? names[0] ?? ''
+  }, [defaults.data, overrides, modelChoice, groupChoice])
+  const selectedModel =
+    modelChoice && names.includes(modelChoice) ? modelChoice : (names[0] ?? '')
   useEffect(() => {
     if (modelChoice === null && selectedModel) setModelChoice(selectedModel)
   }, [modelChoice, selectedModel])
@@ -227,7 +233,7 @@ export function CodexSettingsCard(props: { overrides: string }) {
           'Edit model capabilities for the Codex model picker. Saved changes take effect without restarting the service; refresh the model list in Codex to load them.'
         )}
       </div>
-      <div className='flex items-center gap-3 overflow-x-auto'>
+      <div className='flex min-w-0 flex-wrap items-center gap-3'>
         <Button
           type='button'
           variant='outline'
@@ -254,7 +260,7 @@ export function CodexSettingsCard(props: { overrides: string }) {
           {t('Restore default configuration')}
         </Button>
         {data.official_sync ? (
-          <p className='text-muted-foreground text-sm whitespace-nowrap'>
+          <p className='text-muted-foreground max-w-full min-w-0 text-sm break-words'>
             {t('Last sync')}:{' '}
             {formatTimestampToDate(data.official_sync.synced_at)}
             {' · '}
@@ -270,58 +276,94 @@ export function CodexSettingsCard(props: { overrides: string }) {
             </a>
           </p>
         ) : (
-          <p className='text-muted-foreground text-sm whitespace-nowrap'>
+          <p className='text-muted-foreground max-w-full min-w-0 text-sm break-words'>
             {t('Not synced yet; using bundled model profiles.')}
           </p>
         )}
       </div>
-      <div className='grid w-full max-w-60 gap-2'>
-        <Label htmlFor='codex-profile-model'>{t('Model')}</Label>
-        <ComboboxInput
-          id='codex-profile-model'
-          value={selectedModel}
-          options={names.map((name) => ({ label: name, value: name }))}
-          disabled={dirty || pending}
-          onValueChange={(name) => {
-            setModelChoice(name)
-            form.reset({
-              profile: formatProfile({
-                ...(data.profiles[name] ?? data.fallback),
-                ...overrides[name],
-              }),
-            })
-          }}
-        />
-        {dirty && (
-          <p className='text-muted-foreground text-xs'>
-            {t('Save changes before switching models.')}
-          </p>
-        )}
+      <div className='grid w-full max-w-2xl gap-4 sm:grid-cols-2'>
+        <div className='grid gap-2'>
+          <Label htmlFor='codex-profile-group'>{t('Group')}</Label>
+          <ComboboxInput
+            id='codex-profile-group'
+            value={groupChoice}
+            options={[
+              { label: t('All groups'), value: '' },
+              ...Object.keys(data.group_models)
+                .sort()
+                .map((group) => ({
+                  label: group,
+                  value: group,
+                })),
+            ]}
+            disabled={dirty || pending}
+            onValueChange={(group) => {
+              setGroupChoice(group)
+              setModelChoice(null)
+            }}
+          />
+        </div>
+        <div className='grid gap-2'>
+          <Label htmlFor='codex-profile-model'>{t('Model')}</Label>
+          <ComboboxInput
+            id='codex-profile-model'
+            value={selectedModel}
+            options={names.map((name) => ({ label: name, value: name }))}
+            disabled={dirty || pending || !names.length}
+            onValueChange={(name) => {
+              setModelChoice(name)
+              form.reset({
+                profile: formatProfile({
+                  ...(data.profiles[name] ?? data.fallback),
+                  ...overrides[name],
+                }),
+              })
+            }}
+          />
+        </div>
       </div>
+      <p className='text-muted-foreground text-xs'>
+        {t(
+          'Select a group to view its enabled models. Model configuration is shared across groups.'
+        )}
+      </p>
+      {dirty && (
+        <p className='text-muted-foreground text-xs'>
+          {t('Save changes before switching groups or models.')}
+        </p>
+      )}
+      {!selectedModel && (
+        <EmptyState
+          title={t('No models in this group yet.')}
+          className='min-h-40'
+        />
+      )}
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
-          <FormField
-            control={form.control}
-            name='profile'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Model capabilities JSON')}</FormLabel>
-                <FormControl>
-                  <JsonCodeEditor
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    textareaRef={field.ref}
-                    name={field.name}
-                    ariaLabel={t('Model capabilities JSON')}
-                    disabled={pending || !selectedModel}
-                    heightClassName='h-[28rem] min-h-[28rem] max-h-[28rem]'
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {selectedModel && (
+            <FormField
+              control={form.control}
+              name='profile'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Model capabilities JSON')}</FormLabel>
+                  <FormControl>
+                    <JsonCodeEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      textareaRef={field.ref}
+                      name={field.name}
+                      ariaLabel={t('Model capabilities JSON')}
+                      disabled={pending || !selectedModel}
+                      heightClassName='h-[28rem] min-h-[28rem] max-h-[28rem]'
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
             isSaving={updateOption.isPending}

@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Only models with Codex configuration in this group are shown.": "Chỉ hiển thị mô hình trong nhóm này có cấu hình Codex.",
+    "No models with Codex configuration are available in this group.": "Nhóm này chưa có mô hình có cấu hình Codex.",
+    "All groups": "Tất cả nhóm",
+    "Select a group to view its enabled models. Model configuration is shared across groups.": "Chọn nhóm để xem các mô hình đang bật. Cấu hình của một mô hình được dùng chung giữa các nhóm.",
+    "Save changes before switching groups or models.": "Lưu thay đổi trước khi chuyển nhóm hoặc mô hình.",
     "Image {{number}}: {{status}}": "Ảnh {{number}}: {{status}}",
     "Partially completed": "Hoàn thành một phần",
     "360": "360",

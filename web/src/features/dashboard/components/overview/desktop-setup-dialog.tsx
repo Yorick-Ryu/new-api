@@ -103,24 +103,27 @@ export function DesktopSetupDialog(props: {
   const downloads = props.downloads ?? setupDownloads()
   const groupsQuery = useQuery({
     queryKey: ['codexbei', 'groups', props.userId],
-    enabled: props.open && !props.showDownloads && agent === 'claude',
+    enabled: props.open && !props.showDownloads,
     queryFn: async () => requireServerSuccess(await getUserGroups()),
     retry: false,
   })
-  const groups = Object.entries(groupsQuery.data?.data ?? {})
-    .filter(([name]) => name === 'claude' || name === 'claude-kiro')
+  const groupOptions = Object.entries(groupsQuery.data?.data ?? {})
+    .filter(
+      ([name]) =>
+        agent === 'codex' || name === 'claude' || name === 'claude-kiro'
+    )
     .map(([name, info]) => ({
       value: name,
       label: name,
       desc: info.desc,
       ratio: info.ratio,
     }))
-  let candidateGroups = groups.map((item) => item.value)
-  if (agent === 'codex') {
-    candidateGroups = ['default']
-  } else if (candidateGroups.includes(selectedGroup)) {
-    // An explicit user choice takes precedence over automatic selection.
-    candidateGroups = [selectedGroup]
+  let candidateGroups = groupOptions.map((item) => item.value)
+  if (agent === 'codex' && candidateGroups.includes('default')) {
+    candidateGroups = [
+      'default',
+      ...candidateGroups.filter((name) => name !== 'default'),
+    ]
   }
   const groupReady = candidateGroups.length > 0
 
@@ -128,54 +131,71 @@ export function DesktopSetupDialog(props: {
     queryKey: ['codexbei', 'catalog', props.userId, agent, candidateGroups],
     enabled: props.open && !props.showDownloads && groupReady,
     queryFn: async ({ signal }) => {
-      // Preserve group order and stop as soon as a usable catalog is found.
-      for (const candidateGroup of candidateGroups) {
-        const result = await api.get<{
-          data?: { id: string }[]
-          models?: {
-            slug: string
-            visibility: string
-            supported_in_api: boolean
-          }[]
-        }>('/api/user/models', {
-          signal,
-          params: {
-            group: candidateGroup,
-            client_version: agent === 'claude' ? 'claude' : 'codexbei',
-          },
+      const catalogs = await Promise.all(
+        candidateGroups.map(async (candidateGroup) => {
+          const result = await api.get<{
+            data?: { id: string }[]
+            models?: {
+              slug: string
+              visibility: string
+              supported_in_api: boolean
+            }[]
+          }>('/api/user/models', {
+            signal,
+            params: {
+              group: candidateGroup,
+              client_version: agent === 'claude' ? 'claude' : 'codexbei',
+              ...(agent === 'codex' ? { purpose: 'desktop_setup' } : {}),
+            },
+          })
+          let models: string[]
+          if (agent === 'claude') {
+            if (!Array.isArray(result.data.data)) {
+              throw new Error('Models unavailable')
+            }
+            models = result.data.data
+              .map((item) => item.id)
+              .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
+          } else {
+            if (!Array.isArray(result.data.models)) {
+              throw new Error('Models unavailable')
+            }
+            // The dedicated Codex catalog owns ordering; do not sort by name here.
+            models = result.data.models
+              .filter(
+                (model) =>
+                  model.visibility === 'list' &&
+                  model.supported_in_api &&
+                  /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
+              )
+              .map((model) => model.slug)
+          }
+          return { group: candidateGroup, models }
         })
-        let models: string[]
-        if (agent === 'claude') {
-          if (!Array.isArray(result.data.data)) {
-            throw new Error('Models unavailable')
-          }
-          models = result.data.data
-            .map((item) => item.id)
-            .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
-        } else {
-          if (!Array.isArray(result.data.models)) {
-            throw new Error('Models unavailable')
-          }
-          // The dedicated Codex catalog owns ordering; do not sort by name here.
-          models = result.data.models
-            .filter(
-              (model) =>
-                model.visibility === 'list' &&
-                model.supported_in_api &&
-                /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model.slug)
-            )
-            .map((model) => model.slug)
-        }
-        if (models.length) return { group: candidateGroup, models }
-      }
-      return { group: candidateGroups[0] ?? '', models: [] }
+      )
+      return catalogs.filter((catalog) => catalog.models.length > 0)
     },
     retry: false,
   })
-  const group = modelsQuery.data?.group ?? candidateGroups[0] ?? ''
-  const models = modelsQuery.data?.models ?? []
-  const modelsLoading =
-    modelsQuery.isFetching || (agent === 'claude' && groupsQuery.isFetching)
+  const groups = groupOptions.filter((option) =>
+    modelsQuery.data?.some((catalog) => catalog.group === option.value)
+  )
+  const selectedCatalog =
+    modelsQuery.data?.find((catalog) => catalog.group === selectedGroup) ??
+    (agent === 'codex'
+      ? modelsQuery.data?.find((catalog) => catalog.group === 'default')
+      : undefined) ??
+    modelsQuery.data?.[0]
+  const group = selectedCatalog?.group ?? ''
+  const models = selectedCatalog?.models ?? []
+  const modelsLoading = modelsQuery.isFetching || groupsQuery.isFetching
+
+  useEffect(() => {
+    if (props.open) {
+      setSelectedGroup('')
+      setSelectedModel('')
+    }
+  }, [props.open, props.userId])
 
   useEffect(() => {
     version.current += 1
@@ -296,6 +316,7 @@ export function DesktopSetupDialog(props: {
                       onValueChange={(value) => {
                         version.current += 1
                         setAgent(value)
+                        setSelectedGroup('')
                         setSelectedModel('')
                         setLaunched(false)
                         launch.reset()
@@ -320,48 +341,67 @@ export function DesktopSetupDialog(props: {
                 }}
               />
             </div>
-            {agent === 'claude' && (
-              <div
-                className='flex flex-col gap-2'
-                role='group'
-                aria-label={t('Group')}
-              >
-                <ApiKeyGroupCombobox
-                  size='compact'
-                  searchable={false}
-                  placeholder={
-                    groupsQuery.isFetching ? t('Loading') : undefined
-                  }
-                  options={groups}
-                  value={group}
-                  disabled={
-                    launch.isPending || groupsQuery.isFetching || !groups.length
-                  }
-                  onValueChange={(value) => {
-                    version.current += 1
-                    setSelectedGroup(value)
-                    setSelectedModel('')
-                    setLaunched(false)
-                    launch.reset()
-                  }}
-                />
-                {!groupsQuery.isFetching &&
-                  !groupsQuery.isError &&
-                  !groups.length && <p role='status'>{t('No group found.')}</p>}
-                {groupsQuery.isError && (
-                  <div role='alert'>
-                    {t('Failed to load groups')}{' '}
-                    <Button
-                      variant='link'
-                      size='sm'
-                      onClick={() => void groupsQuery.refetch()}
-                    >
-                      {t('Retry')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+            <div
+              className='flex flex-col gap-2'
+              role='group'
+              aria-label={t('Group')}
+            >
+              <span className='text-muted-foreground text-xs'>
+                {t('Group')}
+              </span>
+              <ApiKeyGroupCombobox
+                size='compact'
+                searchable={false}
+                placeholder={modelsLoading ? t('Loading') : undefined}
+                options={groups}
+                value={group}
+                disabled={
+                  launch.isPending ||
+                  modelsLoading ||
+                  modelsQuery.isError ||
+                  groupsQuery.isError ||
+                  !groups.length
+                }
+                onValueChange={(value) => {
+                  version.current += 1
+                  setSelectedGroup(value)
+                  setSelectedModel('')
+                  setLaunched(false)
+                  launch.reset()
+                }}
+              />
+              {!modelsLoading &&
+                !groupsQuery.isError &&
+                !modelsQuery.isError &&
+                !groups.length && <p role='status'>{t('No group found.')}</p>}
+              {groupsQuery.isError && (
+                <div role='alert'>
+                  {t('Failed to load groups')}{' '}
+                  <Button
+                    variant='link'
+                    size='sm'
+                    onClick={() => void groupsQuery.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </div>
+              )}
+            </div>
+            {agent === 'codex' &&
+              !!group &&
+              !modelsLoading &&
+              !modelsQuery.isError &&
+              !groupsQuery.isError && (
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {models.length
+                    ? t(
+                        'Only models with Codex configuration in this group are shown.'
+                      )
+                    : t(
+                        'No models with Codex configuration are available in this group.'
+                      )}
+                </p>
+              )}
             <div className='flex flex-col gap-2'>
               <p className='text-muted-foreground text-xs leading-relaxed'>
                 {t(
@@ -398,8 +438,8 @@ export function DesktopSetupDialog(props: {
               disabled={
                 !model ||
                 !groupReady ||
-                (agent === 'claude' &&
-                  (groupsQuery.isFetching || groupsQuery.isError)) ||
+                groupsQuery.isFetching ||
+                groupsQuery.isError ||
                 launch.isPending ||
                 modelsQuery.isFetching ||
                 modelsQuery.isError

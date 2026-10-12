@@ -42,6 +42,16 @@ const codexFallbackProfileJSON = `{
 // BuildCodexModelCatalog renders the authenticated user's available models as
 // Codex ModelInfo entries. It does not fetch upstreams or change routing.
 func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
+	return buildCodexModelCatalog(available, displayOrder, false)
+}
+
+// BuildCodexSetupModelCatalog offers only available models with a bundled,
+// official, or saved Codex profile. A profile never grants group access.
+func BuildCodexSetupModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
+	return buildCodexModelCatalog(available, displayOrder, true)
+}
+
+func buildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string, configuredOnly bool) ([]byte, string, error) {
 	profiles, err := GetEffectiveCodexModelProfiles()
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
@@ -64,9 +74,13 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 		}
 		seen[name] = true
 		profile, known := profiles[name]
+		_, configured := overrides[name]
+		if configuredOnly && !known && !configured {
+			continue
+		}
 		if !known {
-			// Do not infer Responses support or image/reasoning capabilities from
-			// a similar model name. Unknown models need an explicit Responses route.
+			// A saved profile explicitly declares Codex capabilities. Unprofiled
+			// custom models still require an explicit Responses route.
 			responses := false
 			media := false
 			for _, endpoint := range availableModel.SupportedEndpointTypes {
@@ -78,7 +92,7 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 					media = true
 				}
 			}
-			if !responses || media {
+			if !configured && (!responses || media) {
 				continue
 			}
 			// Complete, conservative fallback for explicitly Responses-capable

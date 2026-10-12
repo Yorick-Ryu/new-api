@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Only models with Codex configuration in this group are shown.": "仅显示该分组中已配置 Codex 模型目录的模型。",
+    "No models with Codex configuration are available in this group.": "该分组暂无已配置 Codex 模型目录的模型。",
+    "All groups": "全部分组",
+    "Select a group to view its enabled models. Model configuration is shared across groups.": "选择分组后，仅显示该分组启用的模型。同一模型的配置由各分组共用。",
+    "Save changes before switching groups or models.": "请先保存修改，再切换分组或模型。",
     "Image {{number}}: {{status}}": "第 {{number}} 张：{{status}}",
     "Partially completed": "部分完成",
     "360": "360",
