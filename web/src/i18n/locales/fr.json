@@ -4963,7 +4963,7 @@
     "Reference image is unavailable": "Reference image is unavailable",
     "Reference image selections conflict": "Les sélections d’images de référence sont en conflit.",
     "Reference images": "Images de référence",
-    "Reference images (up to 4)": "Images de référence (4 max.)",
+    "Reference images (up to {{limit}})": "Images de référence ({{limit}} max.)",
     "Reference images must be 20 MB or smaller": "Chaque image de référence doit faire au plus 20 Mo",
     "Reference Video": "Vidéo de référence",
     "Referral link:": "Lien de parrainage :",
@@ -7064,7 +7064,7 @@
     "You are offline. Updates will be checked when you reconnect.": "Vous êtes hors ligne. La vérification reprendra à la reconnexion.",
     "You are running the latest version ({{version}}).": "Vous utilisez la dernière version ({{version}}).",
     "You can add models manually or try fetching again.": "Ajoutez des modèles manuellement ou réessayez la récupération.",
-    "You can add up to 4 reference images.": "Vous pouvez ajouter 4 images de référence au maximum.",
+    "You can add up to {{limit}} reference images.": "Vous pouvez ajouter {{limit}} images de référence au maximum.",
     "You can close this tab once the binding completes or a success message appears in the original window.": "Vous pouvez fermer cet onglet une fois la liaison terminée ou qu'un message de succès apparaît dans la fenêtre d'origine.",
     "You can leave this page and return to view the result.": "You can leave this page and return to view the result.",
     "You can manually add them in \"Custom Model Names\", click \"Fill\" and then submit, or use the operations below to handle automatically.": "Vous pouvez les ajouter manuellement dans \"Noms de modèles personnalisés\", cliquer sur \"Remplir\" puis soumettre, ou utiliser les opérations ci-dessous pour les gérer automatiquement.",
@@ -7286,6 +7286,8 @@
     "You can create up to {{count}} access tokens": "Vous pouvez créer jusqu’à {{count}} jetons d’accès",
     "Uncharged usage": "Utilisation non facturée",
     "Insufficient balance for image generation. Please top up and try again.": "Solde insuffisant pour générer une image. Rechargez votre compte et réessayez.",
-    "Not charged": "Non facturé"
+    "Not charged": "Non facturé",
+    "Automatic image groups are unavailable for this account": "Les groupes automatiques d’images ne sont pas disponibles pour ce compte",
+    "Image API key must use the automatic or default group": "La clé API d’images doit utiliser le groupe automatique ou par défaut"
   }
 }

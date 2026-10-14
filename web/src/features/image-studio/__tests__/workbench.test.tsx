@@ -184,6 +184,140 @@ afterEach(() => {
 })
 
 describe('Image workbench', () => {
+  it('shows the Gemini request price and submits four references in a batch without GPT parameters', async () => {
+    const gemini = {
+      model: 'gemini-3.1-flash-image',
+      group: 'antigravity',
+      sizes: [''],
+      qualities: [''],
+      max_count: 4,
+      editing: true,
+      max_references: 4,
+    }
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        ...pricing,
+        data: [
+          {
+            ...pricing.data[0],
+            model_name: gemini.model,
+            enable_groups: ['antigravity'],
+            quota_type: 1,
+            model_price: 0.2,
+            billing_mode: 'ratio',
+            billing_expr: undefined,
+          },
+        ],
+        group_ratio: { default: 9, antigravity: 1 },
+      },
+    })
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'gemini-job' })
+    const upload = vi
+      .spyOn(imageAPI, 'uploadReference')
+      .mockImplementation(async (file) => file.name.replace('.png', ''))
+    const onCreated = vi.fn()
+    const referenceState = vi.fn()
+    render(
+      <ImageForm
+        options={{ available: true, models: [gemini] }}
+        reuse={null}
+        reference={{ id: 'gemini-reference', name: 'cat.png' }}
+        onReferenceStateChange={referenceState}
+        onCreated={onCreated}
+      />,
+      { wrapper }
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Estimated image cost' })
+      ).toHaveTextContent('$0.2')
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Choose image size' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Choose image quality' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Choose number of images' })
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(referenceState).toHaveBeenLastCalledWith({
+        count: 1,
+        enabled: true,
+        limit: 4,
+      })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    )
+    const referenceInput = await screen.findByLabelText(
+      'Reference images (up to 4)',
+      {
+        selector: 'input',
+      }
+    )
+    expect(referenceInput).toHaveAttribute('multiple')
+    expect(referenceInput).toBeEnabled()
+    // Reject the fifth input before uploading, then accept the full valid set.
+    const files = Array.from(
+      { length: 4 },
+      (_, index) =>
+        new File(['image'], `ref-${index + 2}.png`, { type: 'image/png' })
+    )
+    fireEvent.change(referenceInput, { target: { files } })
+    expect(
+      await screen.findByText('You can add up to 4 reference images.')
+    ).toBeInTheDocument()
+    expect(upload).not.toHaveBeenCalled()
+    fireEvent.change(referenceInput, { target: { files: files.slice(0, 3) } })
+    await waitFor(() =>
+      expect(referenceState).toHaveBeenLastCalledWith({
+        count: 4,
+        enabled: true,
+        limit: 4,
+      })
+    )
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect(referenceInput).toBeDisabled()
+    fireEvent.keyDown(referenceInput, { key: 'Escape' })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Choose number of images' })
+    )
+    const counts = within(
+      await screen.findByRole('group', { name: 'Number of images' })
+    )
+    fireEvent.click(counts.getByRole('button', { name: '4' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Estimated image cost' })
+      ).toHaveTextContent('$0.8')
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Make the rocket green' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('gemini-job'))
+    expect(create).toHaveBeenCalledWith(
+      {
+        model: gemini.model,
+        prompt: 'Make the rocket green',
+        n: 4,
+        size: '',
+        quality: '',
+        reference_id: undefined,
+        reference_ids: [
+          'gemini-reference',
+          ...Array.from({ length: 3 }, (_, index) => `ref-${index + 2}`),
+        ],
+      },
+      expect.any(String),
+      false
+    )
+  })
+
   it('shows persistent browser history and disables deletion in an empty gallery', async () => {
     render(<ImageStudio />, { wrapper })
     expect(
@@ -344,17 +478,9 @@ describe('Image workbench', () => {
       'true'
     )
     fireEvent.click(screen.getByRole('button', { name: 'Choose image size' }))
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Choose number of images' })
-    )
-    const counts = within(
-      await screen.findByRole('group', { name: 'Number of images' })
-    )
-    expect(counts.getAllByRole('button')).toHaveLength(1)
-    expect(counts.getByRole('button', { name: '1' })).toBeEnabled()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Choose number of images' })
-    )
+    expect(
+      screen.queryByRole('button', { name: 'Choose number of images' })
+    ).not.toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: 'Choose image quality' })
     )
@@ -1667,7 +1793,11 @@ describe('Image workbench', () => {
       })
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Choose file' })).toBeDisabled()
-    expect(onState).toHaveBeenLastCalledWith({ count: 4, enabled: true })
+    expect(onState).toHaveBeenLastCalledWith({
+      count: 4,
+      enabled: true,
+      limit: 4,
+    })
   })
   it('updates details, actions and the shared close label when language changes', async () => {
     const french = (await import('@/i18n/locales/fr.json')).default.translation

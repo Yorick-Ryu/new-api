@@ -37,11 +37,13 @@ export type ImageInput = {
 }
 export type ImageCapability = {
   model: string
+  group?: string
   sizes: string[]
   qualities: string[]
   max_count: number
   editing: boolean
   custom_size?: boolean
+  max_references?: number
 }
 export type ImageAsset = {
   id: string

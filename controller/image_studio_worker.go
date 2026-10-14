@@ -151,7 +151,7 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		return err
 	}
 	token, err := model.GetTokenByIds(job.TokenID, job.UserID)
-	if err != nil || token.Group != "default" {
+	if err != nil || token.Group != "auto" && token.Group != "default" {
 		w.setStatus(job, "failed", "Image API key is unavailable")
 		return errors.New("image token unavailable")
 	}
@@ -173,9 +173,27 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 	}
 	var body bytes.Buffer
 	requestPath := "/v1/images/generations"
+	relayFormat := types.RelayFormat(types.RelayFormatOpenAIImage)
 	contentType := "application/json"
 	referenceIDs, _ := imageStudioReferences(input) // Validated above, including legacy single references.
-	if len(referenceIDs) > 0 {
+	if input.Model == imageStudioGeminiModel {
+		parts := []imagedto.MediaContent{{Type: "text", Text: input.Prompt}}
+		for _, id := range referenceIDs {
+			data, mime, err := w.readReference(ctx, job, id)
+			if err != nil {
+				return err
+			}
+			parts = append(parts, imagedto.MediaContent{Type: "image_url", ImageUrl: map[string]string{"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)}})
+		}
+		payload := imagedto.GeneralOpenAIRequest{Model: input.Model, Messages: []imagedto.Message{{Role: "user", Content: parts}},
+			Modalities: json.RawMessage(`["text","image"]`), Stream: common.GetPointer(false), N: common.GetPointer(1), MaxCompletionTokens: common.GetPointer(uint(8192))}
+		encoded, err := common.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		body.Write(encoded)
+		requestPath, relayFormat = "/v1/chat/completions", types.RelayFormatOpenAI
+	} else if len(referenceIDs) > 0 {
 		writer := multipart.NewWriter(&body)
 		for key, value := range map[string]string{"model": input.Model, "prompt": input.Prompt, "n": strconv.Itoa(int(input.N)), "size": input.Size, "quality": input.Quality} {
 			if value != "" {
@@ -189,24 +207,15 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 			fieldName = "image[]"
 		}
 		for i, id := range referenceIDs {
-			var reference model.ImageStudioAsset
-			// An active job protects its already validated references even when
-			// their original upload expiry passes while it waits in the queue.
-			err = model.DB.Where("id = ? AND user_id = ? AND kind = ?", id, job.UserID, "reference").First(&reference).Error
+			data, mime, err := w.readReference(ctx, job, id)
 			if err != nil {
-				w.setStatus(job, "failed", "Reference image is unavailable")
 				return err
 			}
-			data, err := w.store.Get(ctx, reference.ObjectKey)
-			if err != nil || len(data) > service.ImageStudioMaxReferenceBytes {
-				w.setStatus(job, "failed", "Reference image is unavailable")
-				return errors.New("reference image cannot be read")
-			}
 			ext := "png"
-			if reference.Mime == "image/jpeg" {
+			if mime == "image/jpeg" {
 				ext = "jpg"
 			}
-			if reference.Mime == "image/webp" {
+			if mime == "image/webp" {
 				ext = "webp"
 			}
 			part, err := writer.CreateFormFile(fieldName, fmt.Sprintf("reference-%d.%s", i+1, ext))
@@ -264,7 +273,7 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		settings, _ := common.GetContextKeyType[imagedto.UserSetting](c, constant.ContextKeyUserSetting)
 		settings.BillingPreference = "wallet_only"
 		common.SetContextKey(c, constant.ContextKeyUserSetting, settings)
-		Relay(c, types.RelayFormatOpenAIImage)
+		Relay(c, relayFormat)
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestPath, &body)
 	if err != nil {
@@ -300,6 +309,22 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		return errors.New("image task state changed")
 	}
 	return nil
+}
+
+func (w *imageStudioWorker) readReference(ctx context.Context, job *model.ImageStudioJob, id string) ([]byte, string, error) {
+	var reference model.ImageStudioAsset
+	// Active jobs protect owned reference uploads beyond their original expiry.
+	err := model.DB.Where("id = ? AND user_id = ? AND kind = ?", id, job.UserID, "reference").First(&reference).Error
+	if err != nil {
+		w.setStatus(job, "failed", "Reference image is unavailable")
+		return nil, "", err
+	}
+	data, err := w.store.Get(ctx, reference.ObjectKey)
+	if err != nil || len(data) > service.ImageStudioMaxReferenceBytes {
+		w.setStatus(job, "failed", "Reference image is unavailable")
+		return nil, "", errors.New("reference image cannot be read")
+	}
+	return data, reference.Mime, nil
 }
 
 type imageStudioResponseWriter struct {
@@ -339,14 +364,33 @@ type imageStudioPayload struct {
 
 func decodeImageStudioResponse(data []byte) ([]imageStudioPayload, error) {
 	var envelope struct {
-		Data json.RawMessage `json:"data"`
+		Data    json.RawMessage `json:"data"`
+		Choices []struct {
+			Message struct {
+				Images []struct {
+					ImageURL struct {
+						URL string `json:"url"`
+					} `json:"image_url"`
+				} `json:"images"`
+			} `json:"message"`
+		} `json:"choices"`
 	}
 	if err := common.Unmarshal(data, &envelope); err != nil {
 		return nil, err
 	}
 	var items []imageStudioPayload
 	raw := bytes.TrimSpace(envelope.Data)
-	if len(raw) > 0 && raw[0] == '{' {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		for _, choice := range envelope.Choices {
+			for _, entry := range choice.Message.Images {
+				header, encoded, ok := strings.Cut(entry.ImageURL.URL, ",")
+				if !ok || encoded == "" || (header != "data:image/png;base64" && header != "data:image/jpeg;base64" && header != "data:image/webp;base64") || len(encoded) > base64.StdEncoding.EncodedLen(service.ImageStudioMaxGeneratedBytes) {
+					return nil, errors.New("invalid chat image payload")
+				}
+				items = append(items, imageStudioPayload{Base64: encoded})
+			}
+		}
+	} else if raw[0] == '{' {
 		var item imageStudioPayload
 		if err := common.Unmarshal(raw, &item); err != nil {
 			return nil, err
@@ -416,13 +460,18 @@ func (w *imageStudioWorker) persist(ctx context.Context, job *model.ImageStudioJ
 			}
 			data, err = io.ReadAll(io.LimitReader(res.Body, service.ImageStudioMaxGeneratedBytes+1))
 			res.Body.Close()
+			if err != nil {
+				return errors.New("image download failed")
+			}
 		}
 		if err != nil || len(data) > service.ImageStudioMaxGeneratedBytes {
-			return errors.New("invalid image payload")
+			w.setStatus(job, "unknown", "Image result could not be confirmed")
+			return nil
 		}
 		_, err = imageStudioMime(data)
 		if err != nil {
-			return err
+			w.setStatus(job, "unknown", "Image result could not be confirmed")
+			return nil
 		}
 		if cacheErr != nil {
 			if err := os.WriteFile(cachedPath+".partial", data, 0600); err != nil {

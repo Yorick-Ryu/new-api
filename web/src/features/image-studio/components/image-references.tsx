@@ -29,6 +29,8 @@ import {
   FieldError,
   FieldTitle,
 } from '@/components/ui/field'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatNumber } from '@/lib/format'
 import { markServerErrorHandled } from '@/lib/handle-server-error'
 import { getServerErrorMessage } from '@/lib/server-error-message'
 
@@ -43,13 +45,19 @@ export type ImageReference = {
 
 type ImageReferencesProps = {
   value: ImageReference[]
+  maxCount?: number
   disabled: boolean
   onChange: (references: ImageReference[]) => void
   onUploadingChange: (uploading: boolean) => void
 }
 
 export function ImageReferences(props: ImageReferencesProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const maxCount = props.maxCount ?? 4
+  const label = t('Reference images (up to {{limit}})', {
+    limit: formatNumber(maxCount, locale),
+  })
   const inputRef = useRef<HTMLInputElement>(null)
   const onUploadingChange = props.onUploadingChange
   const [error, setError] = useState('')
@@ -72,12 +80,12 @@ export function ImageReferences(props: ImageReferencesProps) {
   return (
     <Field data-invalid={!!error} className='gap-2.5'>
       <div className='flex flex-wrap items-center gap-2'>
-        <FieldTitle>{t('Reference images (up to 4)')}</FieldTitle>
+        <FieldTitle>{label}</FieldTitle>
         <Button
           type='button'
           variant='outline'
           size='sm'
-          disabled={busy || props.value.length >= 4}
+          disabled={busy || props.value.length >= maxCount}
           onClick={() => inputRef.current?.click()}
         >
           <ImagePlus />
@@ -90,17 +98,21 @@ export function ImageReferences(props: ImageReferencesProps) {
         type='file'
         className='sr-only'
         tabIndex={-1}
-        aria-label={t('Reference images (up to 4)')}
-        multiple
+        aria-label={label}
+        multiple={maxCount > 1}
         accept='image/png,image/jpeg,image/webp'
-        disabled={busy || props.value.length >= 4}
+        disabled={busy || props.value.length >= maxCount}
         aria-invalid={!!error}
         onChange={(event) => {
           const files = [...(event.target.files ?? [])]
           event.target.value = ''
           if (files.length === 0) return
-          if (props.value.length + files.length > 4) {
-            setError(t('You can add up to 4 reference images.'))
+          if (props.value.length + files.length > maxCount) {
+            setError(
+              t('You can add up to {{limit}} reference images.', {
+                limit: formatNumber(maxCount, locale),
+              })
+            )
             return
           }
           if (files.some((file) => file.size > 20 * 1024 * 1024)) {

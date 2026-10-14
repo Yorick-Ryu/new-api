@@ -4963,7 +4963,7 @@
     "Reference image is unavailable": "Reference image is unavailable",
     "Reference image selections conflict": "Các lựa chọn ảnh tham chiếu bị xung đột.",
     "Reference images": "Ảnh tham chiếu",
-    "Reference images (up to 4)": "Ảnh tham chiếu (tối đa 4)",
+    "Reference images (up to {{limit}})": "Ảnh tham chiếu (tối đa {{limit}})",
     "Reference images must be 20 MB or smaller": "Mỗi ảnh tham chiếu không được vượt quá 20 MB",
     "Reference Video": "Video tham chiếu",
     "Referral link:": "Liên kết giới thiệu:",
@@ -7064,7 +7064,7 @@
     "You are offline. Updates will be checked when you reconnect.": "Bạn đang ngoại tuyến. Cập nhật sẽ được kiểm tra khi kết nối lại.",
     "You are running the latest version ({{version}}).": "Bạn đang sử dụng phiên bản mới nhất ({{version}}).",
     "You can add models manually or try fetching again.": "Bạn có thể thêm mô hình thủ công hoặc thử lấy lại.",
-    "You can add up to 4 reference images.": "Bạn có thể thêm tối đa 4 ảnh tham chiếu.",
+    "You can add up to {{limit}} reference images.": "Bạn có thể thêm tối đa {{limit}} ảnh tham chiếu.",
     "You can close this tab once the binding completes or a success message appears in the original window.": "Bạn có thể đóng tab này sau khi quá trình liên kết hoàn tất hoặc thông báo thành công xuất hiện trong cửa sổ gốc.",
     "You can leave this page and return to view the result.": "You can leave this page and return to view the result.",
     "You can manually add them in \"Custom Model Names\", click \"Fill\" and then submit, or use the operations below to handle automatically.": "Bạn có thể thêm chúng theo cách thủ công trong \"Tên mô hình tùy chỉnh\", nhấp vào \"Điền\" rồi gửi, hoặc sử dụng các thao tác bên dưới để xử lý tự động.",
@@ -7286,6 +7286,8 @@
     "You can create up to {{count}} access tokens": "Bạn có thể tạo tối đa {{count}} token truy cập",
     "Uncharged usage": "Mức sử dụng chưa thu phí",
     "Insufficient balance for image generation. Please top up and try again.": "Số dư không đủ để tạo ảnh. Vui lòng nạp tiền và thử lại.",
-    "Not charged": "Không tính phí"
+    "Not charged": "Không tính phí",
+    "Automatic image groups are unavailable for this account": "Tài khoản này không thể dùng nhóm tạo ảnh tự động",
+    "Image API key must use the automatic or default group": "Khóa API tạo ảnh phải dùng nhóm tự động hoặc nhóm mặc định"
   }
 }

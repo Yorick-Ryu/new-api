@@ -4963,7 +4963,7 @@
     "Reference image is unavailable": "Reference image is unavailable",
     "Reference image selections conflict": "參考圖參數衝突，請重新選擇。",
     "Reference images": "參考圖",
-    "Reference images (up to 4)": "參考圖（最多 4 張）",
+    "Reference images (up to {{limit}})": "參考圖（最多 {{limit}} 張）",
     "Reference images must be 20 MB or smaller": "每張參考圖不得超過 20 MB",
     "Reference Video": "參照生影片",
     "Referral link:": "推薦連結：",
@@ -7064,7 +7064,7 @@
     "You are offline. Updates will be checked when you reconnect.": "目前處於離線狀態，恢復連線後將檢查更新。",
     "You are running the latest version ({{version}}).": "您正在執行最新版本 ({{version}})。",
     "You can add models manually or try fetching again.": "可以手動新增模型，也可以重新取得。",
-    "You can add up to 4 reference images.": "最多可新增 4 張參考圖。",
+    "You can add up to {{limit}} reference images.": "最多可新增 {{limit}} 張參考圖。",
     "You can close this tab once the binding completes or a success message appears in the original window.": "連結完成後或原窗口出現成功訊息後，您可以關閉此標籤頁。",
     "You can leave this page and return to view the result.": "You can leave this page and return to view the result.",
     "You can manually add them in \"Custom Model Names\", click \"Fill\" and then submit, or use the operations below to handle automatically.": "你可以在「自訂模型名稱」處手動新增它們，然後點擊「填入」後再提交，或者直接使用下方操作自動處理。",
@@ -7286,6 +7286,8 @@
     "You can create up to {{count}} access tokens": "最多可建立 {{count}} 個存取令牌",
     "Uncharged usage": "未收取用量",
     "Insufficient balance for image generation. Please top up and try again.": "餘額不足，無法完成本次生圖，請儲值後重試。",
-    "Not charged": "未扣費"
+    "Not charged": "未扣費",
+    "Automatic image groups are unavailable for this account": "此帳號無法使用自動生圖群組",
+    "Image API key must use the automatic or default group": "生圖金鑰必須使用自動群組或預設群組"
   }
 }

@@ -150,16 +150,21 @@ function knownRequestContext(compiled: CompiledBillingExpression): boolean {
 
 export function estimateImageCost(
   input: EstimateInput,
-  pricing: PricingData
+  pricing: PricingData,
+  group = 'default'
 ): ImageCostEstimate | null {
   if (!Number.isInteger(input.n) || input.n < 1 || input.n > 4) return null
   if (!pricing.success || !Array.isArray(pricing.data)) return null
   const model = pricing.data.find((entry) => entry.model_name === input.model)
-  const groupRatio = pricing.group_ratio?.default
-  if (!model?.enable_groups?.includes('default') || !validAmount(groupRatio)) {
+  const groupRatio = pricing.group_ratio?.[group]
+  if (!model?.enable_groups?.includes(group) || !validAmount(groupRatio)) {
     return null
   }
   const isGPTImage = input.model.startsWith('gpt-image-')
+  const isGeminiImage = input.model === 'gemini-3.1-flash-image'
+  if (isGeminiImage && (input.size || input.quality)) {
+    return null
+  }
   const isGPTImage2 = /^gpt-image-2(?:-\d{4}-\d{2}-\d{2})?$/.test(input.model)
   const tokens = isGPTImage2 ? imageTokenRange(input) : null
   if (isGPTImage2 && !tokens) return null
@@ -223,7 +228,11 @@ export function estimateImageCost(
   // Legacy GPT Image request pricing applies n exactly once. Its DTO has no
   // DALL·E size/quality multipliers; token-priced legacy models need usage data.
   if (model.billing_mode && model.billing_mode !== 'ratio') return null
-  if (isGPTImage && model.quota_type === 1 && validAmount(model.model_price)) {
+  if (
+    (isGPTImage || isGeminiImage) &&
+    model.quota_type === 1 &&
+    validAmount(model.model_price)
+  ) {
     const cost = model.model_price * input.n * groupRatio
     return result(cost, cost, 'request')
   }
