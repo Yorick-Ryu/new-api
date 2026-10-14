@@ -48,6 +48,7 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { isImageJobActive, type ImageJob } from '../api'
 import { downloadImages } from '../lib/download-images'
+import { imageModelDisplayName } from '../lib/model-name'
 import { ImageAssetView } from './image-asset-view'
 
 type ImageResultProps = {
@@ -81,6 +82,7 @@ export function ImageResult(props: ImageResultProps) {
     costLabel = t('Not charged')
   }
   const provider = resolveModelProvider(job.input.model)
+  const modelName = imageModelDisplayName(job.input.model)
   const originals = job.assets.filter((asset) => asset.kind === 'original')
   const active = isImageJobActive(job)
   const statusIcons: Record<string, typeof CircleAlert> = {
@@ -278,14 +280,14 @@ export function ImageResult(props: ImageResultProps) {
           <div className='text-foreground flex min-w-0 items-center gap-2 text-xs'>
             <span
               className='flex min-w-0 flex-1 items-center gap-1 overflow-hidden'
-              title={job.input.model}
+              title={modelName}
             >
               {provider && (
                 <span className='flex shrink-0' aria-hidden='true'>
                   {getLobeIcon(provider.icon, 14)}
                 </span>
               )}
-              <span className='truncate'>{job.input.model}</span>
+              <span className='truncate'>{modelName}</span>
             </span>
             <time
               className='hidden max-w-full shrink-0 truncate md:block'
@@ -436,7 +438,7 @@ export function ImageResult(props: ImageResultProps) {
                     {getLobeIcon(provider.icon, 16)}
                   </span>
                 )}
-                <span className='min-w-0 break-words'>{job.input.model}</span>
+                <span className='min-w-0 break-words'>{modelName}</span>
               </dd>
               <dt className='text-muted-foreground'>{t('Image size')}</dt>
               <dd>{job.input.size?.replace('x', '×') || t('Auto')}</dd>

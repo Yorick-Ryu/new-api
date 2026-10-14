@@ -235,6 +235,10 @@ describe('Image workbench', () => {
       ).toHaveTextContent('$0.2')
     )
     expect(
+      screen.getByRole('combobox', { name: /Nano Banana 2/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(gemini.model)).not.toBeInTheDocument()
+    expect(
       screen.queryByRole('button', { name: 'Choose image size' })
     ).not.toBeInTheDocument()
     expect(

@@ -66,6 +66,7 @@ import {
   type ImageOptions,
 } from '../api'
 import { formatAspectRatio } from '../lib/aspect-ratio'
+import { imageModelDisplayName } from '../lib/model-name'
 import { ImageCostEstimate } from './image-cost-estimate'
 import {
   ImageReferences,
@@ -367,7 +368,7 @@ export function ImageForm(props: ImageFormProps) {
                   selectedModel={model}
                   models={props.options.models.map((item) => ({
                     value: item.model,
-                    label: item.model,
+                    label: imageModelDisplayName(item.model),
                     icon: getLobeIcon(
                       resolveModelProvider(item.model)?.icon,
                       16

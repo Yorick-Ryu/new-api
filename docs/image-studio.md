@@ -8,7 +8,9 @@ key-specific Auto groups and model restrictions. Normal relay authentication
 rechecks key status, expiry, quota, IP restrictions and current permissions.
 
 `gemini-3.1-flash-image` uses non-streaming Chat Completions with text/image
-modalities. The workbench accepts up to 4 reference images for both Gemini and
+modalities. The selector, result cards and details display its product name,
+`Nano Banana 2`; requests, pricing and saved history retain the API model ID.
+The workbench accepts up to 4 reference images for both Gemini and
 GPT image models, using the same upload controls and workflow. Gemini currently
 uses default size and quality.
 The workbench's 1–4 batch selector submits independent requests, each using
