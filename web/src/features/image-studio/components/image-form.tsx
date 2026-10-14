@@ -99,6 +99,8 @@ const schema = z.object({
     )
   }, 'Custom image dimensions must be multiples of 16, no larger than 3840 pixels per edge, with 655,360 to 8,294,400 total pixels and an aspect ratio between 1:3 and 3:1.'),
   quality: z.string(),
+  aspect_ratio: z.string().optional(),
+  resolution: z.string().optional(),
   n: z.number().int().min(1).max(4),
   reference_id: z.string().optional(),
   reference_ids: z.array(z.string()).max(4).optional(),
@@ -134,7 +136,11 @@ export function ImageForm(props: ImageFormProps) {
   const model = form.watch('model')
   const size = form.watch('size')
   const quality = form.watch('quality')
+  const aspectRatio = form.watch('aspect_ratio') ?? ''
+  const resolution = form.watch('resolution') ?? ''
   const count = form.watch('n')
+  const capability = props.options.models.find((item) => item.model === model)
+  const nativeRatio = !!capability?.aspect_ratios?.length
   const [ratioSize, setRatioSize] = useState('')
   const automaticRatioLine = useRef('')
   function updatePromptRatio(value: string) {
@@ -158,17 +164,17 @@ export function ImageForm(props: ImageFormProps) {
     automaticRatioLine.current = next
     form.setValue('prompt', lines.join('\n'), { shouldDirty: true })
   }
-  const [ratioWidth, ratioHeight] = ratioSize.split('x').map(Number)
+  const selectedRatio = nativeRatio ? aspectRatio : ratioSize
+  const [ratioWidth, ratioHeight] = selectedRatio.split(/[x:]/).map(Number)
   let RatioIcon = Scan
-  if (ratioSize) {
+  if (selectedRatio) {
     if (ratioWidth === ratioHeight) RatioIcon = Square
     else if (ratioWidth > ratioHeight) RatioIcon = RectangleHorizontal
     else RatioIcon = RectangleVertical
   }
   const [sizeOpen, setSizeOpen] = useState(false)
-  const [qualityOpen, setQualityOpen] = useState(false)
+  const [outputSettingOpen, setOutputSettingOpen] = useState(false)
   const [countOpen, setCountOpen] = useState(false)
-  const capability = props.options.models.find((item) => item.model === model)
   const maxReferences = capability?.max_references ?? 4
   const [references, setReferences] = useState<ImageReference[]>([])
   const [uploading, setUploading] = useState(false)
@@ -274,6 +280,13 @@ export function ImageForm(props: ImageFormProps) {
     standard: t('Standard'),
     hd: t('HD'),
   }
+  const usesResolution = !!capability?.resolutions?.length
+  const outputTitle = usesResolution ? t('Resolution') : t('Quality')
+  const outputValue = usesResolution ? resolution || '1K' : quality || 'auto'
+  const outputOptions = capability?.resolutions ?? capability?.qualities ?? ['']
+  const outputLabels: Record<string, string> = usesResolution
+    ? Object.fromEntries(outputOptions.map((value) => [value, value]))
+    : qualityLabels
   return (
     <Card className='h-fit min-w-0' data-card-hover='false'>
       <CardContent>
@@ -382,6 +395,8 @@ export function ImageForm(props: ImageFormProps) {
                     updatePromptRatio('')
                     setRatioSize('')
                     form.setValue('quality', '')
+                    form.setValue('aspect_ratio', undefined)
+                    form.setValue('resolution', undefined)
                     form.setValue('n', 1)
                     form.setValue('reference_id', undefined)
                     form.setValue('reference_ids', undefined)
@@ -504,7 +519,9 @@ export function ImageForm(props: ImageFormProps) {
                     }
                   >
                     <RatioIcon className='size-4 shrink-0' aria-hidden='true' />
-                    {ratioSize ? formatAspectRatio(ratioSize) : t('Free ratio')}
+                    {selectedRatio
+                      ? formatAspectRatio(selectedRatio)
+                      : t('Free ratio')}
                   </PopoverTrigger>
                   <PopoverContent
                     keepMounted
@@ -515,12 +532,17 @@ export function ImageForm(props: ImageFormProps) {
                     <ImageSizePicker
                       mode='ratio'
                       sizes={capability?.sizes ?? ['']}
+                      aspectRatios={capability?.aspect_ratios}
                       customSize={!!capability?.custom_size}
                       value={size}
-                      ratioSize={ratioSize}
+                      ratioSize={selectedRatio}
                       disabled={busy}
                       onChange={() => {}}
                       onRatioChange={(value) => {
+                        if (nativeRatio) {
+                          form.setValue('aspect_ratio', value)
+                          return
+                        }
                         updatePromptRatio(value)
                         setRatioSize(value)
                         form.setValue('size', '', {
@@ -531,10 +553,13 @@ export function ImageForm(props: ImageFormProps) {
                   </PopoverContent>
                 </Popover>
               </Field>
-              {(capability?.qualities.length ?? 0) > 1 && (
+              {outputOptions.length > 1 && (
                 <Field className='w-auto min-w-20 shrink-0'>
-                  <FieldLabel>{t('Quality')}</FieldLabel>
-                  <Popover open={qualityOpen} onOpenChange={setQualityOpen}>
+                  <FieldLabel>{outputTitle}</FieldLabel>
+                  <Popover
+                    open={outputSettingOpen}
+                    onOpenChange={setOutputSettingOpen}
+                  >
                     <PopoverTrigger
                       render={
                         <Button
@@ -542,46 +567,53 @@ export function ImageForm(props: ImageFormProps) {
                           variant='outline'
                           disabled={busy}
                           className='justify-start'
-                          aria-label={t('Choose image quality')}
+                          aria-label={
+                            usesResolution
+                              ? t('Choose image resolution')
+                              : t('Choose image quality')
+                          }
                         />
                       }
                     >
                       <SlidersHorizontal className='size-4' />
                       <span className='truncate'>
-                        {qualityLabels[quality] || t('Auto')}
+                        {outputLabels[outputValue] || t('Auto')}
                       </span>
                     </PopoverTrigger>
                     <PopoverContent
                       align='start'
-                      aria-label={t('Quality')}
+                      aria-label={outputTitle}
                       className='w-auto max-w-[calc(100vw-2rem)]'
                     >
-                      <FieldTitle>{t('Quality')}</FieldTitle>
+                      <FieldTitle>{outputTitle}</FieldTitle>
                       <ToggleGroup
-                        aria-label={t('Quality')}
+                        aria-label={outputTitle}
                         variant='outline'
                         spacing={2}
-                        value={[quality || 'auto']}
+                        value={[outputValue]}
                         disabled={busy}
                         className='flex-wrap justify-start'
                         onValueChange={(values) => {
                           const value = values[0] === 'auto' ? '' : values[0]
                           if (
                             value !== undefined &&
-                            (capability?.qualities ?? ['']).includes(value)
+                            outputOptions.includes(value)
                           ) {
-                            form.setValue('quality', value)
-                            setQualityOpen(false)
+                            form.setValue(
+                              usesResolution ? 'resolution' : 'quality',
+                              value
+                            )
+                            setOutputSettingOpen(false)
                           }
                         }}
                       >
-                        {(capability?.qualities ?? ['']).map((quality) => (
+                        {outputOptions.map((option) => (
                           <ToggleGroupItem
-                            key={quality}
-                            value={quality || 'auto'}
+                            key={option}
+                            value={option || 'auto'}
                             className='aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground h-[30px] px-2.5'
                           >
-                            {qualityLabels[quality] || t('Auto')}
+                            {outputLabels[option] || t('Auto')}
                           </ToggleGroupItem>
                         ))}
                       </ToggleGroup>

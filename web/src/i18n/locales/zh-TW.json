@@ -7288,6 +7288,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "餘額不足，無法完成本次生圖，請儲值後重試。",
     "Not charged": "未扣費",
     "Automatic image groups are unavailable for this account": "此帳號無法使用自動生圖群組",
-    "Image API key must use the automatic or default group": "生圖金鑰必須使用自動群組或預設群組"
+    "Image API key must use the automatic or default group": "生圖金鑰必須使用自動群組或預設群組",
+    "Resolution": "解析度",
+    "Choose image resolution": "選擇圖片解析度"
   }
 }

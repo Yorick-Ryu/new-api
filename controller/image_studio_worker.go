@@ -187,6 +187,15 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		}
 		payload := imagedto.GeneralOpenAIRequest{Model: input.Model, Messages: []imagedto.Message{{Role: "user", Content: parts}},
 			Modalities: json.RawMessage(`["text","image"]`), Stream: common.GetPointer(false), N: common.GetPointer(1), MaxCompletionTokens: common.GetPointer(uint(8192))}
+		if input.AspectRatio != "" || input.Resolution != "" {
+			payload.ImageConfig = &imagedto.OpenAIImageConfig{}
+			if input.AspectRatio != "" {
+				payload.ImageConfig.AspectRatio = common.GetPointer(input.AspectRatio)
+			}
+			if input.Resolution != "" {
+				payload.ImageConfig.ImageSize = common.GetPointer(input.Resolution)
+			}
+		}
 		encoded, err := common.Marshal(payload)
 		if err != nil {
 			return err

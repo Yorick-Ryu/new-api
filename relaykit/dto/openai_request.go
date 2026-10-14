@@ -24,6 +24,12 @@ type FormatJsonSchema struct {
 	Strict      json.RawMessage `json:"strict,omitempty"`
 }
 
+// OpenAIImageConfig carries image generation options for compatible Chat APIs.
+type OpenAIImageConfig struct {
+	AspectRatio *string `json:"aspect_ratio,omitempty"`
+	ImageSize   *string `json:"image_size,omitempty"`
+}
+
 // GeneralOpenAIRequest represents a general request structure for OpenAI-compatible APIs.
 // 参数增加规范：无引用的参数必须使用json.RawMessage类型，并添加omitempty标签
 type GeneralOpenAIRequest struct {
@@ -59,12 +65,13 @@ type GeneralOpenAIRequest struct {
 	User                json.RawMessage   `json:"user,omitempty"`
 	// ServiceTier specifies upstream service level and may affect billing.
 	// This field is filtered by default and can be enabled via channel setting allow_service_tier.
-	ServiceTier json.RawMessage `json:"service_tier,omitempty"`
-	LogProbs    *bool           `json:"logprobs,omitempty"`
-	TopLogProbs *int            `json:"top_logprobs,omitempty"`
-	Dimensions  *int            `json:"dimensions,omitempty"`
-	Modalities  json.RawMessage `json:"modalities,omitempty"`
-	Audio       json.RawMessage `json:"audio,omitempty"`
+	ServiceTier json.RawMessage    `json:"service_tier,omitempty"`
+	LogProbs    *bool              `json:"logprobs,omitempty"`
+	TopLogProbs *int               `json:"top_logprobs,omitempty"`
+	Dimensions  *int               `json:"dimensions,omitempty"`
+	Modalities  json.RawMessage    `json:"modalities,omitempty"`
+	ImageConfig *OpenAIImageConfig `json:"image_config,omitempty"`
+	Audio       json.RawMessage    `json:"audio,omitempty"`
 	// 安全标识符，用于帮助 OpenAI 检测可能违反使用政策的应用程序用户
 	// 注意：此字段会向 OpenAI 发送用户标识信息，默认过滤，可通过 allow_safety_identifier 开启
 	SafetyIdentifier json.RawMessage `json:"safety_identifier,omitempty"`

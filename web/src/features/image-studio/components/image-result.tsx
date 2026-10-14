@@ -440,10 +440,21 @@ export function ImageResult(props: ImageResultProps) {
                 )}
                 <span className='min-w-0 break-words'>{modelName}</span>
               </dd>
-              <dt className='text-muted-foreground'>{t('Image size')}</dt>
-              <dd>{job.input.size?.replace('x', '×') || t('Auto')}</dd>
-              <dt className='text-muted-foreground'>{t('Quality')}</dt>
-              <dd>{qualityLabels[job.input.quality] ?? t('Auto')}</dd>
+              {job.input.model === 'gemini-3.1-flash-image' ? (
+                <>
+                  <dt className='text-muted-foreground'>{t('Aspect ratio')}</dt>
+                  <dd>{job.input.aspect_ratio || t('Auto')}</dd>
+                  <dt className='text-muted-foreground'>{t('Resolution')}</dt>
+                  <dd>{job.input.resolution || '1K'}</dd>
+                </>
+              ) : (
+                <>
+                  <dt className='text-muted-foreground'>{t('Image size')}</dt>
+                  <dd>{job.input.size?.replace('x', '×') || t('Auto')}</dd>
+                  <dt className='text-muted-foreground'>{t('Quality')}</dt>
+                  <dd>{qualityLabels[job.input.quality] ?? t('Auto')}</dd>
+                </>
+              )}
               <dt className='text-muted-foreground'>{t('Number of images')}</dt>
               <dd className='font-mono tabular-nums'>
                 {formatNumber(job.input.n, locale)}

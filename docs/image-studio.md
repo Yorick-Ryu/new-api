@@ -11,8 +11,13 @@ rechecks key status, expiry, quota, IP restrictions and current permissions.
 modalities. The selector, result cards and details display its product name,
 `Nano Banana 2`; requests, pricing and saved history retain the API model ID.
 The workbench accepts up to 4 reference images for both Gemini and
-GPT image models, using the same upload controls and workflow. Gemini currently
-uses default size and quality.
+GPT image models, using the same upload controls and workflow. Gemini offers
+native aspect-ratio and resolution controls (`512`, `1K`, `2K`, `4K`, default
+`1K`) instead of GPT size/quality settings. Its ratio picker uses the same
+common presets as GPT: automatic, `1:1`, `16:9`, `9:16`, `3:4`, and `4:3`.
+The validated selections persist
+with each job and pass through Chat `image_config` to the upstream; selecting
+a ratio does not rewrite the prompt. Omitted parameters retain model defaults.
 The workbench's 1–4 batch selector submits independent requests, each using
 `n=1`; the current upstream rejects multiple candidates. One candidate may
 contain multiple images, which are all retained within the existing four-image

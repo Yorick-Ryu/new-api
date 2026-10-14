@@ -7288,6 +7288,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "Số dư không đủ để tạo ảnh. Vui lòng nạp tiền và thử lại.",
     "Not charged": "Không tính phí",
     "Automatic image groups are unavailable for this account": "Tài khoản này không thể dùng nhóm tạo ảnh tự động",
-    "Image API key must use the automatic or default group": "Khóa API tạo ảnh phải dùng nhóm tự động hoặc nhóm mặc định"
+    "Image API key must use the automatic or default group": "Khóa API tạo ảnh phải dùng nhóm tự động hoặc nhóm mặc định",
+    "Resolution": "Độ phân giải",
+    "Choose image resolution": "Chọn độ phân giải hình ảnh"
   }
 }

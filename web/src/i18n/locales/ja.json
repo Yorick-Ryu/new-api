@@ -7288,6 +7288,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "画像生成に必要な残高が不足しています。チャージして再試行してください。",
     "Not charged": "課金なし",
     "Automatic image groups are unavailable for this account": "このアカウントでは画像の自動グループを利用できません",
-    "Image API key must use the automatic or default group": "画像APIキーは自動またはデフォルトのグループを使用する必要があります"
+    "Image API key must use the automatic or default group": "画像APIキーは自動またはデフォルトのグループを使用する必要があります",
+    "Resolution": "解像度",
+    "Choose image resolution": "画像の解像度を選択"
   }
 }

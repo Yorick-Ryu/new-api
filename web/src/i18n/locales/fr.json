@@ -7288,6 +7288,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "Solde insuffisant pour générer une image. Rechargez votre compte et réessayez.",
     "Not charged": "Non facturé",
     "Automatic image groups are unavailable for this account": "Les groupes automatiques d’images ne sont pas disponibles pour ce compte",
-    "Image API key must use the automatic or default group": "La clé API d’images doit utiliser le groupe automatique ou par défaut"
+    "Image API key must use the automatic or default group": "La clé API d’images doit utiliser le groupe automatique ou par défaut",
+    "Resolution": "Résolution",
+    "Choose image resolution": "Choisir la résolution de l’image"
   }
 }

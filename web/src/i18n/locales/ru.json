@@ -7288,6 +7288,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "Недостаточно средств для генерации изображения. Пополните баланс и повторите попытку.",
     "Not charged": "Не списано",
     "Automatic image groups are unavailable for this account": "Автоматические группы изображений недоступны для этого аккаунта",
-    "Image API key must use the automatic or default group": "API-ключ изображений должен использовать автоматическую группу или группу по умолчанию"
+    "Image API key must use the automatic or default group": "API-ключ изображений должен использовать автоматическую группу или группу по умолчанию",
+    "Resolution": "Разрешение",
+    "Choose image resolution": "Выбрать разрешение изображения"
   }
 }

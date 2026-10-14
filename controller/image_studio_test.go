@@ -764,7 +764,7 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 
 func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 	capabilities := []imageStudioCapability{
-		{Model: imageStudioGeminiModel, Sizes: []string{""}, Qualities: []string{""}, MaxCount: 4, MaxReferences: 4, Editing: true},
+		{Model: imageStudioGeminiModel, Sizes: []string{""}, Qualities: []string{""}, AspectRatios: []string{"", "1:1", "16:9", "9:16"}, Resolutions: []string{"512", "1K", "2K", "4K"}, MaxCount: 4, MaxReferences: 4, Editing: true},
 		{Model: "image-model", Sizes: []string{""}, Qualities: []string{""}, MaxCount: 4},
 		{Model: "gpt-image-2", Sizes: []string{"", "1024x1024", "1536x864", "864x1536"}, Qualities: []string{""}, MaxCount: 4, MaxReferences: 4, CustomSize: true, Editing: true},
 		{Model: "gpt-image-1", Sizes: []string{"", "1024x1024", "1536x1024", "1024x1536"}, Qualities: []string{""}, MaxCount: 4},
@@ -780,6 +780,12 @@ func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 		{"gemini extra references", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "edit", N: 1, ReferenceIDs: []string{"one", "two"}}, true},
 		{"gemini GPT quality", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Quality: "high"}, false},
 		{"gemini pixel size", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Size: "1024x1024"}, false},
+		{"gemini native parameters", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, AspectRatio: "16:9", Resolution: "4K"}, true},
+		{"gemini resolution only", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Resolution: "1K"}, true},
+		{"gemini invalid ratio", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, AspectRatio: "100:1"}, false},
+		{"gemini invalid resolution", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Resolution: "16K"}, false},
+		{"GPT native ratio rejected", imageStudioInput{Model: "gpt-image-2", Prompt: "draw", N: 1, AspectRatio: "16:9"}, false},
+		{"GPT native resolution rejected", imageStudioInput{Model: "gpt-image-2", Prompt: "draw", N: 1, Resolution: "4K"}, false},
 		{"valid", imageStudioInput{Model: "image-model", Prompt: "hello", N: 1}, true},
 		{"empty prompt", imageStudioInput{Model: "image-model", N: 1}, false},
 		{"huge quantity", imageStudioInput{Model: "image-model", Prompt: "hello", N: 4294967295}, false},
@@ -1066,6 +1072,8 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 			require.NoError(t, db.Create(&sub).Error)
 			var requests atomic.Int32
 			var expectedReferences atomic.Int32
+			var expectedImageConfig atomic.Value
+			expectedImageConfig.Store(map[string]any{})
 			var responseMode atomic.Value
 			responseMode.Store("image")
 			images, err := decodeImageStudioResponse(imageStudioTestResponse(t))
@@ -1087,6 +1095,11 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 				assert.Equal(t, float64(8192), request["max_completion_tokens"])
 				assert.NotContains(t, request, "size")
 				assert.NotContains(t, request, "quality")
+				if config := expectedImageConfig.Load().(map[string]any); len(config) > 0 {
+					assert.Equal(t, config, request["image_config"], "native options survive typed relay conversion")
+				} else {
+					assert.NotContains(t, request, "image_config", "legacy jobs keep upstream defaults")
+				}
 				parts := request["messages"].([]any)[0].(map[string]any)["content"].([]any)
 				assert.Len(t, parts, int(expectedReferences.Load())+1)
 				for _, part := range parts[1:] {
@@ -1128,6 +1141,8 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 			assert.Equal(t, "antigravity", caps[1].Group)
 			assert.Equal(t, 4, caps[1].MaxReferences)
 			assert.EqualValues(t, 4, caps[1].MaxCount)
+			assert.Len(t, caps[1].AspectRatios, 15)
+			assert.Equal(t, []string{"512", "1K", "2K", "4K"}, caps[1].Resolutions)
 			imageStudioAutoTokenUpgradeContract(t, db, &owner)
 			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1", imageStudioGeminiModel}, []string{"gpt-image-1"})
 			require.NoError(t, err)
@@ -1142,13 +1157,21 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 				require.NoError(t, store.Put(context.Background(), reference.ObjectKey, imageData, reference.Mime))
 				referenceIDs = append(referenceIDs, id)
 			}
-			for _, tc := range []struct{ references, count, outputs int }{{0, 1, 1}, {1, 1, 1}, {4, 1, 2}, {4, 4, 1}} {
+			for _, tc := range []struct {
+				references, count, outputs int
+				ratio, resolution          string
+			}{{0, 1, 1, "", ""}, {1, 1, 1, "1:1", "512"}, {4, 1, 2, "9:16", "2K"}, {4, 4, 1, "16:9", "4K"}} {
 				expectedReferences.Store(int32(tc.references))
+				config := map[string]any{}
+				if tc.ratio != "" {
+					config["aspect_ratio"], config["image_size"] = tc.ratio, tc.resolution
+				}
+				expectedImageConfig.Store(config)
 				responseMode.Store("image")
 				if tc.outputs == 2 {
 					responseMode.Store("two-images")
 				}
-				input := imageStudioInput{Model: imageStudioGeminiModel, Prompt: "a cat", N: uint(tc.count), ReferenceIDs: referenceIDs[:tc.references]}
+				input := imageStudioInput{Model: imageStudioGeminiModel, Prompt: "a cat", N: uint(tc.count), ReferenceIDs: referenceIDs[:tc.references], AspectRatio: tc.ratio, Resolution: tc.resolution}
 				body, err := common.Marshal(input)
 				require.NoError(t, err)
 				recorder := httptest.NewRecorder()
@@ -1169,6 +1192,10 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 					worker.execute(job)
 					require.NoError(t, db.First(job, "id = ?", job.ID).Error)
 					assert.Equal(t, "success", job.Status, job.Error)
+					var savedInput imageStudioInput
+					require.NoError(t, common.UnmarshalJsonStr(job.Request, &savedInput))
+					assert.Equal(t, tc.ratio, savedInput.AspectRatio)
+					assert.Equal(t, tc.resolution, savedInput.Resolution)
 					var assets []model.ImageStudioAsset
 					require.NoError(t, db.Where("job_id = ?", job.ID).Find(&assets).Error)
 					require.Len(t, assets, tc.outputs*2, "every output has its own original and thumbnail")
@@ -1188,6 +1215,7 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 			}
 			assert.Equal(t, int32(7), requests.Load())
 			expectedReferences.Store(0)
+			expectedImageConfig.Store(map[string]any{})
 			var current model.User
 			require.NoError(t, db.First(&current, owner.Id).Error)
 			assert.Equal(t, owner.Quota-7*150000, current.Quota)

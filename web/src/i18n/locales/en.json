@@ -7379,6 +7379,8 @@
     "Insufficient balance for image generation. Please top up and try again.": "Insufficient balance for image generation. Please top up and try again.",
     "Not charged": "Not charged",
     "Automatic image groups are unavailable for this account": "Automatic image groups are unavailable for this account",
-    "Image API key must use the automatic or default group": "Image API key must use the automatic or default group"
+    "Image API key must use the automatic or default group": "Image API key must use the automatic or default group",
+    "Resolution": "Resolution",
+    "Choose image resolution": "Choose image resolution"
   }
 }

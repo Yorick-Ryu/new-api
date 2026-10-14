@@ -34,6 +34,8 @@ type imageStudioInput struct {
 	Prompt       string   `json:"prompt"`
 	Size         string   `json:"size,omitempty"`
 	Quality      string   `json:"quality,omitempty"`
+	AspectRatio  string   `json:"aspect_ratio,omitempty"`
+	Resolution   string   `json:"resolution,omitempty"`
 	N            uint     `json:"n"`
 	ReferenceID  string   `json:"reference_id,omitempty"`
 	ReferenceIDs []string `json:"reference_ids,omitempty"`
@@ -44,6 +46,8 @@ type imageStudioCapability struct {
 	Group         string   `json:"group"`
 	Sizes         []string `json:"sizes"`
 	Qualities     []string `json:"qualities"`
+	AspectRatios  []string `json:"aspect_ratios,omitempty"`
+	Resolutions   []string `json:"resolutions,omitempty"`
 	MaxCount      uint     `json:"max_count"`
 	Editing       bool     `json:"editing"`
 	CustomSize    bool     `json:"custom_size"`
@@ -126,6 +130,8 @@ func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 		switch {
 		case gemini:
 			capability.Editing = true
+			capability.AspectRatios = []string{"", "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "1:4", "4:1", "1:8", "8:1"}
+			capability.Resolutions = []string{"512", "1K", "2K", "4K"}
 			// Workbench batches use independent requests, each with one candidate.
 			capability.MaxCount = 4
 		case strings.HasPrefix(name, "gpt-image-"):
@@ -169,6 +175,10 @@ func validateImageStudioInput(input imageStudioInput, capabilities []imageStudio
 			continue
 		}
 		if input.N > capability.MaxCount || !slices.Contains(capability.Qualities, input.Quality) {
+			return errors.New("Unsupported image parameters")
+		}
+		if input.AspectRatio != "" && !slices.Contains(capability.AspectRatios, input.AspectRatio) ||
+			input.Resolution != "" && !slices.Contains(capability.Resolutions, input.Resolution) {
 			return errors.New("Unsupported image parameters")
 		}
 		if len(references) > 0 && (!capability.Editing || capability.MaxReferences > 0 && len(references) > capability.MaxReferences) {

@@ -40,6 +40,7 @@ import { formatAspectRatio } from '../lib/aspect-ratio'
 type ImageSizePickerProps = {
   mode?: 'size' | 'ratio'
   sizes: string[]
+  aspectRatios?: string[]
   customSize: boolean
   value: string
   ratioSize: string
@@ -69,16 +70,21 @@ export function ImageSizePicker(props: ImageSizePickerProps) {
   // A combined size constraint applies to both fields only when each edge is valid.
   const widthError = !!props.error && (invalidWidth || !invalidHeight)
   const heightError = !!props.error && (invalidHeight || !invalidWidth)
-  const ratioSizes = props.customSize
-    ? [...new Set([...props.sizes, '1152x1536', '1536x1152'])]
-    : props.sizes
+  let ratioSizes = props.sizes
+  if (props.aspectRatios) {
+    ratioSizes = ['', '1:1', '16:9', '9:16', '3:4', '4:3'].filter((ratio) =>
+      props.aspectRatios?.includes(ratio)
+    )
+  } else if (props.customSize) {
+    ratioSizes = [...new Set([...props.sizes, '1152x1536', '1536x1152'])]
+  }
   const ratios = ratioSizes.flatMap((size) => {
     if (size === '') {
       return [
         { size, ratio: t('Free ratio'), label: t('Model decides'), Icon: Scan },
       ]
     }
-    const match = /^(\d+)x(\d+)$/.exec(size)
+    const match = /^(\d+)[x:](\d+)$/.exec(size)
     if (!match) return []
     const width = Number(match[1])
     const height = Number(match[2])
