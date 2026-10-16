@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Agree": "J’accepte",
+    "By clicking sign in, you agree to our": "En vous connectant, vous acceptez nos",
+    "By creating an account, you agree to our": "En créant un compte, vous acceptez nos",
     "All groups": "Tous les groupes",
     "Select a group to view its enabled models. Model configuration is shared across groups.": "Sélectionnez un groupe pour voir ses modèles activés. La configuration d’un modèle est commune à tous les groupes.",
     "Save changes before switching groups or models.": "Enregistrez les modifications avant de changer de groupe ou de modèle.",

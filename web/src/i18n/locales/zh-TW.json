@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Agree": "同意",
+    "By clicking sign in, you agree to our": "點擊登入，即表示您同意",
+    "By creating an account, you agree to our": "建立帳號，即表示您同意",
     "All groups": "全部分組",
     "Select a group to view its enabled models. Model configuration is shared across groups.": "選擇分組後，僅顯示該分組啟用的模型。同一模型的設定由各分組共用。",
     "Save changes before switching groups or models.": "請先儲存修改，再切換分組或模型。",
