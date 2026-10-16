@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Agree": "同意する",
+    "By clicking sign in, you agree to our": "ログインすると、次の内容に同意したものとみなされます：",
+    "By creating an account, you agree to our": "アカウントを作成すると、次の内容に同意したものとみなされます：",
     "All groups": "すべてのグループ",
     "Select a group to view its enabled models. Model configuration is shared across groups.": "グループを選択すると、有効なモデルが表示されます。同じモデルの設定はグループ間で共有されます。",
     "Save changes before switching groups or models.": "グループやモデルを切り替える前に変更を保存してください。",

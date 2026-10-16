@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { Dialog } from '@/components/dialog'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -29,6 +31,8 @@ interface LegalConsentProps {
   checked: boolean
   onCheckedChange: (nextValue: boolean) => void
   className?: string
+  promptOpen?: boolean
+  onPromptOpenChange?: (open: boolean) => void
 }
 
 export function LegalConsent({
@@ -36,6 +40,8 @@ export function LegalConsent({
   checked,
   onCheckedChange,
   className,
+  promptOpen = false,
+  onPromptOpenChange,
 }: LegalConsentProps) {
   const { t } = useTranslation()
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
@@ -50,24 +56,76 @@ export function LegalConsent({
   }
 
   return (
-    <div
-      className={cn(
-        'border-border/60 bg-muted/40 flex items-start gap-3 rounded-md border p-3',
-        className
-      )}
-    >
-      <Checkbox
-        id='legal-consent'
-        checked={checked}
-        onCheckedChange={handleChange}
-        className='mt-0.5'
-      />
-      <Label
-        htmlFor='legal-consent'
-        className='text-muted-foreground items-start gap-1 text-left text-xs leading-5 font-normal'
+    <>
+      <div
+        className={cn(
+          'border-border/60 bg-muted/40 flex items-start gap-3 rounded-md border p-3',
+          className
+        )}
       >
-        <span>
-          {t('I have read and agree to the')}{' '}
+        <Checkbox
+          id='legal-consent'
+          checked={checked}
+          onCheckedChange={handleChange}
+          className='mt-0.5'
+        />
+        <Label
+          htmlFor='legal-consent'
+          className='text-muted-foreground items-start gap-1 text-left text-xs leading-5 font-normal'
+        >
+          <span>
+            {t('I have read and agree to the')}{' '}
+            {hasUserAgreement && (
+              <a
+                href='/user-agreement'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='text-primary hover:underline'
+              >
+                {t('User Agreement')}
+              </a>
+            )}
+            {hasUserAgreement && hasPrivacyPolicy && <> {t('and')} </>}
+            {hasPrivacyPolicy && (
+              <a
+                href='/privacy-policy'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='text-primary hover:underline'
+              >
+                {t('Privacy Policy')}
+              </a>
+            )}
+          </span>
+        </Label>
+      </div>
+      <Dialog
+        open={promptOpen}
+        onOpenChange={onPromptOpenChange}
+        title={t('Please agree to the legal terms first')}
+        contentClassName='sm:max-w-sm'
+        footer={
+          <>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => onPromptOpenChange?.(false)}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button
+              type='button'
+              onClick={() => {
+                onCheckedChange(true)
+                onPromptOpenChange?.(false)
+              }}
+            >
+              {t('Agree')}
+            </Button>
+          </>
+        }
+      >
+        <p className='text-muted-foreground text-sm'>
           {hasUserAgreement && (
             <a
               href='/user-agreement'
@@ -78,7 +136,7 @@ export function LegalConsent({
               {t('User Agreement')}
             </a>
           )}
-          {hasUserAgreement && hasPrivacyPolicy && ' and the '}
+          {hasUserAgreement && hasPrivacyPolicy && <> {t('and')} </>}
           {hasPrivacyPolicy && (
             <a
               href='/privacy-policy'
@@ -89,9 +147,8 @@ export function LegalConsent({
               {t('Privacy Policy')}
             </a>
           )}
-          .
-        </span>
-      </Label>
-    </div>
+        </p>
+      </Dialog>
+    </>
   )
 }
