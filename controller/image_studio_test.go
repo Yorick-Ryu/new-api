@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -34,6 +36,16 @@ import (
 
 func TestImageStudioDatabaseMatrix(t *testing.T) {
 	require.NoError(t, i18n.Init())
+	previousAuto := setting.AutoGroups2JsonString()
+	permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousPermissions := permissions.ReadAll()
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	permissions.Set("default", map[string]string{"+:auto": "Automatic"})
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+		permissions.Clear()
+		permissions.AddAll(previousPermissions)
+	})
 	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
 		t.Run(dialect.kind, func(t *testing.T) {
 			dsn := os.Getenv(dialect.env)
@@ -205,7 +217,7 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 		assert.Zero(t, count, "invalid fourth references cannot leave a partial job")
 		require.NoError(t, db.Where("id = ?", bad.ID).Delete(&model.ImageStudioAsset{}).Error)
 	}
-	for _, invalid := range [][]string{{ids[0], ids[0]}, {ids[0], ids[1], ids[2], ids[3], "fifth"}} {
+	for _, invalid := range [][]string{{ids[0], ids[0]}, append(append([]string{}, ids...), "overflow")} {
 		_, err := model.CreateImageStudioJob(&model.ImageStudioJob{UserID: owner.Id}, invalid, false)
 		assert.ErrorIs(t, err, model.ErrImageStudioReferences)
 	}
@@ -214,17 +226,17 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	require.NoError(t, err)
 	var links []model.ImageStudioJobReference
 	require.NoError(t, db.Where("job_id = ?", job.ID).Find(&links).Error)
-	require.Len(t, links, 4)
+	require.Len(t, links, model.ImageStudioMaxReferences)
 	assert.Error(t, db.Create(&model.ImageStudioJobReference{JobID: job.ID, AssetID: ids[0]}).Error, "the composite primary key rejects duplicate associations")
 	require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}))
 	var preserved int64
 	require.NoError(t, db.Model(&model.ImageStudioJobReference{}).Where("job_id = ?", job.ID).Count(&preserved).Error)
-	assert.EqualValues(t, 4, preserved, "repeat migrations preserve all associations")
+	assert.EqualValues(t, model.ImageStudioMaxReferences, preserved, "repeat migrations preserve all associations")
 	require.NoError(t, db.Model(&model.ImageStudioAsset{}).Where("id IN ?", ids).Update("expires_at", now-1).Error)
 	worker.cleanup()
 	var retained []model.ImageStudioAsset
 	require.NoError(t, db.Where("id IN ?", ids).Find(&retained).Error)
-	assert.Len(t, retained, 4, "active jobs protect every reference, including the fourth")
+	assert.Len(t, retained, model.ImageStudioMaxReferences, "active jobs protect every reference")
 	job.Status, job.Owner, job.ExpiresAt = "saving", worker.owner, now+86400
 	require.NoError(t, db.Save(job).Error)
 	require.NoError(t, model.SaveImageStudioAssets(job, nil))
@@ -233,7 +245,7 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 		assert.Equal(t, job.ExpiresAt, asset.ExpiresAt, "all reference expiries follow the successful job")
 	}
 	shared := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "queued", CreatedAt: now}
-	_, err = model.CreateImageStudioJob(shared, ids[3:], false)
+	_, err = model.CreateImageStudioJob(shared, ids[3:4], false)
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -307,7 +319,7 @@ func imageStudioTokenContract(t *testing.T, db *gorm.DB, owner *model.User) *mod
 	results := make(chan result, 4)
 	for range 4 {
 		wait.Go(func() {
-			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1", "gpt-image-2"})
+			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1", "gpt-image-2"}, nil)
 			results <- result{token, err}
 		})
 	}
@@ -322,7 +334,7 @@ func imageStudioTokenContract(t *testing.T, db *gorm.DB, owner *model.User) *mod
 		assert.Equal(t, token.Id, result.token.Id, "concurrent submissions reuse one key")
 	}
 	require.NotNil(t, token)
-	assert.Equal(t, "default", token.Group)
+	assert.Equal(t, "auto", token.Group)
 	assert.True(t, token.ModelLimitsEnabled)
 	assert.True(t, token.UnlimitedQuota, "wallet billing remains the initial quota limit")
 	assert.False(t, token.GetModelLimitsMap()["gpt-4o"])
@@ -334,21 +346,21 @@ func imageStudioTokenContract(t *testing.T, db *gorm.DB, owner *model.User) *mod
 	token.UnlimitedQuota = false
 	token.RemainQuota = 1000000
 	require.NoError(t, token.Update())
-	reused, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"})
+	reused, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, token.Id, reused.Id, "names are not credential identity")
 	originalMax := operation_setting.GetTokenSetting().MaxUserTokens
 	t.Cleanup(func() { operation_setting.GetTokenSetting().MaxUserTokens = originalMax })
 	operation_setting.GetTokenSetting().MaxUserTokens = 0
-	_, err = model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"})
+	_, err = model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"}, nil)
 	require.NoError(t, err, "reusing an existing key does not consume another slot")
 	other := model.User{Id: owner.Id + 10, Username: "image-token-limit", AffCode: "token-limit", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default"}
 	require.NoError(t, db.Create(&other).Error)
-	_, err = model.GetOrCreateImageStudioToken(other.Id, []string{"gpt-image-1"})
+	_, err = model.GetOrCreateImageStudioToken(other.Id, []string{"gpt-image-1"}, nil)
 	operation_setting.GetTokenSetting().MaxUserTokens = originalMax
 	assert.ErrorIs(t, err, model.ErrImageStudioTokenLimit)
 	require.NoError(t, db.AutoMigrate(&model.ImageStudioToken{}))
-	reused, err = model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"})
+	reused, err = model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, token.Id, reused.Id, "migration retains the purpose association")
 	var audits []model.AuditLog
@@ -613,13 +625,13 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 		{"exhausted", func(value *model.Token) { value.RemainQuota = 0 }},
 		{"model_limit", func(value *model.Token) { value.ModelLimits = "gpt-image-2" }},
 		{"ip_limit", func(value *model.Token) { allowed := "192.0.2.7"; value.AllowIps = &allowed }},
-		{"group_changed", func(value *model.Token) { value.Group = "auto" }},
+		{"group_changed", func(value *model.Token) { value.Group = "other" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			changed := baselineToken
 			tc.change(&changed)
 			require.NoError(t, changed.Update())
-			reused, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"})
+			reused, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"}, nil)
 			require.NoError(t, err)
 			assert.Equal(t, token.Id, reused.Id, "credential controls cannot trigger a replacement key")
 			blocked := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: job.Request, Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix()}
@@ -752,8 +764,9 @@ func imageStudioRelayContract(t *testing.T, db *gorm.DB, worker *imageStudioWork
 
 func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 	capabilities := []imageStudioCapability{
+		{Model: imageStudioGeminiModel, Sizes: []string{""}, Qualities: []string{""}, AspectRatios: []string{"", "1:1", "16:9", "9:16"}, Resolutions: []string{"512", "1K", "2K", "4K"}, MaxCount: 4, MaxReferences: 4, Editing: true},
 		{Model: "image-model", Sizes: []string{""}, Qualities: []string{""}, MaxCount: 4},
-		{Model: "gpt-image-2", Sizes: []string{"", "1024x1024", "1536x864", "864x1536"}, Qualities: []string{""}, MaxCount: 4, CustomSize: true, Editing: true},
+		{Model: "gpt-image-2", Sizes: []string{"", "1024x1024", "1536x864", "864x1536"}, Qualities: []string{""}, MaxCount: 4, MaxReferences: 4, CustomSize: true, Editing: true},
 		{Model: "gpt-image-1", Sizes: []string{"", "1024x1024", "1536x1024", "1024x1536"}, Qualities: []string{""}, MaxCount: 4},
 		{Model: "dall-e-3", Sizes: []string{"", "1024x1024", "1792x1024", "1024x1792"}, Qualities: []string{""}, MaxCount: 1},
 	}
@@ -762,6 +775,17 @@ func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 		input imageStudioInput
 		valid bool
 	}{
+		{"gemini reference", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "edit", N: 1, ReferenceIDs: []string{"one"}}, true},
+		{"gemini batch", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 4}, true},
+		{"gemini extra references", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "edit", N: 1, ReferenceIDs: []string{"one", "two"}}, true},
+		{"gemini GPT quality", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Quality: "high"}, false},
+		{"gemini pixel size", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Size: "1024x1024"}, false},
+		{"gemini native parameters", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, AspectRatio: "16:9", Resolution: "4K"}, true},
+		{"gemini resolution only", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Resolution: "1K"}, true},
+		{"gemini invalid ratio", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, AspectRatio: "100:1"}, false},
+		{"gemini invalid resolution", imageStudioInput{Model: imageStudioGeminiModel, Prompt: "draw", N: 1, Resolution: "16K"}, false},
+		{"GPT native ratio rejected", imageStudioInput{Model: "gpt-image-2", Prompt: "draw", N: 1, AspectRatio: "16:9"}, false},
+		{"GPT native resolution rejected", imageStudioInput{Model: "gpt-image-2", Prompt: "draw", N: 1, Resolution: "4K"}, false},
 		{"valid", imageStudioInput{Model: "image-model", Prompt: "hello", N: 1}, true},
 		{"empty prompt", imageStudioInput{Model: "image-model", N: 1}, false},
 		{"huge quantity", imageStudioInput{Model: "image-model", Prompt: "hello", N: 4294967295}, false},
@@ -785,6 +809,12 @@ func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 			}
 		})
 	}
+	refs := make([]string, 4)
+	for i := range refs {
+		refs[i] = strconv.Itoa(i)
+	}
+	require.NoError(t, validateImageStudioInput(imageStudioInput{Model: imageStudioGeminiModel, Prompt: "all refs", N: 1, ReferenceIDs: refs}, capabilities))
+	require.Error(t, validateImageStudioInput(imageStudioInput{Model: imageStudioGeminiModel, Prompt: "overflow", N: 1, ReferenceIDs: append(refs, "5")}, capabilities))
 	for _, tc := range []struct {
 		name, model, size string
 		valid             bool
@@ -827,6 +857,11 @@ func TestImageStudioValidationAndResponseShapes(t *testing.T) {
 		{`{"data":[{"url":"https://example.com/image"},{"b64_json":"image"}]}`, 1},
 		{`{"data":[{"revised_prompt":"text only"}]}`, 0},
 		{`{"data":[{"b64_json":"one"},{"b64_json":"two"}]}`, 2},
+		{`{"choices":[{"message":{"content":null,"images":[{"image_url":{"url":"data:image/jpeg;base64,aW1hZ2U="}}]}}]}`, 1},
+		{`{"choices":[{"message":{"content":"No image available"}}]}`, 0},
+		{`{"choices":[{"message":{"images":[{"image_url":{"url":"http://127.0.0.1/private"}}]}}]}`, 0},
+		{`{"choices":[{"message":{"images":[{"image_url":{"url":"data:image/svg+xml;base64,aW1hZ2U="}}]}}]}`, 0},
+		{`{"choices":[{"message":{"images":[{"image_url":{"url":"data:image/png;base64,"}}]}}]}`, 0},
 	} {
 		items, err := decodeImageStudioResponse([]byte(tc.body))
 		if tc.count == 0 {
@@ -1003,4 +1038,281 @@ func imageStudioDuplicateContract(t *testing.T, db *gorm.DB, owner *model.User) 
 		require.NoError(t, err)
 		require.NoError(t, db.Where("id IN ?", []string{original.ID, next.ID}).Delete(&model.ImageStudioJob{}).Error)
 	}
+}
+
+func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
+		t.Run(dialect.kind, func(t *testing.T) {
+			if dialect.env != "" && os.Getenv(dialect.env) == "" {
+				t.Skip("database not configured")
+			}
+			db := modelManagementDB(t, dialect.kind, os.Getenv(dialect.env))
+			require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}))
+			previousAuto, previousGroups, previousQuota := setting.AutoGroups2JsonString(), ratio_setting.GroupRatio2JSONString(), common.QuotaPerUnit
+			permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+			previousPermissions := permissions.ReadAll()
+			t.Cleanup(func() {
+				require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+				require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups))
+				permissions.Clear()
+				permissions.AddAll(previousPermissions)
+				common.QuotaPerUnit = previousQuota
+			})
+			common.QuotaPerUnit = 500000
+			require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","antigravity"]`))
+			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"antigravity":1.5}`))
+			permissions.Set("default", map[string]string{"+:antigravity": "Gemini", "+:auto": "Automatic"})
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"gemini-3.1-flash-image":0.2,"gpt-image-1":0.01}`))
+			owner := model.User{Id: 981, Username: "gemini-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 5000000, Setting: `{"billing_preference":"subscription_only"}`}
+			require.NoError(t, db.Create(&owner).Error)
+			plan := model.SubscriptionPlan{Title: "Gemini subscription exclusion", Enabled: true, TotalAmount: 5000000}
+			require.NoError(t, db.Create(&plan).Error)
+			sub := model.UserSubscription{UserId: owner.Id, PlanId: plan.Id, AmountTotal: 5000000, Status: "active", StartTime: time.Now().Add(-time.Hour).Unix(), EndTime: time.Now().Add(time.Hour).Unix()}
+			require.NoError(t, db.Create(&sub).Error)
+			var requests atomic.Int32
+			var expectedReferences atomic.Int32
+			var expectedImageConfig atomic.Value
+			expectedImageConfig.Store(map[string]any{})
+			var responseMode atomic.Value
+			responseMode.Store("image")
+			images, err := decodeImageStudioResponse(imageStudioTestResponse(t))
+			require.NoError(t, err)
+			imageData, err := base64.StdEncoding.DecodeString(images[0].Base64)
+			require.NoError(t, err)
+			imageURL := "data:image/png;base64," + images[0].Base64
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				assert.Equal(t, "/v1/chat/completions", r.URL.Path)
+				var request map[string]any
+				if !assert.NoError(t, common.DecodeJson(r.Body, &request)) {
+					return
+				}
+				assert.Equal(t, imageStudioGeminiModel, request["model"])
+				assert.Equal(t, []any{"text", "image"}, request["modalities"])
+				assert.Equal(t, false, request["stream"])
+				assert.Equal(t, float64(1), request["n"])
+				assert.Equal(t, float64(8192), request["max_completion_tokens"])
+				assert.NotContains(t, request, "size")
+				assert.NotContains(t, request, "quality")
+				if config := expectedImageConfig.Load().(map[string]any); len(config) > 0 {
+					assert.Equal(t, config, request["image_config"], "native options survive typed relay conversion")
+				} else {
+					assert.NotContains(t, request, "image_config", "legacy jobs keep upstream defaults")
+				}
+				parts := request["messages"].([]any)[0].(map[string]any)["content"].([]any)
+				assert.Len(t, parts, int(expectedReferences.Load())+1)
+				for _, part := range parts[1:] {
+					assert.Equal(t, imageURL, part.(map[string]any)["image_url"].(map[string]any)["url"])
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if responseMode.Load() == "reject" {
+					w.WriteHeader(503)
+					_, _ = w.Write([]byte(`{"error":{"message":"fixture failure","type":"upstream"}}`))
+					return
+				}
+				message := map[string]any{"role": "assistant", "content": nil}
+				if responseMode.Load() == "image" || responseMode.Load() == "two-images" {
+					message["images"] = []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": imageURL}}}
+					if responseMode.Load() == "two-images" {
+						message["images"] = append(message["images"].([]any), message["images"].([]any)[0])
+					}
+				}
+				body, err := common.Marshal(map[string]any{"id": "chat-image-fixture", "model": imageStudioGeminiModel, "choices": []any{map[string]any{"index": 0, "message": message, "finish_reason": "stop"}}, "usage": map[string]int{"prompt_tokens": 43, "completion_tokens": 1515, "total_tokens": 1558}})
+				if assert.NoError(t, err) {
+					_, _ = w.Write(body)
+				}
+			}))
+			defer upstream.Close()
+			for _, channel := range []model.Channel{
+				{Id: 983, Type: constant.ChannelTypeOpenAI, Name: "Gemini fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: imageStudioGeminiModel + ",gemini-text-model", Group: "antigravity", BaseURL: &upstream.URL},
+				{Id: 984, Type: constant.ChannelTypeOpenAI, Name: "GPT fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-1", Group: "default", BaseURL: &upstream.URL},
+			} {
+				require.NoError(t, db.Create(&channel).Error)
+				require.NoError(t, channel.AddAbilities(db))
+			}
+			service.InitHttpClient()
+			model.InvalidatePricingCache()
+			caps, err := imageStudioCapabilities(owner.Id)
+			require.NoError(t, err)
+			require.Len(t, caps, 2, "text-only Gemini models stay out of the image workbench")
+			assert.Equal(t, "default", caps[0].Group)
+			assert.Equal(t, imageStudioGeminiModel, caps[1].Model)
+			assert.Equal(t, "antigravity", caps[1].Group)
+			assert.Equal(t, 4, caps[1].MaxReferences)
+			assert.EqualValues(t, 4, caps[1].MaxCount)
+			assert.Len(t, caps[1].AspectRatios, 15)
+			assert.Equal(t, []string{"512", "1K", "2K", "4K"}, caps[1].Resolutions)
+			imageStudioAutoTokenUpgradeContract(t, db, &owner)
+			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1", imageStudioGeminiModel}, []string{"gpt-image-1"})
+			require.NoError(t, err)
+			store, restoreStorage := imageStudioTestStore(t)
+			restoreStorage()
+			worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "gemini-node"}
+			var referenceIDs []string
+			for range model.ImageStudioMaxReferences {
+				id := uuid.NewString()
+				reference := model.ImageStudioAsset{ID: id, UserID: owner.Id, Kind: "reference", ObjectKey: "references/" + id, Mime: "image/png", ExpiresAt: time.Now().Add(time.Hour).Unix()}
+				require.NoError(t, model.CreateImageStudioReference(&reference))
+				require.NoError(t, store.Put(context.Background(), reference.ObjectKey, imageData, reference.Mime))
+				referenceIDs = append(referenceIDs, id)
+			}
+			for _, tc := range []struct {
+				references, count, outputs int
+				ratio, resolution          string
+			}{{0, 1, 1, "", ""}, {1, 1, 1, "1:1", "512"}, {4, 1, 2, "9:16", "2K"}, {4, 4, 1, "16:9", "4K"}} {
+				expectedReferences.Store(int32(tc.references))
+				config := map[string]any{}
+				if tc.ratio != "" {
+					config["aspect_ratio"], config["image_size"] = tc.ratio, tc.resolution
+				}
+				expectedImageConfig.Store(config)
+				responseMode.Store("image")
+				if tc.outputs == 2 {
+					responseMode.Store("two-images")
+				}
+				input := imageStudioInput{Model: imageStudioGeminiModel, Prompt: "a cat", N: uint(tc.count), ReferenceIDs: referenceIDs[:tc.references], AspectRatio: tc.ratio, Resolution: tc.resolution}
+				body, err := common.Marshal(input)
+				require.NoError(t, err)
+				recorder := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(recorder)
+				c.Set("id", owner.Id)
+				c.Set("session_auth", true)
+				c.Request = httptest.NewRequest(http.MethodPost, "/api/image-studio/jobs", bytes.NewReader(body))
+				c.Request.Header.Set("Content-Type", "application/json")
+				c.Request.Header.Set("Idempotency-Key", uuid.NewString())
+				CreateImageStudioJob(c)
+				require.Equal(t, 200, recorder.Code, recorder.Body.String())
+				var parentID string
+				for range tc.count {
+					job, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+					require.NoError(t, err)
+					require.NotNil(t, job)
+					parentID = job.ParentID
+					worker.execute(job)
+					require.NoError(t, db.First(job, "id = ?", job.ID).Error)
+					assert.Equal(t, "success", job.Status, job.Error)
+					var savedInput imageStudioInput
+					require.NoError(t, common.UnmarshalJsonStr(job.Request, &savedInput))
+					assert.Equal(t, tc.ratio, savedInput.AspectRatio)
+					assert.Equal(t, tc.resolution, savedInput.Resolution)
+					var assets []model.ImageStudioAsset
+					require.NoError(t, db.Where("job_id = ?", job.ID).Find(&assets).Error)
+					require.Len(t, assets, tc.outputs*2, "every output has its own original and thumbnail")
+					var log model.Log
+					require.NoError(t, db.Where("request_id = ? AND type = ?", job.ID, model.LogTypeConsume).First(&log).Error)
+					assert.Equal(t, 150000, log.Quota, "0.20 per request times the 1.5 group ratio, independent of reference or response image counts")
+					assert.Equal(t, "antigravity", log.Group)
+					var other map[string]any
+					require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+					assert.Equal(t, "wallet", other["billing_source"])
+				}
+				if tc.count > 1 {
+					var parent model.ImageStudioJob
+					require.NoError(t, db.First(&parent, "id = ?", parentID).Error)
+					assert.Equal(t, "success", parent.Status)
+				}
+			}
+			assert.Equal(t, int32(7), requests.Load())
+			expectedReferences.Store(0)
+			expectedImageConfig.Store(map[string]any{})
+			var current model.User
+			require.NoError(t, db.First(&current, owner.Id).Error)
+			assert.Equal(t, owner.Quota-7*150000, current.Quota)
+			require.NoError(t, db.First(&sub, sub.Id).Error)
+			assert.Zero(t, sub.AmountUsed)
+			// A paid text-only result is uncertain, and must never be regenerated.
+			responseMode.Store("text")
+			job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: `{"model":"gemini-3.1-flash-image","prompt":"a cat","n":1}`, Status: "running", Owner: worker.owner, CreatedAt: time.Now().Unix()}
+			require.NoError(t, db.Create(job).Error)
+			worker.execute(job)
+			require.NoError(t, db.First(job, "id = ?", job.ID).Error)
+			assert.Equal(t, "unknown", job.Status)
+			assert.Equal(t, int32(8), requests.Load())
+			// A rejected Chat generation refunds its reservation without replaying it.
+			require.NoError(t, db.First(&current, owner.Id).Error)
+			beforeFailure := current.Quota
+			responseMode.Store("reject")
+			job.ID, job.RequestKey, job.Status = uuid.NewString(), uuid.NewString(), "running"
+			require.NoError(t, db.Create(job).Error)
+			worker.execute(job)
+			require.NoError(t, db.First(job, "id = ?", job.ID).Error)
+			assert.Equal(t, "unknown", job.Status)
+			assert.Equal(t, int32(9), requests.Load())
+			require.Eventually(t, func() bool {
+				var refunded model.User
+				return db.First(&refunded, owner.Id).Error == nil && refunded.Quota == beforeFailure
+			}, 3*time.Second, 10*time.Millisecond)
+			// Explicit token Auto restrictions still prevent an Antigravity call.
+			token.AutoGroups = `["default"]`
+			require.NoError(t, token.Update())
+			caps, err = imageStudioCapabilities(owner.Id)
+			require.NoError(t, err)
+			require.Len(t, caps, 1)
+			assert.Equal(t, "default", caps[0].Group)
+			job.ID, job.RequestKey, job.Status = uuid.NewString(), uuid.NewString(), "running"
+			require.NoError(t, db.Create(job).Error)
+			worker.execute(job)
+			assert.Equal(t, int32(9), requests.Load())
+			token.AutoGroups = ""
+			require.NoError(t, token.Update())
+			permissions.Set("default", map[string]string{"-:antigravity": "", "+:auto": "Automatic"})
+			caps, err = imageStudioCapabilities(owner.Id)
+			require.NoError(t, err)
+			require.Len(t, caps, 1)
+			assert.Equal(t, "gpt-image-1", caps[0].Model)
+		})
+	}
+}
+
+func imageStudioAutoTokenUpgradeContract(t *testing.T, db *gorm.DB, owner *model.User) {
+	t.Helper()
+	legacy := model.Token{UserId: owner.Id, Key: strings.Repeat("i", 48), Name: "Image Studio", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, ModelLimitsEnabled: true, ModelLimits: "gpt-image-1", Group: "default"}
+	require.NoError(t, db.Create(&legacy).Error)
+	require.NoError(t, db.Create(&model.ImageStudioToken{UserID: owner.Id, TokenID: legacy.Id}).Error)
+	models := []string{"gpt-image-1", imageStudioGeminiModel}
+	caps, err := imageStudioCapabilities(owner.Id)
+	require.NoError(t, err)
+	require.Len(t, caps, 2)
+	unchanged, err := model.GetImageStudioToken(owner.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "default", unchanged.Group, "reading options must not upgrade the key")
+	for _, tc := range []struct {
+		name   string
+		change func(*model.Token)
+	}{
+		{"disabled", func(v *model.Token) { v.Status = common.TokenStatusDisabled }},
+		{"expired", func(v *model.Token) { v.ExpiredTime = time.Now().Unix() - 1 }},
+		{"quota limit", func(v *model.Token) { v.UnlimitedQuota = false; v.RemainQuota = 100000 }},
+		{"model limit", func(v *model.Token) { v.ModelLimits = "" }},
+		{"IP restriction", func(v *model.Token) { v.AllowIps = common.GetPointer("192.0.2.1") }},
+		{"renamed", func(v *model.Token) { v.Name = "Customized" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			modified := legacy
+			tc.change(&modified)
+			require.NoError(t, modified.Update())
+			got, err := model.GetOrCreateImageStudioToken(owner.Id, models, []string{"gpt-image-1"})
+			require.NoError(t, err)
+			assert.Equal(t, legacy.Id, got.Id)
+			assert.Equal(t, "default", got.Group)
+			assert.Equal(t, modified.ModelLimits, got.ModelLimits)
+			assert.Equal(t, modified.Status, got.Status)
+			assert.Equal(t, modified.ExpiredTime, got.ExpiredTime)
+			assert.Equal(t, modified.RemainQuota, got.RemainQuota)
+		})
+	}
+	require.NoError(t, legacy.Update())
+	for range 2 {
+		got, err := model.GetOrCreateImageStudioToken(owner.Id, models, []string{"gpt-image-1"})
+		require.NoError(t, err)
+		assert.Equal(t, legacy.Id, got.Id)
+		assert.Equal(t, legacy.Key, got.Key)
+		assert.Equal(t, "auto", got.Group)
+		assert.Equal(t, models, got.GetModelLimits())
+	}
+	var audits []model.AuditLog
+	require.NoError(t, db.Where("user_id = ? AND action = ?", owner.Id, "image_studio.token.upgrade").Find(&audits).Error)
+	require.Len(t, audits, 1)
+	assert.NotContains(t, audits[0].Content, legacy.Key)
 }

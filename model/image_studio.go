@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -72,11 +73,40 @@ type ImageStudioToken struct {
 var imageStudioTokenMu sync.Mutex
 var ErrImageStudioTokenLimit = errors.New("API key limit reached; remove an unused key before generating images")
 
-func GetOrCreateImageStudioToken(userID int, imageModels []string) (*Token, error) {
+// GetImageStudioToken is read-only; opening the workbench never creates or upgrades a key.
+func GetImageStudioToken(userID int) (*Token, error) {
+	var association ImageStudioToken
+	if err := DB.Where("user_id = ?", userID).First(&association).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	token, err := GetTokenByIds(association.TokenID, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return token, err
+}
+
+func CanUpgradeImageStudioToken(token *Token, legacyModels []string) bool {
+	if token.Group != "default" || token.Name != "Image Studio" || token.Status != common.TokenStatusEnabled ||
+		token.ExpiredTime != -1 || !token.UnlimitedQuota || !token.ModelLimitsEnabled ||
+		len(token.GetIpLimits()) != 0 || token.AutoGroups != "" || token.CrossGroupRetry || len(legacyModels) == 0 {
+		return false
+	}
+	limits, legacy := token.GetModelLimits(), slices.Clone(legacyModels)
+	slices.Sort(limits)
+	slices.Sort(legacy)
+	return slices.Equal(limits, legacy)
+}
+
+func GetOrCreateImageStudioToken(userID int, imageModels, legacyModels []string) (*Token, error) {
 	imageStudioTokenMu.Lock()
 	defer imageStudioTokenMu.Unlock()
 	var token Token
 	created := false
+	upgraded := false
 	role := 0
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
@@ -89,8 +119,20 @@ func GetOrCreateImageStudioToken(userID int, imageModels []string) (*Token, erro
 		var association ImageStudioToken
 		err := tx.Where("user_id = ?", userID).First(&association).Error
 		if err == nil {
-			err = tx.Where("id = ? AND user_id = ?", association.TokenID, userID).First(&token).Error
+			err = lockForUpdate(tx).Where("id = ? AND user_id = ?", association.TokenID, userID).First(&token).Error
 			if err == nil {
+				// Only upgrade the original, uncustomized default-group policy.
+				// Owner-set restrictions, expiry, quota and disabled states remain authoritative.
+				if CanUpgradeImageStudioToken(&token, legacyModels) {
+					if err := invalidateTokenCacheForMutation(token.Key); err != nil {
+						return errors.New("Unable to refresh image API key")
+					}
+					token.Group, token.ModelLimits = "auto", strings.Join(imageModels, ",")
+					if err := tx.Session(&gorm.Session{Logger: logger.Discard}).Model(&token).Select("group", "model_limits").Updates(&token).Error; err != nil {
+						return errors.New("Unable to update image API key")
+					}
+					upgraded, role = true, user.Role
+				}
 				return nil
 			}
 		}
@@ -114,7 +156,7 @@ func GetOrCreateImageStudioToken(userID int, imageModels []string) (*Token, erro
 		now := time.Now().Unix()
 		token = Token{UserId: userID, Name: "Image Studio", Key: key, Status: common.TokenStatusEnabled,
 			CreatedTime: now, AccessedTime: now, ExpiredTime: -1, UnlimitedQuota: true,
-			ModelLimitsEnabled: true, ModelLimits: strings.Join(imageModels, ","), Group: "default"}
+			ModelLimitsEnabled: true, ModelLimits: strings.Join(imageModels, ","), Group: "auto"}
 		// GORM error SQL must not include the newly generated credential.
 		if err := tx.Session(&gorm.Session{Logger: logger.Discard}).Create(&token).Error; err != nil {
 			return errors.New("Unable to create image API key")
@@ -128,6 +170,9 @@ func GetOrCreateImageStudioToken(userID int, imageModels []string) (*Token, erro
 	}
 	if created {
 		RecordAuditLog(nil, AuditLog{UserId: userID, ActorRole: role, Category: AuditCategorySecurity, Action: "image_studio.token.create", Success: true, Content: fmt.Sprintf("Created image API key %d", token.Id)})
+	}
+	if upgraded {
+		RecordAuditLog(nil, AuditLog{UserId: userID, ActorRole: role, Category: AuditCategorySecurity, Action: "image_studio.token.upgrade", Success: true, Content: fmt.Sprintf("Updated image API key %d to automatic routing", token.Id)})
 	}
 	return &token, nil
 }

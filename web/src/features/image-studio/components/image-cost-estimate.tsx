@@ -40,6 +40,7 @@ import { estimateImageCost } from '../lib/cost-estimate'
 
 type ImageCostEstimateProps = {
   input: Pick<ImageInput, 'model' | 'size' | 'quality' | 'n'>
+  group?: string
 }
 
 export function ImageCostEstimate(props: ImageCostEstimateProps) {
@@ -71,7 +72,7 @@ export function ImageCostEstimate(props: ImageCostEstimateProps) {
   useBillingTime(model?.billing_expr)
   const estimate =
     pricing.data && !pricing.isError
-      ? estimateImageCost(props.input, pricing.data)
+      ? estimateImageCost(props.input, pricing.data, props.group)
       : null
   let value = t('Estimate unavailable')
   if (pricing.isLoading) value = t('Estimating…')

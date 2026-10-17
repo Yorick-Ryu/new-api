@@ -106,6 +106,7 @@ function ImageStudioWorkspace() {
   const [referenceState, setReferenceState] = useState({
     count: 0,
     enabled: false,
+    limit: 4,
   })
   const [reference, setReference] = useState<{
     id: string
@@ -133,8 +134,12 @@ function ImageStudioWorkspace() {
   })
   const copyReference = useMutation({
     mutationFn: async (value: { job: ImageJob; assetID: string }) => {
-      if (referenceState.count >= 4) {
-        throw new Error(t('You can add up to 4 reference images.'))
+      if (referenceState.count >= referenceState.limit) {
+        throw new Error(
+          t('You can add up to {{limit}} reference images.', {
+            limit: formatNumber(referenceState.limit, locale),
+          })
+        )
       }
       if (!referenceState.enabled) {
         throw new Error(t('Image editing is not supported by this model'))
@@ -241,7 +246,7 @@ function ImageStudioWorkspace() {
                 busy={remove.isPending}
                 canEdit={() =>
                   referenceState.enabled &&
-                  referenceState.count < 4 &&
+                  referenceState.count < referenceState.limit &&
                   !copyReference.isPending
                 }
                 onReuse={(job) => {

@@ -349,3 +349,58 @@ describe('pricing availability and zero values', () => {
     ).toBeNull()
   })
 })
+
+describe('Gemini image request estimates', () => {
+  const geminiInput = {
+    model: 'gemini-3.1-flash-image',
+    size: '',
+    quality: '',
+    n: 1,
+  }
+  function geminiPricing(): PricingData {
+    const data = pricing({
+      model_name: geminiInput.model,
+      quota_type: 1,
+      model_price: 0.2,
+      billing_mode: 'ratio',
+      billing_expr: undefined,
+      enable_groups: ['antigravity'],
+    })
+    data.group_ratio = { default: 9, antigravity: 1.5 }
+    return data
+  }
+  it('uses the selected routing group for the fixed price including reference input', () => {
+    const estimate = estimateImageCost(
+      geminiInput,
+      geminiPricing(),
+      'antigravity'
+    )
+    expect(estimate?.minUSD).toBeCloseTo(0.3)
+    expect(estimate?.maxUSD).toBeCloseTo(0.3)
+    expect(estimate?.scope).toBe('request')
+    expect(
+      estimateImageCost(geminiInput, geminiPricing(), 'default')
+    ).toBeNull()
+  })
+  it('prices a four-request batch without multiplying by reference or response image counts', () => {
+    const estimate = estimateImageCost(
+      { ...geminiInput, n: 4 },
+      geminiPricing(),
+      'antigravity'
+    )
+    expect(estimate?.minUSD).toBeCloseTo(1.2)
+    expect(estimate?.maxUSD).toBeCloseTo(1.2)
+  })
+  it.each([{ n: 5 }, { size: '1024x1024' }, { quality: 'high' }])(
+    'does not quote unsupported Gemini parameters %o',
+    (invalid) => {
+      expect(
+        estimateImageCost(
+          { ...geminiInput, ...invalid },
+          geminiPricing(),
+          'antigravity'
+        )
+      ).toBeNull()
+    }
+  )
+})

@@ -31,17 +31,23 @@ export type ImageInput = {
   prompt: string
   size: string
   quality: string
+  aspect_ratio?: string
+  resolution?: string
   n: number
   reference_id?: string
   reference_ids?: string[]
 }
 export type ImageCapability = {
   model: string
+  group?: string
   sizes: string[]
   qualities: string[]
+  aspect_ratios?: string[]
+  resolutions?: string[]
   max_count: number
   editing: boolean
   custom_size?: boolean
+  max_references?: number
 }
 export type ImageAsset = {
   id: string

@@ -27,6 +27,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
+import { I18nextProvider } from 'react-i18next'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -184,6 +185,338 @@ afterEach(() => {
 })
 
 describe('Image workbench', () => {
+  it('translates the resolution control and updates its label when the language changes', async () => {
+    const translations = i18next.createInstance()
+    await translations.init({
+      lng: 'zhCN',
+      fallbackLng: 'en',
+      resources: {
+        zhCN: (await import('@/i18n/locales/zh.json')).default,
+        en: (await import('@/i18n/locales/en.json')).default,
+      },
+    })
+    render(
+      <I18nextProvider i18n={translations}>
+        <ImageForm
+          options={{
+            available: true,
+            models: [
+              {
+                ...options.models[0],
+                model: 'gemini-3.1-flash-image',
+                sizes: [''],
+                qualities: [''],
+                resolutions: ['512', '1K', '2K', '4K'],
+              },
+            ],
+          }}
+          reuse={null}
+          reference={null}
+          onCreated={vi.fn()}
+        />
+      </I18nextProvider>,
+      { wrapper }
+    )
+    fireEvent.click(screen.getByRole('button', { name: '选择图片分辨率' }))
+    expect(await screen.findByRole('group', { name: '分辨率' })).toBeVisible()
+    await act(() => translations.changeLanguage('en'))
+    expect(screen.getByRole('group', { name: 'Resolution' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Choose image resolution' })
+    ).toBeVisible()
+  })
+
+  it('restores native image parameters and clears them when switching to a GPT model', async () => {
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'reused' })
+    const input = {
+      ...job.input,
+      model: 'gemini-3.1-flash-image',
+      aspect_ratio: '9:16',
+      resolution: '2K',
+    }
+    render(
+      <ImageForm
+        options={{
+          available: true,
+          models: [
+            {
+              ...options.models[0],
+              model: input.model,
+              sizes: [''],
+              qualities: [''],
+              aspect_ratios: ['', '1:1', '9:16'],
+              resolutions: ['512', '1K', '2K', '4K'],
+            },
+            ...options.models,
+          ],
+        }}
+        reuse={{ input, version: 1 }}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    expect(
+      screen.getByRole('button', { name: 'Aspect ratio' })
+    ).toHaveTextContent('9:16')
+    expect(
+      screen.getByRole('button', { name: 'Choose image resolution' })
+    ).toHaveTextContent('2K')
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(input, expect.any(String), false)
+    )
+    fireEvent.click(screen.getByRole('combobox', { name: /Nano Banana 2/ }))
+    fireEvent.click(await screen.findByRole('option', { name: /gpt-image-1/ }))
+    expect(
+      screen.queryByRole('button', { name: 'Choose image resolution' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Choose image quality' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(create).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          model: 'gpt-image-1',
+          aspect_ratio: undefined,
+          resolution: undefined,
+          quality: '',
+          size: '',
+        }),
+        expect.any(String),
+        false
+      )
+    )
+  })
+
+  it('shows native ratio and resolution in Gemini image details instead of quality', () => {
+    render(
+      <ImageResult
+        job={{
+          ...job,
+          input: {
+            ...job.input,
+            model: 'gemini-3.1-flash-image',
+            aspect_ratio: '16:9',
+            resolution: '4K',
+          },
+        }}
+        canEdit
+        onReuse={vi.fn()}
+        onReference={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    const details = within(screen.getByRole('dialog'))
+    expect(details.getByText('Aspect ratio')).toBeVisible()
+    expect(details.getByText('16:9')).toBeVisible()
+    expect(details.getByText('Resolution')).toBeVisible()
+    expect(details.getByText('4K')).toBeVisible()
+    expect(details.queryByText('Quality')).not.toBeInTheDocument()
+  })
+
+  it('shows the Gemini request price and submits four references in a batch without GPT parameters', async () => {
+    const gemini = {
+      model: 'gemini-3.1-flash-image',
+      group: 'antigravity',
+      sizes: [''],
+      qualities: [''],
+      aspect_ratios: [
+        '',
+        '1:1',
+        '2:3',
+        '3:2',
+        '3:4',
+        '4:3',
+        '4:5',
+        '5:4',
+        '9:16',
+        '16:9',
+        '21:9',
+        '1:4',
+        '4:1',
+        '1:8',
+        '8:1',
+      ],
+      resolutions: ['512', '1K', '2K', '4K'],
+      max_count: 4,
+      editing: true,
+      max_references: 4,
+    }
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        ...pricing,
+        data: [
+          {
+            ...pricing.data[0],
+            model_name: gemini.model,
+            enable_groups: ['antigravity'],
+            quota_type: 1,
+            model_price: 0.2,
+            billing_mode: 'ratio',
+            billing_expr: undefined,
+          },
+        ],
+        group_ratio: { default: 9, antigravity: 1 },
+      },
+    })
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'gemini-job' })
+    const upload = vi
+      .spyOn(imageAPI, 'uploadReference')
+      .mockImplementation(async (file) => file.name.replace('.png', ''))
+    const onCreated = vi.fn()
+    const referenceState = vi.fn()
+    render(
+      <ImageForm
+        options={{ available: true, models: [gemini] }}
+        reuse={null}
+        reference={{ id: 'gemini-reference', name: 'cat.png' }}
+        onReferenceStateChange={referenceState}
+        onCreated={onCreated}
+      />,
+      { wrapper }
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Estimated image cost' })
+      ).toHaveTextContent('$0.2')
+    )
+    expect(
+      screen.getByRole('combobox', { name: /Nano Banana 2/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(gemini.model)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Choose image size' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Choose image quality' })
+    ).not.toBeInTheDocument()
+    const resolutionTrigger = screen.getByRole('button', {
+      name: 'Choose image resolution',
+    })
+    expect(resolutionTrigger).toHaveTextContent('1K')
+    fireEvent.click(resolutionTrigger)
+    const resolutions = within(
+      await screen.findByRole('group', { name: 'Resolution' })
+    )
+    expect(resolutions.getByRole('button', { name: '1K' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    fireEvent.click(resolutions.getByRole('button', { name: '4K' }))
+    expect(resolutionTrigger).toHaveTextContent('4K')
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Make the rocket green' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Aspect ratio' }))
+    const ratios = within(
+      await screen.findByRole('group', { name: 'Aspect ratio' })
+    )
+    expect(ratios.getAllByRole('button')).toHaveLength(6)
+    expect(
+      ratios.getAllByRole('button').map((button) => button.textContent)
+    ).toEqual([
+      'Free ratioModel decides',
+      '1:1Square image',
+      '16:9Landscape image',
+      '9:16Portrait image',
+      '3:4Portrait image',
+      '4:3Landscape image',
+    ])
+    fireEvent.click(ratios.getByRole('button', { name: /16:9/ }))
+    expect(screen.getByLabelText('Image prompt')).toHaveValue(
+      'Make the rocket green'
+    )
+    fireEvent.keyDown(ratios.getByRole('button', { name: /16:9/ }), {
+      key: 'Escape',
+    })
+    expect(
+      screen.getByRole('button', { name: 'Choose number of images' })
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(referenceState).toHaveBeenLastCalledWith({
+        count: 1,
+        enabled: true,
+        limit: 4,
+      })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    )
+    const referenceInput = await screen.findByLabelText(
+      'Reference images (up to 4)',
+      {
+        selector: 'input',
+      }
+    )
+    expect(referenceInput).toHaveAttribute('multiple')
+    expect(referenceInput).toBeEnabled()
+    // Reject the fifth input before uploading, then accept the full valid set.
+    const files = Array.from(
+      { length: 4 },
+      (_, index) =>
+        new File(['image'], `ref-${index + 2}.png`, { type: 'image/png' })
+    )
+    fireEvent.change(referenceInput, { target: { files } })
+    expect(
+      await screen.findByText('You can add up to 4 reference images.')
+    ).toBeInTheDocument()
+    expect(upload).not.toHaveBeenCalled()
+    fireEvent.change(referenceInput, { target: { files: files.slice(0, 3) } })
+    await waitFor(() =>
+      expect(referenceState).toHaveBeenLastCalledWith({
+        count: 4,
+        enabled: true,
+        limit: 4,
+      })
+    )
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect(referenceInput).toBeDisabled()
+    fireEvent.keyDown(referenceInput, { key: 'Escape' })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Choose number of images' })
+    )
+    const counts = within(
+      await screen.findByRole('group', { name: 'Number of images' })
+    )
+    fireEvent.click(counts.getByRole('button', { name: '4' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Estimated image cost' })
+      ).toHaveTextContent('$0.8')
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Make the rocket green' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('gemini-job'))
+    expect(create).toHaveBeenCalledWith(
+      {
+        model: gemini.model,
+        prompt: 'Make the rocket green',
+        n: 4,
+        size: '',
+        quality: '',
+        aspect_ratio: '16:9',
+        resolution: '4K',
+        reference_id: undefined,
+        reference_ids: [
+          'gemini-reference',
+          ...Array.from({ length: 3 }, (_, index) => `ref-${index + 2}`),
+        ],
+      },
+      expect.any(String),
+      false
+    )
+  })
+
   it('shows persistent browser history and disables deletion in an empty gallery', async () => {
     render(<ImageStudio />, { wrapper })
     expect(
@@ -344,17 +677,9 @@ describe('Image workbench', () => {
       'true'
     )
     fireEvent.click(screen.getByRole('button', { name: 'Choose image size' }))
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Choose number of images' })
-    )
-    const counts = within(
-      await screen.findByRole('group', { name: 'Number of images' })
-    )
-    expect(counts.getAllByRole('button')).toHaveLength(1)
-    expect(counts.getByRole('button', { name: '1' })).toBeEnabled()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Choose number of images' })
-    )
+    expect(
+      screen.queryByRole('button', { name: 'Choose number of images' })
+    ).not.toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: 'Choose image quality' })
     )
@@ -1667,7 +1992,11 @@ describe('Image workbench', () => {
       })
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Choose file' })).toBeDisabled()
-    expect(onState).toHaveBeenLastCalledWith({ count: 4, enabled: true })
+    expect(onState).toHaveBeenLastCalledWith({
+      count: 4,
+      enabled: true,
+      limit: 4,
+    })
   })
   it('updates details, actions and the shared close label when language changes', async () => {
     const french = (await import('@/i18n/locales/fr.json')).default.translation

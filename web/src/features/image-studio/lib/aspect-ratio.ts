@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 export function formatAspectRatio(size: string): string {
-  const [width, height] = size.split('x').map(Number)
+  const [width, height] = size.split(/[x:]/).map(Number)
   if (
     !Number.isSafeInteger(width) ||
     !Number.isSafeInteger(height) ||

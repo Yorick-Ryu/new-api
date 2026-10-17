@@ -34,37 +34,106 @@ type imageStudioInput struct {
 	Prompt       string   `json:"prompt"`
 	Size         string   `json:"size,omitempty"`
 	Quality      string   `json:"quality,omitempty"`
+	AspectRatio  string   `json:"aspect_ratio,omitempty"`
+	Resolution   string   `json:"resolution,omitempty"`
 	N            uint     `json:"n"`
 	ReferenceID  string   `json:"reference_id,omitempty"`
 	ReferenceIDs []string `json:"reference_ids,omitempty"`
 }
 
 type imageStudioCapability struct {
-	Model      string   `json:"model"`
-	Sizes      []string `json:"sizes"`
-	Qualities  []string `json:"qualities"`
-	MaxCount   uint     `json:"max_count"`
-	Editing    bool     `json:"editing"`
-	CustomSize bool     `json:"custom_size"`
+	Model         string   `json:"model"`
+	Group         string   `json:"group"`
+	Sizes         []string `json:"sizes"`
+	Qualities     []string `json:"qualities"`
+	AspectRatios  []string `json:"aspect_ratios,omitempty"`
+	Resolutions   []string `json:"resolutions,omitempty"`
+	MaxCount      uint     `json:"max_count"`
+	Editing       bool     `json:"editing"`
+	CustomSize    bool     `json:"custom_size"`
+	MaxReferences int      `json:"max_references"`
 }
+
+const imageStudioGeminiModel = "gemini-3.1-flash-image"
 
 func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 	user, err := model.GetUserCache(userID)
 	if err != nil {
 		return nil, err
 	}
-	if user.Status != common.UserStatusEnabled || !service.IsUserSelectableGroup(user.Group, "default") {
-		return nil, errors.New("Default group is unavailable for this account")
+	groups := service.GetUserAutoGroup(user.Group)
+	if user.Status != common.UserStatusEnabled || !service.GroupInUserUsableGroups(user.Group, "auto") {
+		return nil, errors.New("Automatic image groups are unavailable for this account")
 	}
-	models := service.GetGroupsEnabledModels([]string{"default"})
+	// Match the actual key's routing and model restrictions when showing models
+	// and estimating costs. Untouched legacy keys can upgrade on submission.
+	model.GetPricing()
+	token, err := model.GetImageStudioToken(userID)
+	if err != nil {
+		return nil, err
+	}
+	var modelLimits map[string]bool
+	if token != nil {
+		legacyModels := make([]string, 0)
+		for _, name := range service.GetGroupsEnabledModels([]string{"default"}) {
+			if name != imageStudioGeminiModel && slices.Contains(model.GetModelSupportEndpointTypes(name), constant.EndpointTypeImageGeneration) {
+				legacyModels = append(legacyModels, name)
+			}
+		}
+		if !model.CanUpgradeImageStudioToken(token, legacyModels) {
+			switch token.Group {
+			case "auto":
+				if token.AutoGroups != "" {
+					selected, err := token.GetAutoGroups()
+					if err != nil {
+						return nil, errors.New("Image API key is unavailable")
+					}
+					groups = service.FilterUserTokenAutoGroups(user.Group, selected)
+				}
+			case "default":
+				groups = nil
+				if service.IsUserSelectableGroup(user.Group, "default") {
+					groups = []string{"default"}
+				}
+			default:
+				return nil, errors.New("Image API key must use the automatic or default group")
+			}
+			if token.ModelLimitsEnabled {
+				modelLimits = token.GetModelLimitsMap()
+			}
+		}
+	}
+	if len(groups) == 0 {
+		return nil, errors.New("Automatic image groups are unavailable for this account")
+	}
+	models := service.GetGroupsEnabledModels(groups)
+	modelGroups := make(map[string]string)
+	for _, group := range groups {
+		for _, name := range service.GetGroupsEnabledModels([]string{group}) {
+			if modelGroups[name] == "" {
+				modelGroups[name] = group
+			}
+		}
+	}
 	result := make([]imageStudioCapability, 0)
 	for _, name := range models {
-		if !slices.Contains(model.GetModelSupportEndpointTypes(name), constant.EndpointTypeImageGeneration) {
+		if modelLimits != nil && !modelLimits[name] {
 			continue
 		}
-		capability := imageStudioCapability{Model: name, Sizes: []string{""}, Qualities: []string{""}, MaxCount: 1}
+		endpoints := model.GetModelSupportEndpointTypes(name)
+		gemini := name == imageStudioGeminiModel && slices.Contains(endpoints, constant.EndpointTypeOpenAI)
+		if !gemini && !slices.Contains(endpoints, constant.EndpointTypeImageGeneration) {
+			continue
+		}
+		capability := imageStudioCapability{Model: name, Group: modelGroups[name], Sizes: []string{""}, Qualities: []string{""}, MaxCount: 1, MaxReferences: model.ImageStudioMaxReferences}
 		// Conservative defaults for unknown models: omit optional parameters.
 		switch {
+		case gemini:
+			capability.Editing = true
+			capability.AspectRatios = []string{"", "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "1:4", "4:1", "1:8", "8:1"}
+			capability.Resolutions = []string{"512", "1K", "2K", "4K"}
+			// Workbench batches use independent requests, each with one candidate.
+			capability.MaxCount = 4
 		case strings.HasPrefix(name, "gpt-image-"):
 			capability.Sizes = []string{"", "1024x1024", "1536x1024", "1024x1536"}
 			if strings.HasPrefix(name, "gpt-image-2") {
@@ -105,7 +174,14 @@ func validateImageStudioInput(input imageStudioInput, capabilities []imageStudio
 		if capability.Model != input.Model {
 			continue
 		}
-		if input.N > capability.MaxCount || !slices.Contains(capability.Qualities, input.Quality) || len(references) > 0 && !capability.Editing {
+		if input.N > capability.MaxCount || !slices.Contains(capability.Qualities, input.Quality) {
+			return errors.New("Unsupported image parameters")
+		}
+		if input.AspectRatio != "" && !slices.Contains(capability.AspectRatios, input.AspectRatio) ||
+			input.Resolution != "" && !slices.Contains(capability.Resolutions, input.Resolution) {
+			return errors.New("Unsupported image parameters")
+		}
+		if len(references) > 0 && (!capability.Editing || capability.MaxReferences > 0 && len(references) > capability.MaxReferences) {
 			return errors.New("Unsupported image parameters")
 		}
 		if !slices.Contains(capability.Sizes, input.Size) {
@@ -191,10 +267,15 @@ func CreateImageStudioJob(c *gin.Context) {
 		return
 	}
 	imageModels := make([]string, 0, len(capabilities))
+	legacyModels := make([]string, 0, len(capabilities))
+	defaultModels := service.GetGroupsEnabledModels([]string{"default"})
 	for _, capability := range capabilities {
 		imageModels = append(imageModels, capability.Model)
+		if capability.Model != imageStudioGeminiModel && slices.Contains(defaultModels, capability.Model) {
+			legacyModels = append(legacyModels, capability.Model)
+		}
 	}
-	token, err := model.GetOrCreateImageStudioToken(c.GetInt("id"), imageModels)
+	token, err := model.GetOrCreateImageStudioToken(c.GetInt("id"), imageModels, legacyModels)
 	if err != nil {
 		message := "Unable to prepare image API key"
 		if errors.Is(err, model.ErrImageStudioTokenLimit) {
@@ -203,8 +284,8 @@ func CreateImageStudioJob(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": message})
 		return
 	}
-	if token.Group != "default" {
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Image API key must use the default group"})
+	if token.Group != "auto" && token.Group != "default" {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Image API key must use the automatic or default group"})
 		return
 	}
 	// Reuse the complete relay authentication path, including status, expiry,

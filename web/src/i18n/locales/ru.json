@@ -4966,7 +4966,7 @@
     "Reference image is unavailable": "Reference image is unavailable",
     "Reference image selections conflict": "Конфликт параметров референсов.",
     "Reference images": "Референсы",
-    "Reference images (up to 4)": "Референсы (до 4)",
+    "Reference images (up to {{limit}})": "Референсы (до {{limit}})",
     "Reference images must be 20 MB or smaller": "Размер каждого референса не должен превышать 20 МБ",
     "Reference Video": "Эталонное видео",
     "Referral link:": "Реферальная ссылка:",
@@ -7067,7 +7067,7 @@
     "You are offline. Updates will be checked when you reconnect.": "Нет подключения к сети. Проверка обновлений возобновится после подключения.",
     "You are running the latest version ({{version}}).": "Вы используете последнюю версию ({{version}}).",
     "You can add models manually or try fetching again.": "Добавьте модели вручную или повторите запрос.",
-    "You can add up to 4 reference images.": "Можно добавить до 4 референсов.",
+    "You can add up to {{limit}} reference images.": "Можно добавить до {{limit}} референсов.",
     "You can close this tab once the binding completes or a success message appears in the original window.": "Вы можете закрыть эту вкладку, как только привязка завершится или в исходном окне появится сообщение об успехе.",
     "You can leave this page and return to view the result.": "You can leave this page and return to view the result.",
     "You can manually add them in \"Custom Model Names\", click \"Fill\" and then submit, or use the operations below to handle automatically.": "Вы можете вручную добавить их в \"Пользовательские имена моделей\", нажать \"Заполнить\", а затем отправить, или использовать операции ниже для автоматической обработки.",
@@ -7289,6 +7289,10 @@
     "You can create up to {{count}} access tokens": "Можно создать не более {{count}} токенов доступа",
     "Uncharged usage": "Неоплаченное использование",
     "Insufficient balance for image generation. Please top up and try again.": "Недостаточно средств для генерации изображения. Пополните баланс и повторите попытку.",
-    "Not charged": "Не списано"
+    "Not charged": "Не списано",
+    "Automatic image groups are unavailable for this account": "Автоматические группы изображений недоступны для этого аккаунта",
+    "Image API key must use the automatic or default group": "API-ключ изображений должен использовать автоматическую группу или группу по умолчанию",
+    "Resolution": "Разрешение",
+    "Choose image resolution": "Выбрать разрешение изображения"
   }
 }
