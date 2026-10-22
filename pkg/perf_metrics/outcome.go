@@ -26,13 +26,17 @@ func ClassifyRelayOutcome(ctx context.Context, info *relaycommon.RelayInfo, apiE
 	if info == nil || info.PerformanceBusinessRejection {
 		return OutcomeIgnored
 	}
-	if ctx != nil && ctx.Err() == context.Canceled {
+	stream := info.StreamStatus.OutcomeSnapshot()
+	completedNormally := info.IsStream && info.StreamStatus != nil && apiErr == nil &&
+		stream.Response == relaycommon.ResponseOutcomeCompleted &&
+		(stream.EndReason == relaycommon.StreamEndReasonEOF || stream.EndReason == relaycommon.StreamEndReasonDone) &&
+		!stream.HasErrors && info.StreamStatus.EndError == nil
+	if ctx != nil && ctx.Err() == context.Canceled && !completedNormally {
 		return OutcomeIgnored
 	}
 	if apiErr != nil && errors.Is(apiErr, context.Canceled) {
 		return OutcomeIgnored
 	}
-	stream := info.StreamStatus.OutcomeSnapshot()
 	if apiErr != nil {
 		root := rootAPIError(apiErr)
 		local := root.GetErrorType() == types.ErrorTypeNewAPIError

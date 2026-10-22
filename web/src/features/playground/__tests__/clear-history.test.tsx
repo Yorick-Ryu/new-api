@@ -28,6 +28,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { Playground } from '..'
 import { DEFAULT_CONFIG, STORAGE_KEYS } from '../constants'
@@ -37,6 +38,9 @@ let client: QueryClient
 
 beforeEach(() => {
   localStorage.clear()
+  useAuthStore
+    .getState()
+    .auth.setUser({ id: 1, username: 'playground-test', role: 1 })
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/user/models') {
@@ -57,6 +61,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   client.clear()
+  useAuthStore.getState().auth.reset()
   vi.restoreAllMocks()
   localStorage.clear()
 })
@@ -95,7 +100,8 @@ it('provides one standalone clear action and clears only after confirmation', as
   expect(button).toBeDisabled()
   await waitFor(() =>
     expect(
-      JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '{}').data
+      JSON.parse(localStorage.getItem(`${STORAGE_KEYS.MESSAGES}:1`) || '{}')
+        .data
     ).toEqual([])
   )
 })

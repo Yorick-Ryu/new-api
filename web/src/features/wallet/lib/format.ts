@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { TFunction } from 'i18next'
+
 import { DEFAULT_DISCOUNT_RATE } from '../constants'
 
 // ============================================================================
@@ -66,6 +68,7 @@ export function formatCurrency(amount: number | string): string {
  */
 export function getDiscountLabel(
   discount: number,
+  t: TFunction,
   useChineseFormat = false
 ): string {
   if (discount >= DEFAULT_DISCOUNT_RATE) {
@@ -78,7 +81,7 @@ export function getDiscountLabel(
   }
 
   const off = Math.round((1 - discount) * 100)
-  return `${off}% OFF`
+  return t('{{percent}}% OFF', { percent: off })
 }
 
 /**

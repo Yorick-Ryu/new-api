@@ -75,7 +75,7 @@ func newResponsesWSWorkerFixture(t *testing.T, client *websocket.Conn) (*respons
 		}
 		return apiErr
 	}
-	t.Cleanup(func() { s.shutdown(); s.workers.Wait() })
+	t.Cleanup(func() { s.shutdown(websocket.CloseNormalClosure, ""); s.workers.Wait() })
 	return s, latest
 }
 

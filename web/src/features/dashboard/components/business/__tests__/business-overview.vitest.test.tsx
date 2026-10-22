@@ -745,10 +745,10 @@ it('applies a custom Beijing time range, preserves it on reopen, and resets to t
   await user.click(screen.getByRole('button', { name: 'Filter' }))
   const start = screen.getByRole('group', { name: 'Start Time' })
   const end = screen.getByRole('group', { name: 'End Time' })
-  fireEvent.change(within(start).getByDisplayValue('00:00'), {
+  fireEvent.change(within(start).getByLabelText('Time'), {
     target: { value: '08:00' },
   })
-  fireEvent.change(within(end).getByDisplayValue('12:00'), {
+  fireEvent.change(within(end).getByLabelText('Time'), {
     target: { value: '11:00' },
   })
   expect(get).toHaveBeenCalledTimes(1)
@@ -794,8 +794,8 @@ it('keeps an invalid custom range in the dialog without fetching and allows a qu
   await screen.findByText('No business activity in this period')
   await user.click(screen.getByRole('button', { name: 'Filter' }))
   fireEvent.change(
-    within(screen.getByRole('group', { name: 'Start Time' })).getByDisplayValue(
-      '00:00'
+    within(screen.getByRole('group', { name: 'Start Time' })).getByLabelText(
+      'Time'
     ),
     { target: { value: '13:00' } }
   )

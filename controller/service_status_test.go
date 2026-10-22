@@ -211,14 +211,22 @@ func TestServiceStatusAggregatesHalfHoursByRequestWeight(t *testing.T) {
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.PerfMetric{}))
 	at := time.Now().Truncate(2 * time.Hour).Add(-6 * time.Hour).Unix()
-	require.NoError(t, model.UpsertPerfMetric(&model.PerfMetric{ModelName: "alpha", Group: "default", BucketTs: at, RequestCount: 9, SuccessCount: 9}))
-	require.NoError(t, model.UpsertPerfMetric(&model.PerfMetric{ModelName: "alpha", Group: "default", BucketTs: at + 1800, RequestCount: 1}))
+	require.NoError(t, model.UpsertPerfMetric(&model.PerfMetric{ModelName: "alpha", Group: "status-cache-fixture-default", BucketTs: at, RequestCount: 9, SuccessCount: 9}))
+	require.NoError(t, model.UpsertPerfMetric(&model.PerfMetric{ModelName: "alpha", Group: "status-cache-fixture-default", BucketTs: at + 1800, RequestCount: 1}))
 	for _, tc := range []struct {
 		hours  int
 		points int
 	}{{24, 2}, {72, 1}, {168, 1}} {
 		result, err := perfmetrics.QueryServiceStatus(context.Background(), tc.hours)
 		require.NoError(t, err)
+		groups := result.Groups[:0]
+		for _, group := range result.Groups {
+			if group.Group == "status-cache-fixture-default" {
+				groups = append(groups, group)
+			}
+		}
+		result.Groups = groups
+		require.Len(t, result.Groups, 1)
 		item := result.Groups[0].Models[0]
 		require.Len(t, item.Series, tc.points)
 		assert.InDelta(t, 90, *item.SuccessRate, 0.001)
@@ -236,15 +244,22 @@ func TestServiceStatusCacheRateWeightsTokensAcrossIntervalsAndSeparatesGroups(t 
 	require.NoError(t, db.AutoMigrate(&model.PerfMetric{}))
 	at := time.Now().Truncate(2 * time.Hour).Add(-6 * time.Hour).Unix()
 	rows := []model.PerfMetric{
-		{ModelName: "alpha", Group: "default", BucketTs: at, RequestCount: 9, SuccessCount: 9, InputTokens: 100, CacheReadTokens: 100},
-		{ModelName: "alpha", Group: "default", BucketTs: at + 1800, RequestCount: 1, SuccessCount: 1, InputTokens: 900, CacheReadTokens: 300},
-		{ModelName: "alpha", Group: "premium", BucketTs: at, RequestCount: 1, SuccessCount: 1, InputTokens: 100},
-		{ModelName: "no-usage", Group: "premium", BucketTs: at, RequestCount: 1, SuccessCount: 1},
+		{ModelName: "alpha", Group: "status-cache-fixture-default", BucketTs: at, RequestCount: 9, SuccessCount: 9, InputTokens: 100, CacheReadTokens: 100},
+		{ModelName: "alpha", Group: "status-cache-fixture-default", BucketTs: at + 1800, RequestCount: 1, SuccessCount: 1, InputTokens: 900, CacheReadTokens: 300},
+		{ModelName: "alpha", Group: "status-cache-fixture-premium", BucketTs: at, RequestCount: 1, SuccessCount: 1, InputTokens: 100},
+		{ModelName: "no-usage", Group: "status-cache-fixture-premium", BucketTs: at, RequestCount: 1, SuccessCount: 1},
 	}
 	require.NoError(t, db.Create(&rows).Error)
 	for _, hours := range []int{24, 72, 168} {
 		result, err := perfmetrics.QueryServiceStatus(context.Background(), hours)
 		require.NoError(t, err)
+		groups := result.Groups[:0]
+		for _, group := range result.Groups {
+			if group.Group == "status-cache-fixture-default" || group.Group == "status-cache-fixture-premium" {
+				groups = append(groups, group)
+			}
+		}
+		result.Groups = groups
 		require.Len(t, result.Groups, 2)
 		item := result.Groups[0].Models[0]
 		require.NotNil(t, item.CacheHitRate)

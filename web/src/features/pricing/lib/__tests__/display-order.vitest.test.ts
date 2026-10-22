@@ -89,7 +89,7 @@ describe('Marketplace display order', () => {
       sortModels(models, SORT_OPTIONS.NAME).map((m) => m.model_name)
     ).toEqual(['alpha', 'beta', 'delta', 'zeta'])
     expect(
-      sortModels(models, SORT_OPTIONS.PRICE_HIGH).map((m) => m.model_name)
+      sortModels(models, SORT_OPTIONS.INPUT_PRICE_HIGH).map((m) => m.model_name)
     ).toEqual(['delta', 'beta', 'alpha', 'zeta'])
   })
   it('falls back to names when no order exists and handles empty input', () => {

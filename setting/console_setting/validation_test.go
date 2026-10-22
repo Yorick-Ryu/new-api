@@ -21,13 +21,13 @@ func TestAnnouncementCharacterLimits(t *testing.T) {
 		{name: "500 Chinese characters", content: strings.Repeat("公", 500)},
 		{name: "500 emoji", content: strings.Repeat("😀", 500)},
 		{name: "Markdown and newlines count toward 500", content: "## 公告\n" + strings.Repeat("公", 494)},
-		{name: "501 ASCII characters", content: strings.Repeat("a", 501), wantErr: "第1个公告的内容长度不能超过500字符"},
-		{name: "501 Chinese characters", content: strings.Repeat("公", 501), wantErr: "第1个公告的内容长度不能超过500字符"},
-		{name: "501 emoji", content: strings.Repeat("😀", 501), wantErr: "第1个公告的内容长度不能超过500字符"},
-		{name: "empty content", wantErr: "第1个公告缺少内容字段"},
+		{name: "501 ASCII characters", content: strings.Repeat("a", 501), wantErr: "Announcement #1 content cannot exceed 500 characters"},
+		{name: "501 Chinese characters", content: strings.Repeat("公", 501), wantErr: "Announcement #1 content cannot exceed 500 characters"},
+		{name: "501 emoji", content: strings.Repeat("😀", 501), wantErr: "Announcement #1 content cannot exceed 500 characters"},
+		{name: "empty content", wantErr: "Announcement #1 is missing the content field"},
 		{name: "200 Chinese notes characters", content: "公告", extra: strings.Repeat("注", 200)},
 		{name: "200 emoji notes", content: "公告", extra: strings.Repeat("😀", 200)},
-		{name: "201 notes characters", content: "公告", extra: strings.Repeat("注", 201), wantErr: "第1个公告的说明长度不能超过200字符"},
+		{name: "201 notes characters", content: "公告", extra: strings.Repeat("注", 201), wantErr: "Announcement #1 note cannot exceed 200 characters"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestAnnouncementLengthErrorIdentifiesNinthItem(t *testing.T) {
 	announcements[8]["content"] = strings.Repeat("公", 501)
 	data, err := common.Marshal(announcements)
 	require.NoError(t, err)
-	assert.EqualError(t, console_setting.ValidateConsoleSettings(string(data), "Announcements"), "第9个公告的内容长度不能超过500字符")
+	assert.EqualError(t, console_setting.ValidateConsoleSettings(string(data), "Announcements"), "Announcement #9 content cannot exceed 500 characters")
 }
 
 func TestAnnouncementPopupOptionSurvivesSettingsRoundTrip(t *testing.T) {

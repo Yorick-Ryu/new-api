@@ -3,6 +3,7 @@ package service
 import (
 	"math"
 	"math/rand"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -340,6 +341,10 @@ func (s *recordingBillingSettler) Reserve(targetQuota int) error {
 	return nil
 }
 
+func (s *recordingBillingSettler) ReserveBeforeSubmit(targetQuota int) error {
+	return s.Reserve(targetQuota)
+}
+
 func TestPrepareTieredBillingForSelectedGroupUpdatesReservation(t *testing.T) {
 	const expr = `tier("base", p)`
 	billing := &recordingBillingSettler{preConsumedQuota: 50_000}
@@ -396,7 +401,8 @@ func TestPrepareTieredBillingForSelectedGroupStartsBillingAfterFreeGroup(t *test
 			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 0.20},
 		},
 	}
-	ctx, _ := gin.CreateTestContext(nil)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
 	require.Nil(t, PrepareTieredBillingForSelectedGroup(ctx, relayInfo))
 	require.NotNil(t, relayInfo.Billing)

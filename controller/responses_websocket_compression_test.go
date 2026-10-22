@@ -83,7 +83,7 @@ func TestResponsesWebSocketUploadCompression(t *testing.T) {
 			require.NoError(t, client.SetWriteDeadline(time.Now().Add(5*time.Second)))
 			require.NoError(t, client.SetReadDeadline(time.Now().Add(5*time.Second)))
 
-			const prefix = `{"type":"response.cancel","padding":"`
+			const prefix = `{"type":"unsupported.compression_test","padding":"`
 			const suffix = `"}`
 			payload := prefix + strings.Repeat("a", tc.payloadSize-len(prefix)-len(suffix)) + suffix
 			before := wire.written.Load()
@@ -122,7 +122,7 @@ func TestResponsesWebSocketUploadCompression(t *testing.T) {
 			// Uncompressed messages remain valid on the same negotiated connection,
 			// and reaching the limit must not corrupt the next message boundary.
 			client.EnableWriteCompression(false)
-			require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.cancel"}`)))
+			require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"unsupported.compression_test"}`)))
 			_, nextReply, err := client.ReadMessage()
 			require.NoError(t, err)
 			assert.JSONEq(t, string(reply), string(nextReply))

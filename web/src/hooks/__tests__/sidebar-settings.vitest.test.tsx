@@ -79,6 +79,8 @@ it('shows only automatic banning and service status settings for an administrato
 it('keeps the other Operations settings available in the nested menu for root', async () => {
   mount(ROLE.SUPER_ADMIN)
   await screen.findByRole('link', { name: 'Service status' })
-  expect(screen.getByRole('link', { name: 'Monitoring & Alerts' })).toBeTruthy()
+  expect(
+    screen.getByRole('link', { name: 'Model performance metrics' })
+  ).toBeTruthy()
   expect(screen.getByRole('link', { name: 'System Behavior' })).toBeTruthy()
 })

@@ -11,7 +11,6 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/auto_ban"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -24,7 +23,6 @@ import (
 // These tests exercise real relay entry points: HTTP 200 can carry an upstream
 // failure. Both successful and failing responses must use cached ban settings.
 func TestAutoBanOpenAIErrorBranches(t *testing.T) {
-	service.InitTokenEncoders()
 	const cyber = `{"error":{"type":"invalid_request_error","code":"cyber_policy","message":"blocked"}}`
 	const event = `{"type":"error","error":{"code":"cyber_policy","message":"blocked"}}`
 	const failed = `{"type":"response.failed","response":{"status":"failed","error":{"code":"cyber_policy","message":"blocked"}}}`

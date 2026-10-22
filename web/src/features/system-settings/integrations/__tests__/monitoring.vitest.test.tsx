@@ -41,7 +41,6 @@ it('only offers collection buckets fine enough for half-hour status intervals', 
       <QueryClientProvider client={client}>
         <MonitoringSettingsSection
           defaultValues={{
-            QuotaRemindThreshold: '1000',
             'perf_metrics_setting.enabled': true,
             'perf_metrics_setting.flush_interval': 15,
             'perf_metrics_setting.bucket_time': '30min',

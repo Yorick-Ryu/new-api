@@ -70,9 +70,10 @@ var auditContentTemplates = map[string]string{
 	"redemption.create":       "Created ${count} redemption codes named ${name} (${quota} each)",
 	"redemption.delete_batch": "Batch deleted ${count} redemption codes",
 
-	"subscription.plan_reset":      "Reset active subscriptions for plan ${plan_id}",
-	"subscription.user_plan_reset": "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
-	"subscription.user_renew":      "Renewed subscription ${subscription_id} for user ${target_user_id} by ${months} months",
+	"subscription.plan_reset":       "Reset active subscriptions for plan ${plan_id}",
+	"subscription.user_plan_reset":  "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
+	"subscription.user_quota_reset": "Administrator reset the quota of subscription plan ${plan_title} (ID: ${plan_id})",
+	"subscription.user_renew":       "Renewed subscription ${subscription_id} for user ${target_user_id} by ${months} months",
 }
 
 func recordPasskeyDomainAudit(c *gin.Context, change *model.PasskeyDomainChange, confirmed bool, err error) {

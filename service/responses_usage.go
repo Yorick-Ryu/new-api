@@ -8,6 +8,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
+	"github.com/QuantumNous/new-api/tokenkit"
 )
 
 // ResponsesUsageAccumulator owns the accounting facts for one Responses stream.
@@ -30,7 +31,9 @@ func NewResponsesUsageAccumulator(info *relaycommon.RelayInfo) *ResponsesUsageAc
 	return &ResponsesUsageAccumulator{info: info, usage: &dto.Usage{}}
 }
 
-func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse) {
+// Observe feeds one decoded stream event. raw is the same event's wire bytes;
+// the vendor tool-usage reader runs on it once, at the terminal event.
+func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse, raw []byte) {
 	if a == nil || event == nil || a.finished {
 		return
 	}
@@ -62,18 +65,22 @@ func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse) 
 				}
 			}
 		}
-		if !a.imageCommitted {
-			if a.failed || (event.Type != "response.completed" && event.Type != "response.done") ||
-				(event.Response != nil && relaycommon.IsNonBillableResponsesStatus(event.Response.Status)) {
-				a.imageCounter.Reset()
-			} else if event.Response != nil {
-				for i := range event.Response.Output {
-					a.imageCounter.Observe(&event.Response.Output[i], &i)
-				}
-			}
-			a.imageCounter.Commit(a.info)
-			a.imageCommitted = true
+		// Vendor counts are cumulative on the terminal event and replace the
+		// web_search_call items counted from output_item.done.
+		a.info.ApplyVendorToolUsage(raw)
+		if a.imageCommitted {
+			return
 		}
+		// Images that completed before any terminal, failed ones included,
+		// were delivered and stay billable; Observe still skips unfinished
+		// image items.
+		if event.Response != nil {
+			for i := range event.Response.Output {
+				a.imageCounter.Observe(&event.Response.Output[i], &i)
+			}
+		}
+		a.imageCounter.Commit(a.info)
+		a.imageCommitted = true
 	case "response.output_text.delta", "response.function_call_arguments.delta",
 		"response.reasoning_summary_text.delta", "response.reasoning_text.delta", "response.refusal.delta":
 		a.outputText.WriteString(event.Delta)
@@ -98,8 +105,7 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 	}
 	a.finished = true
 	// A final image item can already have reached the client before the stream
-	// disconnects. Explicit failed/incomplete terminals reset and commit zero in
-	// Observe; otherwise retain completed tool usage even without a terminal.
+	// disconnects, so completed tool usage is retained even without a terminal.
 	if !a.imageCommitted {
 		a.imageCounter.Commit(a.info)
 		a.imageCommitted = true
@@ -108,7 +114,7 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 	// still owe input and generated tool/reasoning/text output tokens.
 	if !a.failed && !a.reportedUsage {
 		if output := a.outputText.String(); output != "" {
-			a.usage.CompletionTokens = CountTextToken(output, a.info.GetUpstreamModelName())
+			a.usage.CompletionTokens = tokenkit.Count(a.info.GetUpstreamModelName(), output)
 		}
 		if a.started {
 			a.usage.PromptTokens = a.info.GetEstimatePromptTokens()

@@ -7,6 +7,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/tokenkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,10 +21,10 @@ func TestResponsesUsageAccumulatorTerminalAccounting(t *testing.T) {
 	}{
 		{eventType: "response.completed", wantImages: 1},
 		{eventType: "response.done", wantImages: 1},
-		{eventType: "response.incomplete"},
-		{eventType: "response.failed"},
-		{eventType: "response.cancelled"},
-		{eventType: "response.canceled"},
+		{eventType: "response.incomplete", wantImages: 1},
+		{eventType: "response.failed", wantImages: 1},
+		{eventType: "response.cancelled", wantImages: 1},
+		{eventType: "response.canceled", wantImages: 1},
 	} {
 		t.Run(tc.eventType, func(t *testing.T) {
 			info := &relaycommon.RelayInfo{OriginModelName: "gpt-5.1", StreamStatus: relaycommon.NewStreamStatus()}
@@ -34,10 +35,10 @@ func TestResponsesUsageAccumulatorTerminalAccounting(t *testing.T) {
 				{Type: dto.BuildInCallFunctionCall, Name: "responses_priced_fn"},
 				{Type: dto.BuildInCallFunctionCall, Name: "responses_unpriced_fn"},
 			} {
-				accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone, Item: &item})
+				accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone, Item: &item}, nil)
 			}
 			image := dto.ResponsesOutput{ID: "image-1", Type: dto.ResponsesOutputTypeImageGenerationCall, Status: "completed", Result: "image-data"}
-			accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone, Item: &image})
+			accumulator.Observe(&dto.ResponsesStreamResponse{Type: dto.ResponsesOutputTypeItemDone, Item: &image}, nil)
 			upstream := &dto.Usage{InputTokens: 20, OutputTokens: 5, TotalTokens: 25, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 4}}
 			upstream.BillingUsage = dto.NewOpenAIResponsesBillingUsage(upstream)
 			terminal := &dto.ResponsesStreamResponse{
@@ -46,8 +47,8 @@ func TestResponsesUsageAccumulatorTerminalAccounting(t *testing.T) {
 					Usage: upstream, Output: []dto.ResponsesOutput{image},
 				},
 			}
-			accumulator.Observe(terminal)
-			accumulator.Observe(terminal)
+			accumulator.Observe(terminal, nil)
+			accumulator.Observe(terminal, nil)
 			usage := accumulator.Finish()
 			assert.Equal(t, tc.eventType == "response.failed", info.StreamStatus.ResponseFailed())
 			assert.NotEmpty(t, info.StreamStatus.ResponseOutcome())
@@ -81,11 +82,11 @@ func TestResponsesUsageAccumulatorInterruptedTextFallback(t *testing.T) {
 			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"}}
 			info.SetEstimatePromptTokens(100)
 			accumulator := NewResponsesUsageAccumulator(info)
-			accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: "hello"})
+			accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: "hello"}, nil)
 			if withUsage {
 				upstream := &dto.Usage{InputTokens: 20, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 4}}
 				upstream.BillingUsage = dto.NewOpenAIResponsesBillingUsage(upstream)
-				accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.failed", Response: &dto.OpenAIResponsesResponse{Usage: upstream}})
+				accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.failed", Response: &dto.OpenAIResponsesResponse{Usage: upstream}}, nil)
 			}
 			usage := accumulator.Finish()
 			if withUsage {
@@ -104,7 +105,7 @@ func TestResponsesUsageAccumulatorInterruptedTextFallback(t *testing.T) {
 				assert.Equal(t, 100, usage.PromptTokens)
 				assert.Equal(t, 101, usage.TotalTokens)
 			}
-			accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: " late output"})
+			accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: " late output"}, nil)
 			assert.Equal(t, usage, accumulator.Finish())
 			assert.Equal(t, !withUsage, usage.CompletionTokens == 1)
 		})
@@ -146,11 +147,11 @@ func TestResponsesUsageAccumulatorDisconnectBillsCompletedImage(t *testing.T) {
 	accumulator.Observe(&dto.ResponsesStreamResponse{
 		Type: dto.ResponsesOutputTypeItemDone,
 		Item: &dto.ResponsesOutput{ID: "complete-image", Type: dto.ResponsesOutputTypeImageGenerationCall, Status: "completed", Result: "final-image-data"},
-	})
+	}, nil)
 	accumulator.Observe(&dto.ResponsesStreamResponse{
 		Type: dto.ResponsesOutputTypeItemDone,
 		Item: &dto.ResponsesOutput{ID: "partial-image", Type: dto.ResponsesOutputTypeImageGenerationCall, Status: "partial", Result: "partial-image-data"},
-	})
+	}, nil)
 	usage := accumulator.Finish()
 	assert.Zero(t, usage.TotalTokens)
 	require.Contains(t, info.ResponsesUsageInfo.BuiltInTools, dto.BuildInToolImageGeneration)
@@ -274,7 +275,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 				{Type: dto.ResponsesOutputTypeItemDone, Item: &dto.ResponsesOutput{Type: dto.BuildInCallFunctionCall, Name: "shell"}},
 			},
 			wantPrompt:     100,
-			wantCompletion: CountTextToken(summary+arguments, model),
+			wantCompletion: tokenkit.Count(model, summary+arguments),
 		},
 		{
 			name: "created only then disconnect bills the prompt",
@@ -304,7 +305,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 				}},
 			},
 			wantPrompt:     100,
-			wantCompletion: CountTextToken("final answer", model),
+			wantCompletion: tokenkit.Count(model, "final answer"),
 		},
 		{
 			name: "explicit failure without usage bills nothing",
@@ -332,7 +333,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 			info.SetEstimatePromptTokens(100)
 			accumulator := NewResponsesUsageAccumulator(info)
 			for i := range tc.events {
-				accumulator.Observe(&tc.events[i])
+				accumulator.Observe(&tc.events[i], nil)
 			}
 			usage := accumulator.Finish()
 			assert.Equal(t, tc.wantPrompt, usage.PromptTokens)
@@ -367,10 +368,10 @@ func TestResponsesUsageAccumulatorInterruptedAndFailedStreams(t *testing.T) {
 	}{
 		{name: "no upstream event"},
 		{name: "created then disconnected", events: []string{`{"type":"response.created"}`}, prompt: 100},
-		{name: "tool and reasoning interrupted", events: []string{`{"type":"response.reasoning_summary_text.delta","delta":"Inspect repository. "}`, `{"type":"response.function_call_arguments.delta","delta":"ls"}`}, prompt: 100, completion: CountTextToken("Inspect repository. ls", "gpt-4o")},
-		{name: "reasoning and refusal", events: []string{`{"type":"response.reasoning_text.delta","delta":"Reason. "}`, `{"type":"response.refusal.delta","delta":"Cannot comply."}`}, prompt: 100, completion: CountTextToken("Reason. Cannot comply.", "gpt-4o")},
-		{name: "terminal tool arguments", events: []string{`{"type":"response.completed","response":{"output":[{"type":"function_call","arguments":"ls"}]}}`}, prompt: 100, completion: CountTextToken("ls", "gpt-4o")},
-		{name: "terminal text", events: []string{`{"type":"response.completed","response":{"output":[{"type":"message","content":[{"type":"output_text","text":"answer"}]}]}}`}, prompt: 100, completion: CountTextToken("answer", "gpt-4o")},
+		{name: "tool and reasoning interrupted", events: []string{`{"type":"response.reasoning_summary_text.delta","delta":"Inspect repository. "}`, `{"type":"response.function_call_arguments.delta","delta":"ls"}`}, prompt: 100, completion: tokenkit.Count("gpt-4o", "Inspect repository. ls")},
+		{name: "reasoning and refusal", events: []string{`{"type":"response.reasoning_text.delta","delta":"Reason. "}`, `{"type":"response.refusal.delta","delta":"Cannot comply."}`}, prompt: 100, completion: tokenkit.Count("gpt-4o", "Reason. Cannot comply.")},
+		{name: "terminal tool arguments", events: []string{`{"type":"response.completed","response":{"output":[{"type":"function_call","arguments":"ls"}]}}`}, prompt: 100, completion: tokenkit.Count("gpt-4o", "ls")},
+		{name: "terminal text", events: []string{`{"type":"response.completed","response":{"output":[{"type":"message","content":[{"type":"output_text","text":"answer"}]}]}}`}, prompt: 100, completion: tokenkit.Count("gpt-4o", "answer")},
 		{name: "incomplete prompt", events: []string{`{"type":"response.incomplete"}`}, prompt: 100},
 		{name: "cancelled reported usage", events: []string{`{"type":"response.cancelled","response":{"usage":{"input_tokens":12,"output_tokens":3}}}`}, prompt: 12, completion: 3},
 		{name: "reported zero success", events: []string{`{"type":"response.output_text.delta","delta":"answer"}`, `{"type":"response.completed","response":{"usage":{"input_tokens":0,"output_tokens":0}}}`}},
@@ -390,14 +391,14 @@ func TestResponsesUsageAccumulatorInterruptedAndFailedStreams(t *testing.T) {
 			for _, raw := range tc.events {
 				var event dto.ResponsesStreamResponse
 				require.NoError(t, common.UnmarshalJsonStr(raw, &event))
-				a.Observe(&event)
+				a.Observe(&event, common.StringToByteSlice(raw))
 			}
 			usage := a.Finish()
 			assert.Equal(t, tc.prompt, usage.PromptTokens)
 			assert.Equal(t, tc.completion, usage.CompletionTokens)
 			assert.Equal(t, tc.prompt+tc.completion, usage.TotalTokens)
 			snapshot := *usage
-			a.Observe(&dto.ResponsesStreamResponse{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 999}}})
+			a.Observe(&dto.ResponsesStreamResponse{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 999}}}, nil)
 			assert.Equal(t, snapshot, *a.Finish(), "late events must not change settled usage")
 		})
 	}

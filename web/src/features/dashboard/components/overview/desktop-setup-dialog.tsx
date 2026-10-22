@@ -252,6 +252,7 @@ export function DesktopSetupDialog(props: {
           allow_ips: '',
           auto_groups: [],
           cross_group_retry: false,
+          allow_user_quota_query: true,
         })
         if (!created.success || !created.data?.id) {
           throw new Error('Key creation failed')
