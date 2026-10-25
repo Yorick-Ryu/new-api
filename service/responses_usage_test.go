@@ -1,13 +1,17 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/tokenkit"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +53,7 @@ func TestResponsesUsageAccumulatorTerminalAccounting(t *testing.T) {
 			}
 			accumulator.Observe(terminal, nil)
 			accumulator.Observe(terminal, nil)
-			usage := accumulator.Finish()
+			usage := accumulator.Finish(nil)
 			assert.Equal(t, tc.eventType == "response.failed", info.StreamStatus.ResponseFailed())
 			assert.NotEmpty(t, info.StreamStatus.ResponseOutcome())
 
@@ -88,7 +92,7 @@ func TestResponsesUsageAccumulatorInterruptedTextFallback(t *testing.T) {
 				upstream.BillingUsage = dto.NewOpenAIResponsesBillingUsage(upstream)
 				accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.failed", Response: &dto.OpenAIResponsesResponse{Usage: upstream}}, nil)
 			}
-			usage := accumulator.Finish()
+			usage := accumulator.Finish(nil)
 			if withUsage {
 				assert.Zero(t, usage.CompletionTokens)
 				assert.Equal(t, 20, usage.PromptTokens)
@@ -106,7 +110,7 @@ func TestResponsesUsageAccumulatorInterruptedTextFallback(t *testing.T) {
 				assert.Equal(t, 101, usage.TotalTokens)
 			}
 			accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: " late output"}, nil)
-			assert.Equal(t, usage, accumulator.Finish())
+			assert.Equal(t, usage, accumulator.Finish(nil))
 			assert.Equal(t, !withUsage, usage.CompletionTokens == 1)
 		})
 	}
@@ -152,11 +156,11 @@ func TestResponsesUsageAccumulatorDisconnectBillsCompletedImage(t *testing.T) {
 		Type: dto.ResponsesOutputTypeItemDone,
 		Item: &dto.ResponsesOutput{ID: "partial-image", Type: dto.ResponsesOutputTypeImageGenerationCall, Status: "partial", Result: "partial-image-data"},
 	}, nil)
-	usage := accumulator.Finish()
+	usage := accumulator.Finish(nil)
 	assert.Zero(t, usage.TotalTokens)
 	require.Contains(t, info.ResponsesUsageInfo.BuiltInTools, dto.BuildInToolImageGeneration)
 	assert.Equal(t, 1, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolImageGeneration].CallCount)
-	accumulator.Finish()
+	accumulator.Finish(nil)
 	assert.Equal(t, 1, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolImageGeneration].CallCount)
 }
 
@@ -265,6 +269,8 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 		events         []dto.ResponsesStreamResponse
 		wantPrompt     int
 		wantCompletion int
+		wantCache      int
+		wantLocal      bool
 	}{
 		{
 			name: "tool call stream cut before terminal usage",
@@ -276,6 +282,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 			},
 			wantPrompt:     100,
 			wantCompletion: tokenkit.Count(model, summary+arguments),
+			wantLocal:      true,
 		},
 		{
 			name: "created only then disconnect bills the prompt",
@@ -283,6 +290,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 				{Type: "response.created", Response: inProgress},
 			},
 			wantPrompt: 100,
+			wantLocal:  true,
 		},
 		{
 			name: "incomplete without usage bills the prompt",
@@ -291,6 +299,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 				{Type: "response.incomplete", Response: &dto.OpenAIResponsesResponse{Status: []byte(`"incomplete"`)}},
 			},
 			wantPrompt: 100,
+			wantLocal:  true,
 		},
 		{
 			name: "completed without usage estimates from terminal output",
@@ -306,6 +315,25 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 			},
 			wantPrompt:     100,
 			wantCompletion: tokenkit.Count(model, "final answer"),
+			wantLocal:      true,
+		},
+		{
+			name: "reported cached usage overrides partial output estimates",
+			events: []dto.ResponsesStreamResponse{
+				{Type: "response.output_text.delta", Delta: "partial output"},
+				{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{
+					InputTokens: 20, OutputTokens: 5, TotalTokens: 25,
+					InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 16},
+				}}},
+			},
+			wantPrompt: 20, wantCompletion: 5, wantCache: 16,
+		},
+		{
+			name: "reported zero usage does not become a local estimate",
+			events: []dto.ResponsesStreamResponse{
+				{Type: "response.output_text.delta", Delta: "partial output"},
+				{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{}}},
+			},
 		},
 		{
 			name: "explicit failure without usage bills nothing",
@@ -326,6 +354,8 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 			info := &relaycommon.RelayInfo{
 				ChannelMeta:  &relaycommon.ChannelMeta{UpstreamModelName: model},
 				StreamStatus: relaycommon.NewStreamStatus(),
@@ -335,10 +365,24 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 			for i := range tc.events {
 				accumulator.Observe(&tc.events[i], nil)
 			}
-			usage := accumulator.Finish()
+			usage := accumulator.Finish(c)
 			assert.Equal(t, tc.wantPrompt, usage.PromptTokens)
 			assert.Equal(t, tc.wantCompletion, usage.CompletionTokens)
 			assert.Equal(t, tc.wantPrompt+tc.wantCompletion, usage.TotalTokens)
+			assert.Equal(t, tc.wantCache, usage.PromptTokensDetails.CachedTokens)
+			local := common.GetContextKeyBool(c, constant.ContextKeyLocalCountTokens)
+			assert.Equal(t, tc.wantLocal, local)
+			other := GenerateTextOtherInfo(c, info, 1, 1, 1, tc.wantCache, 1, 0, 1)
+			appendUsageBillingPathForLog(other, local, usage)
+			admin, ok := other.Snapshot()["admin_info"].(map[string]any)
+			require.True(t, ok)
+			if tc.wantLocal {
+				assert.Equal(t, true, admin["local_count_tokens"])
+				assert.Equal(t, usageBillingPathLocal, admin["usage_billing_path"])
+			} else {
+				assert.NotContains(t, admin, "local_count_tokens")
+				assert.NotEqual(t, usageBillingPathLocal, admin["usage_billing_path"])
+			}
 		})
 	}
 }
@@ -393,13 +437,13 @@ func TestResponsesUsageAccumulatorInterruptedAndFailedStreams(t *testing.T) {
 				require.NoError(t, common.UnmarshalJsonStr(raw, &event))
 				a.Observe(&event, common.StringToByteSlice(raw))
 			}
-			usage := a.Finish()
+			usage := a.Finish(nil)
 			assert.Equal(t, tc.prompt, usage.PromptTokens)
 			assert.Equal(t, tc.completion, usage.CompletionTokens)
 			assert.Equal(t, tc.prompt+tc.completion, usage.TotalTokens)
 			snapshot := *usage
 			a.Observe(&dto.ResponsesStreamResponse{Type: "response.completed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 999}}}, nil)
-			assert.Equal(t, snapshot, *a.Finish(), "late events must not change settled usage")
+			assert.Equal(t, snapshot, *a.Finish(nil), "late events must not change settled usage")
 		})
 	}
 }

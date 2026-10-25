@@ -246,7 +246,7 @@ func TestResponseModelSharedResponsesAccumulator(t *testing.T) {
 	accumulator := service.NewResponsesUsageAccumulator(info)
 	accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.created", Response: &dto.OpenAIResponsesResponse{Model: "returned"}}, nil)
 	accumulator.Observe(&dto.ResponsesStreamResponse{Type: "response.failed", Response: &dto.OpenAIResponsesResponse{Usage: &dto.Usage{InputTokens: 2, OutputTokens: 3}}}, nil)
-	assert.Equal(t, 5, accumulator.Finish().TotalTokens)
+	assert.Equal(t, 5, accumulator.Finish(nil).TotalTokens)
 	require.NotNil(t, info.ResponseModel)
 	assert.True(t, info.ResponseModel.Mismatch())
 	assert.Equal(t, "returned", info.ResponseModel.ReturnedModel)

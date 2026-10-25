@@ -543,7 +543,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 					state.closeCode, state.closeReason = closeErr.Code, closeErr.Text
 				}
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, incoming.err)
-				ConsumeResponsesQuota(c, info, accumulator.Finish())
+				ConsumeResponsesQuota(c, info, accumulator.Finish(c))
 				return nil
 			}
 			_ = s.markBusinessActivity()
@@ -611,7 +611,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 							state.closeCode = websocket.CloseInternalServerErr
 						}
 						s.recordTerminalResponse(state)
-						ConsumeResponsesQuota(c, info, accumulator.Finish())
+						ConsumeResponsesQuota(c, info, accumulator.Finish(c))
 						return nil
 					}
 					if rejection.Error == nil {
@@ -654,7 +654,7 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 				}
 				state.terminal = &incoming
 				s.recordTerminalResponse(state)
-				ConsumeResponsesQuota(c, info, accumulator.Finish())
+				ConsumeResponsesQuota(c, info, accumulator.Finish(c))
 				return nil
 			}
 			if err := s.writeClient(incoming.kind, incoming.body); err != nil {
@@ -669,11 +669,11 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 		case <-idle.C:
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, context.DeadlineExceeded)
 			state.closeCode, state.closeReason = websocket.CloseInternalServerErr, "upstream response timed out"
-			ConsumeResponsesQuota(c, info, accumulator.Finish())
+			ConsumeResponsesQuota(c, info, accumulator.Finish(c))
 			return nil
 		case <-s.ctx.Done():
 			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, s.ctx.Err())
-			ConsumeResponsesQuota(c, info, accumulator.Finish())
+			ConsumeResponsesQuota(c, info, accumulator.Finish(c))
 			return nil
 		}
 		// A control queued before response.created must wait for the response

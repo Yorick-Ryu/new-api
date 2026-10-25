@@ -5,10 +5,12 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/tokenkit"
+	"github.com/gin-gonic/gin"
 )
 
 // ResponsesUsageAccumulator owns the accounting facts for one Responses stream.
@@ -99,7 +101,7 @@ func (a *ResponsesUsageAccumulator) Observe(event *dto.ResponsesStreamResponse, 
 	}
 }
 
-func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
+func (a *ResponsesUsageAccumulator) Finish(c *gin.Context) *dto.Usage {
 	if a.finished {
 		return a.usage
 	}
@@ -118,6 +120,11 @@ func (a *ResponsesUsageAccumulator) Finish() *dto.Usage {
 		}
 		if a.started {
 			a.usage.PromptTokens = a.info.GetEstimatePromptTokens()
+			// This flag changes log provenance only; keep estimated quantities and
+			// native usage untouched. HTTP SSE and WS pass their request context.
+			if c != nil {
+				common.SetContextKey(c, constant.ContextKeyLocalCountTokens, true)
+			}
 		}
 	}
 	if a.usage.TotalTokens == 0 {

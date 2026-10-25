@@ -588,6 +588,7 @@ func TestOaiResponsesStreamInterruptedAndFailedAccounting(t *testing.T) {
 			require.Nil(t, apiErr, "a delivered stream must not retry or write a second error")
 			assert.Equal(t, tc.prompt, usage.PromptTokens)
 			assert.Equal(t, tc.completion, usage.CompletionTokens)
+			assert.Equal(t, tc.terminal == "", common.GetContextKeyBool(c, constant.ContextKeyLocalCountTokens))
 			if tc.terminal != "" {
 				assert.Equal(t, 1, strings.Count(w.Body.String(), tc.terminal))
 			}
