@@ -106,6 +106,9 @@ func (a *ResponsesUsageAccumulator) Finish(c *gin.Context) *dto.Usage {
 		return a.usage
 	}
 	a.finished = true
+	if c != nil {
+		common.SetContextKey(c, constant.ContextKeyMissingStreamUsage, false)
+	}
 	// A final image item can already have reached the client before the stream
 	// disconnects, so completed tool usage is retained even without a terminal.
 	if !a.imageCommitted {
@@ -124,6 +127,7 @@ func (a *ResponsesUsageAccumulator) Finish(c *gin.Context) *dto.Usage {
 			// native usage untouched. HTTP SSE and WS pass their request context.
 			if c != nil {
 				common.SetContextKey(c, constant.ContextKeyLocalCountTokens, true)
+				common.SetContextKey(c, constant.ContextKeyMissingStreamUsage, true)
 			}
 		}
 	}

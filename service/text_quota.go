@@ -396,6 +396,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	if originUsage != nil {
 		ObserveChannelAffinityUsageCacheByRelayFormat(ctx, billingUsage, relayInfo.GetFinalRequestRelayFormat())
 	}
+	billingUsage, estimatedCacheTokens := estimatedCacheBillingUsage(ctx, relayInfo, billingUsage)
 
 	adminRejectReason := common.GetContextKeyString(ctx, constant.ContextKeyAdminRejectReason)
 	summary := calculateTextQuotaSummary(ctx, relayInfo, billingUsage)
@@ -468,6 +469,11 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 
 	var other *model.LogOther
+	cacheTokensForLog := summary.CacheTokens
+	if estimatedCacheTokens > 0 {
+		// Keep observed cache facts separate from the settlement-only estimate.
+		cacheTokensForLog = originUsage.PromptTokensDetails.CachedTokens
+	}
 	if summary.IsClaudeUsageSemantic {
 		other = GenerateClaudeOtherInfo(ctx, relayInfo,
 			summary.ModelRatio, summary.GroupRatio, summary.CompletionRatio,
@@ -478,7 +484,15 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 			summary.ModelPrice, relayInfo.PriceData.GroupRatioInfo.GroupSpecialRatio)
 		other.SetPublic("usage_semantic", "anthropic")
 	} else {
-		other = GenerateTextOtherInfo(ctx, relayInfo, summary.ModelRatio, summary.GroupRatio, summary.CompletionRatio, summary.CacheTokens, summary.CacheRatio, summary.ModelPrice, relayInfo.PriceData.GroupRatioInfo.GroupSpecialRatio)
+		other = GenerateTextOtherInfo(ctx, relayInfo, summary.ModelRatio, summary.GroupRatio, summary.CompletionRatio, cacheTokensForLog, summary.CacheRatio, summary.ModelPrice, relayInfo.PriceData.GroupRatioInfo.GroupSpecialRatio)
+	}
+	if estimatedCacheTokens > 0 {
+		other.SetPublic("usage_estimation", map[string]any{
+			"policy":        "missing_usage_cache_90_percent",
+			"input_tokens":  originUsage.PromptTokens,
+			"cached_tokens": estimatedCacheTokens,
+			"cache_ratio":   0.9,
+		})
 	}
 	appendUsageBillingPathForLog(other, common.GetContextKeyBool(ctx, constant.ContextKeyLocalCountTokens), originUsage)
 	if adminRejectReason != "" {
@@ -548,6 +562,6 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		if billingUsage.InputTokens > 0 {
 			relayInfo.PerformanceInputTokens = int64(billingUsage.InputTokens)
 		}
-		relayInfo.PerformanceCacheReadTokens = int64(billingUsage.PromptTokensDetails.CachedTokens)
+		relayInfo.PerformanceCacheReadTokens = int64(cacheTokensForLog)
 	}
 }

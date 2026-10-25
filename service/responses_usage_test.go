@@ -371,6 +371,7 @@ func TestResponsesUsageAccumulatorMissingUsageEstimation(t *testing.T) {
 			assert.Equal(t, tc.wantPrompt+tc.wantCompletion, usage.TotalTokens)
 			assert.Equal(t, tc.wantCache, usage.PromptTokensDetails.CachedTokens)
 			local := common.GetContextKeyBool(c, constant.ContextKeyLocalCountTokens)
+			assert.Equal(t, local, common.GetContextKeyBool(c, constant.ContextKeyMissingStreamUsage))
 			assert.Equal(t, tc.wantLocal, local)
 			other := GenerateTextOtherInfo(c, info, 1, 1, 1, tc.wantCache, 1, 0, 1)
 			appendUsageBillingPathForLog(other, local, usage)

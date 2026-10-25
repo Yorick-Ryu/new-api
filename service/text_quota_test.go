@@ -110,12 +110,20 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 		usage                                     *dto.Usage
 		audio, stream, refund, insufficient, tool bool
 		realtime, reserveInsufficient             bool
+		missingUsage                              bool
+		clientUA                                  string
 		wallet, outboundImages, retryReservation  int
 		groupRatio                                float64
 		want                                      int
 		unit                                      billingexpr.BillingUnit
 		requestedImages, actualImages             int
 	}{
+		{name: "RikkaHub missing usage keeps previous charge", expression: `tier("standard", p * 2 + cr * 0.1 + c * 10)`, estimate: 1000, usage: &dto.Usage{PromptTokens: 1000, CompletionTokens: 100, TotalTokens: 1100}, missingUsage: true, clientUA: "RikkaHub-Android/3.1.0", stream: true, want: 1500, unit: billingexpr.BillingUnitToken},
+		{name: "estimated input uses ninety percent cache", expression: `tier("standard", p * 2 + cr * 0.1 + c * 10)`, estimate: 1000, usage: &dto.Usage{PromptTokens: 1000, CompletionTokens: 100, TotalTokens: 1100}, missingUsage: true, stream: true, want: 645, unit: billingexpr.BillingUnitToken},
+		{name: "estimated input without output still charges", expression: `tier("standard", p * 2 + cr * 0.1)`, estimate: 1000, usage: &dto.Usage{PromptTokens: 1000, TotalTokens: 1000}, missingUsage: true, stream: true, want: 145, unit: billingexpr.BillingUnitToken},
+		{name: "estimated input preserves long context output rate", expression: `len <= 272000 ? tier("standard", p * 2 + cr * 0.1 + c * 10) : tier("long", p * 4 + cr * 0.2 + c * 15)`, estimate: 300000, usage: &dto.Usage{PromptTokens: 300000, CompletionTokens: 100, TotalTokens: 300100}, missingUsage: true, stream: true, want: 87750, unit: billingexpr.BillingUnitToken},
+		{name: "estimated input preserves group request and tool prices", expression: `tier("standard", p * 2 + cr * 0.1 + c * 10) * (param("fast") == true ? 2 : 1)`, estimate: 1000, usage: &dto.Usage{PromptTokens: 1000, CompletionTokens: 100, TotalTokens: 1100}, missingUsage: true, stream: true, groupRatio: 1.5, tool: true, want: 4935, unit: billingexpr.BillingUnitToken},
+		{name: "missing usage does not discount fixed price", expression: flat, estimate: 1000, usage: &dto.Usage{PromptTokens: 1000, TotalTokens: 1000}, missingUsage: true, stream: true, want: 5000, unit: billingexpr.BillingUnitRequest},
 		{name: "missing usage charges once", expression: flat, want: 5000, unit: billingexpr.BillingUnitRequest},
 		{name: "zero usage charges once", expression: flat, usage: &dto.Usage{}, want: 5000, unit: billingexpr.BillingUnitRequest},
 		{name: "stream charges once", expression: flat, stream: true, usage: &dto.Usage{PromptTokens: 100, CompletionTokens: 20, TotalTokens: 120}, want: 5000, unit: billingexpr.BillingUnitRequest},
@@ -177,10 +185,18 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 			require.NoError(t, err)
 			snapshot := &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ExprString: tc.expression, ExprHash: billingexpr.ExprHashString(tc.expression), QuotaPerUnit: common.QuotaPerUnit, GroupRatio: group, EstimatedTier: trace.MatchedTier, EstimatedBillingUnit: trace.BillingUnit, EstimatedFixedPrice: trace.FixedPrice, EstimatedQuotaAfterGroup: reservation}
 			snapshot.EstimatedImageCount = trace.ImageCount
-			info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id}, OriginModelName: "fixed-test", UsingGroup: "default", UserGroup: "default", UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}, ForcePreConsume: true, StartTime: time.Now(), IsStream: tc.stream, RelayFormat: types.RelayFormatOpenAI, PriceData: hosttypes.PriceData{GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: group}}, TieredBillingSnapshot: snapshot, BillingRequestInput: request}
+			info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id}, RelayMode: relayconstant.RelayModeChatCompletions, OriginModelName: "fixed-test", UsingGroup: "default", UserGroup: "default", UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}, ForcePreConsume: true, StartTime: time.Now(), IsStream: tc.stream, RelayFormat: types.RelayFormatOpenAI, PriceData: hosttypes.PriceData{GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: group}}, TieredBillingSnapshot: snapshot, BillingRequestInput: request}
 			info.SetEstimatePromptTokens(tc.estimate)
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+			ctx.Request.Header.Set("User-Agent", "Codex Desktop/0.164.0")
+			if tc.clientUA != "" {
+				ctx.Request.Header.Set("User-Agent", tc.clientUA)
+			}
+			if tc.missingUsage {
+				common.SetContextKey(ctx, constant.ContextKeyMissingStreamUsage, true)
+				common.SetContextKey(ctx, constant.ContextKeyLocalCountTokens, true)
+			}
 			if tc.expression == imageExpression {
 				ctx.Request.URL.Path = "/v1/images/generations"
 				info.RelayMode = relayconstant.RelayModeImagesGenerations
@@ -258,6 +274,17 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 					var other map[string]any
 					require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
 					assert.Equal(t, string(tc.unit), other["billing_unit"])
+					if tc.missingUsage && tc.clientUA == "" && tc.unit == billingexpr.BillingUnitToken {
+						estimation, ok := other["usage_estimation"].(map[string]any)
+						require.True(t, ok)
+						assert.Equal(t, "missing_usage_cache_90_percent", estimation["policy"])
+						assert.Equal(t, 0.9, estimation["cache_ratio"])
+						assert.Zero(t, tc.usage.PromptTokensDetails.CachedTokens, "original usage must remain untouched")
+						assert.Equal(t, float64(0), other["cache_tokens"], "estimated cache must not become a reported cache hit")
+					}
+					if tc.clientUA != "" {
+						assert.NotContains(t, other, "usage_estimation")
+					}
 					if tc.requestedImages > 0 {
 						count := tc.actualImages
 						if count == 0 {
@@ -730,6 +757,109 @@ func TestUsageBillingPathForLog(t *testing.T) {
 	require.Equal(t, usageBillingPathGeminiEstimated, usageBillingPathForLog(true, &dto.Usage{
 		BillingUsage: dto.NewEstimatedGeminiChatBillingUsage(&dto.Usage{PromptTokens: 1}),
 	}))
+}
+
+func TestMissingStreamCachePolicyKeepsProviderFacts(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		configure func(*gin.Context, *relaycommon.RelayInfo, *dto.Usage)
+		wantCache int
+	}{
+		{name: "missing chat usage", wantCache: 900},
+		{name: "Codex CLI UA", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.164.0")
+		}, wantCache: 900},
+		{name: "Codex TUI UA", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "codex-tui/0.164.0")
+		}, wantCache: 900},
+		{name: "Codex extension UA", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "codex_vscode/0.164.0")
+		}, wantCache: 900},
+		{name: "RikkaHub excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "RikkaHub-Android/3.1.0")
+		}},
+		{name: "missing UA excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) { c.Request.Header.Del("User-Agent") }},
+		{name: "substring match excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "Mozilla/5.0 Codex Desktop/0.164.0")
+		}},
+		{name: "unrecognized prefix excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "codex-imposter/1.0")
+		}},
+		{name: "missing responses usage", configure: func(_ *gin.Context, info *relaycommon.RelayInfo, _ *dto.Usage) {
+			info.RelayMode = relayconstant.RelayModeResponses
+			info.RelayFormat = types.RelayFormatOpenAIResponses
+		}, wantCache: 900},
+		{name: "non-stream", configure: func(_ *gin.Context, info *relaycommon.RelayInfo, _ *dto.Usage) { info.IsStream = false }},
+		{name: "local output estimate with known input", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			common.SetContextKey(c, constant.ContextKeyMissingStreamUsage, false)
+		}},
+		{name: "reported cache zero", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) {
+			u.BillingUsage = dto.NewOpenAIChatBillingUsage(u)
+		}},
+		{name: "reported all zero", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { *u = dto.Usage{} }},
+		{name: "existing real cache", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { u.PromptTokensDetails.CachedTokens = 800 }},
+		{name: "provider semantic", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { u.UsageSemantic = "anthropic" }},
+		{name: "audio usage", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { u.PromptTokensDetails.AudioTokens = 500 }},
+		{name: "image generation", configure: func(_ *gin.Context, info *relaycommon.RelayInfo, _ *dto.Usage) {
+			info.RelayMode = relayconstant.RelayModeImagesGenerations
+		}},
+		{name: "per-request price", configure: func(_ *gin.Context, info *relaycommon.RelayInfo, _ *dto.Usage) { info.PriceData.UsePrice = true }},
+		{name: "round down fractional cache", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { u.PromptTokens = 19 }, wantCache: 17},
+		{name: "bounded integer arithmetic", configure: func(_ *gin.Context, _ *relaycommon.RelayInfo, u *dto.Usage) { u.PromptTokens = math.MaxInt }, wantCache: math.MaxInt/10*9 + math.MaxInt%10*9/10},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			c.Request.Header.Set("User-Agent", "Codex Desktop/0.164.0")
+			info := &relaycommon.RelayInfo{IsStream: true, RelayMode: relayconstant.RelayModeChatCompletions, RelayFormat: types.RelayFormatOpenAI}
+			usage := EstimateMissingStreamUsage(c, "", "gpt-6.1-sol", 1000)
+			if tc.configure != nil {
+				tc.configure(c, info, usage)
+			}
+			original := *usage
+			billed, estimated := estimatedCacheBillingUsage(c, info, usage)
+			assert.Equal(t, tc.wantCache, estimated)
+			assert.Equal(t, original, *usage, "provider/observed facts must not be changed")
+			if estimated > 0 {
+				assert.NotSame(t, usage, billed)
+				assert.Equal(t, usage.PromptTokens, billed.PromptTokens)
+				assert.Equal(t, estimated, billed.PromptTokensDetails.CachedTokens)
+			} else {
+				assert.Same(t, usage, billed)
+			}
+		})
+	}
+}
+
+func TestMissingStreamCacheSettlementReleasesSubscriptionReservation(t *testing.T) {
+	c, info, _, sub := subscriptionMultiplierFixture(t, `{"gpt-6-astra":2}`, 1000)
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	c.Request.Header.Set("User-Agent", "Codex Desktop/0.164.0")
+	info.IsStream = true
+	info.RelayMode = relayconstant.RelayModeResponses
+	info.RelayFormat = types.RelayFormatOpenAIResponses
+	info.StartTime = time.Now()
+	info.ChannelMeta = &relaycommon.ChannelMeta{}
+	info.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode: "tiered_expr", ExprString: `tier("base", p * 2 + cr * 0.1 + c * 10)`,
+		QuotaPerUnit: common.QuotaPerUnit, GroupRatio: 2,
+		EstimatedPromptTokens: 100, EstimatedQuotaBeforeGroup: 100, EstimatedQuotaAfterGroup: 200,
+	}
+	info.TieredBillingSnapshot.ExprHash = billingexpr.ExprHashString(info.TieredBillingSnapshot.ExprString)
+	info.SetEstimatePromptTokens(100)
+	session, apiErr := NewBillingSession(c, info, 100)
+	require.Nil(t, apiErr)
+	info.Billing = session
+	assertSubscriptionConsumption(t, sub.Id, 200)
+	usage := EstimateMissingStreamUsage(c, "", "gpt-6-astra", 100)
+	PostTextConsumeQuota(c, info, usage, nil)
+	require.NoError(t, session.Settle(29))
+	session.Refund(c)
+	assertSubscriptionConsumption(t, sub.Id, 29)
+	assert.Equal(t, 1000, getUserQuota(t, 1), "the refund must remain in the original subscription")
+	var token model.Token
+	require.NoError(t, model.DB.First(&token, 1).Error)
+	assert.Equal(t, 971, token.RemainQuota)
 }
 
 func TestAppendUsageBillingPathForLogWritesAdminInfo(t *testing.T) {
@@ -1594,4 +1724,35 @@ func TestPostTextConsumeQuotaLogsMissingUsageAsStructuredContent(t *testing.T) {
 	assert.Equal(t, []any{
 		map[string]any{"key": "Upstream returned no usage, so nothing was charged (possibly an upstream timeout)"},
 	}, other["content_parts"])
+}
+
+// Measures the added policy work once at settlement, not per stream chunk.
+func BenchmarkEstimatedCacheBillingUsage(b *testing.B) {
+	for _, tc := range []struct {
+		name, ua string
+		missing  bool
+	}{
+		{"reported_usage", "Codex Desktop/0.164.0", false},
+		{"missing_codex_usage", "Codex Desktop/0.164.0", true},
+		{"missing_other_client_usage", "RikkaHub-Android/3.1.0", true},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			gin.SetMode(gin.ReleaseMode)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			c.Request.Header.Set("User-Agent", tc.ua)
+			common.SetContextKey(c, constant.ContextKeyMissingStreamUsage, tc.missing)
+			info := &relaycommon.RelayInfo{IsStream: true, RelayMode: relayconstant.RelayModeResponses, RelayFormat: types.RelayFormatOpenAIResponses}
+			usage := &dto.Usage{PromptTokens: 300000, CompletionTokens: 100, TotalTokens: 300100}
+			var result *dto.Usage
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				result, _ = estimatedCacheBillingUsage(c, info, usage)
+			}
+			if result == nil {
+				b.Fatal("missing billing usage")
+			}
+		})
+	}
 }

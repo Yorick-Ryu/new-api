@@ -60,6 +60,9 @@ const (
 	ContextKeyUserName    ContextKey = "username"
 
 	ContextKeyLocalCountTokens ContextKey = "local_count_tokens"
+	// Set only when a text stream had no provider usage, not for a partially
+	// reported usage completed from local estimates.
+	ContextKeyMissingStreamUsage ContextKey = "missing_stream_usage"
 
 	ContextKeySystemPromptOverride ContextKey = "system_prompt_override"
 

@@ -29,6 +29,13 @@ func ResponseText2Usage(c *gin.Context, responseText string, modeName string, pr
 	return usage
 }
 
+// EstimateMissingStreamUsage distinguishes wholly missing provider usage from
+// filling one missing field in an otherwise reported usage snapshot.
+func EstimateMissingStreamUsage(c *gin.Context, responseText string, modelName string, promptTokens int) *dto.Usage {
+	common.SetContextKey(c, constant.ContextKeyMissingStreamUsage, true)
+	return ResponseText2Usage(c, responseText, modelName, promptTokens)
+}
+
 func ValidUsage(usage *dto.Usage) bool {
 	return usage != nil && (usage.PromptTokens != 0 || usage.CompletionTokens != 0)
 }
