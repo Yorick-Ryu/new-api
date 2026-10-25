@@ -775,6 +775,18 @@ func TestMissingStreamCachePolicyKeepsProviderFacts(t *testing.T) {
 		{name: "Codex extension UA", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
 			c.Request.Header.Set("User-Agent", "codex_vscode/0.164.0")
 		}, wantCache: 900},
+		{name: "recorded Windows Desktop UA", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "Codex Desktop/0.164.0-alpha.11.1 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.1021.31345)")
+		}, wantCache: 900},
+		{name: "new version and case accepted", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "CODEX_CLI_RS/99.1.0 (Linux; x86_64)")
+		}, wantCache: 900},
+		{name: "unverified generic Codex label excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "Codex/0.164.0")
+		}},
+		{name: "unverified CLI alias excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
+			c.Request.Header.Set("User-Agent", "codex-cli/0.164.0")
+		}},
 		{name: "RikkaHub excluded", configure: func(c *gin.Context, _ *relaycommon.RelayInfo, _ *dto.Usage) {
 			c.Request.Header.Set("User-Agent", "RikkaHub-Android/3.1.0")
 		}},

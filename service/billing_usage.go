@@ -26,7 +26,7 @@ func estimatedCacheBillingUsage(c *gin.Context, info *relaycommon.RelayInfo, usa
 	// is a discount eligibility signal, not authenticated client identity.
 	product, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(c.Request.UserAgent())), "/")
 	switch product {
-	case "codex", "codex desktop", "codex-tui", "codex_cli_rs", "codex-cli", "codex_vscode":
+	case "codex desktop", "codex-tui", "codex_cli_rs", "codex_vscode":
 	default:
 		return usage, 0
 	}
