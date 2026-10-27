@@ -53,8 +53,7 @@ func prepareCompressedGatewayRequest(req *http.Request) (io.Closer, error) {
 	mediaType, _, _ := mime.ParseMediaType(req.Header.Get("Content-Type"))
 	if req.Body == nil || req.Body == http.NoBody || req.Method != http.MethodPost ||
 		(mediaType != "application/json" && !strings.HasSuffix(mediaType, "+json")) ||
-		(req.Header.Get("Content-Encoding") != "" && !strings.EqualFold(req.Header.Get("Content-Encoding"), "identity")) ||
-		(req.ContentLength > 0 && req.ContentLength < 1024) {
+		(req.Header.Get("Content-Encoding") != "" && !strings.EqualFold(req.Header.Get("Content-Encoding"), "identity")) {
 		return nil, nil
 	}
 

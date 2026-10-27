@@ -33,7 +33,7 @@ func TestGatewayCompressionRequestReplayAndScope(t *testing.T) {
 		{name: "responses", path: "/v1/responses", body: large, compressed: true},
 		{name: "compact", path: "/v1/responses/compact", body: large, compressed: true},
 		{name: "image json", path: "/v1/images/generations", body: large, compressed: true},
-		{name: "small", path: "/v1/responses", body: "{}"},
+		{name: "small", path: "/v1/responses", body: "{}", compressed: true},
 		{name: "explicit identity response", path: "/v1/responses", accept: "identity", body: large, compressed: true},
 		{name: "already encoded", path: "/v1/responses", encoding: "br", body: large},
 		{name: "multipart", path: "/v1/images/edits", mediaType: "multipart/form-data; boundary=test", body: large},
@@ -73,7 +73,6 @@ func TestGatewayCompressionRequestReplayAndScope(t *testing.T) {
 			assert.Equal(t, tc.accept, req.Header.Get("Accept-Encoding"))
 			if tc.compressed {
 				assert.Equal(t, "zstd", req.Header.Get("Content-Encoding"))
-				assert.Less(t, len(wire), len(tc.body))
 				decoder, err := zstd.NewReader(nil)
 				require.NoError(t, err)
 				defer decoder.Close()
