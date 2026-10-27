@@ -12,6 +12,11 @@ import (
 )
 
 type ChannelSettings struct {
+	// WebsocketCompression negotiates permessage-deflate on this channel's upstream socket.
+	WebsocketCompression bool `json:"websocket_compression,omitempty"`
+	// HTTPCompression enables zstd JSON uploads and gzip response negotiation for compatible gateways.
+	// Leave disabled for providers that do not support compressed request bodies.
+	HTTPCompression           bool   `json:"http_compression,omitempty"`
 	TaskPluginKey             string `json:"task_plugin_key,omitempty"`
 	ForceFormat               bool   `json:"force_format,omitempty"`
 	ThinkingToContent         bool   `json:"thinking_to_content,omitempty"`

@@ -407,6 +407,7 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	}
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
 	dialer := *websocket.DefaultDialer
+	dialer.EnableCompression = info.ChannelSetting.WebsocketCompression
 	if info.ChannelSetting.Proxy != "" {
 		proxyURL, _, proxyErr := common2.ParseProxyURLRuntime(info.ChannelSetting.Proxy)
 		if proxyErr != nil {
@@ -431,6 +432,9 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 			}
 		}
 		return nil, types.NewErrorWithStatusCode(fmt.Errorf("dial failed to %s: %w", common.SanitizeURLForLog(fullRequestURL), err), types.ErrorCodeDoRequestFailed, statusCode)
+	}
+	if info.ChannelSetting.WebsocketCompression {
+		_ = targetConn.SetCompressionLevel(6)
 	}
 	return targetConn, nil
 }
@@ -489,6 +493,15 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		}
 	}
 
+	if info.ChannelSetting.HTTPCompression {
+		cleanup, errCompression := prepareCompressedGatewayRequest(req)
+		if errCompression != nil {
+			return nil, fmt.Errorf("compress gateway request: %w", errCompression)
+		}
+		if cleanup != nil {
+			defer func() { _ = cleanup.Close() }()
+		}
+	}
 	common2.SetContextKey(c, appconstant.ContextKeyUpstreamRequestOrigin, req.URL.Scheme+"://"+req.URL.Host)
 	resp, err := relayClient.Do(req)
 	if err != nil {
@@ -497,6 +510,14 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	}
 	if resp == nil {
 		return nil, errors.New("resp is nil")
+	}
+	if info.ChannelSetting.HTTPCompression && req.Method != http.MethodHead && resp.Body != nil &&
+		strings.EqualFold(strings.TrimSpace(resp.Header.Get("Content-Encoding")), "gzip") {
+		resp.Body = &gatewayGzipBody{source: resp.Body}
+		resp.Header.Del("Content-Encoding")
+		resp.Header.Del("Content-Length")
+		resp.ContentLength = -1
+		resp.Uncompressed = true
 	}
 	if common2.DebugEnabled {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)

@@ -953,6 +953,8 @@ func (s *responsesWSSession) writeTarget(kind int, message []byte) error {
 	if err := target.SetWriteDeadline(time.Now().Add(responsesWSWriteTimeout)); err != nil {
 		return err
 	}
+	// Compression is effective only after this channel negotiated the extension.
+	target.EnableWriteCompression(len(message) >= responsesWSCompressionMinBytes)
 	return target.WriteMessage(kind, message)
 }
 
