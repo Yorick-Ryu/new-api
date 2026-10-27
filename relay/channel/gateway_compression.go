@@ -3,9 +3,11 @@ package channel
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -18,8 +20,27 @@ var gatewayRequestEncoders sync.Pool
 // prepareCompressedGatewayRequest runs after body conversion and header overrides.
 // It changes only transport encoding; retries replay the same compressed bytes.
 func prepareCompressedGatewayRequest(req *http.Request) (io.Closer, error) {
-	if req.Header.Get("Accept-Encoding") == "" {
+	acceptEncoding := strings.Join(req.Header.Values("Accept-Encoding"), ",")
+	if strings.TrimSpace(acceptEncoding) == "" {
 		req.Header.Set("Accept-Encoding", "gzip")
+	} else {
+		// Header overrides must not advertise a response decoder we do not have.
+		// Validate every field value, including overrides on uncompressed uploads.
+		for token := range strings.SplitSeq(acceptEncoding, ",") {
+			if strings.TrimSpace(token) == "" {
+				continue
+			}
+			encoding, params, err := mime.ParseMediaType(token)
+			if err != nil || (encoding != "gzip" && encoding != "identity") {
+				return nil, errors.New("HTTP compression Accept-Encoding must contain only gzip or identity; remove unsupported encodings and wildcards from channel header overrides")
+			}
+			for name, value := range params {
+				quality, errQuality := strconv.ParseFloat(value, 64)
+				if name != "q" || errQuality != nil || !(quality >= 0 && quality <= 1) {
+					return nil, errors.New("HTTP compression Accept-Encoding requires a valid q value between 0 and 1")
+				}
+			}
+		}
 	}
 	// CPA decodes these JSON routes before parsing. Multipart uploads and other
 	// routes keep their existing request body representation.

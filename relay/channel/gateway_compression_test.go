@@ -148,6 +148,68 @@ func TestGatewayCompressionHTTPRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGatewayCompressionResponseEncodingOverrides(t *testing.T) {
+	service.InitHttpClient()
+	for _, tc := range []struct {
+		name     string
+		headers  []string
+		want     string
+		disabled bool
+		invalid  bool
+	}{
+		{name: "default", want: "gzip"},
+		{name: "identity", headers: []string{"identity"}, want: "identity"},
+		{name: "weighted supported encodings", headers: []string{"gzip;q=0.5, identity;q=1"}, want: "gzip;q=0.5, identity;q=1"},
+		{name: "multiple supported fields", headers: []string{"gzip", "identity;q=0"}, want: "gzip,identity;q=0"},
+		{name: "case insensitive", headers: []string{"GZIP"}, want: "GZIP"},
+		{name: "gzip excluded", headers: []string{"gzip;q=0, identity"}, want: "gzip;q=0, identity"},
+		{name: "zstd", headers: []string{"zstd"}, invalid: true},
+		{name: "mixed unsupported", headers: []string{"gzip, br"}, invalid: true},
+		{name: "wildcard", headers: []string{"*"}, invalid: true},
+		{name: "unsupported second field", headers: []string{"gzip", "zstd"}, invalid: true},
+		{name: "invalid quality", headers: []string{"gzip;q=NaN"}, invalid: true},
+		{name: "quality out of range", headers: []string{"gzip;q=2"}, invalid: true},
+		{name: "malformed parameter", headers: []string{"gzip;q"}, invalid: true},
+		{name: "disabled preserves override", headers: []string{"zstd"}, want: "zstd", disabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			observed := make(chan string, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				observed <- strings.Join(r.Header.Values("Accept-Encoding"), ",")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, `{}`)
+			}))
+			defer server.Close()
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			// Response negotiation also applies to routes without request compression.
+			req, err := http.NewRequest(http.MethodGet, server.URL+"/v1/models", http.NoBody)
+			require.NoError(t, err)
+			for _, value := range tc.headers {
+				req.Header.Add("Accept-Encoding", value)
+			}
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelSetting: dto.ChannelSettings{HTTPCompression: !tc.disabled}}}
+			response, err := doRequest(c, req, info)
+			if tc.invalid {
+				require.ErrorContains(t, err, "Accept-Encoding")
+				require.Nil(t, response)
+				select {
+				case <-observed:
+					t.Fatal("unsupported response encoding reached upstream")
+				default:
+				}
+				return
+			}
+			require.NoError(t, err)
+			defer response.Body.Close()
+			assert.Equal(t, tc.want, <-observed)
+			body, err := io.ReadAll(response.Body)
+			require.NoError(t, err)
+			assert.Equal(t, `{}`, string(body))
+		})
+	}
+}
+
 func TestGatewayCompressionSSEFlushAndCancellation(t *testing.T) {
 	service.InitHttpClient()
 	release := make(chan struct{})
