@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
@@ -25,6 +26,9 @@ import (
 )
 
 func TestGatewayCompressionRequestReplayAndScope(t *testing.T) {
+	config := common.GetDiskCacheConfig()
+	t.Cleanup(func() { common.SetDiskCacheConfig(config) })
+	common.SetDiskCacheConfig(common.DiskCacheConfig{Enabled: true, ThresholdMB: 0, MaxSizeMB: 16, Path: t.TempDir()})
 	large := `{"input":"` + strings.Repeat("gateway compression ", 256) + `"}`
 	for _, tc := range []struct {
 		name, path, mediaType, encoding, accept, body string
@@ -72,6 +76,7 @@ func TestGatewayCompressionRequestReplayAndScope(t *testing.T) {
 			}
 			assert.Equal(t, tc.accept, req.Header.Get("Accept-Encoding"))
 			if tc.compressed {
+				assert.True(t, ownerCompression.(common.BodyStorage).IsDisk())
 				assert.Equal(t, "zstd", req.Header.Get("Content-Encoding"))
 				decoder, err := zstd.NewReader(nil)
 				require.NoError(t, err)

@@ -1,7 +1,6 @@
 package channel
 
 import (
-	"bytes"
 	"compress/gzip"
 	"errors"
 	"io"
@@ -69,7 +68,8 @@ func prepareCompressedGatewayRequest(req *http.Request) (io.Closer, error) {
 		encoder.Reset(io.Discard)
 		gatewayRequestEncoders.Put(encoder)
 	}()
-	var compressed bytes.Buffer
+	var compressed common.BodyStorageWriter
+	defer compressed.Close()
 	encoder.Reset(&compressed)
 	_, errCopy := io.Copy(encoder, req.Body)
 	errClose := req.Body.Close()
@@ -83,7 +83,7 @@ func prepareCompressedGatewayRequest(req *http.Request) (io.Closer, error) {
 	if errEncoder != nil {
 		return nil, errEncoder
 	}
-	storage, err := common.CreateBodyStorage(compressed.Bytes())
+	storage, err := compressed.Finish()
 	if err != nil {
 		return nil, err
 	}

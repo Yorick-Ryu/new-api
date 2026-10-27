@@ -29,6 +29,92 @@ type BodyStorage interface {
 	NewReader() (io.ReadCloser, error)
 }
 
+// BodyStorageWriter collects an encoded body and spills to disk as it grows.
+// Finish transfers ownership to replayable storage; Close discards unfinished
+// output. Like bytes.Buffer, the writer is used by one goroutine at a time.
+type BodyStorageWriter struct {
+	buffer      bytes.Buffer
+	file        *os.File
+	path        string
+	size        int64
+	err         error
+	closed      bool
+	spillFailed bool
+}
+
+func (w *BodyStorageWriter) Write(p []byte) (int, error) {
+	if w.closed {
+		return 0, ErrStorageClosed
+	}
+	if w.err != nil {
+		return 0, w.err
+	}
+	if w.file == nil && !w.spillFailed && len(p) > 0 && ShouldUseDiskCache(w.size+int64(len(p))) {
+		path, file, err := CreateDiskCacheFile(DiskCacheTypeBody)
+		if err == nil {
+			w.file, w.path = file, path
+			if _, err = w.buffer.WriteTo(file); err != nil {
+				w.err = err
+				return 0, err
+			}
+			w.buffer = bytes.Buffer{}
+		} else {
+			// No bytes have been consumed: retain the existing memory fallback.
+			w.spillFailed = true
+			SysError(LogText("failed to create disk storage, falling back to memory: %v", err))
+		}
+	}
+	var n int
+	if w.file != nil {
+		n, w.err = w.file.Write(p)
+	} else {
+		n, w.err = w.buffer.Write(p)
+	}
+	w.size += int64(n)
+	return n, w.err
+}
+
+// Finish seals the body without copying it back into memory. Independent
+// readers remain valid until their owner closes the returned storage.
+func (w *BodyStorageWriter) Finish() (BodyStorage, error) {
+	if w.closed {
+		return nil, ErrStorageClosed
+	}
+	if w.err != nil {
+		return nil, w.err
+	}
+	if w.file != nil {
+		if _, err := w.file.Seek(0, io.SeekStart); err != nil {
+			w.err = err
+			return nil, err
+		}
+		storage := &diskStorage{file: w.file, filePath: w.path, size: w.size}
+		IncrementDiskFiles(w.size)
+		w.file, w.path, w.closed = nil, "", true
+		return storage, nil
+	}
+	storage := newMemoryStorage(w.buffer.Bytes())
+	w.buffer, w.closed = bytes.Buffer{}, true
+	return storage, nil
+}
+
+func (w *BodyStorageWriter) Close() error {
+	if w.closed {
+		return nil
+	}
+	w.closed = true
+	w.buffer = bytes.Buffer{}
+	if w.file != nil {
+		err := w.file.Close()
+		removeErr := os.Remove(w.path)
+		if err != nil {
+			return err
+		}
+		return removeErr
+	}
+	return nil
+}
+
 // ReplayableBody is an outbound request body that can report its byte size and
 // create independent readers for transport-level retries.
 type ReplayableBody interface {
