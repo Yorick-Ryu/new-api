@@ -687,6 +687,8 @@ func TestChannelSettingsHTTPTransportJSONRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(encoded), "http_protocol")
 	assert.NotContains(t, string(encoded), "http2_connection_shards")
+	assert.NotContains(t, string(encoded), "http_compression")
+	assert.NotContains(t, string(encoded), "websocket_compression")
 	assert.NotContains(t, string(encoded), "tls_insecure_skip_verify")
 
 	explicit := ChannelSettings{
@@ -694,6 +696,8 @@ func TestChannelSettingsHTTPTransportJSONRoundTrip(t *testing.T) {
 		HTTPProtocol:          HTTPProtocolHTTP1,
 		HTTP2ConnectionShards: 1,
 		TLSInsecureSkipVerify: true,
+		HTTPCompression:       true,
+		WebsocketCompression:  true,
 	}
 	encoded, err = json.Marshal(explicit)
 	require.NoError(t, err)
@@ -705,6 +709,8 @@ func TestChannelSettingsHTTPTransportJSONRoundTrip(t *testing.T) {
 	assert.Equal(t, explicit.HTTPProtocol, decoded.HTTPProtocol)
 	assert.Equal(t, 1, decoded.HTTP2ConnectionShards)
 	assert.True(t, decoded.TLSInsecureSkipVerify)
+	assert.True(t, decoded.HTTPCompression)
+	assert.True(t, decoded.WebsocketCompression)
 
 	sharded := ChannelSettings{HTTP2ConnectionShards: 4}
 	encoded, err = json.Marshal(sharded)
