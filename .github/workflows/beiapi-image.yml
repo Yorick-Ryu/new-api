@@ -2,10 +2,9 @@ name: Publish BeiAPI image
 
 on:
   push:
-    branches:
-      - beiapi-production
-      - feature/responses-websocket-relay
-  workflow_dispatch:
+    tags:
+      - 'v*-beiapi.*'
+      - 'v*.beiapi.*'
 
 concurrency:
   group: beiapi-image-${{ github.ref }}
@@ -22,6 +21,18 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check version calculation
+        run: python3 .github/scripts/test_beiapi_version.py
+
+      - name: Fetch recorded upstream release
+        run: |
+          UPSTREAM_VERSION=$(sed -n 's/^upstream_version=//p' .github/beiapi-version-base)
+          [[ "$UPSTREAM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]
+          git fetch --no-tags https://github.com/QuantumNous/new-api.git "refs/tags/${UPSTREAM_VERSION}:refs/tags/${UPSTREAM_VERSION}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -34,15 +45,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Write build version
-        run: echo "beiapi-${GITHUB_SHA::12}" > VERSION
-
-      # Non-production branches get a slugified branch tag so a feature build
-      # can never overwrite the :beiapi-production tag that production pulls.
-      - name: Resolve image tag
-        id: tag
         run: |
-          BRANCH_TAG=$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
-          echo "branch_tag=${BRANCH_TAG:0:100}" >> "$GITHUB_OUTPUT"
+          VERSION=$(bash .github/scripts/beiapi-version.sh)
+          test "$GITHUB_REF_NAME" = "$VERSION"
+          git merge-base --is-ancestor HEAD origin/beiapi-production
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          printf '%s\n' "$VERSION" > VERSION
 
       - name: Build and push
         id: build
@@ -53,11 +61,13 @@ jobs:
           push: true
           pull: true
           tags: |
-            ghcr.io/yorick-ryu/new-api:${{ steps.tag.outputs.branch_tag }}
+            ghcr.io/yorick-ryu/new-api:beiapi-production
             ghcr.io/yorick-ryu/new-api:sha-${{ github.sha }}
+            ghcr.io/yorick-ryu/new-api:${{ env.VERSION }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
@@ -67,6 +77,7 @@ jobs:
         run: |
           echo '### BeiAPI NewAPI image' >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          echo '${{ env.VERSION }}' >> "$GITHUB_STEP_SUMMARY"
           echo 'ghcr.io/yorick-ryu/new-api:sha-${{ github.sha }}' >> "$GITHUB_STEP_SUMMARY"
           echo '${{ steps.build.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

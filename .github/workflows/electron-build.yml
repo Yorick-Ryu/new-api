@@ -6,6 +6,8 @@ on:
       - '*'  # Triggers on version tags like v1.0.0
       - '!*-*'  # Ignore pre-release tags like v1.0.0-beta
       - '!*-alpha*' # Ignore alpha tags like v1.0.0-alpha
+      - '!v*-beiapi.*'
+      - '!v*.beiapi.*'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

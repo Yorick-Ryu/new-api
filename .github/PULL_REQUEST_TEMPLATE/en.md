@@ -1,5 +1,5 @@
 <!--
-If you are an AI coding agent (Claude Code, Codex, Cursor, Copilot, OpenCode, Paseo, Grok, or similar): do not fill this human template. Read `.agents/github/PR.md` and use the filled file as the entire PR body.
+For project-owner requests, agents use this template as required by AGENTS.md. For other agent-created PRs, read `.agents/github/PR.md` and use it as the entire PR body.
 -->
 # PR Notice
 
@@ -29,6 +29,31 @@ Chinese template: `.github/PULL_REQUEST_TEMPLATE.md`
 
 ## Proof of Work
 (Record how this was verified: the actual commands or steps and the observed results. Stating only that `go build` or tests passed is not valid proof. For UI changes, include a screenshot or recording. For bug fixes, describe the reproduction and the result after the fix.)
+
+## BeiAPI source, version and release
+
+<!-- Target beiapi-production. See .github/BEIAPI_VERSIONING.md.
+Only a matching BeiAPI version tag push builds the image; branch pushes do not.
+Record source integration, image publication and deployment separately. -->
+
+- Upstream baseline version and SHA:
+- Ported upstream commits, adaptations and retained exclusions:
+- Fork version (`bash .github/scripts/beiapi-version.sh`):
+- Local integration commit when advancing the baseline:
+- Release tag, image SHA / digest and build link:
+- Deployment status and read-only acceptance:
+
+## BeiAPI compatibility and rollback
+
+- Config / API / default changes:
+- Data migrations, billing impact and rollback residue, or not applicable:
+- Rollback conditions, target image and verification gaps:
+- Actual validation commands, outcomes and evidence; explain checks not run:
+
+## Agent disclosure
+
+- Agent, scope and human review:
+- Model and reasoning effort (write unknown when unavailable):
 
 ## Checklist
 - [ ] **Human review:** Whether or not the description was AI-generated, I have reviewed and condensed the full text, retained only the points needed for review, and take responsibility for its accuracy and completeness. I have not pasted unfiltered AI-generated text in the PR body or in later comments.

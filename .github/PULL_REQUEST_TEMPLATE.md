@@ -1,5 +1,5 @@
 <!--
-If you are an AI coding agent (Claude Code, Codex, Cursor, Copilot, OpenCode, Paseo, Grok, or similar): do not fill this human template. Read `.agents/github/PR.md` and use the filled file as the entire PR body.
+For project-owner requests, agents use this template as required by AGENTS.md. For other agent-created PRs, read `.agents/github/PR.md` and use it as the entire PR body.
 -->
 # ⚠️ 提交说明 / PR Notice
 
@@ -29,6 +29,31 @@ English template: `.github/PULL_REQUEST_TEMPLATE/en.md`
 
 ## 📸 运行证明 / Proof of Work
 (请写明如何验证：实际命令或步骤，以及观察结果。仅声明 `go build` 通过或测试通过，不视为有效证明。UI 变更请附截图或录屏；Bug 修复请说明复现过程与修复后结果。)
+
+## BeiAPI 来源、版本与发布
+
+<!-- BeiAPI fork 的目标分支是 beiapi-production。版本规则见 .github/BEIAPI_VERSIONING.md。
+仅推送匹配计算结果的 BeiAPI 版本标签才构建镜像；普通代码 push 不构建。
+合并、镜像构建、生产部署分别记录。不得粘贴凭据或真实用户内容。 -->
+
+- 上游基线版本与 SHA：
+- 本次移植的上游提交、适配差异与保留的排除项：
+- 本地版本（运行 `bash .github/scripts/beiapi-version.sh`）：
+- 更新基线时的本地同步完成提交：
+- 发布版本标签、镜像 SHA / digest 与构建链接：
+- 部署状态与只读验收：
+
+## BeiAPI 兼容与回滚
+
+- 配置 / API / 默认值变化：
+- 数据迁移、计费影响与回退残留；无则写不适用：
+- 回滚条件、目标镜像与未验证事项：
+- 已执行检查的命令、结果及证据；未执行的写明原因：
+
+## Agent 使用声明
+
+- Agent 名称、参与范围与人工复核：
+- 模型与推理强度（无法获取时写未知，不得猜测）：
 
 ## ✅ 提交前检查项 / Checklist
 - [ ] **人工确认:** 无论描述是否由 AI 生成，我已审阅并精炼全文，仅保留可复核的要点，并声明对其准确性与完整性负责。PR 正文及后续评论均未直接粘贴未经人工过滤的大段 AI 文本。

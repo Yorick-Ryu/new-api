@@ -5,6 +5,8 @@ on:
     tags:
       - '*'
       - '!nightly*'
+      - '!v*-beiapi.*'
+      - '!v*.beiapi.*'
   workflow_dispatch:
     inputs:
       tag:

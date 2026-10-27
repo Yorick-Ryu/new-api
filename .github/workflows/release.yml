@@ -12,6 +12,8 @@ on:
     tags:
       - '*'
       - '!*-alpha*'
+      - '!v*-beiapi.*'
+      - '!v*.beiapi.*'
 
 jobs:
   linux:
