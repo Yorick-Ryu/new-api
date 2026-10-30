@@ -59,7 +59,7 @@ func prepareCompressedGatewayRequest(req *http.Request) (io.Closer, error) {
 	encoder, _ := gatewayRequestEncoders.Get().(*zstd.Encoder)
 	if encoder == nil {
 		var err error
-		encoder, err = zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+		encoder, err = zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(3)))
 		if err != nil {
 			return nil, err
 		}
