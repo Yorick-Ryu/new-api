@@ -125,12 +125,12 @@ async function renderConfiguration(enabled = false, openSettings = true) {
 test('top-level tabs separate settings from each record list and retain unsaved settings when returning', async () => {
   const { user, put } = await renderConfiguration(false, false)
   expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+    'Campaign settings',
     'Invitations',
     'Commission ledger',
     'Withdrawals',
     'Refunds',
     'Audit trail',
-    'Campaign settings',
   ])
   expect(screen.getByRole('tab', { name: 'Invitations' })).toHaveAttribute(
     'aria-selected',
