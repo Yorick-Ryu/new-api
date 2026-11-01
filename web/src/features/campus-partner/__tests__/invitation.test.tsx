@@ -186,6 +186,17 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       'View campus partner finances',
       'Campaign configuration updated',
       'First verified settlement',
+      'Enable campaign',
+      'Disable campaign',
+      'Enable campaign?',
+      'Disable campaign?',
+      'Campaign status changes take effect after confirmation.',
+      'Enabling shows the campaign to users and starts new participation and commission accrual.',
+      'Disabling hides the campaign and stops new participation and commission accrual. Existing balances, withdrawals and issued coupons are preserved.',
+      'Save plan settings',
+      'Plan settings saved',
+      'Campaign enabled',
+      'Campaign disabled',
     ]) {
       expect(instance.exists(key), key).toBe(true)
       expect(instance.t(key), key).not.toBe(key)

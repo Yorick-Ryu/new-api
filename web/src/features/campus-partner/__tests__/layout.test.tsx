@@ -101,6 +101,9 @@ test('administration panels use the shared page gutters and natural panel height
   const settings = (await screen.findByText('Campaign settings')).closest(
     '[data-slot="card"]'
   )
+  expect(
+    screen.queryByText('Reconcile a payment order')
+  ).not.toBeInTheDocument()
   const grid = settings?.parentElement
   const content = grid?.parentElement
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')

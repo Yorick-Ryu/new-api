@@ -24,6 +24,7 @@ export const STATIC_I18N_KEYS = [
   'Refund reference',
   'Processed by',
   'Campaign settings saved',
+  'Save plan settings',
   'Reconciliation recorded',
   'eligible',
   'outside_main_site',

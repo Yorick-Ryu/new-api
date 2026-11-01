@@ -34,9 +34,8 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { SettingsSwitchField } from '@/features/system-settings/components/settings-form-layout'
 import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -75,12 +74,11 @@ export function CampusAdmin() {
         <div className='flex w-full min-w-0 flex-col gap-4'>
           <div className='grid items-start gap-4 lg:grid-cols-2'>
             <CampusConfiguration
-              key={JSON.stringify(config.data)}
+              key={`${config.data.plus_plan_id}:${config.data.ultra_plan_id}`}
               config={config.data}
             />
             <CampusRefundForm />
           </div>
-          <CampusReconcileForm />
           <Tabs defaultValue='withdrawals'>
             <TabsList className='flex h-auto flex-wrap'>
               {[
@@ -136,13 +134,9 @@ export function CampusAdmin() {
 }
 function CampusConfiguration(props: { config: Config }) {
   const { t } = useTranslation()
-  const [enabled, setEnabled] = useState(props.config.enabled)
-  const save = useCampusAction(async (values: Record<string, string>) => {
-    const response = await api.put('/api/campus/admin/config', {
-      enabled,
-      plus_plan_id: Number(values.plus),
-      ultra_plan_id: Number(values.ultra),
-    })
+  const [pendingEnabled, setPendingEnabled] = useState<boolean | null>(null)
+  const save = useCampusAction(async (config: Config) => {
+    const response = await api.put('/api/campus/admin/config', config)
     return requireServerSuccess(response.data)
   })
   return (
@@ -150,22 +144,17 @@ function CampusConfiguration(props: { config: Config }) {
       <CardHeader>
         <CardTitle>{t('Campaign settings')}</CardTitle>
         <CardDescription>
-          {t(
-            'Enrollment and new commission start only after activation. Pausing preserves balances, withdrawals and previously issued coupons.'
-          )}
+          {t('Campaign status changes take effect after confirmation.')}
         </CardDescription>
       </CardHeader>
       <CardContent className='flex flex-col gap-4'>
-        <div className='flex items-center gap-3'>
-          <Switch
-            id='campus-enabled'
-            checked={enabled}
-            onCheckedChange={setEnabled}
-          />
-          <Label htmlFor='campus-enabled'>
-            {t('Enable enrollment and new commission')}
-          </Label>
-        </div>
+        <SettingsSwitchField
+          controlId='campus-enabled'
+          label={t('Enable campaign')}
+          checked={props.config.enabled}
+          onCheckedChange={setPendingEnabled}
+          disabled={save.isPending}
+        />
         <CampusFields
           fields={[
             {
@@ -181,15 +170,61 @@ function CampusConfiguration(props: { config: Config }) {
               type: 'number',
             },
           ]}
-          submit='Save campaign settings'
+          submit='Save plan settings'
           pending={save.isPending}
           onSubmit={(values) =>
-            save.mutate(values, {
-              onSuccess: () => toast.success(t('Campaign settings saved')),
-            })
+            save.mutate(
+              {
+                enabled: props.config.enabled,
+                plus_plan_id: Number(values.plus),
+                ultra_plan_id: Number(values.ultra),
+              },
+              { onSuccess: () => toast.success(t('Plan settings saved')) }
+            )
           }
         />
       </CardContent>
+      <ConfirmDialog
+        open={pendingEnabled !== null}
+        onOpenChange={(open) => {
+          if (!open && !save.isPending) setPendingEnabled(null)
+        }}
+        title={pendingEnabled ? t('Enable campaign?') : t('Disable campaign?')}
+        desc={
+          pendingEnabled
+            ? t(
+                'Enabling shows the campaign to users and starts new participation and commission accrual.'
+              )
+            : t(
+                'Disabling hides the campaign and stops new participation and commission accrual. Existing balances, withdrawals and issued coupons are preserved.'
+              )
+        }
+        confirmText={
+          pendingEnabled ? t('Enable campaign') : t('Disable campaign')
+        }
+        destructive={pendingEnabled === false}
+        isLoading={save.isPending}
+        handleConfirm={() => {
+          if (pendingEnabled === null) return
+          save.mutate(
+            {
+              enabled: pendingEnabled,
+              plus_plan_id: props.config.plus_plan_id,
+              ultra_plan_id: props.config.ultra_plan_id,
+            },
+            {
+              onSuccess: () => {
+                setPendingEnabled(null)
+                toast.success(
+                  pendingEnabled
+                    ? t('Campaign enabled')
+                    : t('Campaign disabled')
+                )
+              },
+            }
+          )
+        }}
+      />
     </Card>
   )
 }
@@ -338,58 +373,5 @@ function CampusWithdrawalReview(props: {
         onSubmit={(values) => save.mutate(values, { onSuccess: props.close })}
       />
     </div>
-  )
-}
-
-function CampusReconcileForm() {
-  const { t } = useTranslation()
-  const [result, setResult] = useState('paid')
-  const action = useCampusAction((values: Record<string, string>) =>
-    campusPost('admin/reconcile', { ...values, result })
-  )
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('Reconcile a payment order')}</CardTitle>
-        <CardDescription>
-          {t(
-            'Record only verified real collection or a provider-confirmed closed unpaid order. Unknown or delayed results must not release the coupon.'
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className='flex flex-col gap-4'>
-        <div className='flex flex-wrap gap-2'>
-          <Button
-            variant={result === 'paid' ? 'default' : 'outline'}
-            onClick={() => setResult('paid')}
-          >
-            {t('Actual payment received')}
-          </Button>
-          <Button
-            variant={result === 'closed' ? 'default' : 'outline'}
-            onClick={() => setResult('closed')}
-          >
-            {t('Provider confirmed unpaid and closed')}
-          </Button>
-        </div>
-        <CampusFields
-          key={result}
-          fields={[
-            { name: 'trade_no', label: 'Original order number' },
-            ...(result === 'paid'
-              ? [{ name: 'reference', label: 'Provider transaction number' }]
-              : []),
-            { name: 'evidence', label: 'Reason and reconciliation evidence' },
-          ]}
-          submit='Confirm reconciliation'
-          pending={action.isPending}
-          onSubmit={(values) =>
-            action.mutate(values, {
-              onSuccess: () => toast.success(t('Reconciliation recorded')),
-            })
-          }
-        />
-      </CardContent>
-    </Card>
   )
 }
