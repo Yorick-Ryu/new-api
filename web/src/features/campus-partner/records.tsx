@@ -37,6 +37,10 @@ import { campusWithdrawalStateLabels } from './constants'
 export type CampusRecord = {
   id: number
   user_id: number
+  payment_id?: number
+  withdrawal_id?: number
+  actor_id?: number
+  reference?: string
   trade_no?: string
   kind?: string
   product?: string
@@ -91,6 +95,21 @@ export function CampusRecords(props: {
       cell: (row) => (
         <div className='max-w-64 break-all whitespace-normal'>
           {row.trade_no || (row.kind ? t(row.kind) : `#${row.user_id}`)}
+          {row.payment_id ? (
+            <p className='text-xs'>
+              {t('Commission order')} #{row.payment_id}
+            </p>
+          ) : null}
+          {row.withdrawal_id ? (
+            <p className='text-xs'>
+              {t('Withdrawal request')} #{row.withdrawal_id}
+            </p>
+          ) : null}
+          {props.admin && (
+            <p className='text-xs'>
+              {t('Account')} #{row.user_id}
+            </p>
+          )}
           {row.product && (
             <div className='text-muted-foreground text-xs'>
               {t(row.product)}
@@ -135,6 +154,17 @@ export function CampusRecords(props: {
         {row.account && (
           <p className='break-all'>
             {row.account} · {row.real_name}
+          </p>
+        )}
+        {row.eligibility && <p className='text-xs'>{t(row.eligibility)}</p>}
+        {row.reference && (
+          <p className='text-xs break-all'>
+            {t('Refund reference')}: {row.reference}
+          </p>
+        )}
+        {props.admin && !!row.actor_id && (
+          <p className='text-xs'>
+            {t('Processed by')} #{row.actor_id}
           </p>
         )}
         {row.reason && (

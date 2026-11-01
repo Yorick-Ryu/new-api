@@ -228,7 +228,9 @@ export async function createOAuthFlow(
 
 // WeChat login by authorization code
 export async function wechatLoginByCode(code: string): Promise<ApiResponse> {
-  const res = await api.get('/api/oauth/wechat', { params: { code } })
+  const res = await api.get('/api/oauth/wechat', {
+    params: { code, campus_code: invitationCode() || undefined },
+  })
   return res.data
 }
 

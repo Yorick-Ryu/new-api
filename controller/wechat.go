@@ -82,6 +82,17 @@ func WeChatAuth(c *gin.Context) {
 		}
 	} else {
 		if common.RegisterEnabled {
+			if campusCode := c.Query("campus_code"); campusCode != "" {
+				if !CampusMainSite(c) {
+					common.ApiErrorT(c, "Invalid parameters")
+					return
+				}
+				if _, err := model.CampusValidateCode(campusCode); err != nil {
+					common.ApiError(c, err)
+					return
+				}
+				user.CampusCode = campusCode
+			}
 			user.Username = "wechat_" + strconv.Itoa(model.GetMaxUserId()+1)
 			user.DisplayName = "WeChat User"
 			user.Role = common.RoleCommonUser

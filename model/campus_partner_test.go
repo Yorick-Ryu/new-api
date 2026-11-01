@@ -24,7 +24,7 @@ func TestCampusDatabase(t *testing.T) {
 			var driver gorm.Dialector
 			switch dialect {
 			case "sqlite":
-				driver = sqlite.Open(t.TempDir() + "/campus.db?_pragma=busy_timeout(10000)")
+				driver = sqlite.Open(t.TempDir() + "/campus.db?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate")
 			case "mysql":
 				dsn := os.Getenv("TEST_MYSQL_DSN")
 				if dsn == "" {
@@ -40,9 +40,32 @@ func TestCampusDatabase(t *testing.T) {
 			}
 			db, err := gorm.Open(driver, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 			require.NoError(t, err)
+			var version string
+			query := "SELECT VERSION()"
+			if dialect == "sqlite" {
+				query = "SELECT sqlite_version()"
+			}
+			require.NoError(t, db.Raw(query).Scan(&version).Error)
+			t.Logf("database version: %s", version)
 			oldDB := DB
+			oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+			databaseType := common.DatabaseTypeSQLite
+			if dialect == "mysql" {
+				databaseType = common.DatabaseTypeMySQL
+			}
+			if dialect == "postgres" {
+				databaseType = common.DatabaseTypePostgreSQL
+			}
+			common.SetDatabaseTypes(databaseType, databaseType)
 			DB = db
-			t.Cleanup(func() { DB = oldDB; sqlDB, _ := db.DB(); _ = sqlDB.Close() })
+			t.Cleanup(func() { DB = oldDB; common.SetDatabaseTypes(oldMain, oldLog); sqlDB, _ := db.DB(); _ = sqlDB.Close() })
+			// Fresh schema creation is independent of existing payment/account tables.
+			tables, err := db.Migrator().GetTables()
+			require.NoError(t, err)
+			require.Empty(t, tables, "Use an empty, disposable database for this matrix")
+			require.NoError(t, InitializeCampusPartner(db))
+			require.NoError(t, InitializeCampusPartner(db))
+			require.NoError(t, db.Migrator().DropTable(&CampusAllocation{}, &CampusWithdrawal{}, &CampusRefund{}, &CampusEntry{}, &CampusPayment{}, &CampusMember{}, &CampusWindow{}, &CampusCampaign{}))
 			// Representative pre-feature schema and historical successful payment.
 			require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &SubscriptionOrder{}, &SubscriptionPlan{}))
 			for i := 1; i <= 8; i++ {
@@ -162,6 +185,9 @@ func TestCampusDatabase(t *testing.T) {
 			clock := time.Now().In(zone)
 			lastMonthEnd := time.Date(clock.Year(), clock.Month(), 0, 12, 0, 0, 0, zone)
 			require.NoError(t, db.Model(paid).Updates(map[string]any{"batch": lastMonthEnd.Format(time.DateOnly), "created_at": lastMonthEnd.Add(-24 * time.Hour).Unix()}).Error)
+			require.NoError(t, CampusAdvanceBatches())
+			require.NoError(t, db.First(paid, paid.ID).Error)
+			assert.Equal(t, lastMonthEnd.Format(time.DateOnly), paid.Batch, "approved transfers retain the batch when recorded after month end")
 			require.NoError(t, CampusActWithdrawal(paid.ID, 1, "paid", "bank transfer checked", "unique-receipt-001", lastMonthEnd.Unix()))
 			require.NoError(t, CampusActWithdrawal(paid.ID, 1, "paid", "bank transfer checked", "unique-receipt-001", lastMonthEnd.Unix()))
 			_, err = CampusRegisterRefund("large", "paid-full-refund", "confirmed full provider refund", 90000, 1, false)
@@ -231,6 +257,68 @@ func TestCampusDatabase(t *testing.T) {
 				}
 			}
 			assert.Equal(t, 1, successes)
+
+			// Competing first settlements share the cumulative tier boundary.
+			freshInviter, err := CampusJoin(6)
+			require.NoError(t, err)
+			require.NoError(t, CampusBind(7, freshInviter.Code))
+			for _, trade := range []string{"concurrent-a", "concurrent-b"} {
+				require.NoError(t, InsertCampusTopUp(&TopUp{UserId: 7, TradeNo: trade, Money: 1500, Status: common.TopUpStatusPending}, true, "CNY", false))
+			}
+			settlements := make(chan error, 2)
+			for _, trade := range []string{"concurrent-a", "concurrent-b"} {
+				wg.Go(func() { settlements <- db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, trade, 7) }) })
+			}
+			wg.Wait()
+			close(settlements)
+			for err := range settlements {
+				require.NoError(t, err)
+			}
+			freshOverview, err := CampusGetOverview(6)
+			require.NoError(t, err)
+			assert.EqualValues(t, 300000, freshOverview.Member.Performance)
+			assert.EqualValues(t, 95000, freshOverview.Net)
+			require.NoError(t, db.Model(&CampusPayment{}).Where("inviter_id = ?", 6).Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
+			withdrawals := make(chan error, 2)
+			for _, request := range []string{"parallel-withdraw-a", "parallel-withdraw-b"} {
+				wg.Go(func() {
+					_, err := CampusRequestWithdrawal(6, request, "test@example.test", "Test", 60000)
+					withdrawals <- err
+				})
+			}
+			wg.Wait()
+			close(withdrawals)
+			successes = 0
+			for err := range withdrawals {
+				if err == nil {
+					successes++
+				}
+			}
+			assert.Equal(t, 1, successes)
+			freshOverview, err = CampusGetOverview(6)
+			require.NoError(t, err)
+			assert.EqualValues(t, 60000, freshOverview.Processing)
+			assert.EqualValues(t, 35000, freshOverview.Available)
+			// Daily reminders are account-level, and accepting survives reopening.
+			show, err := CampusReminder(7)
+			require.NoError(t, err)
+			assert.True(t, show)
+			show, err = CampusReminder(7)
+			require.NoError(t, err)
+			assert.False(t, show)
+			_, err = CampusJoin(7)
+			require.NoError(t, err)
+			require.NoError(t, db.Model(&CampusMember{}).Where("user_id = ?", 7).Update("reminder_day", "2020-01-01").Error)
+			require.NoError(t, CampusConfigure(false, 6, 7, 1))
+			require.NoError(t, CampusConfigure(true, 6, 7, 1))
+			show, err = CampusReminder(7)
+			require.NoError(t, err)
+			assert.False(t, show)
+			_, count, err := CampusList(7, false, "withdrawals", 1, 10)
+			require.NoError(t, err)
+			assert.Zero(t, count)
+			_, _, err = CampusList(7, false, "refunds", 1, 10)
+			assert.Error(t, err)
 			require.NoError(t, InitializeCampusPartner(db))
 			var final CampusMember
 			require.NoError(t, db.First(&final, "user_id = ?", 2).Error)

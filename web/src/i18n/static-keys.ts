@@ -19,6 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  'Commission order',
+  'Withdrawal request',
+  'Refund reference',
+  'Processed by',
+  'Campaign settings saved',
+  'Reconciliation recorded',
+  'eligible',
+  'outside_main_site',
+  'not_external_payment',
+  'not_rmb',
+  'unsupported_product',
+  'outside_activity',
+  'no_binding_at_settlement',
+
   // Campus campaign labels, states and server messages.
   '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.',
   'A dedicated invitation, separate from the previous referral program.',

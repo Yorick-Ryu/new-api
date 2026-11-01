@@ -8091,5 +8091,18 @@
   "Record only verified real collection or a provider-confirmed closed unpaid order. Unknown or delayed results must not release the coupon.": "仅登记已核实的真实收款，或支付方已确认关闭的未付款订单。结果未知或通知延迟时，不得释放优惠券。",
   "Subject to approval": "以审核通过为前提",
   "View campaign orders, refunds and payout recipients.": "查看活动订单、退款和提现收款信息。",
-  "View campus partner finances": "查看校园合伙人财务"
+  "View campus partner finances": "查看校园合伙人财务",
+  "Commission order": "佣金订单",
+  "Withdrawal request": "提现申请",
+  "Refund reference": "退款流水号",
+  "Processed by": "处理人员",
+  "Campaign settings saved": "活动设置已保存",
+  "Reconciliation recorded": "核对结果已记录",
+  "eligible": "符合计佣条件",
+  "outside_main_site": "非主站订单或来源无法确认",
+  "not_external_payment": "非外部实际收款",
+  "not_rmb": "非人民币收款",
+  "unsupported_product": "不参与活动的商品",
+  "outside_activity": "首次结算不在活动有效期内",
+  "no_binding_at_settlement": "首次结算时没有有效邀请关系"
 }

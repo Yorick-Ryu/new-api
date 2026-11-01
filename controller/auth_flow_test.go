@@ -1219,3 +1219,48 @@ func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testi
 		}
 	}
 }
+
+func TestCampusWeChatRegistrationBindsOnlyNewMainSiteAccounts(t *testing.T) {
+	inviter, _ := setupSecurityEnrollmentTest(t)
+	db := model.DB
+	require.NoError(t, db.AutoMigrate(&model.TopUp{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}))
+	require.NoError(t, model.InitializeCampusPartner(db))
+	plus := model.SubscriptionPlan{Title: "Plus"}
+	ultra := model.SubscriptionPlan{Title: "Ultra"}
+	require.NoError(t, db.Create(&plus).Error)
+	require.NoError(t, db.Create(&ultra).Error)
+	require.NoError(t, model.CampusConfigure(true, plus.Id, ultra.Id, inviter.Id))
+	member, err := model.CampusJoin(inviter.Id)
+	require.NoError(t, err)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"data":"campus-wechat-identity"}`))
+	}))
+	t.Cleanup(upstream.Close)
+	oldEnabled, oldAddress, oldRegister := common.WeChatAuthEnabled, common.WeChatServerAddress, common.RegisterEnabled
+	common.WeChatAuthEnabled, common.WeChatServerAddress, common.RegisterEnabled = true, upstream.URL, true
+	t.Cleanup(func() {
+		common.WeChatAuthEnabled, common.WeChatServerAddress, common.RegisterEnabled = oldEnabled, oldAddress, oldRegister
+	})
+	for _, test := range []struct {
+		host, code string
+		success    bool
+	}{{"novapi.cn", member.Code, false}, {"beiapi.cn", member.Code, true}, {"beiapi.cn", "invalid-new-code", true}} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "https://"+test.host+"/api/oauth/wechat?code=verified-fixture-code&campus_code="+test.code, nil)
+		WeChatAuth(c)
+		var result struct {
+			Success bool `json:"success"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &result))
+		require.Equal(t, test.success, result.Success)
+	}
+	var created model.User
+	require.NoError(t, db.Where("wechat_id = ?", "campus-wechat-identity").First(&created).Error)
+	overview, err := model.CampusGetOverview(created.Id)
+	require.NoError(t, err)
+	assert.Equal(t, inviter.Id, overview.Member.InviterID)
+	var n int64
+	require.NoError(t, db.Model(&model.CampusEntry{}).Where("user_id = ? AND kind = ?", created.Id, "bound").Count(&n).Error)
+	assert.EqualValues(t, 1, n)
+}

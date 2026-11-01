@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
@@ -182,7 +183,11 @@ function CampusConfiguration(props: { config: Config }) {
           ]}
           submit='Save campaign settings'
           pending={save.isPending}
-          onSubmit={(values) => save.mutate(values)}
+          onSubmit={(values) =>
+            save.mutate(values, {
+              onSuccess: () => toast.success(t('Campaign settings saved')),
+            })
+          }
         />
       </CardContent>
     </Card>
@@ -271,7 +276,8 @@ function CampusWithdrawalReview(props: {
   row: CampusRecord
   close: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [action, setAction] = useState('approve')
   const save = useCampusAction((values: Record<string, string>) =>
     campusPost(`admin/withdrawals/${props.row.id}`, {
@@ -288,7 +294,7 @@ function CampusWithdrawalReview(props: {
       <p className='text-sm break-all'>
         {props.row.account} · {props.row.real_name}
         <br />
-        {cash(props.row.amount_cents ?? 0)} · {props.row.batch} ·{' '}
+        {cash(props.row.amount_cents ?? 0, locale)} · {props.row.batch} ·{' '}
         {t(campusWithdrawalStateLabels[props.row.state || ''] || '')}
       </p>
       <div className='flex flex-wrap gap-2'>
@@ -377,7 +383,11 @@ function CampusReconcileForm() {
           ]}
           submit='Confirm reconciliation'
           pending={action.isPending}
-          onSubmit={(values) => action.mutate(values)}
+          onSubmit={(values) =>
+            action.mutate(values, {
+              onSuccess: () => toast.success(t('Reconciliation recorded')),
+            })
+          }
         />
       </CardContent>
     </Card>

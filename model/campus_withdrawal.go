@@ -20,7 +20,7 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 		if _, err := campusLock(tx); err != nil {
 			return err
 		}
-		err := tx.Where("user_id = ? AND request_id = ?", userID, requestID).First(&result).Error
+		err := lockForUpdate(tx).Where("user_id = ? AND request_id = ?", userID, requestID).First(&result).Error
 		if err == nil {
 			if result.OriginalAmount != amount || result.Account != account || result.RealName != name {
 				return ErrCampusState
@@ -39,7 +39,7 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 			return err
 		}
 		var payments []CampusPayment
-		if err := tx.Where("inviter_id = ? AND available > 0", userID).Order("id").Find(&payments).Error; err != nil {
+		if err := lockForUpdate(tx).Where("inviter_id = ? AND available > 0", userID).Order("id").Find(&payments).Error; err != nil {
 			return err
 		}
 		var available cp.Money
@@ -83,12 +83,12 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 // This also covers cancellation after a refund takes the request below minimum.
 func campusReleaseWithdrawalTx(tx *gorm.DB, w *CampusWithdrawal) error {
 	var rows []CampusAllocation
-	if err := tx.Where("withdrawal_id = ? AND amount > 0", w.ID).Find(&rows).Error; err != nil {
+	if err := lockForUpdate(tx).Where("withdrawal_id = ? AND amount > 0", w.ID).Find(&rows).Error; err != nil {
 		return err
 	}
 	for _, row := range rows {
 		var p CampusPayment
-		if err := tx.First(&p, row.PaymentID).Error; err != nil {
+		if err := lockForUpdate(tx).First(&p, row.PaymentID).Error; err != nil {
 			return err
 		}
 		if row.Amount > p.Reserved {
@@ -115,7 +115,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 			return err
 		}
 		var w CampusWithdrawal
-		if err := tx.First(&w, id).Error; err != nil {
+		if err := lockForUpdate(tx).First(&w, id).Error; err != nil {
 			return err
 		}
 		now := time.Now()
@@ -199,12 +199,12 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 				return ErrCampusState
 			}
 			var allocations []CampusAllocation
-			if err := tx.Where("withdrawal_id = ? AND amount > 0", w.ID).Find(&allocations).Error; err != nil {
+			if err := lockForUpdate(tx).Where("withdrawal_id = ? AND amount > 0", w.ID).Find(&allocations).Error; err != nil {
 				return err
 			}
 			for _, a := range allocations {
 				var p CampusPayment
-				if err := tx.First(&p, a.PaymentID).Error; err != nil {
+				if err := lockForUpdate(tx).First(&p, a.PaymentID).Error; err != nil {
 					return err
 				}
 				if a.Amount > p.Reserved {
@@ -228,6 +228,9 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 	})
 }
 
+// Only unfinished reviews roll forward automatically. An approved request may
+// already have been transferred at month end and recorded later; preserve its
+// original batch until the operator reconciles the actual outcome.
 func CampusAdvanceBatches() error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		if _, err := campusLock(tx); err != nil {
@@ -236,7 +239,7 @@ func CampusAdvanceBatches() error {
 		zone := time.FixedZone("Asia/Shanghai", 28800)
 		now := time.Now().In(zone)
 		var rows []CampusWithdrawal
-		if err := tx.Where("batch < ? AND state IN ?", now.Format(time.DateOnly), []string{"pending", "paused", "approved"}).Find(&rows).Error; err != nil {
+		if err := lockForUpdate(tx).Where("batch < ? AND state IN ?", now.Format(time.DateOnly), []string{"pending", "paused"}).Find(&rows).Error; err != nil {
 			return err
 		}
 		for i := range rows {

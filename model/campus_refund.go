@@ -30,7 +30,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			return err
 		}
 		var old CampusRefund
-		err := tx.Where("reference = ?", reference).First(&old).Error
+		err := lockForUpdate(tx).Where("reference = ?", reference).First(&old).Error
 		if err == nil {
 			if old.TradeNo != trade || old.Amount != amount {
 				return ErrCampusState
@@ -42,7 +42,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			return err
 		}
 		var p CampusPayment
-		if err := tx.Where("trade_no = ?", trade).First(&p).Error; err != nil {
+		if err := lockForUpdate(tx).Where("trade_no = ?", trade).First(&p).Error; err != nil {
 			return err
 		}
 		result.ExpectedRefunded = p.Refunded
@@ -69,7 +69,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			}
 			// Unlock can change this lot; reload its buckets without losing refund totals.
 			var current CampusPayment
-			if err := tx.First(&current, p.ID).Error; err != nil {
+			if err := lockForUpdate(tx).First(&current, p.ID).Error; err != nil {
 				return err
 			}
 			p.Frozen, p.Available, p.Offset = current.Frozen, current.Available, current.Offset
@@ -96,7 +96,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			if funding.DeductReserved > 0 {
 				left := funding.DeductReserved
 				var allocations []CampusAllocation
-				if err := tx.Where("payment_id = ? AND amount > 0", p.ID).Order("id").Find(&allocations).Error; err != nil {
+				if err := lockForUpdate(tx).Where("payment_id = ? AND amount > 0", p.ID).Order("id").Find(&allocations).Error; err != nil {
 					return err
 				}
 				for i := range allocations {
@@ -105,7 +105,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 					}
 					a := &allocations[i]
 					var w CampusWithdrawal
-					if err := tx.First(&w, a.WithdrawalID).Error; err != nil {
+					if err := lockForUpdate(tx).First(&w, a.WithdrawalID).Error; err != nil {
 						return err
 					}
 					if w.State == "unknown" {
@@ -144,7 +144,7 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			// released by a cancelled small withdrawal. Frozen lots are never advanced.
 			left := funding.RecoverSpent
 			var available []CampusPayment
-			if err := tx.Where("inviter_id = ? AND available > 0", p.InviterID).Order("id").Find(&available).Error; err != nil {
+			if err := lockForUpdate(tx).Where("inviter_id = ? AND available > 0", p.InviterID).Order("id").Find(&available).Error; err != nil {
 				return err
 			}
 			for i := range available {

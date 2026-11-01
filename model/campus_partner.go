@@ -16,6 +16,9 @@ import (
 // The singleton serializes invitation graph changes and settlement ordering
 // across processes. UPDATE also obtains a write lock on SQLite. Existing user,
 // order and subscription locks must be acquired before this lock, never after.
+// Campaign row reads also use FOR UPDATE: MySQL REPEATABLE READ may already
+// have a snapshot from fulfillment, so the singleton lock alone is not enough
+// to observe another transaction's just-committed cumulative performance.
 type CampusCampaign struct {
 	ID          int    `json:"id" gorm:"primaryKey"`
 	Enabled     bool   `json:"enabled"`
@@ -137,14 +140,14 @@ func campusLock(tx *gorm.DB) (*CampusCampaign, error) {
 		return nil, err
 	}
 	var config CampusCampaign
-	if err := tx.First(&config, 1).Error; err != nil {
+	if err := lockForUpdate(tx).First(&config, 1).Error; err != nil {
 		return nil, err
 	}
 	return &config, nil
 }
 func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
 	var member CampusMember
-	err := tx.First(&member, "user_id = ?", userID).Error
+	err := lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return &member, err
 	}
@@ -267,7 +270,7 @@ func CampusBindTx(tx *gorm.DB, userID int, code string) error {
 		return err
 	}
 	var inviter CampusMember
-	if err := tx.Where("code = ? AND joined_at > 0", code).First(&inviter).Error; err != nil {
+	if err := lockForUpdate(tx).Where("code = ? AND joined_at > 0", code).First(&inviter).Error; err != nil {
 		return ErrCampusBinding
 	}
 	var inviterUser User
@@ -305,7 +308,7 @@ func CampusBindTx(tx *gorm.DB, userID int, code string) error {
 		}
 		next := cursor.InviterID
 		cursor = CampusMember{}
-		if err := tx.First(&cursor, "user_id = ?", next).Error; err != nil {
+		if err := lockForUpdate(tx).First(&cursor, "user_id = ?", next).Error; err != nil {
 			return err
 		}
 	}

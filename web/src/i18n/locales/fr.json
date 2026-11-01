@@ -8000,5 +8000,18 @@
   "Record only verified real collection or a provider-confirmed closed unpaid order. Unknown or delayed results must not release the coupon.": "Record only verified real collection or a provider-confirmed closed unpaid order. Unknown or delayed results must not release the coupon.",
   "Subject to approval": "Subject to approval",
   "View campaign orders, refunds and payout recipients.": "View campaign orders, refunds and payout recipients.",
-  "View campus partner finances": "View campus partner finances"
+  "View campus partner finances": "View campus partner finances",
+  "Commission order": "Commission order",
+  "Withdrawal request": "Withdrawal request",
+  "Refund reference": "Refund reference",
+  "Processed by": "Processed by",
+  "Campaign settings saved": "Campaign settings saved",
+  "Reconciliation recorded": "Reconciliation recorded",
+  "eligible": "Eligible for commission",
+  "outside_main_site": "Other brand or unknown checkout origin",
+  "not_external_payment": "No external cash payment",
+  "not_rmb": "Non-RMB payment",
+  "unsupported_product": "Product outside this campaign",
+  "outside_activity": "First settlement outside the active period",
+  "no_binding_at_settlement": "No valid invitation at first settlement"
 }

@@ -97,7 +97,7 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		return err
 	}
 	var payment CampusPayment
-	err = tx.Where("trade_no = ?", trade).First(&payment).Error
+	err = lockForUpdate(tx).Where("trade_no = ?", trade).First(&payment).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
@@ -137,7 +137,7 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	}
 	if payment.Paid > 0 {
 		var rows []CampusWindow
-		if err := tx.Order("id").Find(&rows).Error; err != nil {
+		if err := lockForUpdate(tx).Order("id").Find(&rows).Error; err != nil {
 			return err
 		}
 		windows := make([]cp.ActivityWindow, 0, len(rows))
@@ -214,7 +214,7 @@ func CampusReleaseCouponTx(tx *gorm.DB, trade string) error {
 		return err
 	}
 	var payment CampusPayment
-	if err := tx.Where("trade_no = ?", trade).First(&payment).Error; err != nil {
+	if err := lockForUpdate(tx).Where("trade_no = ?", trade).First(&payment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
@@ -227,7 +227,7 @@ func CampusReleaseCouponTx(tx *gorm.DB, trade string) error {
 }
 func campusUnlockTx(tx *gorm.DB, member *CampusMember, now int64) error {
 	var payments []CampusPayment
-	if err := tx.Where("inviter_id = ? AND frozen > 0 AND settled_at <= ? AND settled_at > 0", member.UserID, now-int64(cp.FreezePeriod/time.Second)).Order("id").Find(&payments).Error; err != nil {
+	if err := lockForUpdate(tx).Where("inviter_id = ? AND frozen > 0 AND settled_at <= ? AND settled_at > 0", member.UserID, now-int64(cp.FreezePeriod/time.Second)).Order("id").Find(&payments).Error; err != nil {
 		return err
 	}
 	for i := range payments {
