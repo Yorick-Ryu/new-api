@@ -139,7 +139,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                     <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
                       {tierAmount.format(rule.floor_cents / 100)}
                       {next
-                        ? ` – ${formatNumber(Math.round(next.floor_cents / 100), locale)}`
+                        ? ` – ${tierAmount.format(next.floor_cents / 100)}`
                         : ` ${t('and above')}`}
                     </p>
                   </CardContent>
