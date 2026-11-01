@@ -233,7 +233,7 @@ export function CampusRecords(props: {
           disabled={page === 1}
           onClick={() => setPage(page - 1)}
         >
-          {t('Previous')}
+          {t('Previous page')}
         </Button>
         <span className='text-sm'>
           {page} / {Math.max(1, Math.ceil(query.data.total / 10))}
@@ -244,7 +244,7 @@ export function CampusRecords(props: {
           disabled={page * 10 >= query.data.total}
           onClick={() => setPage(page + 1)}
         >
-          {t('Next')}
+          {t('Next page')}
         </Button>
       </div>
     </div>

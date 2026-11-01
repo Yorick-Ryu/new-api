@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { TrendingUp } from 'lucide-react'
 import type { ReactElement } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
@@ -67,17 +67,31 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         action={
           <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs sm:justify-end sm:text-sm'>
             <span>{t('Friends cumulative top-ups')}</span>
-            <span className='text-foreground font-mono font-semibold tabular-nums'>
+            <span className='text-foreground font-mono text-base font-semibold tabular-nums sm:text-lg'>
               {cash(props.data.member.performance_cents, locale)}
             </span>
             <span aria-hidden='true'>·</span>
-            <span className='text-primary font-medium'>
-              {tier.next_cents && nextTier
-                ? t('Top up {{amount}} more to reach {{rate}}%', {
+            <span>
+              {tier.next_cents && nextTier ? (
+                <Trans
+                  t={t}
+                  i18nKey='Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>'
+                  values={{
                     amount: cash(tier.remaining_cents, locale),
                     rate: formatNumber(nextTier.rate_bps / 100, locale),
-                  })
-                : t('Highest partner tier reached')}
+                  }}
+                  components={{
+                    amount: (
+                      <span className='text-primary font-mono text-base font-semibold tabular-nums sm:text-lg' />
+                    ),
+                    rate: (
+                      <span className='text-primary font-mono font-semibold tabular-nums' />
+                    ),
+                  }}
+                />
+              ) : (
+                t('Highest partner tier reached')
+              )}
             </span>
           </div>
         }

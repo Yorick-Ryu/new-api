@@ -46,8 +46,8 @@ test('a failed history request can be retried and an empty result disables pagin
   expect(await screen.findByRole('button', { name: 'Retry' })).toBeEnabled()
   await user.click(screen.getByRole('button', { name: 'Retry' }))
   expect(await screen.findByText('No records yet')).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 })
 
 test('withdrawal history shows the pending batch and failure reason without calling it paid', async () => {
@@ -83,5 +83,5 @@ test('withdrawal history shows the pending batch and failure reason without call
   expect(screen.getByText('Recipient verification required')).toBeVisible()
   expect(screen.getByText('Expected payout: 2026-11-30')).toBeVisible()
   expect(screen.queryByText('Paid')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
 })

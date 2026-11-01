@@ -129,7 +129,7 @@ export function CampusPartner(): ReactElement {
           onOpenChange={setWithdraw}
           title={t('Request withdrawal')}
           description={t(
-            'Approved applications are paid manually at month end. Submission is not a completed transfer.'
+            'Approved applications are paid at month end. Submission is not a completed transfer.'
           )}
         >
           <p className='mb-4 text-sm'>

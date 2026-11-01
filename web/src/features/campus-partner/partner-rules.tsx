@@ -42,9 +42,9 @@ export function PartnerRules(): ReactElement {
     {
       title: t('Withdraw to Alipay'),
       description: `${t(
-        'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid manually at month end.'
+        'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.'
       )} ${t(
-        'Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward; weekends do not change payout dates.'
+        'Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.'
       )}`,
     },
     {
