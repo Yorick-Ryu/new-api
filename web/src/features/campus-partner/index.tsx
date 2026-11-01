@@ -59,8 +59,6 @@ export function CampusPartner(): ReactElement {
     return <ErrorState onRetry={() => void overview.refetch()} />
   }
   const data = overview.data
-  const maximumRate =
-    Math.max(0, ...data.tiers.map((tier) => tier.rate_bps)) / 100
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Campus Partner')}</SectionPageLayout.Title>
@@ -90,7 +88,6 @@ export function CampusPartner(): ReactElement {
         >
           <PartnerInvitation
             data={data}
-            maximumRate={formatNumber(maximumRate, locale)}
             pending={join.isPending}
             onJoin={() => join.mutate()}
           />

@@ -173,7 +173,7 @@ test('partner page merges the introduction into the invitation card before benef
   expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
 })
 
-test('partner rewards and maximum rate reflect configured tiers and subscription percentages', async () => {
+test('partner rewards reflect configured tiers and subscription percentages', async () => {
   renderPage(<CampusPartner />, {
     tiers: [
       { floor_cents: 0, rate_bps: 1250 },
@@ -206,11 +206,6 @@ test('partner rewards and maximum rate reflect configured tiers and subscription
   expect(within(tiers).getByText('12.34%')).toBeVisible()
   expect(within(tiers).getByText('Highest partner tier reached')).toBeVisible()
   expect(within(tiers).queryByText('50%')).not.toBeInTheDocument()
-  const intro = screen.getByRole('region', {
-    name: 'Invite friends to register and earn commission on every top-up.',
-  })
-  expect(within(intro).getByText('42.75')).toBeVisible()
-  expect(within(intro).queryByText('50')).not.toBeInTheDocument()
 })
 
 test.each([9999, 10000])(

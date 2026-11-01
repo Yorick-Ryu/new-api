@@ -44,7 +44,6 @@ import { InvitationField } from './forms'
 
 export function PartnerInvitation(props: {
   data: Overview
-  maximumRate: string
   pending: boolean
   onJoin: () => void
 }): ReactElement {
@@ -81,10 +80,7 @@ export function PartnerInvitation(props: {
       <div className='grid min-w-0 gap-4 lg:grid-cols-3'>
         <Card className='min-w-0 py-0 lg:col-span-2'>
           <CardContent className='space-y-5 p-3 sm:p-5'>
-            <section
-              aria-labelledby='campus-intro-title'
-              className='grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start'
-            >
+            <section aria-labelledby='campus-intro-title' className='min-w-0'>
               <div className='min-w-0 space-y-2'>
                 <div className='flex items-center gap-2'>
                   <IconBadge tone='primary' size='title'>
@@ -103,15 +99,6 @@ export function PartnerInvitation(props: {
                   {t(
                     'Friends can register through your exclusive link or enter your invitation code during registration to bind with you. Earn commission on each qualifying top-up or subscription payment under the current rules.'
                   )}
-                </p>
-              </div>
-              <div className='sm:text-right'>
-                <p className='text-muted-foreground text-xs'>
-                  {t('Top-up commission up to')}
-                </p>
-                <p className='text-primary font-mono text-3xl font-semibold tabular-nums'>
-                  {props.maximumRate}
-                  <span className='text-lg'>%</span>
                 </p>
               </div>
             </section>
