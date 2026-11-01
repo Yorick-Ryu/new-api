@@ -63,7 +63,7 @@ export function PartnerRules(): ReactElement {
     {
       title: t('Friend benefits'),
       description: t(
-        'A successful invitation binding automatically grants one personal 5% off top-up coupon. It never expires and is not limited to the first top-up. It cannot be used for subscriptions or combined with other coupons. Refunds after successful payment do not restore it.'
+        'A successful invitation binding automatically grants one personal 5% off top-up coupon. Each coupon can be used only once. It never expires and is not limited to the first top-up. It cannot be used for subscriptions or combined with other coupons. Refunds after successful payment do not restore it.'
       ),
     },
     {
