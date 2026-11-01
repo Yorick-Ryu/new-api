@@ -23,24 +23,37 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { TitledCard } from '@/components/ui/titled-card'
+import { cn } from '@/lib/utils'
 
 export function PartnerRules(): ReactElement {
   const { t } = useTranslation()
   const rules = [
     {
-      title: t('Bind invitation'),
+      title: t('Invitation relationship'),
       description: t(
-        'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.'
+        'Friends bind to you when they register through your exclusive link or enter your invitation code. A successful binding cannot be changed. Self-invitations, reciprocal invitations and invitation loops are not allowed.'
       ),
     },
     {
-      title: t('Commission calculation'),
+      title: t('Tiered top-up commissions'),
       description: t(
-        'Qualifying top-ups and participating subscriptions count toward tier progress. Top-ups use progressive tier rates; subscriptions use their configured rates. Existing commissions stay unchanged.'
+        'Qualifying top-up payments count toward your cumulative friend top-ups and earn commission progressively using the level ranges above. Upgrades apply to new payments; commissions from other completed orders are not recalculated.'
       ),
     },
     {
-      title: t('Withdraw to Alipay'),
+      title: t('Cross-level commission calculation'),
+      description: t(
+        'When one top-up crosses a level boundary, the amounts below and above the boundary use their respective rates, then the commissions are added together. The highest rate does not apply to the entire payment. View the breakdown in commission orders.'
+      ),
+    },
+    {
+      title: t('Subscription commission rates'),
+      description: t(
+        'Only participating subscriptions earn commission, at the rate configured for each plan above, independently of your top-up level. Their qualifying payments also count toward cumulative level progress.'
+      ),
+    },
+    {
+      title: t('Settlement and withdrawals'),
       description: `${t(
         'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.'
       )} ${t(
@@ -48,10 +61,24 @@ export function PartnerRules(): ReactElement {
       )}`,
     },
     {
-      title: t('My coupon'),
+      title: t('Friend benefits'),
       description: t(
-        '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
+        'A successful invitation binding automatically grants one personal 5% off top-up coupon. It never expires and is not limited to the first top-up. It cannot be used for subscriptions or combined with other coupons. Refunds after successful payment do not restore it.'
       ),
+    },
+    {
+      title: t('Add an invitation code later'),
+      description: t(
+        'If you registered without an invitation, you may bind once before your first successful top-up or subscription payment and receive the same coupon. A successful payment closes this option permanently, even if refunded. Binding cannot be changed, and self-invitations or reciprocal invitations are prohibited.'
+      ),
+      fullWidth: true,
+    },
+    {
+      title: t('Refunds and commission recovery'),
+      description: t(
+        'Refunds reverse the original order commission proportionally and reduce cumulative level progress, which may lower your level. Other completed orders are not recalculated. Paid-out commission is recovered from available funds first, then future matured commissions; no separate transfer is required.'
+      ),
+      fullWidth: true,
     },
   ]
   return (
@@ -60,10 +87,17 @@ export function PartnerRules(): ReactElement {
         title={<h3>{t('Rules')}</h3>}
         icon={<BookOpen />}
         className='bg-muted/30'
-        contentClassName='grid gap-3 md:grid-cols-2'
+        contentClassName='grid gap-3 md:grid-cols-2 xl:grid-cols-3'
       >
         {rules.map((rule, index) => (
-          <Card key={rule.title} size='sm' className='min-w-0'>
+          <Card
+            key={rule.title}
+            size='sm'
+            className={cn(
+              'min-w-0',
+              rule.fullWidth && 'md:col-span-2 xl:col-span-3'
+            )}
+          >
             <CardContent className='flex min-w-0 gap-3'>
               <IconBadge
                 tone='primary'
@@ -74,7 +108,7 @@ export function PartnerRules(): ReactElement {
               </IconBadge>
               <div className='min-w-0 space-y-1'>
                 <h4 className='text-sm font-medium'>{rule.title}</h4>
-                <p className='text-muted-foreground text-xs leading-6'>
+                <p className='text-muted-foreground text-xs leading-6 sm:text-sm'>
                   {rule.description}
                 </p>
               </div>
