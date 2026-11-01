@@ -183,16 +183,6 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             icon: ChartNoAxesCombined,
             requiredRole: ROLE.ADMIN,
           },
-          ...(campusSite()
-            ? [
-                {
-                  title: t('Campus Partner administration'),
-                  url: '/campus-admin',
-                  icon: Gift,
-                  requiredRole: ROLE.ADMIN,
-                },
-              ]
-            : []),
           {
             title: t('Models'),
             url: '/models/metadata',
@@ -204,15 +194,25 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             icon: Users,
           },
           {
-            title: t('Redemption Codes'),
-            url: '/redemption-codes',
-            icon: Ticket,
-          },
-          {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
           },
+          {
+            title: t('Redemption Codes'),
+            url: '/redemption-codes',
+            icon: Ticket,
+          },
+          ...(campusSite()
+            ? [
+                {
+                  title: t('Partners'),
+                  url: '/campus-admin',
+                  icon: Gift,
+                  requiredRole: ROLE.ADMIN,
+                },
+              ]
+            : []),
           {
             title: t('System Info'),
             url: '/system-info',

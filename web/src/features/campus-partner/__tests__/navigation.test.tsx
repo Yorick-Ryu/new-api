@@ -93,9 +93,7 @@ test('the partner entry stays hidden while campaign status loads and when enroll
   expect(
     screen.queryByRole('link', { name: 'Campus Partner' })
   ).not.toBeInTheDocument()
-  expect(
-    screen.getByRole('link', { name: 'Campus Partner administration' })
-  ).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Partners' })).toBeVisible()
 })
 
 test('the partner entry follows enabled status after campaign settings refresh without hiding administration', async () => {
@@ -117,9 +115,7 @@ test('the partner entry follows enabled status after campaign settings refresh w
       screen.queryByRole('link', { name: 'Campus Partner' })
     ).not.toBeInTheDocument()
   )
-  expect(
-    screen.getByRole('link', { name: 'Campus Partner administration' })
-  ).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Partners' })).toBeVisible()
   enabled = true
   await act(async () => {
     await client.invalidateQueries({ queryKey: ['campus'] })
@@ -146,7 +142,5 @@ test('a failed status refresh hides the partner entry even if an earlier respons
       screen.queryByRole('link', { name: 'Campus Partner' })
     ).not.toBeInTheDocument()
   )
-  expect(
-    screen.getByRole('link', { name: 'Campus Partner administration' })
-  ).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Partners' })).toBeVisible()
 })
