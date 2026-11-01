@@ -24,7 +24,6 @@ import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
 import { TitledCard } from '@/components/ui/titled-card'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
@@ -145,34 +144,31 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
           <EmptyState title={t('No records yet')} />
         )}
         {props.data.plan_rates.length > 0 && (
-          <>
-            <Separator />
-            <div className='space-y-3'>
-              <h4 className='text-sm font-medium'>
-                {t('Subscription commissions')}
-              </h4>
-              <div className='grid gap-3 sm:grid-cols-2'>
-                {props.data.plan_rates.map((plan) => (
-                  <Card
-                    key={plan.plan_id}
-                    size='sm'
-                    className='bg-primary/5 ring-primary/20'
-                  >
-                    <CardContent className='flex min-w-0 flex-wrap items-center justify-between gap-3'>
-                      <span className='min-w-0 text-sm font-medium break-words'>
-                        {props.data.plan_options.find(
-                          (option) => option.id === plan.plan_id
-                        )?.title || `#${plan.plan_id}`}
-                      </span>
-                      <span className='text-primary font-mono text-xl font-semibold tabular-nums'>
-                        {formatNumber(plan.rate_bps / 100, locale)}%
-                      </span>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          <div className='space-y-3'>
+            <h4 className='text-sm font-medium'>
+              {t('Subscription commissions')}
+            </h4>
+            <div className='grid gap-3 sm:grid-cols-2'>
+              {props.data.plan_rates.map((plan) => (
+                <Card
+                  key={plan.plan_id}
+                  size='sm'
+                  className='bg-primary/5 ring-primary/20'
+                >
+                  <CardContent className='flex min-w-0 flex-wrap items-center justify-between gap-3'>
+                    <span className='min-w-0 text-sm font-medium break-words'>
+                      {props.data.plan_options.find(
+                        (option) => option.id === plan.plan_id
+                      )?.title || `#${plan.plan_id}`}
+                    </span>
+                    <span className='text-primary font-mono text-xl font-semibold tabular-nums'>
+                      {formatNumber(plan.rate_bps / 100, locale)}%
+                    </span>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          </>
+          </div>
         )}
       </TitledCard>
     </section>
