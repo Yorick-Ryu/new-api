@@ -72,7 +72,9 @@ export function CampusPartner() {
     [t('Net lifetime commission'), data.net_cents],
     [t('Paid out'), data.paid_cents],
     [t('Payout processing'), data.processing_cents],
-    [t('Refund recovery due'), data.member.debt_cents],
+    ...(data.member.debt_cents > 0
+      ? [[t('Refund recovery due'), data.member.debt_cents] as const]
+      : []),
   ] as const
   return (
     <SectionPageLayout>
@@ -120,7 +122,7 @@ export function CampusPartner() {
                   <CardDescription>{label}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold break-all tabular-nums'>
+                  <p className='font-mono text-2xl font-semibold break-all tabular-nums'>
                     {cash(amount, locale)}
                   </p>
                 </CardContent>
@@ -198,7 +200,7 @@ export function CampusPartner() {
                   <p className='text-muted-foreground text-sm'>
                     {t('Campaign net paid sales')}
                   </p>
-                  <p className='mt-1 text-2xl font-semibold break-all tabular-nums'>
+                  <p className='mt-1 font-mono text-2xl font-semibold break-all tabular-nums'>
                     {cash(data.member.performance_cents, locale)}
                   </p>
                 </div>
