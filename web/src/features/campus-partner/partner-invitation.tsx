@@ -39,7 +39,6 @@ import {
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { TitledCard } from '@/components/ui/titled-card'
 
 import type { Overview } from './api'
@@ -205,7 +204,6 @@ export function PartnerInvitation(props: {
               </p>
             </div>
           </div>
-          <Separator />
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <div className='flex flex-wrap items-center gap-2'>
               <span className='text-sm font-medium'>{t('My coupon')}</span>

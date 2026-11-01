@@ -29,7 +29,6 @@ import { useTranslation } from 'react-i18next'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { StatCard } from '@/features/dashboard/components/ui/stat-card'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
@@ -63,13 +62,6 @@ export function PartnerSummary(props: {
               }
               icon={Wallet}
               iconTone='primary'
-            />
-            <Progress
-              value={Math.max(
-                0,
-                Math.min(100, props.data.available_cents / 100)
-              )}
-              aria-label={t('Available commission')}
             />
             <Button
               disabled={props.data.available_cents < 10000}

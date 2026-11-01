@@ -35,6 +35,12 @@ import { cash, type Overview } from './api'
 export function PartnerTiers(props: { data: Overview }): ReactElement {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const tierAmount = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
   const tier = props.data.tier
   const progress =
     tier.next_cents > tier.floor_cents
@@ -125,8 +131,10 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                       {formatNumber(rule.rate_bps / 100, locale)}%
                     </p>
                     <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
-                      {cash(rule.floor_cents, locale)}
-                      {next ? ` – <${cash(next.floor_cents, locale)}` : '+'}
+                      {tierAmount.format(rule.floor_cents / 100)}
+                      {next
+                        ? ` – <${tierAmount.format(next.floor_cents / 100)}`
+                        : '+'}
                     </p>
                   </CardContent>
                 </Card>
