@@ -64,7 +64,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         action={
           <div className='space-y-1 sm:text-right'>
             <p className='text-muted-foreground text-xs'>
-              {t('Campaign net paid sales')}
+              {t('Friends cumulative top-ups')}
             </p>
             <p className='font-mono text-2xl font-semibold tabular-nums'>
               {cash(props.data.member.performance_cents, locale)}

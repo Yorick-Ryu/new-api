@@ -120,7 +120,7 @@ export function PartnerSummary(props: {
         <Card>
           <CardContent>
             <StatCard
-              title={t('Campaign net paid sales')}
+              title={t('Friends cumulative top-ups')}
               value={cash(props.data.member.performance_cents, locale)}
               description={`${t('Current top-up rate')}: ${formatNumber(props.data.tier.rate_percent, locale)}%`}
               icon={ChartNoAxesColumn}
