@@ -126,12 +126,14 @@ func GetTopUpInfo(c *gin.Context) {
 }
 
 type EpayRequest struct {
+	CampusCoupon  bool   `json:"campus_coupon"`
 	Amount        int64  `json:"amount"`
 	PaymentMethod string `json:"payment_method"`
 }
 
 type AmountRequest struct {
-	Amount int64 `json:"amount"`
+	CampusCoupon bool  `json:"campus_coupon"`
+	Amount       int64 `json:"amount"`
 }
 
 func GetEpayClient() *epay.Client {
@@ -313,7 +315,7 @@ func RequestEpay(c *gin.Context) {
 	}
 
 	callBackAddress := service.GetCallbackAddress()
-	returnUrl, err := paymentReturnURLForRequest(c, "/usage-logs")
+	returnUrl, err := paymentReturnURLForRequest(c, "/api/user/epay/return")
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "回调地址配置错误"})
 		return
@@ -324,20 +326,6 @@ func RequestEpay(c *gin.Context) {
 	client := GetEpayClient()
 	if client == nil {
 		paymentError(c, common.NewMessage("Payment information has not been configured by administrator"))
-		return
-	}
-	uri, params, err := client.Purchase(&epay.PurchaseArgs{
-		Type:           req.PaymentMethod,
-		ServiceTradeNo: tradeNo,
-		Name:           fmt.Sprintf("TUC%d", req.Amount),
-		Money:          strconv.FormatFloat(payMoney, 'f', 2, 64),
-		Device:         epay.PC,
-		NotifyUrl:      notifyUrl,
-		ReturnUrl:      returnUrl,
-	})
-	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("Epay failed to start payment user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
-		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
 	amount := req.Amount
@@ -356,10 +344,26 @@ func RequestEpay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	err = topUp.Insert()
+	err = model.InsertCampusTopUp(topUp, CampusMainSite(c), "CNY", req.CampusCoupon)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Epay failed to create top-up order user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
 		paymentError(c, common.NewMessage("Failed to create order"))
+		return
+	}
+	payMoney = topUp.Money
+	uri, params, err := client.Purchase(&epay.PurchaseArgs{
+		Type:           req.PaymentMethod,
+		ServiceTradeNo: tradeNo,
+		Name:           fmt.Sprintf("TUC%d", req.Amount),
+		Money:          strconv.FormatFloat(payMoney, 'f', 2, 64),
+		Device:         epay.PC,
+		NotifyUrl:      notifyUrl,
+		ReturnUrl:      returnUrl,
+	})
+	if err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("Epay failed to start payment user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
+		_ = model.FailCampusCheckout(tradeNo)
+		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
 	logger.LogInfo(c.Request.Context(), common.LogText("Epay top-up order created user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f uri=%q params=%q", id, tradeNo, req.PaymentMethod, req.Amount, payMoney, uri, common.GetJsonString(params)))
@@ -470,7 +474,7 @@ func EpayNotify(c *gin.Context) {
 		// 数据库行锁 + 事务内状态校验保证（多实例部署下同样安全）。
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		alreadyDone, err := model.RechargeEpay(verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP())
+		alreadyDone, err := model.RechargeEpay(verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP(), model.CampusPaymentProof{Amount: verifyInfo.Money, Transaction: verifyInfo.TradeNo})
 		if err != nil {
 			switch {
 			case errors.Is(err, model.ErrTopUpNotFound):
@@ -526,7 +530,20 @@ func RequestAmount(c *gin.Context) {
 		paymentError(c, common.NewMessage("Payment amount is too low"))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "success", "data": strconv.FormatFloat(payMoney, 'f', 2, 64)})
+	beforeCoupon := payMoney
+	if req.CampusCoupon {
+		if !CampusMainSite(c) {
+			paymentError(c, model.ErrCampusCoupon)
+			return
+		}
+		payable, err := model.CampusQuoteCoupon(id, payMoney)
+		if err != nil {
+			paymentError(c, err)
+			return
+		}
+		payMoney = payable
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": strconv.FormatFloat(payMoney, 'f', 2, 64), "campus_before": strconv.FormatFloat(beforeCoupon, 'f', 2, 64)})
 }
 
 func GetUserTopUps(c *gin.Context) {
@@ -580,7 +597,9 @@ func GetAllTopUps(c *gin.Context) {
 }
 
 type AdminCompleteTopupRequest struct {
-	TradeNo string `json:"trade_no"`
+	Reference string `json:"reference"`
+	Evidence  string `json:"evidence"`
+	TradeNo   string `json:"trade_no"`
 }
 
 // AdminCompleteTopUp 管理员补单接口
@@ -595,7 +614,7 @@ func AdminCompleteTopUp(c *gin.Context) {
 	LockOrder(req.TradeNo)
 	defer UnlockOrder(req.TradeNo)
 
-	if err := model.ManualCompleteTopUp(req.TradeNo, c.ClientIP()); err != nil {
+	if err := model.CampusReconcilePayment(req.TradeNo, req.Reference, req.Evidence, c.GetInt("id"), c.ClientIP()); err != nil {
 		common.ApiError(c, err)
 		return
 	}

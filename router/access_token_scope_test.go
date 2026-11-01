@@ -55,7 +55,12 @@ var accessTokenExemptRoutes = []string{
 	"POST /api/user/auth/refresh",
 	"POST /api/user/auth/logout",
 
+	// Campus invitation validation is public and rate limited.
+	"GET /api/campus/invite/:code",
+
 	// Payment callbacks.
+	"GET /api/user/epay/return",
+	"POST /api/user/epay/return",
 	"POST /api/stripe/webhook",
 	"POST /api/creem/webhook",
 	"POST /api/waffo/webhook",

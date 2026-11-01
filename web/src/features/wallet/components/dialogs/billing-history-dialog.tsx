@@ -1,3 +1,28 @@
+import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { Dialog } from '@/components/dialog'
+import { StatusBadge } from '@/components/status-badge'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -16,34 +41,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-
-import { Dialog } from '@/components/dialog'
-import { StatusBadge } from '@/components/status-badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
+import { CampusFields } from '@/features/campus-partner/forms'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
@@ -85,9 +83,13 @@ export function BillingHistoryDialog({
 
   const totalPages = Math.ceil(total / pageSize)
 
-  const handleConfirmComplete = async () => {
+  const handleConfirmComplete = async (values: Record<string, string>) => {
     if (confirmTradeNo) {
-      const success = await handleCompleteOrder(confirmTradeNo)
+      const success = await handleCompleteOrder(
+        confirmTradeNo,
+        values.evidence,
+        values.reference
+      )
       if (success) {
         setConfirmTradeNo(null)
       }
@@ -336,17 +338,15 @@ export function BillingHistoryDialog({
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing}>
-              {t('Cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmComplete}
-              disabled={completing}
-            >
-              {completing ? t('Processing...') : t('Confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <CampusFields
+            fields={[
+              { name: 'reference', label: 'Provider transaction number' },
+              { name: 'evidence', label: 'Reason and reconciliation evidence' },
+            ]}
+            submit='Confirm reconciliation'
+            pending={completing}
+            onSubmit={(values) => void handleConfirmComplete(values)}
+          />
         </AlertDialogContent>
       </AlertDialog>
     </>

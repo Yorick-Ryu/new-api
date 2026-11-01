@@ -89,7 +89,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		CreateTime:            time.Now().Unix(),
 		Status:                common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	if err := model.InsertCampusSubscription(order, CampusMainSite(c), "CNY"); err != nil {
 		common.ApiErrorT(c, "Failed to create order")
 		return
 	}
@@ -155,7 +155,7 @@ func SubscriptionEpayNotify(c *gin.Context) {
 	LockOrder(verifyInfo.ServiceTradeNo)
 	defer UnlockOrder(verifyInfo.ServiceTradeNo)
 
-	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, c.ClientIP()); err != nil {
+	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, c.ClientIP(), model.CampusPaymentProof{Amount: verifyInfo.Money, Transaction: verifyInfo.TradeNo}); err != nil {
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
@@ -204,7 +204,7 @@ func SubscriptionEpayReturn(c *gin.Context) {
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, c.ClientIP()); err != nil {
+		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, c.ClientIP(), model.CampusPaymentProof{Amount: verifyInfo.Money, Transaction: verifyInfo.TradeNo}); err != nil {
 			c.Redirect(http.StatusFound, "/wallet?pay=fail")
 			return
 		}

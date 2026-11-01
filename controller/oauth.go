@@ -22,14 +22,16 @@ import (
 const oauthAuthFlowTTL = 10 * time.Minute
 
 type oauthStateRequest struct {
-	Provider string          `json:"provider"`
-	Intent   string          `json:"intent"`
-	Aff      string          `json:"aff,omitempty"`
-	Scope    string          `json:"scope,omitempty"`
-	Context  json.RawMessage `json:"context,omitempty"`
+	CampusCode string          `json:"campus_code,omitempty"`
+	Provider   string          `json:"provider"`
+	Intent     string          `json:"intent"`
+	Aff        string          `json:"aff,omitempty"`
+	Scope      string          `json:"scope,omitempty"`
+	Context    json.RawMessage `json:"context,omitempty"`
 }
 
 type oauthFlowPayload struct {
+	CampusCode      string                         `json:"campus_code,omitempty"`
 	AffiliateCode   string                         `json:"affiliate_code,omitempty"`
 	Verification    *service.OAuthVerificationFlow `json:"verification,omitempty"`
 	Telegram        *oauth.TelegramOAuthFlow       `json:"telegram,omitempty"`
@@ -60,9 +62,19 @@ func GenerateOAuthCode(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
+	if request.CampusCode != "" {
+		if request.Intent != model.AuthFlowIntentLogin || !CampusMainSite(c) {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		if _, err := model.CampusValidateCode(request.CampusCode); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	userID := 0
 	sessionID := ""
-	flowPayload := oauthFlowPayload{AffiliateCode: request.Aff}
+	flowPayload := oauthFlowPayload{AffiliateCode: request.Aff, CampusCode: request.CampusCode}
 	bindingStarted := false
 	if request.Provider == "telegram" {
 		telegramFlow, err := oauth.NewTelegramOAuthFlow(c)
@@ -312,7 +324,7 @@ func handleOAuthLogin(c *gin.Context, provider oauth.Provider, oauthUser *oauth.
 		writeSecurityOperationError(c, err)
 		return
 	}
-	user, migration, err := findOrCreateOAuthUser(c, provider, oauthUser, token, payload.AffiliateCode)
+	user, migration, err := findOrCreateOAuthUser(c, provider, oauthUser, token, payload.AffiliateCode, payload.CampusCode)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorT(c, "Email address is already in use")
@@ -396,7 +408,7 @@ func handleOAuthBind(c *gin.Context, providerName string, provider oauth.Provide
 // findOrCreateOAuthUser finds the existing user or creates a new one. For a
 // legacy GitHub binding that still waits for the login verification, it also
 // returns the rewrite to carry into the challenge.
-func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, token *oauth.OAuthToken, affiliateCode string) (*model.User, *service.LegacyGitHubMigration, error) {
+func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, token *oauth.OAuthToken, affiliateCode string, campusCodes ...string) (*model.User, *service.LegacyGitHubMigration, error) {
 	user := &model.User{}
 	if provider.ProviderUserIDColumn() == "telegram_id" {
 		err := provider.FillUserByProviderID(user, oauthUser.ProviderUserID)
@@ -517,6 +529,12 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		inviterId, _ = model.GetUserIdByAffCode(affiliateCode)
 	}
 
+	if len(campusCodes) > 0 && campusCodes[0] != "" {
+		if !CampusMainSite(c) {
+			return nil, nil, model.ErrCampusBinding
+		}
+		user.CampusCode = campusCodes[0]
+	}
 	// Use transaction to ensure user creation and OAuth binding are atomic
 	if genericProvider, ok := provider.(*oauth.GenericOAuthProvider); ok {
 		// Custom provider: create user and binding in a transaction

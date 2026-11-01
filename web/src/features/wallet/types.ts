@@ -33,7 +33,7 @@ export interface ApiResponse<T = unknown> {
  * Standard API response types
  */
 export type TopupInfoResponse = ApiResponse<TopupInfo>
-export type AmountResponse = ApiResponse<string>
+export type AmountResponse = ApiResponse<string> & { campus_before?: string }
 export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
   url?: string
 }
@@ -171,6 +171,7 @@ export interface PresetAmount {
  * Payment request parameters
  */
 export interface PaymentRequest {
+  campus_coupon?: boolean
   /** Topup amount */
   amount: number
   /** Payment method identifier */
@@ -199,6 +200,7 @@ export interface WaffoPancakePaymentRequest {
  * Amount calculation request
  */
 export interface AmountRequest {
+  campus_coupon?: boolean
   /** Topup amount to calculate */
   amount: number
 }
@@ -276,5 +278,7 @@ export interface BillingHistoryResponse {
  * Complete order request (admin only)
  */
 export interface CompleteOrderRequest {
+  evidence: string
+  reference: string
   trade_no: string
 }

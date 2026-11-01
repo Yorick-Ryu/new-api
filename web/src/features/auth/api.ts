@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import axios from 'axios'
 
+import { invitationCode } from '@/features/campus-partner/storage'
 import { api, refreshAuthentication, type RefreshOutcome } from '@/lib/api'
 import { AuthOperationError } from '@/lib/secure-verification'
 import {
@@ -184,6 +185,8 @@ export async function createOAuthAuthorization(
       provider,
       intent,
       aff: aff || undefined,
+      campus_code:
+        intent === 'login' ? invitationCode() || undefined : undefined,
       scope: operation?.scope,
       ...(operation?.context ? { context: operation.context } : {}),
     },
@@ -248,9 +251,13 @@ export async function telegramLogin(
 
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/register`, payload, {
-    params: { turnstile: payload.turnstile ?? '' },
-  })
+  const res = await api.post(
+    `/api/user/register`,
+    { ...payload, campus_code: invitationCode() || undefined },
+    {
+      params: { turnstile: payload.turnstile ?? '' },
+    }
+  )
   return res.data
 }
 

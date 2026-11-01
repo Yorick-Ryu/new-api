@@ -404,6 +404,9 @@ func migrateDB() error {
 			return err
 		}
 	}
+	if err := InitializeCampusPartner(DB); err != nil {
+		return err
+	}
 	return InitializeBusinessRenewalTracking()
 }
 

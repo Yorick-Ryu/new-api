@@ -23,6 +23,7 @@ import { SkipToMain } from '@/components/skip-to-main'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
+import { CampusReminder } from '@/features/campus-partner/reminder'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -58,6 +59,7 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
               )}
             >
               {props.children ?? <AnimatedOutlet />}
+              <CampusReminder />
             </SidebarInset>
           </div>
         </SidebarProvider>

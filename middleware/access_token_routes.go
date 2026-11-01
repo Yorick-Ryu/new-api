@@ -41,6 +41,14 @@ func accessTokenScopeRule(scope string) accessTokenRouteRule {
 // Casbin-guarded routes declare themselves through
 // DeclareAccessTokenPermissionRoute when they are registered.
 var accessTokenRouteRules = map[string]accessTokenRouteRule{
+	// Campus account actions use the same read/write scopes as the user's wallet.
+	"GET /api/campus/self":                accessTokenScopeRule("wallet:read"),
+	"GET /api/campus/self/records/:kind":  accessTokenScopeRule("wallet:read"),
+	"POST /api/campus/self/join":          accessTokenScopeRule("wallet:write"),
+	"POST /api/campus/self/bind":          accessTokenScopeRule("wallet:write"),
+	"POST /api/campus/self/reminder":      accessTokenScopeRule("wallet:read"),
+	"POST /api/campus/self/coupon/resume": accessTokenScopeRule("wallet:write"),
+	"POST /api/campus/self/withdraw":      accessTokenScopeRule("wallet:write"),
 	// router/api-router.go: top level
 	"GET /api/models":                     accessTokenScopeRule("profile:read"),
 	"GET /api/status/test":                accessTokenScopeRule("log:read"),

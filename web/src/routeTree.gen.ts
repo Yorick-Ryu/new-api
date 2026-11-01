@@ -35,6 +35,8 @@ import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedBusinessIndexRouteImport } from './routes/_authenticated/business/index'
+import { Route as AuthenticatedCampusAdminIndexRouteImport } from './routes/_authenticated/campus-admin/index'
+import { Route as AuthenticatedCampusPartnerIndexRouteImport } from './routes/_authenticated/campus-partner/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
@@ -208,6 +210,18 @@ const AuthenticatedBusinessIndexRoute =
   AuthenticatedBusinessIndexRouteImport.update({
     id: '/business/',
     path: '/business/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCampusAdminIndexRoute =
+  AuthenticatedCampusAdminIndexRouteImport.update({
+    id: '/campus-admin/',
+    path: '/campus-admin/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCampusPartnerIndexRoute =
+  AuthenticatedCampusPartnerIndexRouteImport.update({
+    id: '/campus-partner/',
+    path: '/campus-partner/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedChannelsIndexRoute =
@@ -503,6 +517,8 @@ export interface FileRoutesByFullPath {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/business/': typeof AuthenticatedBusinessIndexRoute
+  '/campus-admin/': typeof AuthenticatedCampusAdminIndexRoute
+  '/campus-partner/': typeof AuthenticatedCampusPartnerIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/image-studio/': typeof AuthenticatedImageStudioIndexRoute
@@ -572,6 +588,8 @@ export interface FileRoutesByTo {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/business': typeof AuthenticatedBusinessIndexRoute
+  '/campus-admin': typeof AuthenticatedCampusAdminIndexRoute
+  '/campus-partner': typeof AuthenticatedCampusPartnerIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/image-studio': typeof AuthenticatedImageStudioIndexRoute
@@ -645,6 +663,8 @@ export interface FileRoutesById {
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/_authenticated/business/': typeof AuthenticatedBusinessIndexRoute
+  '/_authenticated/campus-admin/': typeof AuthenticatedCampusAdminIndexRoute
+  '/_authenticated/campus-partner/': typeof AuthenticatedCampusPartnerIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/image-studio/': typeof AuthenticatedImageStudioIndexRoute
@@ -717,6 +737,8 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/usage-logs/audit'
     | '/business/'
+    | '/campus-admin/'
+    | '/campus-partner/'
     | '/channels/'
     | '/dashboard/'
     | '/image-studio/'
@@ -786,6 +808,8 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/usage-logs/audit'
     | '/business'
+    | '/campus-admin'
+    | '/campus-partner'
     | '/channels'
     | '/dashboard'
     | '/image-studio'
@@ -858,6 +882,8 @@ export interface FileRouteTypes {
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/usage-logs/audit'
     | '/_authenticated/business/'
+    | '/_authenticated/campus-admin/'
+    | '/_authenticated/campus-partner/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/image-studio/'
@@ -1098,6 +1124,20 @@ declare module '@tanstack/react-router' {
       path: '/business'
       fullPath: '/business/'
       preLoaderRoute: typeof AuthenticatedBusinessIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/campus-admin/': {
+      id: '/_authenticated/campus-admin/'
+      path: '/campus-admin'
+      fullPath: '/campus-admin/'
+      preLoaderRoute: typeof AuthenticatedCampusAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/campus-partner/': {
+      id: '/_authenticated/campus-partner/'
+      path: '/campus-partner'
+      fullPath: '/campus-partner/'
+      preLoaderRoute: typeof AuthenticatedCampusPartnerIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/channels/': {
@@ -1514,6 +1554,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedUsageLogsAuditRoute: typeof AuthenticatedUsageLogsAuditRoute
   AuthenticatedBusinessIndexRoute: typeof AuthenticatedBusinessIndexRoute
+  AuthenticatedCampusAdminIndexRoute: typeof AuthenticatedCampusAdminIndexRoute
+  AuthenticatedCampusPartnerIndexRoute: typeof AuthenticatedCampusPartnerIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedImageStudioIndexRoute: typeof AuthenticatedImageStudioIndexRoute
@@ -1546,6 +1588,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedUsageLogsAuditRoute: AuthenticatedUsageLogsAuditRoute,
   AuthenticatedBusinessIndexRoute: AuthenticatedBusinessIndexRoute,
+  AuthenticatedCampusAdminIndexRoute: AuthenticatedCampusAdminIndexRoute,
+  AuthenticatedCampusPartnerIndexRoute: AuthenticatedCampusPartnerIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedImageStudioIndexRoute: AuthenticatedImageStudioIndexRoute,

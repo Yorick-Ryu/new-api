@@ -591,7 +591,7 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 // Complete a subscription order (idempotent). Creates or renews the subscription selected at checkout.
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).
-func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, callerIp string) error {
+func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, callerIp string, proofs ...CampusPaymentProof) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -613,6 +613,11 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		}
 		if expectedPaymentProvider != "" && order.PaymentProvider != expectedPaymentProvider {
 			return ErrPaymentMethodMismatch
+		}
+		if expectedPaymentProvider == PaymentProviderEpay {
+			if err := campusVerifyEpayTx(tx, tradeNo, proofs); err != nil {
+				return err
+			}
 		}
 		if order.Status == common.TopUpStatusSuccess {
 			return nil
@@ -654,7 +659,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPaymentMethod = order.PaymentMethod
 		logPaymentProvider = order.PaymentProvider
 		logRenewalSubscriptionId = order.RenewalSubscriptionId
-		return nil
+		return CampusSettleTx(tx, order.TradeNo, order.UserId, proofs...)
 	})
 	if err != nil {
 		return err

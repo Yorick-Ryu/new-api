@@ -271,9 +271,20 @@ func Register(c *gin.Context) {
 		common.ApiErrorT(c, "Username already exists or has been deleted")
 		return
 	}
+	if user.CampusCode != "" {
+		if !CampusMainSite(c) {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		if _, err := model.CampusValidateCode(user.CampusCode); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 	cleanUser := model.User{
+		CampusCode:  user.CampusCode,
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.Username,

@@ -45,6 +45,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import type { SidebarBadges, SidebarData } from '@/components/layout/types'
+import { campusSite } from '@/features/campus-partner/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -74,6 +75,16 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             url: '/image-studio',
             icon: ImagePlus,
           },
+          ...(campusSite()
+            ? [
+                {
+                  title: t('Campus Partner'),
+                  url: '/campus-partner',
+                  icon: Gift,
+                  badge: t('Up to 50%'),
+                },
+              ]
+            : []),
           {
             title: t('Chat'),
             icon: MessageSquare,
@@ -159,6 +170,16 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
         id: 'admin',
         title: t('Admin'),
         items: [
+          ...(campusSite()
+            ? [
+                {
+                  title: t('Campus Partner administration'),
+                  url: '/campus-admin',
+                  icon: Gift,
+                  requiredRole: ROLE.ADMIN,
+                },
+              ]
+            : []),
           {
             title: t('Channels'),
             url: '/channels',

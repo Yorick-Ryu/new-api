@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { campusSite } from '@/features/campus-partner/api'
+import { InvitationField } from '@/features/campus-partner/forms'
 import { useStatus } from '@/hooks/use-status'
 
 import { AuthLayout } from '../auth-layout'
@@ -48,6 +50,7 @@ export function SignUp() {
           </p>
         </div>
 
+        {campusSite() && <InvitationField registration />}
         <SignUpForm />
 
         <TermsFooter

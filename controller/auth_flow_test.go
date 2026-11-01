@@ -1123,3 +1123,99 @@ func TestOAuthBindIgnoresLegacyGitHubUsernames(t *testing.T) {
 		})
 	}
 }
+
+func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testing.T) {
+	setupAuthFlowControllerTest(t)
+	db := model.DB
+	require.NoError(t, db.AutoMigrate(&model.TopUp{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}, &model.Log{}))
+	require.NoError(t, model.InitializeCampusPartner(db))
+	plan := model.SubscriptionPlan{Title: "Plus"}
+	ultra := model.SubscriptionPlan{Title: "Ultra"}
+	require.NoError(t, db.Create(&plan).Error)
+	require.NoError(t, db.Create(&ultra).Error)
+	inviter := model.User{Username: "campus-inviter", AffCode: "old-campaign-code", Status: common.UserStatusEnabled}
+	require.NoError(t, db.Create(&inviter).Error)
+	require.NoError(t, model.CampusConfigure(true, plan.Id, ultra.Id, inviter.Id))
+	member, err := model.CampusJoin(inviter.Id)
+	require.NoError(t, err)
+	oldRegister, oldPassword, oldVerify := common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled
+	common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled = true, true, false
+	t.Cleanup(func() {
+		common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled = oldRegister, oldPassword, oldVerify
+	})
+	// The invitation is in the server-side one-use flow, independent of return URL parameters.
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "https://beiapi.cn/api/oauth/state", strings.NewReader(fmt.Sprintf(`{"provider":"auth-flow-test","intent":"login","campus_code":%q}`, member.Code)))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	GenerateOAuthCode(ctx)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			FlowToken string `json:"flow_token"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	match := model.AuthFlowMatch{Purpose: model.AuthFlowPurposeOAuth, Provider: "auth-flow-test", Intent: model.AuthFlowIntentLogin}
+	flow, err := model.ConsumeAuthFlow(response.Data.FlowToken, match)
+	require.NoError(t, err)
+	var payload oauthFlowPayload
+	require.NoError(t, common.UnmarshalJsonStr(flow.Payload, &payload))
+	assert.Equal(t, member.Code, payload.CampusCode)
+	_, err = model.ConsumeAuthFlow(response.Data.FlowToken, match)
+	require.Error(t, err)
+	provider := &oauth.GitHubProvider{}
+	identity := &oauth.OAuthUser{ProviderUserID: "987654321", Username: "campus-oauth-new"}
+	created, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", payload.CampusCode)
+	require.NoError(t, err)
+	overview, err := model.CampusGetOverview(created.Id)
+	require.NoError(t, err)
+	assert.Equal(t, inviter.Id, overview.Member.InviterID)
+	assert.Equal(t, "available", overview.Member.CouponState)
+	existing, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", "invalid-new-invitation")
+	require.NoError(t, err)
+	assert.Equal(t, created.Id, existing.Id)
+	var bindingEvents int64
+	require.NoError(t, db.Model(&model.CampusEntry{}).Where("user_id = ? AND kind = ?", created.Id, "bound").Count(&bindingEvents).Error)
+	assert.EqualValues(t, 1, bindingEvents)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "https://novapi.cn/api/oauth/github", nil)
+	_, _, err = findOrCreateOAuthUser(ctx, provider, &oauth.OAuthUser{ProviderUserID: "987654322", Username: "foreign-oauth-new"}, &oauth.OAuthToken{}, "", member.Code)
+	require.Error(t, err)
+	// Password registration uses the same atomic binding and keeps the old program independent.
+	common.EmailVerificationEnabled = true
+	for _, test := range []struct {
+		name, code string
+		success    bool
+	}{{"campus-email", member.Code, true}, {"campus-no-code", "", true}, {"campus-invalid", "invalid", false}} {
+		result := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(result)
+		common.RegisterVerificationCodeWithKey(test.name+"@example.test", "fixture-verification", common.EmailVerificationPurpose)
+		body, err := common.Marshal(map[string]string{"username": test.name, "password": "fixture-only-strong-password", "email": test.name + "@example.test", "verification_code": "fixture-verification", "campus_code": test.code})
+		require.NoError(t, err)
+		c.Request = httptest.NewRequest(http.MethodPost, "https://beiapi.cn/api/user/register", strings.NewReader(string(body)))
+		Register(c)
+		var registered struct {
+			Success bool `json:"success"`
+		}
+		require.NoError(t, common.Unmarshal(result.Body.Bytes(), &registered))
+		require.Equal(t, test.success, registered.Success)
+		var account model.User
+		query := db.Where("username = ?", test.name).First(&account)
+		if !test.success {
+			assert.ErrorIs(t, query.Error, gorm.ErrRecordNotFound)
+			continue
+		}
+		require.NoError(t, query.Error)
+		assert.Zero(t, account.InviterId)
+		summary, err := model.CampusGetOverview(account.Id)
+		require.NoError(t, err)
+		if test.code != "" {
+			assert.Equal(t, inviter.Id, summary.Member.InviterID)
+			assert.Equal(t, "available", summary.Member.CouponState)
+		} else {
+			assert.Zero(t, summary.Member.InviterID)
+			assert.Empty(t, summary.Member.CouponState)
+		}
+	}
+}

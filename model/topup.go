@@ -174,7 +174,7 @@ func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, ta
 // 在同一个事务内完成，因此同一订单的并发/重复回调（包括多实例部署下）最多充值一次。
 // alreadyDone=true 表示订单此前已完成，本次为幂等重复回调。
 // 进程内的 LockOrder 只是优化，正确性由本函数的数据库行锁保证。
-func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) (alreadyDone bool, err error) {
+func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string, proofs ...CampusPaymentProof) (alreadyDone bool, err error) {
 	if tradeNo == "" {
 		return false, errors.New("payment order number not provided")
 	}
@@ -192,6 +192,9 @@ func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) (
 		}
 		if topUp.PaymentProvider != PaymentProviderEpay {
 			return ErrPaymentMethodMismatch
+		}
+		if err := campusVerifyEpayTx(tx, tradeNo, proofs); err != nil {
+			return err
 		}
 		if topUp.Status == common.TopUpStatusSuccess {
 			alreadyDone = true
@@ -215,7 +218,10 @@ func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) (
 		if err := tx.Save(topUp).Error; err != nil {
 			return err
 		}
-		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
+		if err := creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil); err != nil {
+			return err
+		}
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId, proofs...)
 	})
 	if err != nil {
 		if !errors.Is(err, ErrTopUpNotFound) && !errors.Is(err, ErrPaymentMethodMismatch) && !errors.Is(err, ErrTopUpStatusInvalid) {
@@ -273,9 +279,10 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 		if err != nil || quota <= 0 {
 			return ErrInvalidTopUpQuota
 		}
-		return creditTopUpQuota(tx, topUp.UserId, quota, map[string]any{
-			"stripe_customer": customerId,
-		})
+		if err := creditTopUpQuota(tx, topUp.UserId, quota, map[string]any{"stripe_customer": customerId}); err != nil {
+			return err
+		}
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId)
 	})
 
 	if err != nil {
@@ -448,6 +455,9 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 
 // ManualCompleteTopUp 管理员手动完成订单并给用户充值
 func ManualCompleteTopUp(tradeNo string, callerIp string) error {
+	return ManualCompleteTopUpWithEvidence(tradeNo, callerIp, 0, "")
+}
+func ManualCompleteTopUpWithEvidence(tradeNo string, callerIp string, actor int, evidence string) error {
 	if tradeNo == "" {
 		return common.NewMessage("Order number not provided")
 	}
@@ -478,6 +488,9 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 			return common.NewMessage("Order is not pending payment and cannot be completed")
 		}
 
+		if err := campusManualEvidenceTx(tx, tradeNo, actor, evidence); err != nil {
+			return err
+		}
 		// 计算应充值额度：
 		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
 		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit
@@ -510,7 +523,7 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 		userId = topUp.UserId
 		payMoney = topUp.Money
 		paymentMethod = topUp.PaymentMethod
-		return nil
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId)
 	})
 
 	if err != nil {
@@ -580,7 +593,10 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			}
 		}
 
-		return creditTopUpQuota(tx, topUp.UserId, quota, updateFields)
+		if err := creditTopUpQuota(tx, topUp.UserId, quota, updateFields); err != nil {
+			return err
+		}
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId)
 	})
 
 	if err != nil {
@@ -638,7 +654,10 @@ func RechargeWaffo(tradeNo string, callerIp string) (err error) {
 			return err
 		}
 
-		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
+		if err := creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil); err != nil {
+			return err
+		}
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId)
 	})
 
 	if err != nil {
@@ -698,7 +717,10 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 			return err
 		}
 
-		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
+		if err := creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil); err != nil {
+			return err
+		}
+		return CampusSettleTx(tx, topUp.TradeNo, topUp.UserId)
 	})
 
 	if err != nil {

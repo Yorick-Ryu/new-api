@@ -77,6 +77,7 @@ func resolveUserSortOptions(sortOptions []UserSortOptions) UserSortOptions {
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
 type User struct {
+	CampusCode           string                     `json:"campus_code,omitempty" gorm:"-:all"`
 	Id                   int                        `json:"id"`
 	Username             string                     `json:"username" gorm:"unique;index" validate:"max=20"`
 	Password             string                     `json:"password" gorm:"not null;" validate:"min=8,max=128"`
@@ -691,7 +692,13 @@ func (user *User) Insert(inviterId int) error {
 				user.SetSetting(defaultSetting)
 			}
 
-			return tx.Create(user).Error
+			if err := tx.Create(user).Error; err != nil {
+				return err
+			}
+			if user.CampusCode != "" {
+				return CampusBindTx(tx, user.Id, user.CampusCode)
+			}
+			return nil
 		})
 	}); err != nil {
 		return err
@@ -754,7 +761,13 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 			user.SetSetting(defaultSetting)
 		}
 
-		return tx.Create(user).Error
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		if user.CampusCode != "" {
+			return CampusBindTx(tx, user.Id, user.CampusCode)
+		}
+		return nil
 	})
 }
 

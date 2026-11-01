@@ -37,6 +37,8 @@ import { formatCurrency, getPaymentIcon } from '../../lib'
 import type { PaymentMethod } from '../../types'
 
 interface PaymentConfirmDialogProps {
+  campusCoupon?: boolean
+  campusBefore?: number
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
@@ -58,12 +60,16 @@ export function PaymentConfirmDialog({
   paymentMethod,
   calculating,
   processing,
+  campusCoupon = false,
+  campusBefore = 0,
   discountRate = DEFAULT_DISCOUNT_RATE,
   usdExchangeRate = 1,
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
-  const hasDiscount = discountRate > 0 && discountRate < 1 && paymentAmount > 0
-  const originalAmount = hasDiscount ? paymentAmount / discountRate : 0
+  const hasDiscount =
+    campusCoupon || (discountRate > 0 && discountRate < 1 && paymentAmount > 0)
+  let originalAmount = hasDiscount ? paymentAmount / discountRate : 0
+  if (campusCoupon) originalAmount = campusBefore
   const discountAmount = hasDiscount ? originalAmount - paymentAmount : 0
 
   return (
@@ -74,7 +80,11 @@ export function PaymentConfirmDialog({
             {t('Confirm Payment')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {t('Review your payment details')}
+            {campusCoupon
+              ? t(
+                  'Personal 5% off campus coupon applied. The displayed payment amount includes this discount.'
+                )
+              : t('Review your payment details')}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

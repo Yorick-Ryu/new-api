@@ -18,8 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
+import { CampusCouponCard } from '@/features/campus-partner/wallet-coupon'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
@@ -59,6 +61,7 @@ interface WalletProps {
 
 export function Wallet(props: WalletProps) {
   const { t } = useTranslation()
+  const [campusCoupon, setCampusCoupon] = useState(false)
   const [user, setUser] = useState<UserWalletData | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [topupAmount, setTopupAmount] = useState(0)
@@ -88,11 +91,12 @@ export function Wallet(props: WalletProps) {
   }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
   const {
     amount: paymentAmount,
+    campusBefore,
     calculating,
     processing,
     calculatePaymentAmount,
     processPayment,
-  } = usePayment()
+  } = usePayment(campusCoupon)
   const {
     affiliateLink,
     loading: affiliateLoading,
@@ -150,6 +154,12 @@ export function Wallet(props: WalletProps) {
     return selectedPaymentMethod?.type || getDefaultPaymentType(topupInfo)
   }, [selectedPaymentMethod, topupInfo])
 
+  useEffect(() => {
+    if (topupAmount > 0) {
+      void calculatePaymentAmount(topupAmount, getCurrentPaymentType())
+    }
+  }, [campusCoupon, calculatePaymentAmount, getCurrentPaymentType, topupAmount])
+
   // Handle preset selection
   const handleSelectPreset = (preset: PresetAmount) => {
     setTopupAmount(preset.value)
@@ -166,6 +176,18 @@ export function Wallet(props: WalletProps) {
 
   // Handle payment method selection
   const handlePaymentMethodSelect = async (method: PaymentMethod) => {
+    if (
+      campusCoupon &&
+      ['stripe', 'waffo', 'waffo_pancake', 'creem'].includes(method.type)
+    ) {
+      setCampusCoupon(false)
+      toast.info(
+        t(
+          'Campus coupons apply to RMB Alipay or WeChat top-ups. Select this method again to pay without the coupon.'
+        )
+      )
+      return
+    }
     setSelectedPaymentMethod(method)
     setSelectedWaffoMethodIndex(null)
     setPaymentLoading(method.type)
@@ -178,8 +200,8 @@ export function Wallet(props: WalletProps) {
       }
 
       // Calculate payment amount and show confirmation dialog
-      await calculatePaymentAmount(topupAmount, method.type)
-      setConfirmDialogOpen(true)
+      const quoted = await calculatePaymentAmount(topupAmount, method.type)
+      if (quoted > 0) setConfirmDialogOpen(true)
     } finally {
       setPaymentLoading(null)
     }
@@ -266,6 +288,10 @@ export function Wallet(props: WalletProps) {
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
             <WalletStatsCard user={user} loading={userLoading} />
+            <CampusCouponCard
+              selected={campusCoupon}
+              onChange={setCampusCoupon}
+            />
 
             <div id='wallet-add-funds' className='scroll-mt-4'>
               <RechargeFormCard
@@ -313,6 +339,8 @@ export function Wallet(props: WalletProps) {
         onConfirm={handlePaymentConfirm}
         topupAmount={topupAmount}
         paymentAmount={paymentAmount}
+        campusCoupon={campusCoupon}
+        campusBefore={campusBefore}
         paymentMethod={selectedPaymentMethod}
         calculating={calculating}
         processing={processing || waffoProcessing || pancakeProcessing}

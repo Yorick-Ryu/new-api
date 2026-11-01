@@ -1,0 +1,116 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { AxiosResponse } from 'axios'
+import { afterEach, expect, test, vi } from 'vitest'
+
+import { api } from '@/lib/api'
+
+import { InvitationField } from '../forms'
+
+function renderInvitation(registration = false) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <InvitationField registration={registration} />
+    </QueryClientProvider>
+  )
+}
+afterEach(() => {
+  sessionStorage.clear()
+  window.history.replaceState({}, '', '/')
+  vi.restoreAllMocks()
+})
+
+test('changing a valid invitation never shows the previous inviter or enables binding while verification is pending', async () => {
+  const first = 'CP11111111111111111111'
+  const next = 'CP22222222222222222222'
+  let resolveNext!: (value: AxiosResponse) => void
+  vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (String(url).endsWith(first)) {
+      return {
+        data: { success: true, data: { inviter: 'Alice*' } },
+      } as AxiosResponse
+    }
+    return new Promise<AxiosResponse>((resolve) => {
+      resolveNext = resolve
+    })
+  })
+  const user = userEvent.setup()
+  renderInvitation()
+  const code = screen.getByRole('textbox', {
+    name: 'Campus invitation code (optional)',
+  })
+  await user.type(code, first)
+  expect(await screen.findByText('Invited by Alice*')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Bind invitation' })).toBeEnabled()
+  await user.clear(code)
+  await user.type(code, next)
+  expect(screen.queryByText('Invited by Alice*')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Bind invitation' })).toBeDisabled()
+  expect(screen.getByText('Checking invitation...')).toBeVisible()
+  await act(async () =>
+    resolveNext({
+      data: { success: true, data: { inviter: 'Bob*' } },
+    } as AxiosResponse)
+  )
+  expect(await screen.findByText('Invited by Bob*')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Bind invitation' }))
+  expect(
+    await screen.findByRole('alertdialog', { name: 'Confirm invitation' })
+  ).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+})
+
+test('an invalid invitation shows a text error and cannot be bound', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: false, message: 'Invalid invitation' },
+  } as AxiosResponse)
+  const user = userEvent.setup()
+  renderInvitation()
+  await user.type(screen.getByRole('textbox'), 'CP33333333333333333333')
+  expect(
+    await screen.findByText(
+      'Unable to validate this code. Correct it or try again.'
+    )
+  ).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Bind invitation' })).toBeDisabled()
+})
+
+test('an invitation link survives an untouched registration form and clearing it removes the signup intent', async () => {
+  const code = 'CP44444444444444444444'
+  window.history.replaceState({}, '', `/?campus=${code}`)
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { inviter: 'Friend*' } },
+  } as AxiosResponse)
+  const user = userEvent.setup()
+  renderInvitation(true)
+  expect(screen.getByRole('textbox')).toHaveValue(code)
+  expect(sessionStorage.getItem('campus-invitation')).toBe(code)
+  await user.clear(screen.getByRole('textbox'))
+  expect(sessionStorage.getItem('campus-invitation')).toBe('')
+  expect(
+    screen.queryByRole('button', { name: 'Bind invitation' })
+  ).not.toBeInTheDocument()
+})

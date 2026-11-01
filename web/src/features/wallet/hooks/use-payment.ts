@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
@@ -81,30 +81,60 @@ export async function requestPaymentAmount(
   return Number.parseFloat(response.data)
 }
 
-export function usePayment() {
+export function usePayment(campusCoupon = false) {
+  const quoteVersion = useRef(0)
   const [amount, setAmount] = useState<number>(0)
+  const [campusBefore, setCampusBefore] = useState(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
     async (topupAmount: number, paymentType: string) => {
+      const version = ++quoteVersion.current
+      let before = 0
       try {
         setCalculating(true)
+        const calculators = {
+          ...defaultPaymentAmountCalculators,
+          regular: async (request: AmountRequest) => {
+            const result = await calculateAmount({
+              ...request,
+              campus_coupon: campusCoupon,
+            })
+            if (!isApiSuccess(result)) {
+              handleServerError(
+                result,
+                i18next.t('Failed to calculate payment amount')
+              )
+            }
+            before = Number(result.campus_before || 0)
+            return result
+          },
+        }
         const calculatedAmount = await requestPaymentAmount(
           topupAmount,
-          paymentType
+          paymentType,
+          calculators
         )
+        if (version !== quoteVersion.current) return 0
+        setCampusBefore(before)
         setAmount(calculatedAmount)
         return calculatedAmount
-      } catch {
-        setAmount(0)
+      } catch (error) {
+        if (version === quoteVersion.current) {
+          setAmount(0)
+          handleServerError(
+            error,
+            i18next.t('Failed to calculate payment amount')
+          )
+        }
         return 0
       } finally {
-        setCalculating(false)
+        if (version === quoteVersion.current) setCalculating(false)
       }
     },
-    []
+    [campusCoupon]
   )
 
   // Process payment
@@ -124,6 +154,7 @@ export function usePayment() {
           : await requestPayment({
               amount,
               payment_method: paymentType,
+              campus_coupon: campusCoupon,
             })
 
         if (!isApiSuccess(response)) {
@@ -156,7 +187,7 @@ export function usePayment() {
         setProcessing(false)
       }
     },
-    []
+    [campusCoupon]
   )
 
   return {
@@ -166,5 +197,6 @@ export function usePayment() {
     calculatePaymentAmount,
     processPayment,
     setAmount,
+    campusBefore,
   }
 }
