@@ -97,15 +97,15 @@ export function CampusPartner(): ReactElement {
                 {t('Share useful AI. Grow together.')}
               </span>
             </div>
-            <div className='grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end'>
-              <div>
+            <div className='grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end'>
+              <div className='min-w-0'>
                 <h1
                   id='campus-intro-title'
-                  className='max-w-xl text-2xl font-semibold tracking-tight sm:text-3xl'
+                  className='text-2xl font-semibold tracking-tight sm:text-3xl'
                 >
                   {t('Your recommendations deserve a reward.')}
                 </h1>
-                <p className='text-muted-foreground mt-3 max-w-xl text-sm leading-6'>
+                <p className='text-muted-foreground mt-3 text-sm leading-6'>
                   {t(
                     'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
                   )}
