@@ -171,16 +171,6 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
         id: 'admin',
         title: t('Admin'),
         items: [
-          ...(campusSite()
-            ? [
-                {
-                  title: t('Campus Partner administration'),
-                  url: '/campus-admin',
-                  icon: Gift,
-                  requiredRole: ROLE.ADMIN,
-                },
-              ]
-            : []),
           {
             title: t('Channels'),
             url: '/channels',
@@ -192,6 +182,16 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             icon: ChartNoAxesCombined,
             requiredRole: ROLE.ADMIN,
           },
+          ...(campusSite()
+            ? [
+                {
+                  title: t('Campus Partner administration'),
+                  url: '/campus-admin',
+                  icon: Gift,
+                  requiredRole: ROLE.ADMIN,
+                },
+              ]
+            : []),
           {
             title: t('Models'),
             url: '/models/metadata',

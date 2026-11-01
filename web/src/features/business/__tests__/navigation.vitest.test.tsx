@@ -143,7 +143,7 @@ function mount(role: number, path = '/business', sidebarConfig = '') {
 }
 
 it.each([ROLE.ADMIN, ROLE.SUPER_ADMIN])(
-  'gives role %s a separate business page in Admin after Channels',
+  'shows Business after Channels and Campus Partner administration immediately below it for role %s',
   async (role) => {
     mount(role)
     await screen.findByRole('region', { name: 'Business' })
@@ -152,7 +152,9 @@ it.each([ROLE.ADMIN, ROLE.SUPER_ADMIN])(
     const index = links.findIndex((link) => link.textContent === 'Business')
     expect(links[index].getAttribute('href')).toBe('/business')
     expect(links[index - 1].textContent).toBe('Channels')
-    expect(links[index + 1].textContent).toBe('Models')
+    expect(links[index + 1].textContent).toBe('Campus Partner administration')
+    expect(links[index + 1].getAttribute('href')).toBe('/campus-admin')
+    expect(links[index + 2].textContent).toBe('Models')
     expect(
       within(screen.getByRole('navigation', { name: 'General' })).queryByRole(
         'link',
