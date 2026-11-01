@@ -25,6 +25,7 @@ import {
   Crown,
   FileText,
   Gift,
+  GraduationCap,
   HeartPulse,
   ImagePlus,
   Key,
@@ -81,7 +82,7 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
                 {
                   title: t('Campus Partner'),
                   url: '/campus-partner',
-                  icon: Gift,
+                  icon: GraduationCap,
                   badge: t('Up to 50%'),
                   badgePlacement: 'inline' as const,
                 },
