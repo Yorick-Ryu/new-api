@@ -22,7 +22,7 @@
     "Subscription commission rates": "套餐返佣比例",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "再充 <amount>{{amount}}</amount> 升至 <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "每笔佣金满 168 小时解冻，满 ¥100 可随时申请。审核通过后于每月月底打款。",
-    "Approved applications are paid at month end. Submission is not a completed transfer.": "审核通过后于月底统一打款，提交申请不代表已到账。",
+    "We will review your request as soon as possible and pay after approval. Expected payout: {{date}}": "提交后我们会尽快审核，审核通过后打款。预计打款日期：{{date}}。",
     "Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.": "25 日结束前申请归入当月批次，26 日起归入下月。有效余额跨月保留。",
     "Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.": "绑定成功后不可更换，仅首次成功付费前可补填，不能绑定自己，也不能互相邀请。",
     "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "按好友累计充值金额自动升级，升级后新增充值按新比例计算佣金。",

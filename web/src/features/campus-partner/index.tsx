@@ -149,13 +149,10 @@ export function CampusPartner(): ReactElement {
           onOpenChange={setWithdraw}
           title={t('Request withdrawal')}
           description={t(
-            'Approved applications are paid at month end. Submission is not a completed transfer.'
+            'We will review your request as soon as possible and pay after approval. Expected payout: {{date}}',
+            { date: data.expected_batch }
           )}
         >
-          <p className='mb-4 text-sm'>
-            {t('Expected payout')}: {data.expected_batch} ·{' '}
-            {t('Subject to approval')}
-          </p>
           <CampusFields
             key={requestID}
             fields={[

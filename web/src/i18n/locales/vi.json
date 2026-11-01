@@ -22,7 +22,7 @@
     "Subscription commission rates": "Tỷ lệ hoa hồng gói đăng ký",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Nạp thêm <amount>{{amount}}</amount> để đạt <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Hoa hồng được mở khóa sau 168 giờ. Có thể rút từ 100 CNY; yêu cầu được duyệt sẽ được chuyển tiền vào cuối tháng.",
-    "Approved applications are paid at month end. Submission is not a completed transfer.": "Yêu cầu được duyệt sẽ được chuyển tiền vào cuối tháng. Gửi yêu cầu không có nghĩa là đã chuyển tiền.",
+    "We will review your request as soon as possible and pay after approval. Expected payout: {{date}}": "Chúng tôi sẽ xét duyệt yêu cầu sớm nhất có thể và chuyển tiền sau khi duyệt. Ngày chuyển tiền dự kiến: {{date}}.",
     "Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.": "Yêu cầu gửi trước khi hết ngày 25 thuộc đợt chi trả tháng này; gửi sau đó thuộc tháng sau. Số dư được chuyển tiếp.",
     "Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.": "Không thể thay đổi sau khi liên kết. Chỉ được bổ sung trước lần thanh toán thành công đầu tiên. Không được tự mời hoặc mời lẫn nhau.",
     "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "Tự động lên cấp theo tổng tiền nạp của bạn bè. Các lần nạp mới sau khi lên cấp được tính hoa hồng theo tỷ lệ mới.",

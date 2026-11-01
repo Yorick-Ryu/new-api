@@ -22,7 +22,7 @@
     "Subscription commission rates": "Ставки комиссии по подпискам",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Ещё <amount>{{amount}}</amount> пополнений до ставки <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Комиссия становится доступной через 168 часов. Вывод от 100 CNY; одобренные заявки оплачиваются в конце месяца.",
-    "Approved applications are paid at month end. Submission is not a completed transfer.": "Одобренные заявки оплачиваются в конце месяца. Отправка заявки не означает, что перевод выполнен.",
+    "We will review your request as soon as possible and pay after approval. Expected payout: {{date}}": "Мы рассмотрим заявку как можно скорее и переведём деньги после одобрения. Ожидаемая дата выплаты: {{date}}.",
     "Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.": "Заявки, поданные до конца 25-го числа, входят в выплату текущего месяца. Более поздние — следующего месяца. Остаток переносится.",
     "Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.": "Привязку нельзя изменить. Добавить её можно только до первого успешного платежа. Нельзя приглашать себя или приглашать друг друга.",
     "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "Уровень повышается автоматически по сумме пополнений друзей. После повышения новые пополнения приносят комиссию по новой ставке.",

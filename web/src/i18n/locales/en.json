@@ -22,7 +22,7 @@
     "Subscription commission rates": "Subscription commission rates",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.",
-    "Approved applications are paid at month end. Submission is not a completed transfer.": "Approved applications are paid at month end. Submission is not a completed transfer.",
+    "We will review your request as soon as possible and pay after approval. Expected payout: {{date}}": "We will review your request as soon as possible and pay after approval. Expected payout: {{date}}",
     "Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.": "Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.",
     "Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.": "Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.",
     "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.",
