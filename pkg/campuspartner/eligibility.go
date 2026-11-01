@@ -75,7 +75,7 @@ func SettlementEligibility(facts SettlementFacts, windows []ActivityWindow) (Eli
 	if facts.Currency != "CNY" {
 		return NotRMB, nil
 	}
-	if facts.Product != TopUp && facts.Product != Plus && facts.Product != Ultra {
+	if facts.Product != TopUp && facts.Product != Subscription {
 		return UnsupportedProduct, nil
 	}
 	if !active {

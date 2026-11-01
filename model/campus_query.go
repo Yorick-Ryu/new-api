@@ -9,19 +9,22 @@ import (
 )
 
 type CampusOverview struct {
-	ExpectedBatch string        `json:"expected_batch"`
-	Enabled       bool          `json:"enabled"`
-	Version       string        `json:"version"`
-	Member        *CampusMember `json:"member" gorm:"-"`
-	CanBind       bool          `json:"can_bind"`
-	Frozen        cp.Money      `json:"frozen_cents"`
-	Available     cp.Money      `json:"available_cents"`
-	Processing    cp.Money      `json:"processing_cents"`
-	Paid          cp.Money      `json:"paid_cents"`
-	Net           cp.Money      `json:"net_cents"`
-	Invited       int64         `json:"invited"`
-	ThisMonth     int64         `json:"this_month"`
-	Tier          cp.Tier       `json:"tier" gorm:"-"`
+	ExpectedBatch string             `json:"expected_batch"`
+	Enabled       bool               `json:"enabled"`
+	Version       string             `json:"version"`
+	Member        *CampusMember      `json:"member" gorm:"-"`
+	CanBind       bool               `json:"can_bind"`
+	Frozen        cp.Money           `json:"frozen_cents"`
+	Available     cp.Money           `json:"available_cents"`
+	Processing    cp.Money           `json:"processing_cents"`
+	Paid          cp.Money           `json:"paid_cents"`
+	Net           cp.Money           `json:"net_cents"`
+	Invited       int64              `json:"invited"`
+	ThisMonth     int64              `json:"this_month"`
+	Tier          cp.Tier            `json:"tier" gorm:"-"`
+	Tiers         []cp.TierRule      `json:"tiers" gorm:"-"`
+	PlanRates     []cp.PlanRate      `json:"plan_rates" gorm:"-"`
+	PlanOptions   []CampusPlanOption `json:"plan_options" gorm:"-"`
 }
 
 func CampusGetOverview(userID int) (CampusOverview, error) {
@@ -32,6 +35,18 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 			return err
 		}
 		result.Enabled, result.Version = config.Enabled, config.Version
+		result.Tiers, err = config.CommissionTiers()
+		if err != nil {
+			return err
+		}
+		result.PlanRates, err = config.SubscriptionRates()
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&SubscriptionPlan{}).Select("id,title,enabled,price_amount,currency").Order("sort_order desc,id").Scan(&result.PlanOptions).Error; err != nil {
+			return err
+		}
+
 		member, err := campusMember(tx, userID)
 		if err != nil {
 			return err
@@ -73,7 +88,7 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 			return err
 		}
 		result.ExpectedBatch = batch.Format(time.DateOnly)
-		result.Tier, err = cp.CurrentTier(member.Performance)
+		result.Tier, err = cp.CurrentTier(member.Performance, result.Tiers)
 		return err
 	})
 	return result, err

@@ -37,15 +37,19 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
 })
 
-function renderPage(page: ReactNode) {
+function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   })
   clients.push(client)
   client.setQueryData(['campus', 'config'], {
     enabled: false,
-    plus_plan_id: 0,
-    ultra_plan_id: 0,
+
+    tiers: [{ floor_cents: 0, rate_bps: 3000 }],
+    tier_revision: 0,
+    plan_rates: [],
+    plan_revision: 0,
+    plan_options: [],
   })
   client.setQueryData<Overview>(['campus', 'overview'], {
     enabled: false,
@@ -68,6 +72,9 @@ function renderPage(page: ReactNode) {
     net_cents: 0,
     invited: 0,
     this_month: 0,
+    tiers: [{ floor_cents: 0, rate_bps: 3000 }],
+    plan_rates: [],
+    plan_options: [],
     tier: {
       level: 1,
       rate_percent: 30,
@@ -75,6 +82,7 @@ function renderPage(page: ReactNode) {
       next_cents: 200000,
       remaining_cents: 200000,
     },
+    ...overrides,
   })
   client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
     items: [],
@@ -123,4 +131,34 @@ test('partner content aligns with the shared page gutters without an extra cente
   ).closest('section')?.parentElement
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
+})
+
+test('partner rewards and maximum rate reflect configured tiers and subscription percentages', async () => {
+  renderPage(<CampusPartner />, {
+    tiers: [
+      { floor_cents: 0, rate_bps: 1250 },
+      { floor_cents: 100000, rate_bps: 4275 },
+    ],
+    plan_rates: [{ plan_id: 9, rate_bps: 1234 }],
+    plan_options: [
+      {
+        id: 9,
+        title: 'Custom Plan',
+        enabled: true,
+        price_amount: 100,
+        currency: 'USD',
+      },
+    ],
+    tier: {
+      level: 2,
+      rate_percent: 42.75,
+      floor_cents: 100000,
+      next_cents: 0,
+      remaining_cents: 0,
+    },
+  })
+  expect(await screen.findByText('Tier 2')).toBeVisible()
+  expect(screen.getByText('Custom Plan · 12.34%')).toBeVisible()
+  expect(screen.getByText('42.75')).toBeVisible()
+  expect(screen.queryByText('50')).not.toBeInTheDocument()
 })

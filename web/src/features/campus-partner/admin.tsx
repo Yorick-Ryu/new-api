@@ -40,12 +40,19 @@ import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
-import { campusGet, campusPost, cash, useCampusAction } from './api'
+import {
+  campusGet,
+  campusPost,
+  cash,
+  useCampusAction,
+  type CampaignConfig,
+} from './api'
+import { CampusTierSettings, CampusPlanSettings } from './commission-settings'
 import { campusWithdrawalStateLabels } from './constants'
 import { CampusFields } from './forms'
 import { CampusRecords, type CampusRecord } from './records'
 
-type Config = { enabled: boolean; plus_plan_id: number; ultra_plan_id: number }
+type Config = Pick<CampaignConfig, 'enabled'>
 type Preview = {
   refund_cents: number
   reversal_cents: number
@@ -58,7 +65,7 @@ export function CampusAdmin() {
   const { t } = useTranslation()
   const config = useQuery({
     queryKey: ['campus', 'config'],
-    queryFn: () => campusGet<Config>('admin/config'),
+    queryFn: () => campusGet<CampaignConfig>('admin/config'),
   })
   const [selected, setSelected] = useState<CampusRecord | null>(null)
   if (config.isPending) return <LoadingState />
@@ -73,12 +80,17 @@ export function CampusAdmin() {
       <SectionPageLayout.Content>
         <div className='flex w-full min-w-0 flex-col gap-4'>
           <div className='grid items-start gap-4 lg:grid-cols-2'>
-            <CampusConfiguration
-              key={`${config.data.plus_plan_id}:${config.data.ultra_plan_id}`}
-              config={config.data}
-            />
+            <CampusConfiguration config={config.data} />
             <CampusRefundForm />
           </div>
+          <CampusTierSettings
+            key={`tiers-${config.data.tier_revision}`}
+            config={config.data}
+          />
+          <CampusPlanSettings
+            key={`plans-${config.data.plan_revision}`}
+            config={config.data}
+          />
           <Tabs defaultValue='withdrawals'>
             <TabsList className='flex h-auto flex-wrap'>
               {[
@@ -134,7 +146,6 @@ export function CampusAdmin() {
 }
 function CampusConfiguration(props: { config: Config }) {
   const { t } = useTranslation()
-  const [pendingEnabled, setPendingEnabled] = useState<boolean | null>(null)
   const save = useCampusAction(async (config: Config) => {
     const response = await api.put('/api/campus/admin/config', config)
     return requireServerSuccess(response.data)
@@ -144,7 +155,7 @@ function CampusConfiguration(props: { config: Config }) {
       <CardHeader>
         <CardTitle>{t('Campaign settings')}</CardTitle>
         <CardDescription>
-          {t('Campaign status changes take effect after confirmation.')}
+          {t('Campaign status changes are saved automatically.')}
         </CardDescription>
       </CardHeader>
       <CardContent className='flex flex-col gap-4'>
@@ -152,79 +163,22 @@ function CampusConfiguration(props: { config: Config }) {
           controlId='campus-enabled'
           label={t('Enable campaign')}
           checked={props.config.enabled}
-          onCheckedChange={setPendingEnabled}
-          disabled={save.isPending}
-        />
-        <CampusFields
-          fields={[
-            {
-              name: 'plus',
-              label: 'Plus subscription plan ID',
-              value: String(props.config.plus_plan_id),
-              type: 'number',
-            },
-            {
-              name: 'ultra',
-              label: 'Ultra subscription plan ID',
-              value: String(props.config.ultra_plan_id),
-              type: 'number',
-            },
-          ]}
-          submit='Save plan settings'
-          pending={save.isPending}
-          onSubmit={(values) =>
+          onCheckedChange={(enabled) =>
             save.mutate(
               {
-                enabled: props.config.enabled,
-                plus_plan_id: Number(values.plus),
-                ultra_plan_id: Number(values.ultra),
+                enabled,
               },
-              { onSuccess: () => toast.success(t('Plan settings saved')) }
+              {
+                onSuccess: () =>
+                  toast.success(
+                    enabled ? t('Campaign enabled') : t('Campaign disabled')
+                  ),
+              }
             )
           }
+          disabled={save.isPending}
         />
       </CardContent>
-      <ConfirmDialog
-        open={pendingEnabled !== null}
-        onOpenChange={(open) => {
-          if (!open && !save.isPending) setPendingEnabled(null)
-        }}
-        title={pendingEnabled ? t('Enable campaign?') : t('Disable campaign?')}
-        desc={
-          pendingEnabled
-            ? t(
-                'Enabling shows the campaign to users and starts new participation and commission accrual.'
-              )
-            : t(
-                'Disabling hides the campaign and stops new participation and commission accrual. Existing balances, withdrawals and issued coupons are preserved.'
-              )
-        }
-        confirmText={
-          pendingEnabled ? t('Enable campaign') : t('Disable campaign')
-        }
-        destructive={pendingEnabled === false}
-        isLoading={save.isPending}
-        handleConfirm={() => {
-          if (pendingEnabled === null) return
-          save.mutate(
-            {
-              enabled: pendingEnabled,
-              plus_plan_id: props.config.plus_plan_id,
-              ultra_plan_id: props.config.ultra_plan_id,
-            },
-            {
-              onSuccess: () => {
-                setPendingEnabled(null)
-                toast.success(
-                  pendingEnabled
-                    ? t('Campaign enabled')
-                    : t('Campaign disabled')
-                )
-              },
-            }
-          )
-        }}
-      />
     </Card>
   )
 }
@@ -250,7 +204,7 @@ function CampusRefundForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('Register an actual refund')}</CardTitle>
+        <CardTitle>{t('Refund registration')}</CardTitle>
         <CardDescription>
           {t(
             'This adjusts campaign commission only. Confirm that the original payment refund and wallet or subscription adjustment have been handled separately.'

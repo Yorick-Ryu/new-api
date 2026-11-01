@@ -56,12 +56,15 @@ func campusCheckoutTx(tx *gorm.DB, payment *CampusPayment) error {
 		return err
 	}
 	if payment.PlanID != 0 {
-		payment.PlanMappingKnown = config.PlusPlanID > 0 && config.UltraPlanID > 0
-		switch payment.PlanID {
-		case config.PlusPlanID:
-			payment.Product = cp.Plus
-		case config.UltraPlanID:
-			payment.Product = cp.Ultra
+		plans, err := config.SubscriptionRates()
+		if err != nil {
+			return err
+		}
+
+		for _, plan := range plans {
+			if plan.PlanID == payment.PlanID {
+				payment.Product = cp.Subscription
+			}
 		}
 	}
 	if payment.Coupon {
@@ -121,19 +124,23 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	if payment.UserID != userID {
 		return ErrCampusState
 	}
-	// Orders created before the first plan mapping was configured retain the
-	// actual plan ID. Resolve it at first settlement; an already-known mapping
-	// (including an excluded product) is never reinterpreted after checkout.
-	if payment.PlanID > 0 && !payment.PlanMappingKnown && payment.Product == "" {
-		if payment.PlanID == config.PlusPlanID {
-			payment.Product = cp.Plus
+	// Resolve rates at the first verified settlement. A checkout explicitly
+	// excluded from the campaign stays excluded, even if that plan is added later.
+	var subscriptionRate int64
+	if payment.PlanID > 0 && payment.Product == cp.Subscription {
+		plans, err := config.SubscriptionRates()
+		if err != nil {
+			return err
 		}
-		if payment.PlanID == config.UltraPlanID {
-			payment.Product = cp.Ultra
+		payment.Product = ""
+		for _, plan := range plans {
+			if plan.PlanID == payment.PlanID {
+				subscriptionRate, payment.Product = plan.RateBPS, cp.Subscription
+			}
 		}
-		payment.PlanMappingKnown = true
+
 	}
-	payment.SettledAt, payment.RuleVersion = now, config.Version
+	payment.SettledAt, payment.RuleVersion = now, config.CommissionVersion()
 	if len(proofs) == 1 {
 		reference := "epay:" + proofs[0].Transaction
 		payment.ProviderTrade = &reference
@@ -178,7 +185,16 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 			if err != nil {
 				return err
 			}
-			commission, err := cp.CalculateCommission(inviter.Performance, payment.Paid, payment.Product)
+			tiers, err := config.CommissionTiers()
+			if err != nil {
+				return err
+			}
+			var commission cp.Commission
+			if payment.Product == cp.TopUp {
+				commission, err = cp.CalculateCommission(inviter.Performance, payment.Paid, payment.Product, tiers)
+			} else {
+				commission, err = cp.CalculateSubscriptionCommission(inviter.Performance, payment.Paid, subscriptionRate)
+			}
 			if err != nil {
 				return err
 			}

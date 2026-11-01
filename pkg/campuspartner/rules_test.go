@@ -48,8 +48,6 @@ func TestFirstSettlementEligibilityAndActivityRestarts(t *testing.T) {
 		{"no inviter", func(f *SettlementFacts) { f.InviterID = 0 }, NoBindingAtSettlement},
 		{"binding after settlement", func(f *SettlementFacts) { f.BoundAt = start.Add(time.Nanosecond) }, NoBindingAtSettlement},
 		{"binding at settlement", func(f *SettlementFacts) { f.BoundAt = start }, Eligible},
-		{"plus renewal", func(f *SettlementFacts) { f.Product = Plus }, Eligible},
-		{"ultra renewal", func(f *SettlementFacts) { f.Product = Ultra }, Eligible},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			input := facts
@@ -120,8 +118,6 @@ func TestCommissionExamplesAndExactRounding(t *testing.T) {
 		{"first threshold", 180000, 50000, TopUp, 16500, []Segment{{20000, 30}, {30000, 35}}},
 		{"second threshold", 990000, 40000, TopUp, 15500, []Segment{{10000, 35}, {30000, 40}}},
 		{"all thresholds", 0, 8000100, TopUp, 3390050, []Segment{{200000, 30}, {800000, 35}, {2000000, 40}, {5000000, 45}, {100, 50}}},
-		{"plus crosses threshold", 199000, 13800, Plus, 690, []Segment{{13800, 5}}},
-		{"ultra fixed rate", 7999999, 10000, Ultra, 1000, []Segment{{10000, 10}}},
 		{"discounted actual cash", 0, 19000, TopUp, 5700, []Segment{{19000, 30}}},
 		{"round once across segments", 199999, 1 + 1, TopUp, 1, []Segment{{1, 30}, {1, 35}}},
 		{"below half cent", 0, 1, TopUp, 0, []Segment{{1, 30}}},
@@ -129,7 +125,7 @@ func TestCommissionExamplesAndExactRounding(t *testing.T) {
 		{"highest tier half cent", 8000000, 1, TopUp, 1, []Segment{{1, 50}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := CalculateCommission(test.prior, test.paid, test.product)
+			result, err := CalculateCommission(test.prior, test.paid, test.product, DefaultTiers())
 			require.NoError(t, err)
 			assert.Equal(t, RuleVersion, result.RuleVersion)
 			assert.Equal(t, test.want, result.Amount)
@@ -143,12 +139,12 @@ func TestCommissionExamplesAndExactRounding(t *testing.T) {
 		product     Product
 	}{
 		{-1, 1, TopUp}, {0, 0, TopUp}, {0, -1, TopUp},
-		{MaxMoney, 1, TopUp}, {0, MaxMoney + 1, Plus}, {0, 100, "unknown"},
+		{MaxMoney, 1, TopUp}, {0, MaxMoney + 1, TopUp}, {0, 100, "unknown"},
 	} {
-		_, err := CalculateCommission(test.prior, test.paid, test.product)
+		_, err := CalculateCommission(test.prior, test.paid, test.product, DefaultTiers())
 		assert.Error(t, err)
 	}
-	result, err := CalculateCommission(0, MaxMoney, TopUp)
+	result, err := CalculateCommission(0, MaxMoney, TopUp, DefaultTiers())
 	require.NoError(t, err)
 	assert.True(t, result.Amount.Valid())
 	assert.LessOrEqual(t, result.Amount, MaxMoney/2+1)
@@ -158,14 +154,14 @@ func TestTierBoundaries(t *testing.T) {
 	thresholds := []Money{200000, 1000000, 3000000, 8000000}
 	for index, threshold := range thresholds {
 		for _, delta := range []Money{-1, 0, 1} {
-			tier, err := CurrentTier(threshold + delta)
+			tier, err := CurrentTier(threshold+delta, DefaultTiers())
 			require.NoError(t, err)
 			level := index + 2
 			if delta < 0 {
 				level--
 			}
 			assert.Equal(t, level, tier.Level)
-			assert.Equal(t, int64(25+level*5), tier.RatePercent)
+			assert.Equal(t, float64(25+level*5), tier.RatePercent)
 			if level == 5 {
 				assert.Zero(t, tier.Next)
 				assert.Zero(t, tier.Remaining)
@@ -174,7 +170,7 @@ func TestTierBoundaries(t *testing.T) {
 			}
 		}
 	}
-	_, err := CurrentTier(-1)
+	_, err := CurrentTier(-1, DefaultTiers())
 	assert.ErrorIs(t, err, ErrAmount)
 }
 
@@ -208,14 +204,14 @@ func TestRefundCumulativeRoundingAndHistoricalRates(t *testing.T) {
 	assert.Equal(t, MaxMoney/2, refund.CumulativeReversal, "large valid amounts do not overflow")
 	// Accepted PRD example: refunding the first purchase changes future tiers,
 	// but does not reprice a later commission earned at a higher tier.
-	first, err := CalculateCommission(0, 200000, TopUp)
+	first, err := CalculateCommission(0, 200000, TopUp, DefaultTiers())
 	require.NoError(t, err)
-	second, err := CalculateCommission(200000, 800000, TopUp)
+	second, err := CalculateCommission(200000, 800000, TopUp, DefaultTiers())
 	require.NoError(t, err)
 	refund, err = CalculateRefund(first.Paid, first.Amount, 0, first.Paid)
 	require.NoError(t, err)
 	assert.Equal(t, Money(280000), first.Amount+second.Amount-refund.CommissionReversal)
-	fromZero, err := CalculateCommission(0, 800000, TopUp)
+	fromZero, err := CalculateCommission(0, 800000, TopUp, DefaultTiers())
 	require.NoError(t, err)
 	assert.Equal(t, Money(270000), fromZero.Amount)
 	for _, test := range []struct{ paid, commission, prior, cumulative Money }{
@@ -325,4 +321,56 @@ func TestFreezeAndWithdrawalDates(t *testing.T) {
 	assert.ErrorIs(t, err, ErrTime)
 	_, err = PayoutBatch(time.Time{})
 	assert.ErrorIs(t, err, ErrTime)
+}
+
+func TestConfiguredCommissionTiers(t *testing.T) {
+	tiers := []TierRule{{Floor: 0, RateBPS: 1250}, {Floor: 10000, RateBPS: 3325}, {Floor: 30000, RateBPS: 0}}
+	require.NoError(t, ValidateTiers(tiers))
+	commission, err := CalculateCommission(5000, 30000, TopUp, tiers)
+	require.NoError(t, err)
+	assert.EqualValues(t, 7275, commission.Amount)
+	assert.Equal(t, []Segment{{5000, 12.5}, {20000, 33.25}, {5000, 0}}, commission.Segments)
+	tier, err := CurrentTier(10000, tiers)
+	require.NoError(t, err)
+	assert.Equal(t, 2, tier.Level)
+	assert.Equal(t, 33.25, tier.RatePercent)
+	assert.EqualValues(t, 30000, tier.Next)
+	full := []TierRule{{Floor: 0, RateBPS: 10000}}
+	commission, err = CalculateCommission(0, MaxMoney, TopUp, full)
+	require.NoError(t, err)
+	assert.Equal(t, MaxMoney, commission.Amount)
+	fraction := []TierRule{{Floor: 0, RateBPS: 1250}}
+	commission, err = CalculateCommission(0, 4, TopUp, fraction)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, commission.Amount)
+	commission, err = CalculateSubscriptionCommission(0, 10000, 500)
+	require.NoError(t, err)
+	assert.EqualValues(t, 500, commission.Amount)
+	for _, invalid := range [][]TierRule{
+		nil, {}, {{Floor: 1, RateBPS: 100}}, {{Floor: -1, RateBPS: 100}},
+		{{Floor: 0, RateBPS: -1}}, {{Floor: 0, RateBPS: 10001}},
+		{{Floor: 0, RateBPS: 100}, {Floor: 0, RateBPS: 200}},
+		{{Floor: 0, RateBPS: 100}, {Floor: MaxMoney + 1, RateBPS: 200}},
+		make([]TierRule, 51),
+	} {
+		assert.Error(t, ValidateTiers(invalid))
+		_, err = CalculateCommission(0, 100, TopUp, invalid)
+		assert.Error(t, err)
+	}
+}
+
+func TestSubscriptionCommissionConfiguredRate(t *testing.T) {
+	result, err := CalculateSubscriptionCommission(100, 10000, 1234)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1234, result.Amount)
+	result, err = CalculateSubscriptionCommission(0, MaxMoney, 10000)
+	require.NoError(t, err)
+	assert.Equal(t, MaxMoney, result.Amount)
+	for _, rate := range []int64{-1, 10001} {
+		_, err := CalculateSubscriptionCommission(0, 100, rate)
+		assert.Error(t, err)
+	}
+	require.NoError(t, ValidatePlanRates([]PlanRate{}))
+	assert.Error(t, ValidatePlanRates(nil))
+	assert.Error(t, ValidatePlanRates([]PlanRate{{PlanID: 1}, {PlanID: 1}}))
 }

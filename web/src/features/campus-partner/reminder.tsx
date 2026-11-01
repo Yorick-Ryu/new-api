@@ -63,7 +63,7 @@ export function CampusReminder() {
       onOpenChange={setOpen}
       title={t('Campus Partner')}
       description={t(
-        'Everyone can join. Earn 30%–50% on direct friends’ top-ups, 5% on Plus and 10% on Ultra. Your friends get one personal 5% off coupon.'
+        'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
       )}
       footer={
         <>

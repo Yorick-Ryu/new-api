@@ -1,6 +1,10 @@
 package campuspartner
 
-import "math/big"
+import (
+	"errors"
+	"math"
+	"math/big"
+)
 
 const RuleVersion = "campus-partner-v1"
 
@@ -9,14 +13,13 @@ const RuleVersion = "campus-partner-v1"
 type Product string
 
 const (
-	TopUp Product = "topup"
-	Plus  Product = "plus"
-	Ultra Product = "ultra"
+	TopUp        Product = "topup"
+	Subscription Product = "subscription"
 )
 
 type Segment struct {
-	Base        Money `json:"base_cents"`
-	RatePercent int64 `json:"rate_percent"`
+	Base        Money   `json:"base_cents"`
+	RatePercent float64 `json:"rate_percent"`
 }
 
 type Commission struct {
@@ -29,27 +32,72 @@ type Commission struct {
 }
 
 type Tier struct {
-	Level       int   `json:"level"`
-	RatePercent int64 `json:"rate_percent"`
-	Floor       Money `json:"floor_cents"`
+	Level       int     `json:"level"`
+	RatePercent float64 `json:"rate_percent"`
+	Floor       Money   `json:"floor_cents"`
 	// Zero at the highest tier; there is no further upgrade target.
 	Next      Money `json:"next_cents"`
 	Remaining Money `json:"remaining_cents"`
 }
 
-var tierFloors = [...]Money{0, 200_000, 1_000_000, 3_000_000, 8_000_000}
+// Upper bounds are the next tier's floor; the final tier has no upper bound.
+// Rates use integer basis points to preserve two decimal places of percent.
+type TierRule struct {
+	Floor   Money `json:"floor_cents"`
+	RateBPS int64 `json:"rate_bps"`
+}
 
-func CurrentTier(performance Money) (Tier, error) {
+type PlanRate struct {
+	PlanID  int   `json:"plan_id"`
+	RateBPS int64 `json:"rate_bps"`
+}
+
+func ValidatePlanRates(plans []PlanRate) error {
+	if plans == nil || len(plans) > 100 {
+		return ErrTiers
+	}
+	seen := make(map[int]bool, len(plans))
+	for _, plan := range plans {
+		if plan.PlanID <= 0 || plan.RateBPS < 0 || plan.RateBPS > 10000 || seen[plan.PlanID] {
+			return ErrTiers
+		}
+		seen[plan.PlanID] = true
+	}
+	return nil
+}
+
+var ErrTiers = errors.New("Invalid commission tiers")
+
+func DefaultTiers() []TierRule {
+	return []TierRule{{0, 3000}, {200_000, 3500}, {1_000_000, 4000}, {3_000_000, 4500}, {8_000_000, 5000}}
+}
+
+func ValidateTiers(tiers []TierRule) error {
+	if len(tiers) == 0 || len(tiers) > 50 || tiers[0].Floor != 0 {
+		return ErrTiers
+	}
+	for i, tier := range tiers {
+		if !tier.Floor.Valid() || tier.RateBPS < 0 || tier.RateBPS > 10000 || (i > 0 && tier.Floor <= tiers[i-1].Floor) {
+			return ErrTiers
+		}
+	}
+	return nil
+}
+
+func CurrentTier(performance Money, tiers []TierRule) (Tier, error) {
 	if !performance.Valid() {
 		return Tier{}, ErrAmount
 	}
-	index := len(tierFloors) - 1
-	for index > 0 && performance < tierFloors[index] {
+	if err := ValidateTiers(tiers); err != nil {
+		return Tier{}, err
+	}
+	index := len(tiers) - 1
+	for index > 0 && performance < tiers[index].Floor {
 		index--
 	}
-	tier := Tier{Level: index + 1, RatePercent: int64(30 + index*5), Floor: tierFloors[index]}
-	if index+1 < len(tierFloors) {
-		tier.Next = tierFloors[index+1]
+	tier := Tier{Level: index + 1, RatePercent: float64(tiers[index].RateBPS) / 100, Floor: tiers[index].Floor}
+	if index+1 < len(tiers) {
+		tier.Next = tiers[index+1].Floor
 		tier.Remaining = tier.Next - performance
 	}
 	return tier, nil
@@ -58,20 +106,19 @@ func CurrentTier(performance Money) (Tier, error) {
 // CalculateCommission uses the inviter's locked net performance immediately
 // before this transaction. Round only after adding all exact segment products.
 // The returned snapshot must be stored, not recomputed at refund time.
-func CalculateCommission(performance, paid Money, product Product) (Commission, error) {
+func CalculateCommission(performance, paid Money, product Product, tiers []TierRule) (Commission, error) {
+	if err := ValidateTiers(tiers); err != nil {
+		return Commission{}, err
+	}
 	if !performance.Valid() || !paid.Valid() || paid == 0 || paid > MaxMoney-performance {
 		return Commission{}, ErrAmount
 	}
 	result := Commission{RuleVersion: RuleVersion, Product: product, PerformanceBefore: performance, Paid: paid}
 	switch product {
-	case Plus:
-		result.Segments = []Segment{{Base: paid, RatePercent: 5}}
-	case Ultra:
-		result.Segments = []Segment{{Base: paid, RatePercent: 10}}
 	case TopUp:
 		remaining := paid
 		for remaining > 0 {
-			tier, _ := CurrentTier(performance)
+			tier, _ := CurrentTier(performance, tiers)
 			base := remaining
 			if tier.Next != 0 {
 				base = min(base, tier.Remaining)
@@ -83,13 +130,31 @@ func CalculateCommission(performance, paid Money, product Product) (Commission, 
 	default:
 		return Commission{}, ErrProduct
 	}
-	var weighted int64
-	for _, segment := range result.Segments {
-		// MaxMoney * 50 is below MaxInt64, including the rounding term.
-		weighted += int64(segment.Base) * segment.RatePercent
-	}
-	result.Amount = Money((weighted + 50) / 100)
+	result.Amount = commissionAmount(result.Segments)
 	return result, nil
+}
+
+func CalculateSubscriptionCommission(performance, paid Money, rateBPS int64) (Commission, error) {
+	if !performance.Valid() || !paid.Valid() || paid == 0 || paid > MaxMoney-performance || rateBPS < 0 || rateBPS > 10000 {
+		return Commission{}, ErrAmount
+	}
+	result := Commission{RuleVersion: RuleVersion, Product: Subscription, PerformanceBefore: performance, Paid: paid, Segments: []Segment{{Base: paid, RatePercent: float64(rateBPS) / 100}}}
+	result.Amount = commissionAmount(result.Segments)
+	return result, nil
+}
+
+func commissionAmount(segments []Segment) Money {
+	var weighted, productAmount big.Int
+	for _, segment := range segments {
+		// Public snapshots retain percentages; the validated rate has at most
+		// two decimal places. Products can exceed int64 at MaxMoney and 100%.
+		bps := int64(math.Round(segment.RatePercent * 100))
+		productAmount.Mul(big.NewInt(int64(segment.Base)), big.NewInt(bps))
+		weighted.Add(&weighted, &productAmount)
+	}
+	weighted.Add(&weighted, big.NewInt(5000))
+	weighted.Quo(&weighted, big.NewInt(10000))
+	return Money(weighted.Int64())
 }
 
 type Refund struct {

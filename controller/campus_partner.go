@@ -131,24 +131,52 @@ func CampusConfig(c *gin.Context) {
 	if c.Request.Method == http.MethodPut {
 		var req struct {
 			Enabled bool `json:"enabled"`
-			Plus    int  `json:"plus_plan_id"`
-			Ultra   int  `json:"ultra_plan_id"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			common.ApiErrorT(c, "Invalid parameters")
 			return
 		}
-		if err := model.CampusConfigure(req.Enabled, req.Plus, req.Ultra, c.GetInt("id")); err != nil {
+		if err := model.CampusConfigure(req.Enabled, c.GetInt("id")); err != nil {
 			common.ApiError(c, err)
 			return
 		}
 	}
-	var config model.CampusCampaign
-	if err := model.DB.First(&config, 1).Error; err != nil {
+	config, err := model.CampusGetConfig()
+	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	common.ApiSuccess(c, config)
+}
+func CampusConfigureTiers(c *gin.Context) {
+	var req struct {
+		Tiers    []cp.TierRule `json:"tiers"`
+		Revision *int64        `json:"tier_revision"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Revision == nil || *req.Revision < 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if err := model.CampusConfigureTiers(req.Tiers, *req.Revision, c.GetInt("id")); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}
+func CampusConfigurePlanRates(c *gin.Context) {
+	var req struct {
+		Plans    []cp.PlanRate `json:"plan_rates"`
+		Revision *int64        `json:"plan_revision"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Revision == nil || *req.Revision < 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if err := model.CampusConfigurePlanRates(req.Plans, *req.Revision, c.GetInt("id")); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
 }
 func CampusWithdrawalAction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)

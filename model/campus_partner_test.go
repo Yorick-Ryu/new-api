@@ -59,14 +59,10 @@ func TestCampusDatabase(t *testing.T) {
 			common.SetDatabaseTypes(databaseType, databaseType)
 			DB = db
 			t.Cleanup(func() { DB = oldDB; common.SetDatabaseTypes(oldMain, oldLog); sqlDB, _ := db.DB(); _ = sqlDB.Close() })
-			// Fresh schema creation is independent of existing payment/account tables.
 			tables, err := db.Migrator().GetTables()
 			require.NoError(t, err)
-			require.Empty(t, tables, "Use an empty, disposable database for this matrix")
-			require.NoError(t, InitializeCampusPartner(db))
-			require.NoError(t, InitializeCampusPartner(db))
-			require.NoError(t, db.Migrator().DropTable(&CampusAllocation{}, &CampusWithdrawal{}, &CampusRefund{}, &CampusEntry{}, &CampusPayment{}, &CampusMember{}, &CampusWindow{}, &CampusCampaign{}))
-			// Representative pre-feature schema and historical successful payment.
+			require.Empty(t, tables, "Use an empty disposable database")
+			// Existing account/order tables are outside the new campaign.
 			require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &SubscriptionOrder{}, &SubscriptionPlan{}))
 			for i := 1; i <= 8; i++ {
 				require.NoError(t, db.Create(&User{Id: i, Username: fmt.Sprintf("campus-%d", i), AffCode: fmt.Sprintf("old-%d", i), Password: "not-a-login-hash", DisplayName: "Campus", Status: common.UserStatusEnabled}).Error)
@@ -84,9 +80,10 @@ func TestCampusDatabase(t *testing.T) {
 			assert.False(t, config.Enabled)
 			_, err = CampusJoin(1)
 			assert.ErrorIs(t, err, ErrCampusDisabled)
-			prelaunch := SubscriptionOrder{UserId: 2, PlanId: 6, TradeNo: "before-first-configuration", Money: 100, Status: common.TopUpStatusPending}
+			require.NoError(t, CampusConfigurePlanRates([]cp.PlanRate{{PlanID: 6, RateBPS: 500}, {PlanID: 7, RateBPS: 1000}}, 0, 1))
+			prelaunch := SubscriptionOrder{UserId: 2, PlanId: 6, TradeNo: "pending-subscription", Money: 100, Status: common.TopUpStatusPending}
 			require.NoError(t, InsertCampusSubscription(&prelaunch, true, "CNY"))
-			require.NoError(t, CampusConfigure(true, 6, 7, 1))
+			require.NoError(t, CampusConfigure(true, 1))
 			first, err := CampusJoin(1)
 			require.NoError(t, err)
 			second, err := CampusJoin(2)
@@ -161,11 +158,11 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Equal(t, cp.Money(27000), overview.Available)
 			assert.Zero(t, overview.Processing)
 			// Disabled activity retains withdrawals/coupons, but never counts new sales.
-			require.NoError(t, CampusConfigure(false, 6, 7, 1))
+			require.NoError(t, CampusConfigure(false, 1))
 			off := TopUp{UserId: 2, TradeNo: "disabled", Money: 1000, Status: common.TopUpStatusPending}
 			require.NoError(t, InsertCampusTopUp(&off, true, "CNY", false))
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "disabled", 2) }))
-			require.NoError(t, CampusConfigure(true, 6, 7, 1))
+			require.NoError(t, CampusConfigure(true, 1))
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "disabled", 2) }))
 			overview, err = CampusGetOverview(1)
 			require.NoError(t, err)
@@ -233,14 +230,14 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, InsertCampusTopUp(&unpaid, true, "CNY", true))
 			assert.Equal(t, 9.60, unpaid.Money)
 			require.NoError(t, CampusConfirmClosedOrder(unpaid.TradeNo, 1, "gateway confirmed unpaid and closed"))
-			require.NoError(t, CampusConfigure(false, 6, 7, 1))
+			require.NoError(t, CampusConfigure(false, 1))
 			retry := TopUp{UserId: 3, TradeNo: "coupon-while-paused", Money: 10.10, Status: common.TopUpStatusPending}
 			require.NoError(t, InsertCampusTopUp(&retry, true, "CNY", true))
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, retry.TradeNo, 3) }))
 			secondOverview, err := CampusGetOverview(2)
 			require.NoError(t, err)
 			assert.Zero(t, secondOverview.Net)
-			require.NoError(t, CampusConfigure(true, 6, 7, 1))
+			require.NoError(t, CampusConfigure(true, 1))
 			// Concurrent two-way binding can commit at most one edge, including SQLite.
 			a, err := CampusJoin(4)
 			require.NoError(t, err)
@@ -311,8 +308,8 @@ func TestCampusDatabase(t *testing.T) {
 			_, err = CampusJoin(7)
 			require.NoError(t, err)
 			require.NoError(t, db.Model(&CampusMember{}).Where("user_id = ?", 7).Update("reminder_day", "2020-01-01").Error)
-			require.NoError(t, CampusConfigure(false, 6, 7, 1))
-			require.NoError(t, CampusConfigure(true, 6, 7, 1))
+			require.NoError(t, CampusConfigure(false, 1))
+			require.NoError(t, CampusConfigure(true, 1))
 			show, err = CampusReminder(7)
 			require.NoError(t, err)
 			assert.False(t, show)
@@ -331,6 +328,91 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.First(&final, "user_id = ?", 2).Error)
 			assert.Equal(t, 1, final.InviterID)
 			assert.Equal(t, "used", final.CouponState)
+			// Saved tiers affect first settlements only; replay and refunds retain snapshots.
+			var historicalCommission CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "concurrent-a").First(&historicalCommission).Error)
+			require.NoError(t, InsertCampusTopUp(&TopUp{UserId: 7, TradeNo: "custom-tiers", Money: 200, Status: common.TopUpStatusPending}, true, "CNY", false))
+			custom := []cp.TierRule{{Floor: 0, RateBPS: 1250}, {Floor: 310000, RateBPS: 3325}}
+			require.NoError(t, CampusConfigureTiers(custom, 0, 1))
+			assert.Error(t, CampusConfigureTiers(custom, 0, 1), "stale writes must not overwrite newer tiers")
+			assert.Error(t, CampusConfigureTiers([]cp.TierRule{}, 1, 1))
+			assert.Error(t, CampusConfigureTiers([]cp.TierRule{{Floor: 1, RateBPS: 100}}, 1, 1))
+			savedConfig, err := CampusGetConfig()
+			require.NoError(t, err)
+			assert.Equal(t, custom, savedConfig.Tiers)
+			assert.EqualValues(t, 1, savedConfig.TierRevision)
+			require.NoError(t, InitializeCampusPartner(db))
+			require.NoError(t, InitializeCampusPartner(db))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "custom-tiers", 7) }))
+			var customPayment CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "custom-tiers").First(&customPayment).Error)
+			assert.EqualValues(t, 4575, customPayment.Commission)
+			assert.Equal(t, cp.RuleVersion+"-tiers-1-plans-1", customPayment.RuleVersion)
+			customOverview, err := CampusGetOverview(6)
+			require.NoError(t, err)
+			assert.Equal(t, custom, customOverview.Tiers)
+			assert.Equal(t, 33.25, customOverview.Tier.RatePercent)
+			// Two editors using the same revision cannot silently overwrite one another.
+			updates := make(chan error, 2)
+			for _, bps := range []int64{2500, 5000} {
+				wg.Go(func() { updates <- CampusConfigureTiers([]cp.TierRule{{Floor: 0, RateBPS: bps}}, 1, 1) })
+			}
+			wg.Wait()
+			close(updates)
+			successes = 0
+			for err := range updates {
+				if err == nil {
+					successes++
+				}
+			}
+			assert.Equal(t, 1, successes)
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "custom-tiers", 7) }))
+			var replay CampusPayment
+			require.NoError(t, db.First(&replay, customPayment.ID).Error)
+			assert.Equal(t, customPayment.Commission, replay.Commission)
+			assert.Equal(t, customPayment.Segments, replay.Segments)
+			assert.Equal(t, customPayment.RuleVersion, replay.RuleVersion)
+			replay = CampusPayment{}
+			require.NoError(t, db.First(&replay, historicalCommission.ID).Error)
+			assert.Equal(t, historicalCommission.Commission, replay.Commission)
+			assert.Equal(t, historicalCommission.Segments, replay.Segments)
+			refundAfterChange, err := CampusRegisterRefund("custom-tiers", "custom-tier-full-refund", "isolated test", 20000, 1, false)
+			require.NoError(t, err)
+			assert.EqualValues(t, 4575, refundAfterChange.Reversal)
+			require.NoError(t, db.Create(&SubscriptionPlan{Id: 8, Title: "Custom", Enabled: true}).Error)
+			plans := []cp.PlanRate{{PlanID: 6, RateBPS: 1234}, {PlanID: 7, RateBPS: 0}, {PlanID: 8, RateBPS: 2500}}
+			require.NoError(t, CampusConfigurePlanRates(plans, 1, 1))
+			assert.Error(t, CampusConfigurePlanRates(plans, 1, 1))
+			assert.Error(t, CampusConfigurePlanRates([]cp.PlanRate{{PlanID: 99999, RateBPS: 10}}, 2, 1))
+			assert.Error(t, CampusConfigurePlanRates([]cp.PlanRate{{PlanID: 6, RateBPS: 10001}}, 2, 1))
+			assert.Error(t, CampusConfigurePlanRates([]cp.PlanRate{{PlanID: 6}, {PlanID: 6}}, 2, 1))
+			require.NoError(t, InsertCampusSubscription(&SubscriptionOrder{UserId: 7, PlanId: 6, TradeNo: "custom-plan", Money: 100, Status: common.TopUpStatusPending}, true, "CNY"))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "custom-plan", 7) }))
+			var planPayment CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "custom-plan").First(&planPayment).Error)
+			assert.EqualValues(t, 1234, planPayment.Commission)
+			require.NoError(t, InsertCampusSubscription(&SubscriptionOrder{UserId: 7, PlanId: 8, TradeNo: "new-custom-plan", Money: 100, Status: common.TopUpStatusPending}, true, "CNY"))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "new-custom-plan", 7) }))
+			var arbitraryPlan CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "new-custom-plan").First(&arbitraryPlan).Error)
+			assert.EqualValues(t, 2500, arbitraryPlan.Commission)
+			assert.Equal(t, cp.Subscription, arbitraryPlan.Product)
+			require.NoError(t, CampusConfigurePlanRates([]cp.PlanRate{}, 2, 1))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "custom-plan", 7) }))
+			refundPlan, err := CampusRegisterRefund("custom-plan", "plan-refund-after-removal", "isolated test", 10000, 1, false)
+			require.NoError(t, err)
+			assert.EqualValues(t, 1234, refundPlan.Reversal)
+			require.NoError(t, InitializeCampusPartner(db))
+			finalConfig, err := CampusGetConfig()
+			require.NoError(t, err)
+			assert.Empty(t, finalConfig.PlanRates)
+			assert.EqualValues(t, 3, finalConfig.PlanRevision)
+
+			var audit CampusEntry
+			require.NoError(t, db.Where("kind = ?", "tiers_configured").First(&audit).Error)
+			assert.Equal(t, 1, audit.ActorID)
+			assert.Contains(t, audit.Details, `"rate_bps":3325`)
+
 		})
 	}
 }

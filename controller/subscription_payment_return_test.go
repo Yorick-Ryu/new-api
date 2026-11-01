@@ -11,6 +11,7 @@ import (
 	"github.com/Calcium-Ion/go-epay/epay"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	cp "github.com/QuantumNous/new-api/pkg/campuspartner"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
@@ -180,7 +181,8 @@ func TestCampusEpayVerifiedSettlementIsAtomicAndIsolated(t *testing.T) {
 	require.NoError(t, db.Create(&inviter).Error)
 	ultra := model.SubscriptionPlan{Title: "Ultra", Enabled: true}
 	require.NoError(t, db.Create(&ultra).Error)
-	require.NoError(t, model.CampusConfigure(true, plan.Id, ultra.Id, inviter.Id))
+	require.NoError(t, model.CampusConfigure(true, inviter.Id))
+	require.NoError(t, model.CampusConfigurePlanRates([]cp.PlanRate{{PlanID: plan.Id, RateBPS: 500}, {PlanID: ultra.Id, RateBPS: 1000}}, 0, inviter.Id))
 	member, err := model.CampusJoin(inviter.Id)
 	require.NoError(t, err)
 	require.NoError(t, model.CampusBind(buyer.Id, member.Code))
@@ -280,4 +282,41 @@ func TestCampusSiteGuardIgnoresClientOriginAndForwardedHost(t *testing.T) {
 	result := httptest.NewRecorder()
 	r.ServeHTTP(result, httptest.NewRequest(http.MethodGet, "https://beiapi.cn/campus", nil))
 	assert.Equal(t, http.StatusOK, result.Code)
+}
+
+func TestCampusCommissionConfigurationRequests(t *testing.T) {
+	db, actor, plan, _ := setupSubscriptionRenewalControllerTest(t)
+	require.NoError(t, model.InitializeCampusPartner(db))
+	for _, test := range []struct {
+		name, body string
+		handler    gin.HandlerFunc
+		success    bool
+	}{
+		{"tier revision required", `{"tiers":[{"floor_cents":0,"rate_bps":1000}]}`, CampusConfigureTiers, false},
+		{"fractional basis point rejected", `{"tier_revision":0,"tiers":[{"floor_cents":0,"rate_bps":1.5}]}`, CampusConfigureTiers, false},
+		{"fractional cents rejected", `{"tier_revision":0,"tiers":[{"floor_cents":0,"rate_bps":1000},{"floor_cents":2.5,"rate_bps":2000}]}`, CampusConfigureTiers, false},
+		{"valid tier", `{"tier_revision":0,"tiers":[{"floor_cents":0,"rate_bps":1250}]}`, CampusConfigureTiers, true},
+		{"stale tier", `{"tier_revision":0,"tiers":[{"floor_cents":0,"rate_bps":2500}]}`, CampusConfigureTiers, false},
+		{"plan revision required", `{"plan_rates":[]}`, CampusConfigurePlanRates, false},
+		{"null plans rejected", `{"plan_revision":0,"plan_rates":null}`, CampusConfigurePlanRates, false},
+		{"valid plan", fmt.Sprintf(`{"plan_revision":0,"plan_rates":[{"plan_id":%d,"rate_bps":1234}]}`, plan.Id), CampusConfigurePlanRates, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(writer)
+			ctx.Set("id", actor.Id)
+			ctx.Request = httptest.NewRequest(http.MethodPut, "/", strings.NewReader(test.body))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+			test.handler(ctx)
+			var result struct {
+				Success bool `json:"success"`
+			}
+			require.NoError(t, common.Unmarshal(writer.Body.Bytes(), &result))
+			assert.Equal(t, test.success, result.Success)
+		})
+	}
+	config, err := model.CampusGetConfig()
+	require.NoError(t, err)
+	assert.EqualValues(t, 1250, config.Tiers[0].RateBPS)
+	assert.EqualValues(t, 1234, config.PlanRates[0].RateBPS)
 }

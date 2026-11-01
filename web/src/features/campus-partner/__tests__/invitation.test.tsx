@@ -190,13 +190,20 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       'Disable campaign',
       'Enable campaign?',
       'Disable campaign?',
-      'Campaign status changes take effect after confirmation.',
+      'Campaign status changes are saved automatically.',
       'Enabling shows the campaign to users and starts new participation and commission accrual.',
       'Disabling hides the campaign and stops new participation and commission accrual. Existing balances, withdrawals and issued coupons are preserved.',
       'Save plan settings',
       'Plan settings saved',
       'Campaign enabled',
       'Campaign disabled',
+      'Refund registration',
+      'Top-up commission tiers',
+      'Save commission tiers',
+      'Subscription commissions',
+      'Save subscription commissions',
+      'Tier {{level}} commission (%)',
+      'Subscription plan {{number}}',
     ]) {
       expect(instance.exists(key), key).toBe(true)
       expect(instance.t(key), key).not.toBe(key)

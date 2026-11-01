@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -20,12 +21,25 @@ import (
 // have a snapshot from fulfillment, so the singleton lock alone is not enough
 // to observe another transaction's just-committed cumulative performance.
 type CampusCampaign struct {
-	ID          int    `json:"id" gorm:"primaryKey"`
-	Enabled     bool   `json:"enabled"`
-	Version     string `json:"version" gorm:"type:varchar(64)"`
-	PlusPlanID  int    `json:"plus_plan_id"`
-	UltraPlanID int    `json:"ultra_plan_id"`
-	Revision    int64  `json:"revision"`
+	ID            int                `json:"id" gorm:"primaryKey"`
+	Enabled       bool               `json:"enabled"`
+	Version       string             `json:"version" gorm:"type:varchar(64)"`
+	Revision      int64              `json:"revision"`
+	TiersJSON     string             `json:"-" gorm:"type:text"`
+	TierRevision  int64              `json:"tier_revision"`
+	Tiers         []cp.TierRule      `json:"tiers" gorm:"-"`
+	PlanRatesJSON string             `json:"-" gorm:"type:text"`
+	PlanRevision  int64              `json:"plan_revision"`
+	PlanRates     []cp.PlanRate      `json:"plan_rates" gorm:"-"`
+	PlanOptions   []CampusPlanOption `json:"plan_options" gorm:"-"`
+}
+
+type CampusPlanOption struct {
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	Enabled     bool    `json:"enabled"`
+	PriceAmount float64 `json:"price_amount"`
+	Currency    string  `json:"currency"`
 }
 type CampusWindow struct {
 	ID    int64 `json:"id" gorm:"primaryKey"`
@@ -51,31 +65,30 @@ type CampusMember struct {
 // callback replay can never make it eligible later. TradeNo matches both the
 // subscription order and its top-up summary, giving one settlement identity.
 type CampusPayment struct {
-	ProviderTrade    *string    `json:"provider_transaction,omitempty" gorm:"type:varchar(255);uniqueIndex"`
-	ID               int64      `json:"id" gorm:"primaryKey"`
-	TradeNo          string     `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
-	UserID           int        `json:"user_id" gorm:"index"`
-	MainSite         bool       `json:"main_site"`
-	Currency         string     `json:"currency" gorm:"type:varchar(8)"`
-	Product          cp.Product `json:"product" gorm:"type:varchar(16)"`
-	PlanID           int        `json:"plan_id"`
-	PlanMappingKnown bool       `json:"-"`
-	Paid             cp.Money   `json:"paid_cents"`
-	Before           cp.Money   `json:"before_cents"`
-	Coupon           bool       `json:"coupon"`
-	SettledAt        int64      `json:"settled_at"`
-	InviterID        int        `json:"inviter_id" gorm:"index"`
-	RuleVersion      string     `json:"rule_version" gorm:"type:varchar(64)"`
-	Eligibility      string     `json:"eligibility" gorm:"type:varchar(40)"`
-	Commission       cp.Money   `json:"commission_cents"`
-	Segments         string     `json:"segments" gorm:"type:text"`
-	Refunded         cp.Money   `json:"refunded_cents"`
-	Reversed         cp.Money   `json:"reversed_cents"`
-	Frozen           cp.Money   `json:"frozen_cents"`
-	Available        cp.Money   `json:"available_cents"`
-	Reserved         cp.Money   `json:"reserved_cents"`
-	PaidOut          cp.Money   `json:"paid_out_cents"`
-	Offset           cp.Money   `json:"offset_cents"`
+	ProviderTrade *string    `json:"provider_transaction,omitempty" gorm:"type:varchar(255);uniqueIndex"`
+	ID            int64      `json:"id" gorm:"primaryKey"`
+	TradeNo       string     `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
+	UserID        int        `json:"user_id" gorm:"index"`
+	MainSite      bool       `json:"main_site"`
+	Currency      string     `json:"currency" gorm:"type:varchar(8)"`
+	Product       cp.Product `json:"product" gorm:"type:varchar(16)"`
+	PlanID        int        `json:"plan_id"`
+	Paid          cp.Money   `json:"paid_cents"`
+	Before        cp.Money   `json:"before_cents"`
+	Coupon        bool       `json:"coupon"`
+	SettledAt     int64      `json:"settled_at"`
+	InviterID     int        `json:"inviter_id" gorm:"index"`
+	RuleVersion   string     `json:"rule_version" gorm:"type:varchar(64)"`
+	Eligibility   string     `json:"eligibility" gorm:"type:varchar(40)"`
+	Commission    cp.Money   `json:"commission_cents"`
+	Segments      string     `json:"segments" gorm:"type:text"`
+	Refunded      cp.Money   `json:"refunded_cents"`
+	Reversed      cp.Money   `json:"reversed_cents"`
+	Frozen        cp.Money   `json:"frozen_cents"`
+	Available     cp.Money   `json:"available_cents"`
+	Reserved      cp.Money   `json:"reserved_cents"`
+	PaidOut       cp.Money   `json:"paid_out_cents"`
+	Offset        cp.Money   `json:"offset_cents"`
 }
 type CampusEntry struct {
 	ID           int64    `json:"id" gorm:"primaryKey"`
@@ -87,6 +100,7 @@ type CampusEntry struct {
 	CreatedAt    int64    `json:"created_at"`
 	ActorID      int      `json:"actor_id"`
 	Reason       string   `json:"reason" gorm:"type:text"`
+	Details      string   `json:"details,omitempty" gorm:"type:text"`
 }
 type CampusRefund struct {
 	ID        int64    `json:"id" gorm:"primaryKey"`
@@ -128,10 +142,14 @@ var ErrCampusCoupon = common.NewMessage("This coupon is unavailable or reserved 
 var ErrCampusState = common.NewMessage("The record has changed; refresh and try again")
 
 func InitializeCampusPartner(db *gorm.DB) error {
+	tiers, err := common.Marshal(cp.DefaultTiers())
+	if err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(&CampusCampaign{}, &CampusWindow{}, &CampusMember{}, &CampusPayment{}, &CampusEntry{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
 		return err
 	}
-	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion}).Error; err != nil {
+	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion, TiersJSON: string(tiers), PlanRatesJSON: "[]"}).Error; err != nil {
 		return err
 	}
 	return nil
@@ -162,29 +180,142 @@ func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
 func campusEntry(tx *gorm.DB, userID int, paymentID, withdrawalID int64, kind string, amount cp.Money, actor int, reason string) error {
 	return tx.Create(&CampusEntry{UserID: userID, PaymentID: paymentID, WithdrawalID: withdrawalID, Kind: kind, Amount: amount, CreatedAt: time.Now().Unix(), ActorID: actor, Reason: reason}).Error
 }
-func CampusConfigure(enabled bool, plus, ultra, actor int) error {
-	if plus < 0 || ultra < 0 || (plus != 0 && plus == ultra) {
-		return ErrCampusState
+
+func (config *CampusCampaign) CommissionTiers() ([]cp.TierRule, error) {
+	var tiers []cp.TierRule
+	if err := common.UnmarshalJsonStr(config.TiersJSON, &tiers); err != nil {
+		return nil, err
+	}
+	if err := cp.ValidateTiers(tiers); err != nil {
+		return nil, err
+	}
+	return tiers, nil
+}
+
+func (config *CampusCampaign) CommissionVersion() string {
+	version := config.Version
+	if config.TierRevision > 0 {
+		version += fmt.Sprintf("-tiers-%d", config.TierRevision)
+	}
+	if config.PlanRevision > 0 {
+		version += fmt.Sprintf("-plans-%d", config.PlanRevision)
+	}
+	return version
+}
+
+func (config *CampusCampaign) SubscriptionRates() ([]cp.PlanRate, error) {
+	plans := make([]cp.PlanRate, 0)
+
+	if err := common.UnmarshalJsonStr(config.PlanRatesJSON, &plans); err != nil {
+		return nil, err
+	}
+	if err := cp.ValidatePlanRates(plans); err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
+func CampusGetConfig() (CampusCampaign, error) {
+	var config CampusCampaign
+	if err := DB.First(&config, 1).Error; err != nil {
+		return config, err
+	}
+	var err error
+	config.Tiers, err = config.CommissionTiers()
+	if err != nil {
+		return config, err
+	}
+	config.PlanRates, err = config.SubscriptionRates()
+	if err != nil {
+		return config, err
+	}
+	err = DB.Model(&SubscriptionPlan{}).Select("id,title,enabled,price_amount,currency").Order("sort_order desc,id").Scan(&config.PlanOptions).Error
+	return config, err
+}
+
+func CampusConfigurePlanRates(plans []cp.PlanRate, expectedRevision int64, actor int) error {
+	if err := cp.ValidatePlanRates(plans); err != nil {
+		return common.NewMessage("Invalid subscription commission settings")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		config, err := campusLock(tx)
 		if err != nil {
 			return err
 		}
-		for _, id := range []int{plus, ultra} {
-			if id == 0 {
-				continue
-			}
-			var n int64
-			if err := tx.Model(&SubscriptionPlan{}).Where("id = ?", id).Count(&n).Error; err != nil {
+		if config.PlanRevision != expectedRevision {
+			return ErrCampusState
+		}
+		ids := make([]int, 0, len(plans))
+		for _, plan := range plans {
+			ids = append(ids, plan.PlanID)
+		}
+		if len(ids) > 0 {
+			var count int64
+			if err := tx.Model(&SubscriptionPlan{}).Where("id IN ?", ids).Count(&count).Error; err != nil {
 				return err
 			}
-			if n != 1 {
-				return ErrCampusState
+			if count != int64(len(ids)) {
+				return common.NewMessage("Selected subscription plan no longer exists")
 			}
 		}
-		if enabled && (plus == 0 || ultra == 0) {
+		before, err := config.SubscriptionRates()
+		if err != nil {
+			return err
+		}
+		encoded, err := common.Marshal(plans)
+		if err != nil {
+			return err
+		}
+		config.PlanRatesJSON = string(encoded)
+		config.PlanRevision++
+		if err := tx.Save(config).Error; err != nil {
+			return err
+		}
+		details, err := common.Marshal(map[string]any{"before": before, "after": plans, "revision": config.PlanRevision})
+		if err != nil {
+			return err
+		}
+		return tx.Create(&CampusEntry{Kind: "plans_configured", ActorID: actor, CreatedAt: time.Now().Unix(), Reason: "Subscription commission settings updated", Details: string(details)}).Error
+	})
+}
+
+func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int) error {
+	if err := cp.ValidateTiers(tiers); err != nil {
+		return common.NewMessage("Invalid commission tiers")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		config, err := campusLock(tx)
+		if err != nil {
+			return err
+		}
+		if config.TierRevision != expectedRevision {
 			return ErrCampusState
+		}
+		before, err := config.CommissionTiers()
+		if err != nil {
+			return err
+		}
+		encoded, err := common.Marshal(tiers)
+		if err != nil {
+			return err
+		}
+		config.TiersJSON = string(encoded)
+		config.TierRevision++
+		if err := tx.Save(config).Error; err != nil {
+			return err
+		}
+		details, err := common.Marshal(map[string]any{"before": before, "after": tiers, "revision": config.TierRevision})
+		if err != nil {
+			return err
+		}
+		return tx.Create(&CampusEntry{Kind: "tiers_configured", ActorID: actor, CreatedAt: time.Now().Unix(), Reason: "Commission tiers updated", Details: string(details)}).Error
+	})
+}
+func CampusConfigure(enabled bool, actor int) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		config, err := campusLock(tx)
+		if err != nil {
+			return err
 		}
 		now := time.Now().Unix()
 		if enabled != config.Enabled {
@@ -198,7 +329,7 @@ func CampusConfigure(enabled bool, plus, ultra, actor int) error {
 				}
 			}
 		}
-		config.Enabled, config.PlusPlanID, config.UltraPlanID = enabled, plus, ultra
+		config.Enabled = enabled
 		if err := tx.Save(config).Error; err != nil {
 			return err
 		}

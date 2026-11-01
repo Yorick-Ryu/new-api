@@ -24,6 +24,24 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 import { campusSite } from './storage'
 
 export { campusSite, invitationCode } from './storage'
+export type TierRule = { floor_cents: number; rate_bps: number }
+export type PlanRate = { plan_id: number; rate_bps: number }
+export type PlanOption = {
+  id: number
+  title: string
+  enabled: boolean
+  price_amount: number
+  currency: string
+}
+export type CampaignConfig = {
+  enabled: boolean
+
+  tiers: TierRule[]
+  tier_revision: number
+  plan_rates: PlanRate[]
+  plan_revision: number
+  plan_options: PlanOption[]
+}
 export interface Overview {
   expected_batch: string
   enabled: boolean
@@ -45,6 +63,9 @@ export interface Overview {
   net_cents: number
   invited: number
   this_month: number
+  tiers: TierRule[]
+  plan_rates: PlanRate[]
+  plan_options: PlanOption[]
   tier: {
     level: number
     rate_percent: number

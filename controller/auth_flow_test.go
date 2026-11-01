@@ -1135,7 +1135,7 @@ func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testi
 	require.NoError(t, db.Create(&ultra).Error)
 	inviter := model.User{Username: "campus-inviter", AffCode: "old-campaign-code", Status: common.UserStatusEnabled}
 	require.NoError(t, db.Create(&inviter).Error)
-	require.NoError(t, model.CampusConfigure(true, plan.Id, ultra.Id, inviter.Id))
+	require.NoError(t, model.CampusConfigure(true, inviter.Id))
 	member, err := model.CampusJoin(inviter.Id)
 	require.NoError(t, err)
 	oldRegister, oldPassword, oldVerify := common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled
@@ -1229,7 +1229,7 @@ func TestCampusWeChatRegistrationBindsOnlyNewMainSiteAccounts(t *testing.T) {
 	ultra := model.SubscriptionPlan{Title: "Ultra"}
 	require.NoError(t, db.Create(&plus).Error)
 	require.NoError(t, db.Create(&ultra).Error)
-	require.NoError(t, model.CampusConfigure(true, plus.Id, ultra.Id, inviter.Id))
+	require.NoError(t, model.CampusConfigure(true, inviter.Id))
 	member, err := model.CampusJoin(inviter.Id)
 	require.NoError(t, err)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

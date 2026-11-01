@@ -39,6 +39,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toIntlLocale } from '@/i18n/languages'
+import { formatNumber } from '@/lib/format'
 
 import { campusPost, campusSite, cash, useCampus, useCampusAction } from './api'
 import { CampusFields, InvitationField } from './forms'
@@ -64,13 +65,7 @@ export function CampusPartner() {
   }
   const data = overview.data
   const link = `https://beiapi.cn/sign-up?campus=${data.member.code}`
-  const tiers = [
-    t('Apprentice partner'),
-    t('Growing partner'),
-    t('Elite partner'),
-    t('Senior partner'),
-    t('Lead partner'),
-  ]
+  const maximumRate = Math.max(...data.tiers.map((tier) => tier.rate_bps)) / 100
   const stats = [
     [t('Available commission'), data.available_cents],
     [t('Settlement freeze'), data.frozen_cents],
@@ -103,7 +98,7 @@ export function CampusPartner() {
                 </h1>
                 <p className='text-muted-foreground mt-3 max-w-xl text-sm leading-6'>
                   {t(
-                    'Everyone can join. Earn 30%–50% on direct friends’ top-ups, 5% on Plus and 10% on Ultra. Your friends get one personal 5% off coupon.'
+                    'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
                   )}
                 </p>
               </div>
@@ -112,7 +107,8 @@ export function CampusPartner() {
                   {t('Top-up commission up to')}
                 </p>
                 <p className='text-5xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-300'>
-                  50<span className='text-2xl'>%</span>
+                  {formatNumber(maximumRate, locale)}
+                  <span className='text-2xl'>%</span>
                 </p>
               </div>
             </div>
@@ -191,7 +187,7 @@ export function CampusPartner() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  Lv.{data.tier.level} · {tiers[data.tier.level - 1]}
+                  {t('Tier {{level}}', { level: data.tier.level })}
                 </CardTitle>
                 <CardDescription>
                   {t('Current top-up rate')}: {data.tier.rate_percent}%
@@ -228,26 +224,40 @@ export function CampusPartner() {
                 </p>
                 <p className='text-muted-foreground text-xs leading-5'>
                   {t(
-                    'Includes qualifying RMB top-ups and Plus/Ultra payments on BeiAPI after activation. Tier upgrades apply only to new sales; subscription commission rates remain fixed.'
+                    'Qualifying top-ups and participating subscriptions count toward tier progress. Top-ups use progressive tier rates; subscriptions use their configured rates. Existing commissions stay unchanged.'
                   )}
                 </p>
                 <div className='flex flex-wrap gap-2'>
-                  {[30, 35, 40, 45, 50].map((rate, index) => (
+                  {data.tiers.map((tier, index) => (
                     <Badge
-                      key={rate}
+                      key={tier.floor_cents}
                       variant={
                         data.tier.level === index + 1 ? 'default' : 'outline'
                       }
                     >
-                      Lv.{index + 1} · {rate}% ·{' '}
-                      {cash(
-                        [0, 200000, 1000000, 3000000, 8000000][index],
-                        locale
-                      )}
-                      +
+                      Lv.{index + 1} ·{' '}
+                      {formatNumber(tier.rate_bps / 100, locale)}% ·{' '}
+                      {cash(tier.floor_cents, locale)}+
                     </Badge>
                   ))}
                 </div>
+                {data.plan_rates.length > 0 && (
+                  <div className='space-y-2'>
+                    <p className='text-sm font-medium'>
+                      {t('Subscription commissions')}
+                    </p>
+                    <div className='flex flex-wrap gap-2'>
+                      {data.plan_rates.map((plan) => (
+                        <Badge key={plan.plan_id} variant='outline'>
+                          {data.plan_options.find(
+                            (option) => option.id === plan.plan_id
+                          )?.title || `#${plan.plan_id}`}{' '}
+                          · {formatNumber(plan.rate_bps / 100, locale)}%
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -17,14 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import {
-  act,
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -32,6 +25,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { api } from '@/lib/api'
 
 import { CampusAdmin } from '../admin'
+import type { CampaignConfig } from '../api'
 
 const clients: QueryClient[] = []
 afterEach(() => {
@@ -41,7 +35,33 @@ afterEach(() => {
 })
 
 function renderConfiguration(enabled = false) {
-  let config = { enabled, plus_plan_id: 1, ultra_plan_id: 2 }
+  let config: CampaignConfig = {
+    enabled,
+
+    tiers: [
+      { floor_cents: 0, rate_bps: 3000 },
+      { floor_cents: 200000, rate_bps: 3500 },
+    ],
+    tier_revision: 0,
+    plan_rates: [{ plan_id: 1, rate_bps: 500 }],
+    plan_revision: 0,
+    plan_options: [
+      {
+        id: 1,
+        title: 'Plus',
+        enabled: true,
+        price_amount: 128,
+        currency: 'USD',
+      },
+      {
+        id: 2,
+        title: 'Ultra',
+        enabled: true,
+        price_amount: 588,
+        currency: 'USD',
+      },
+    ],
+  }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
@@ -63,10 +83,26 @@ function renderConfiguration(enabled = false) {
         },
       }) as AxiosResponse
   )
-  const put = vi.spyOn(api, 'put').mockImplementation(async (_url, data) => {
-    config = data as typeof config
-    return { data: { success: true, data: config } } as AxiosResponse
-  })
+  const put = vi
+    .spyOn(api, 'put')
+    .mockImplementation(async (_url, data: unknown) => {
+      const payload = data as CampaignConfig
+
+      if (_url === '/api/campus/admin/tiers') {
+        config = {
+          ...config,
+          tiers: payload.tiers,
+          tier_revision: config.tier_revision + 1,
+        }
+      } else if (_url === '/api/campus/admin/plan-rates') {
+        config = {
+          ...config,
+          plan_rates: payload.plan_rates,
+          plan_revision: config.plan_revision + 1,
+        }
+      } else config = { ...config, ...payload } as CampaignConfig
+      return { data: { success: true, data: config } } as AxiosResponse
+    })
   render(
     <QueryClientProvider client={client}>
       <CampusAdmin />
@@ -76,36 +112,11 @@ function renderConfiguration(enabled = false) {
 }
 
 test.each([false, true])(
-  'changing the campaign from enabled=%s requires confirmation and cancel leaves the saved state unchanged',
-  async (enabled) => {
-    const { user, put } = renderConfiguration(enabled)
-    const control = screen.getByRole('switch', { name: 'Enable campaign' })
-    await user.click(control)
-    const dialog = await screen.findByRole('alertdialog', {
-      name: enabled ? 'Disable campaign?' : 'Enable campaign?',
-    })
-    expect(control).toHaveAttribute('aria-checked', String(enabled))
-    expect(put).not.toHaveBeenCalled()
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-    expect(control).toHaveAttribute('aria-checked', String(enabled))
-    expect(put).not.toHaveBeenCalled()
-  }
-)
-
-test.each([false, true])(
-  'confirming the campaign change from enabled=%s saves once and updates the switch',
+  'changing the campaign from enabled=%s saves immediately without a confirmation dialog',
   async (enabled) => {
     const { user, put } = renderConfiguration(enabled)
     await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
-    const dialog = await screen.findByRole('alertdialog', {
-      name: enabled ? 'Disable campaign?' : 'Enable campaign?',
-    })
-    await user.click(
-      within(dialog).getByRole('button', {
-        name: enabled ? 'Disable campaign' : 'Enable campaign',
-      })
-    )
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     await waitFor(() =>
       expect(
         screen.getByRole('switch', { name: 'Enable campaign' })
@@ -113,42 +124,27 @@ test.each([false, true])(
     )
     expect(put).toHaveBeenCalledExactlyOnceWith('/api/campus/admin/config', {
       enabled: !enabled,
-      plus_plan_id: 1,
-      ultra_plan_id: 2,
     })
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   }
 )
 
-test('a failed activation keeps the previous switch state and confirmation open for retry', async () => {
+test('a failed activation keeps the previous switch state and allows retry without a dialog', async () => {
   const { user, put } = renderConfiguration()
   put.mockRejectedValueOnce(new Error('offline'))
   const control = screen.getByRole('switch', { name: 'Enable campaign' })
   await user.click(control)
-  const dialog = await screen.findByRole('alertdialog', {
-    name: 'Enable campaign?',
-  })
-  await user.click(
-    within(dialog).getByRole('button', { name: 'Enable campaign' })
-  )
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
   await waitFor(() =>
-    expect(
-      within(dialog).getByRole('button', { name: 'Enable campaign' })
-    ).toBeEnabled()
+    expect(control).not.toHaveAttribute('aria-disabled', 'true')
   )
   expect(control).not.toBeChecked()
-  expect(dialog).toBeVisible()
-  await user.click(
-    within(dialog).getByRole('button', { name: 'Enable campaign' })
-  )
-  await waitFor(() =>
-    expect(
-      screen.getByRole('switch', { name: 'Enable campaign' })
-    ).toBeChecked()
-  )
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  await user.click(control)
+  await waitFor(() => expect(control).toBeChecked())
 })
 
-test('activation waits for the server and prevents duplicate confirmation while the request is pending', async () => {
+test('activation waits for the server and prevents repeated switch saves while pending', async () => {
   const { user, put } = renderConfiguration()
   let resolve!: (response: AxiosResponse) => void
   put.mockImplementationOnce(
@@ -159,61 +155,171 @@ test('activation waits for the server and prevents duplicate confirmation while 
   )
   const control = screen.getByRole('switch', { name: 'Enable campaign' })
   await user.click(control)
-  const dialog = await screen.findByRole('alertdialog', {
-    name: 'Enable campaign?',
-  })
-  const confirm = within(dialog).getByRole('button', {
-    name: 'Enable campaign',
-  })
-  await user.click(confirm)
-  expect(confirm).toBeDisabled()
-  expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  expect(control).toHaveAttribute('aria-disabled', 'true')
   expect(control).not.toBeChecked()
-  await user.click(confirm)
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  await user.click(control)
   expect(put).toHaveBeenCalledTimes(1)
   await act(async () => {
     resolve({
       data: { success: false, message: 'Operation failed' },
     } as AxiosResponse)
   })
-  await waitFor(() => expect(confirm).toBeEnabled())
+  await waitFor(() =>
+    expect(control).not.toHaveAttribute('aria-disabled', 'true')
+  )
   expect(control).not.toBeChecked()
 })
 
-test('activation uses saved plan settings and preserves unsaved plan edits for a separate save', async () => {
+test('changing campaign status preserves unsaved tier edits until the tier save is clicked', async () => {
   const { user, put } = renderConfiguration()
-  const plus = screen.getByRole('spinbutton', {
-    name: 'Plus subscription plan ID',
+  const upper = screen.getByRole('textbox', {
+    name: 'Tier 1 upper bound (CNY)',
   })
-  await user.clear(plus)
-  await user.type(plus, '3')
+  await user.clear(upper)
+  await user.type(upper, '1000.50')
   await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
-  const dialog = await screen.findByRole('alertdialog', {
-    name: 'Enable campaign?',
-  })
-  await user.click(
-    within(dialog).getByRole('button', { name: 'Enable campaign' })
-  )
   await waitFor(() =>
     expect(
       screen.getByRole('switch', { name: 'Enable campaign' })
     ).toBeChecked()
   )
-  expect(put).toHaveBeenNthCalledWith(1, '/api/campus/admin/config', {
+  expect(upper).toHaveValue('1000.50')
+  expect(put).toHaveBeenCalledExactlyOnceWith('/api/campus/admin/config', {
     enabled: true,
-    plus_plan_id: 1,
-    ultra_plan_id: 2,
   })
-  expect(
-    screen.getByRole('spinbutton', { name: 'Plus subscription plan ID' })
-  ).toHaveValue(3)
-  await user.click(screen.getByRole('button', { name: 'Save plan settings' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
   await waitFor(() =>
-    expect(put).toHaveBeenNthCalledWith(2, '/api/campus/admin/config', {
-      enabled: true,
-      plus_plan_id: 3,
-      ultra_plan_id: 2,
+    expect(put).toHaveBeenLastCalledWith('/api/campus/admin/tiers', {
+      tier_revision: 0,
+      tiers: [
+        { floor_cents: 0, rate_bps: 3000 },
+        { floor_cents: 100050, rate_bps: 3500 },
+      ],
     })
   )
-  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+})
+
+test('administrators can add and delete tiers and save decimal commission rates', async () => {
+  const { user, put } = renderConfiguration()
+  await user.click(screen.getByRole('button', { name: 'Add tier' }))
+  await user.type(
+    screen.getByRole('textbox', { name: 'Tier 2 upper bound (CNY)' }),
+    '5000'
+  )
+  const rate = screen.getByRole('textbox', { name: 'Tier 3 commission (%)' })
+  await user.clear(rate)
+  await user.type(rate, '42.75')
+  await user.click(screen.getByRole('button', { name: 'Remove tier 2' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledExactlyOnceWith('/api/campus/admin/tiers', {
+      tier_revision: 0,
+      tiers: [
+        { floor_cents: 0, rate_bps: 3000 },
+        { floor_cents: 500000, rate_bps: 4275 },
+      ],
+    })
+  )
+})
+
+test('invalid ranges and out-of-range percentages cannot be saved', async () => {
+  const { user, put } = renderConfiguration()
+  const upper = screen.getByRole('textbox', {
+    name: 'Tier 1 upper bound (CNY)',
+  })
+  await user.clear(upper)
+  await user.type(upper, '0')
+  const rate = screen.getByRole('textbox', { name: 'Tier 1 commission (%)' })
+  await user.clear(rate)
+  await user.type(rate, '100.01')
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  expect(
+    await screen.findByText('Tier boundaries must increase from zero')
+  ).toBeVisible()
+  expect(
+    screen.getByText(
+      'Enter a percentage from 0 to 100 with at most two decimal places'
+    )
+  ).toBeVisible()
+  expect(put).not.toHaveBeenCalled()
+})
+
+test('subscription rules use a plan dropdown and save independent percentages without changing tiers', async () => {
+  const { user, put } = renderConfiguration()
+  await user.click(
+    screen.getByRole('button', { name: 'Add subscription plan' })
+  )
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Subscription plan 2' }),
+    '2'
+  )
+  const rate = screen.getByRole('textbox', {
+    name: 'Subscription commission 2 (%)',
+  })
+  await user.clear(rate)
+  await user.type(rate, '12.34')
+  await user.click(
+    screen.getByRole('button', { name: 'Save subscription commissions' })
+  )
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledExactlyOnceWith(
+      '/api/campus/admin/plan-rates',
+      {
+        plan_revision: 0,
+        plan_rates: [
+          { plan_id: 1, rate_bps: 500 },
+          { plan_id: 2, rate_bps: 1234 },
+        ],
+      }
+    )
+  )
+  expect(screen.getByText('Refund registration')).toBeVisible()
+})
+
+test('a failed tier save retains the draft and lets the administrator retry', async () => {
+  const { user, put } = renderConfiguration()
+  const rate = screen.getByRole('textbox', { name: 'Tier 1 commission (%)' })
+  await user.clear(rate)
+  await user.type(rate, '25.50')
+  put.mockRejectedValueOnce(new Error('offline'))
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Save commission tiers' })
+    ).toBeEnabled()
+  )
+  expect(rate).toHaveValue('25.50')
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(2))
+})
+
+test('removing every participating subscription saves an explicit empty list', async () => {
+  const { user, put } = renderConfiguration()
+  await user.click(
+    screen.getByRole('button', { name: 'Remove subscription plan 1' })
+  )
+  expect(
+    screen.getByText('No subscription plans participate in commission yet.')
+  ).toBeVisible()
+  await user.click(
+    screen.getByRole('button', { name: 'Save subscription commissions' })
+  )
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledExactlyOnceWith(
+      '/api/campus/admin/plan-rates',
+      { plan_revision: 0, plan_rates: [] }
+    )
+  )
 })
