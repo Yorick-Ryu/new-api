@@ -84,6 +84,8 @@ func TestCampusDatabase(t *testing.T) {
 			assert.False(t, config.Enabled)
 			_, err = CampusJoin(1)
 			assert.ErrorIs(t, err, ErrCampusDisabled)
+			prelaunch := SubscriptionOrder{UserId: 2, PlanId: 6, TradeNo: "before-first-configuration", Money: 100, Status: common.TopUpStatusPending}
+			require.NoError(t, InsertCampusSubscription(&prelaunch, true, "CNY"))
 			require.NoError(t, CampusConfigure(true, 6, 7, 1))
 			first, err := CampusJoin(1)
 			require.NoError(t, err)
@@ -320,6 +322,11 @@ func TestCampusDatabase(t *testing.T) {
 			_, _, err = CampusList(7, false, "refunds", 1, 10)
 			assert.Error(t, err)
 			require.NoError(t, InitializeCampusPartner(db))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, prelaunch.TradeNo, 2) }))
+			prelaunchSummary, err := CampusGetOverview(1)
+			require.NoError(t, err)
+			assert.EqualValues(t, 15000, prelaunchSummary.Member.Performance)
+			assert.EqualValues(t, 2000, prelaunchSummary.Net)
 			var final CampusMember
 			require.NoError(t, db.First(&final, "user_id = ?", 2).Error)
 			assert.Equal(t, 1, final.InviterID)

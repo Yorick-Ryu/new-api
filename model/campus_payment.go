@@ -56,6 +56,7 @@ func campusCheckoutTx(tx *gorm.DB, payment *CampusPayment) error {
 		return err
 	}
 	if payment.PlanID != 0 {
+		payment.PlanMappingKnown = config.PlusPlanID > 0 && config.UltraPlanID > 0
 		switch payment.PlanID {
 		case config.PlusPlanID:
 			payment.Product = cp.Plus
@@ -119,6 +120,18 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	}
 	if payment.UserID != userID {
 		return ErrCampusState
+	}
+	// Orders created before the first plan mapping was configured retain the
+	// actual plan ID. Resolve it at first settlement; an already-known mapping
+	// (including an excluded product) is never reinterpreted after checkout.
+	if payment.PlanID > 0 && !payment.PlanMappingKnown && payment.Product == "" {
+		if payment.PlanID == config.PlusPlanID {
+			payment.Product = cp.Plus
+		}
+		if payment.PlanID == config.UltraPlanID {
+			payment.Product = cp.Ultra
+		}
+		payment.PlanMappingKnown = true
 	}
 	payment.SettledAt, payment.RuleVersion = now, config.Version
 	if len(proofs) == 1 {

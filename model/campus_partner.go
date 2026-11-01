@@ -51,30 +51,31 @@ type CampusMember struct {
 // callback replay can never make it eligible later. TradeNo matches both the
 // subscription order and its top-up summary, giving one settlement identity.
 type CampusPayment struct {
-	ProviderTrade *string    `json:"provider_transaction,omitempty" gorm:"type:varchar(255);uniqueIndex"`
-	ID            int64      `json:"id" gorm:"primaryKey"`
-	TradeNo       string     `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
-	UserID        int        `json:"user_id" gorm:"index"`
-	MainSite      bool       `json:"main_site"`
-	Currency      string     `json:"currency" gorm:"type:varchar(8)"`
-	Product       cp.Product `json:"product" gorm:"type:varchar(16)"`
-	PlanID        int        `json:"plan_id"`
-	Paid          cp.Money   `json:"paid_cents"`
-	Before        cp.Money   `json:"before_cents"`
-	Coupon        bool       `json:"coupon"`
-	SettledAt     int64      `json:"settled_at"`
-	InviterID     int        `json:"inviter_id" gorm:"index"`
-	RuleVersion   string     `json:"rule_version" gorm:"type:varchar(64)"`
-	Eligibility   string     `json:"eligibility" gorm:"type:varchar(40)"`
-	Commission    cp.Money   `json:"commission_cents"`
-	Segments      string     `json:"segments" gorm:"type:text"`
-	Refunded      cp.Money   `json:"refunded_cents"`
-	Reversed      cp.Money   `json:"reversed_cents"`
-	Frozen        cp.Money   `json:"frozen_cents"`
-	Available     cp.Money   `json:"available_cents"`
-	Reserved      cp.Money   `json:"reserved_cents"`
-	PaidOut       cp.Money   `json:"paid_out_cents"`
-	Offset        cp.Money   `json:"offset_cents"`
+	ProviderTrade    *string    `json:"provider_transaction,omitempty" gorm:"type:varchar(255);uniqueIndex"`
+	ID               int64      `json:"id" gorm:"primaryKey"`
+	TradeNo          string     `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
+	UserID           int        `json:"user_id" gorm:"index"`
+	MainSite         bool       `json:"main_site"`
+	Currency         string     `json:"currency" gorm:"type:varchar(8)"`
+	Product          cp.Product `json:"product" gorm:"type:varchar(16)"`
+	PlanID           int        `json:"plan_id"`
+	PlanMappingKnown bool       `json:"-"`
+	Paid             cp.Money   `json:"paid_cents"`
+	Before           cp.Money   `json:"before_cents"`
+	Coupon           bool       `json:"coupon"`
+	SettledAt        int64      `json:"settled_at"`
+	InviterID        int        `json:"inviter_id" gorm:"index"`
+	RuleVersion      string     `json:"rule_version" gorm:"type:varchar(64)"`
+	Eligibility      string     `json:"eligibility" gorm:"type:varchar(40)"`
+	Commission       cp.Money   `json:"commission_cents"`
+	Segments         string     `json:"segments" gorm:"type:text"`
+	Refunded         cp.Money   `json:"refunded_cents"`
+	Reversed         cp.Money   `json:"reversed_cents"`
+	Frozen           cp.Money   `json:"frozen_cents"`
+	Available        cp.Money   `json:"available_cents"`
+	Reserved         cp.Money   `json:"reserved_cents"`
+	PaidOut          cp.Money   `json:"paid_out_cents"`
+	Offset           cp.Money   `json:"offset_cents"`
 }
 type CampusEntry struct {
 	ID           int64    `json:"id" gorm:"primaryKey"`
