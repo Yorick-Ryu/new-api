@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "Tỷ giá phải lớn hơn 0",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "Không bao gồm chi phí đầu vào của câu lệnh và ảnh tham chiếu. Chi phí cuối cùng phụ thuộc vào mức sử dụng thực tế.",
     "Excludes the first attempt. Counted per group.": "Không tính lần đầu, tính theo từng nhóm.",
+    "Exclusive campus partner invitation code": "Mã mời dành riêng cho đối tác sinh viên",
     "Execute code in a sandbox during the response": "Thực thi mã trong sandbox trong quá trình phản hồi",
     "Executor": "Trình thực thi",
     "Exhausted": "Đã cạn kiệt",

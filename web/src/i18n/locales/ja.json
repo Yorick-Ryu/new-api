@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "為替レートは 0 より大きくする必要があります",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "プロンプトと参照画像の入力料金は含まれません。最終的な料金は実際の使用量によって決まります。",
     "Excludes the first attempt. Counted per group.": "初回を除く、グループごとの回数です。",
+    "Exclusive campus partner invitation code": "キャンパスパートナー専用招待コード",
     "Execute code in a sandbox during the response": "応答中にサンドボックスでコードを実行",
     "Executor": "実行ノード",
     "Exhausted": "使い切り",

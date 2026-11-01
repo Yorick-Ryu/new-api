@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "Exchange rate must be greater than 0",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "Excludes prompt and reference-image input costs. Final cost depends on actual usage.",
     "Excludes the first attempt. Counted per group.": "Excludes the first attempt. Counted per group.",
+    "Exclusive campus partner invitation code": "Exclusive campus partner invitation code",
     "Execute code in a sandbox during the response": "Execute code in a sandbox during the response",
     "Executor": "Executor",
     "Exhausted": "Exhausted",

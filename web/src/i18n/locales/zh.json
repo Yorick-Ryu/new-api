@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "汇率必须大于 0",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "不含提示词和参考图的输入费用。最终费用取决于实际用量。",
     "Excludes the first attempt. Counted per group.": "不含首次，按分组计算。",
+    "Exclusive campus partner invitation code": "校园合伙人专属邀请码",
     "Execute code in a sandbox during the response": "在响应过程中沙箱执行代码",
     "Executor": "执行实例",
     "Exhausted": "已耗尽",

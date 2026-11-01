@@ -141,9 +141,7 @@ export function CampusPartner() {
               <CardHeader>
                 <CardTitle>{t('Invite a friend')}</CardTitle>
                 <CardDescription>
-                  {t(
-                    'A dedicated invitation, separate from the previous referral program.'
-                  )}
+                  {t('Exclusive campus partner invitation code')}
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>

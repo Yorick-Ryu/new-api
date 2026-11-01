@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "Le taux de change doit être supérieur à 0",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "Les coûts d’entrée du prompt et des images de référence sont exclus. Le coût final dépend de l’utilisation réelle.",
     "Excludes the first attempt. Counted per group.": "Hors première tentative, compté par groupe.",
+    "Exclusive campus partner invitation code": "Code d’invitation exclusif des partenaires campus",
     "Execute code in a sandbox during the response": "Exécuter du code dans un bac à sable pendant la réponse",
     "Executor": "Exécuteur",
     "Exhausted": "Épuisé",

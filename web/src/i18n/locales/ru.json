@@ -2692,6 +2692,7 @@
     "Exchange rate must be greater than 0": "Курс обмена должен быть больше 0",
     "Excludes prompt and reference-image input costs. Final cost depends on actual usage.": "Стоимость ввода промпта и референсных изображений не включена. Итоговая стоимость зависит от фактического использования.",
     "Excludes the first attempt. Counted per group.": "Без первой попытки, отдельно для каждой группы.",
+    "Exclusive campus partner invitation code": "Эксклюзивный код приглашения кампусного партнёра",
     "Execute code in a sandbox during the response": "Выполнять код в песочнице во время ответа",
     "Executor": "Исполнитель",
     "Exhausted": "Исчерпано",

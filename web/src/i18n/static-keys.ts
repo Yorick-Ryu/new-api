@@ -53,7 +53,6 @@ export const STATIC_I18N_KEYS = [
   'Collected commission after refund',
 
   '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.',
-  'A dedicated invitation, separate from the previous referral program.',
   'Actual payment received',
   'Actual transfer time',
   'Actual transfer time (Beijing)',
@@ -111,6 +110,7 @@ export const STATIC_I18N_KEYS = [
   'Enter a valid amount with at most two decimal places',
   'Enter the complete invitation code.',
   'Everyone can join. Earn 30%–50% on direct friends’ top-ups, 5% on Plus and 10% on Ultra. Your friends get one personal 5% off coupon.',
+  'Exclusive campus partner invitation code',
   'Expected payout',
   'Failed to calculate payment amount',
   'Failed to start payment',
