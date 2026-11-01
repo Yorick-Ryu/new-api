@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -147,7 +154,10 @@ test('top-level tabs separate settings from each record list and retain unsaved 
   ).toBeVisible()
   expect(rate).toBeVisible()
   expect(rate).toHaveValue('25.50')
-  expect(screen.queryByRole('table')).toBeNull()
+  expect(
+    screen.getByRole('table', { name: 'Top-up commission tiers' })
+  ).toBeVisible()
+  expect(screen.queryByText('No records yet')).not.toBeInTheDocument()
   expect(put).not.toHaveBeenCalled()
 })
 
@@ -242,17 +252,32 @@ test('changing campaign status preserves unsaved tier edits until the tier save 
   )
 })
 
-test('administrators can add and delete tiers and save decimal commission rates', async () => {
+test('administrators can edit, add and delete table rows and save decimal commission rates', async () => {
   const { user, put } = renderConfiguration()
+  const table = within(
+    screen.getByRole('table', { name: 'Top-up commission tiers' })
+  )
+  expect(table.getAllByRole('row')).toHaveLength(3)
   await user.click(screen.getByRole('button', { name: 'Add tier' }))
+  const tierRows = table.getAllByRole('row')
+  expect(tierRows).toHaveLength(4)
   await user.type(
-    screen.getByRole('textbox', { name: 'Tier 2 upper bound (CNY)' }),
+    within(tierRows[2]).getByRole('textbox', {
+      name: 'Tier 2 upper bound (CNY)',
+    }),
     '5000'
   )
-  const rate = screen.getByRole('textbox', { name: 'Tier 3 commission (%)' })
+  const rate = within(tierRows[3]).getByRole('textbox', {
+    name: 'Tier 3 commission (%)',
+  })
   await user.clear(rate)
   await user.type(rate, '42.75')
-  await user.click(screen.getByRole('button', { name: 'Remove tier 2' }))
+  expect(rate).toHaveFocus()
+  expect(within(tierRows[3]).getByText('Unlimited')).toBeVisible()
+  await user.click(
+    within(tierRows[2]).getByRole('button', { name: 'Remove tier 2' })
+  )
+  expect(table.getAllByRole('row')).toHaveLength(3)
   await user.click(
     screen.getByRole('button', { name: 'Save commission tiers' })
   )

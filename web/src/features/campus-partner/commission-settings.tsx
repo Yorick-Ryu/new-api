@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { StaticDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -145,35 +146,38 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
             )}
           >
             <fieldset disabled={save.isPending} className='min-w-0 space-y-4'>
-              {rows.fields.map((row, index) => (
-                <fieldset
-                  key={row.id}
-                  className='min-w-0 rounded-lg border p-4'
-                >
-                  <legend className='px-1 text-sm font-medium'>
-                    {t('Tier {{level}}', { level: index + 1 })}
-                  </legend>
-                  <div className='flex items-start gap-4'>
-                    <div className='grid min-w-0 flex-1 items-start gap-4 sm:grid-cols-3'>
-                      <div className='space-y-2'>
-                        <p className='text-sm font-medium'>
-                          {t('Minimum sales (CNY)')}
-                        </p>
-                        <p className='text-sm tabular-nums'>
-                          {Number.isNaN(
-                            decimalUnits(values[index]?.floor ?? '')
-                          )
-                            ? '—'
-                            : cash(decimalUnits(values[index].floor), locale)}
-                        </p>
-                      </div>
-                      {index + 1 < rows.fields.length ? (
+              <StaticDataTable
+                data={rows.fields}
+                getRowKey={(row) => row.id}
+                tableProps={{ 'aria-label': t('Top-up commission tiers') }}
+                tableClassName='min-w-[640px] table-fixed [&_tbody>tr]:h-12'
+                columns={[
+                  {
+                    id: 'tier',
+                    header: t('Tier'),
+                    className: 'w-24',
+                    cell: (_row, index) =>
+                      t('Tier {{level}}', { level: index + 1 }),
+                  },
+                  {
+                    id: 'floor',
+                    header: t('Minimum sales (CNY)'),
+                    cell: (_row, index) =>
+                      Number.isNaN(decimalUnits(values[index]?.floor ?? ''))
+                        ? '—'
+                        : cash(decimalUnits(values[index].floor), locale),
+                  },
+                  {
+                    id: 'upper-bound',
+                    header: t('Upper bound (exclusive)'),
+                    cell: (_row, index) =>
+                      index + 1 < rows.fields.length ? (
                         <FormField
                           control={form.control}
                           name={`tiers.${index + 1}.floor`}
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
+                            <FormItem className='gap-1'>
+                              <FormLabel className='sr-only'>
                                 {t('Tier {{level}} upper bound (CNY)', {
                                   level: index + 1,
                                 })}
@@ -181,24 +185,24 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                               <FormControl>
                                 <Input {...field} inputMode='decimal' />
                               </FormControl>
-                              <FormMessage />
+                              <FormMessage className='whitespace-normal' />
                             </FormItem>
                           )}
                         />
                       ) : (
-                        <div className='space-y-2'>
-                          <p className='text-sm font-medium'>
-                            {t('Upper bound (exclusive)')}
-                          </p>
-                          <p className='text-sm'>{t('Unlimited')}</p>
-                        </div>
-                      )}
+                        t('Unlimited')
+                      ),
+                  },
+                  {
+                    id: 'rate',
+                    header: <>{t('Commission')} (%)</>,
+                    cell: (_row, index) => (
                       <FormField
                         control={form.control}
                         name={`tiers.${index}.rate`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
+                          <FormItem className='gap-1'>
+                            <FormLabel className='sr-only'>
                               {t('Tier {{level}} commission (%)', {
                                 level: index + 1,
                               })}
@@ -206,30 +210,38 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                             <FormControl>
                               <Input {...field} inputMode='decimal' />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className='whitespace-normal' />
                           </FormItem>
                         )}
                       />
-                    </div>
-                    <Button
-                      className='mt-6 shrink-0'
-                      type='button'
-                      variant='destructive'
-                      size='sm'
-                      disabled={rows.fields.length === 1}
-                      aria-label={t('Remove tier {{level}}', {
-                        level: index + 1,
-                      })}
-                      onClick={() => {
-                        if (index === 0) form.setValue('tiers.1.floor', '0')
-                        rows.remove(index)
-                      }}
-                    >
-                      {t('Delete')}
-                    </Button>
-                  </div>
-                </fieldset>
-              ))}
+                    ),
+                  },
+                  {
+                    id: 'actions',
+                    header: t('Actions'),
+                    className: 'w-20 text-right',
+                    cell: (_row, index) => (
+                      <div className='flex justify-end'>
+                        <Button
+                          type='button'
+                          variant='destructive'
+                          size='sm'
+                          disabled={rows.fields.length === 1}
+                          aria-label={t('Remove tier {{level}}', {
+                            level: index + 1,
+                          })}
+                          onClick={() => {
+                            if (index === 0) form.setValue('tiers.1.floor', '0')
+                            rows.remove(index)
+                          }}
+                        >
+                          {t('Delete')}
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
               <div className='flex flex-wrap gap-2'>
                 <Button
                   type='button'
