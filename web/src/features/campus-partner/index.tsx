@@ -73,9 +73,6 @@ export function CampusPartner(): ReactElement {
           · {t('Current commission rate')}{' '}
           {formatNumber(data.tier.rate_percent, locale)}%
         </Badge>
-        <Badge variant='outline'>
-          {data.enabled ? t('Enrollment open') : t('Enrollment paused')}
-        </Badge>
         <Button
           variant='outline'
           size='sm'
