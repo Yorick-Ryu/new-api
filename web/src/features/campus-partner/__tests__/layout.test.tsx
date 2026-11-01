@@ -28,6 +28,8 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, expect, test } from 'vitest'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 import { CampusPartner } from '..'
 import { CampusAdmin } from '../admin'
 import type { Overview } from '../api'
@@ -99,6 +101,15 @@ function renderPage(
       })
     }
   }
+  client.setQueryData(
+    [
+      'campus',
+      'admin-invitations',
+      useAuthStore.getState().auth.user?.id,
+      { page: 1, size: 20 },
+    ],
+    { items: [], total: 0 }
+  )
   const root = createRootRoute({ component: () => page })
   const router = createRouter({
     routeTree: root,

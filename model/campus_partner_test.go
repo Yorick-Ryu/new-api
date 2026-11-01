@@ -443,8 +443,10 @@ func TestCampusDatabase(t *testing.T) {
 
 			t.Run("invitation history masks names and isolates net contributions with pagination", func(t *testing.T) {
 				for _, user := range []User{
+					{Id: 101, Username: "partner-alice", DisplayName: "邀请人甲", CreatedAt: 700},
+					{Id: 102, Username: "partner-bob", DisplayName: "邀请人乙", CreatedAt: 700},
 					{Id: 201, Username: "lin-private", DisplayName: "林小明", CreatedAt: 800},
-					{Id: 202, Username: "chen-private", CreatedAt: 900},
+					{Id: 202, Username: "chen-private%_!", CreatedAt: 900},
 					{Id: 203, Username: "other-partner", DisplayName: "Other", CreatedAt: 1000},
 					{Id: 204, Username: "deleted-friend", DisplayName: "Deleted", CreatedAt: 1100},
 				} {
@@ -478,6 +480,8 @@ func TestCampusDatabase(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotContains(t, string(encoded), "林小明")
 				assert.NotContains(t, string(encoded), "lin-private")
+				assert.NotContains(t, string(encoded), "inviter_username")
+				assert.NotContains(t, string(encoded), "display_name")
 
 				result, total, err = CampusList(101, false, "invitations", 2, 1)
 				require.NoError(t, err)
@@ -498,7 +502,44 @@ func TestCampusDatabase(t *testing.T) {
 				assert.Empty(t, *result.(*[]CampusInvitation))
 				result, _, err = CampusList(0, true, "invitations", 1, 100)
 				require.NoError(t, err)
-				assert.Contains(t, *result.(*[]CampusInvitation), CampusInvitation{UserID: 203, BoundAt: 3000, MaskedName: "O**", RegisteredAt: 1000, Paid: 30000, Commission: 9000})
+				assert.Contains(t, *result.(*[]CampusAdminInvitation), CampusAdminInvitation{UserID: 203, Username: "other-partner", DisplayName: "Other", InviterID: 102, InviterUsername: "partner-bob", InviterDisplayName: "邀请人乙", BoundAt: 3000, RegisteredAt: 1000, Paid: 30000, Commission: 9000})
+
+				start, end := int64(1000), int64(2000)
+				for _, test := range []struct {
+					name   string
+					filter CampusInvitationFilter
+					ids    []int
+				}{
+					{"inviter username is case insensitive", CampusInvitationFilter{Inviter: "PARTNER-AL"}, []int{201, 202, 204}},
+					{"both display names narrow the result", CampusInvitationFilter{Inviter: "邀请人甲", Invitee: "林"}, []int{201}},
+					{"IDs match both sides", CampusInvitationFilter{Inviter: "#101", Invitee: "#202"}, []int{202}},
+					{"date endpoints include exact binding times", CampusInvitationFilter{Inviter: "101", StartTimestamp: &start, EndTimestamp: &end}, []int{201, 202}},
+					{"date range can select one instant", CampusInvitationFilter{Inviter: "101", StartTimestamp: &end, EndTimestamp: &end}, []int{201}},
+					{"different inviters cannot match the same invitee", CampusInvitationFilter{Inviter: "partner-alice", Invitee: "other"}, []int{}},
+					{"percent is a literal name character", CampusInvitationFilter{Invitee: "%"}, []int{202}},
+					{"underscore is a literal name character", CampusInvitationFilter{Invitee: "_"}, []int{202}},
+					{"escape character is literal", CampusInvitationFilter{Invitee: "!"}, []int{202}},
+					{"query syntax is treated as text", CampusInvitationFilter{Invitee: "' OR 1=1 --"}, []int{}},
+					{"deleted accounts retain administrative identity", CampusInvitationFilter{Invitee: "deleted-friend"}, []int{204}},
+				} {
+					t.Run(test.name, func(t *testing.T) {
+						result, total, err := CampusListAdminInvitations(test.filter, 1, 100)
+						require.NoError(t, err)
+						assert.EqualValues(t, len(test.ids), total)
+						ids := []int{}
+						for _, row := range *result.(*[]CampusAdminInvitation) {
+							ids = append(ids, row.UserID)
+						}
+						assert.Equal(t, test.ids, ids)
+					})
+				}
+				result, total, err = CampusListAdminInvitations(CampusInvitationFilter{Inviter: "101"}, 2, 1)
+				require.NoError(t, err)
+				assert.EqualValues(t, 3, total)
+				adminRows := *result.(*[]CampusAdminInvitation)
+				require.Len(t, adminRows, 1)
+				assert.Equal(t, 202, adminRows[0].UserID)
+				assert.Equal(t, "partner-alice", adminRows[0].InviterUsername)
 			})
 
 		})

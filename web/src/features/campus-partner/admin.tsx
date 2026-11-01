@@ -40,6 +40,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
+import { CampusAdminInvitations } from './admin-invitations'
 import {
   campusGet,
   campusPost,
@@ -114,11 +115,15 @@ export function CampusAdmin() {
           {['withdrawals', 'payments', 'refunds', 'entries', 'invitations'].map(
             (kind) => (
               <TabsContent key={kind} value={kind}>
-                <CampusRecords
-                  kind={kind}
-                  admin
-                  onAction={kind === 'withdrawals' ? setSelected : undefined}
-                />
+                {kind === 'invitations' ? (
+                  <CampusAdminInvitations />
+                ) : (
+                  <CampusRecords
+                    kind={kind}
+                    admin
+                    onAction={kind === 'withdrawals' ? setSelected : undefined}
+                  />
+                )}
               </TabsContent>
             )
           )}

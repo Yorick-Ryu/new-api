@@ -462,6 +462,25 @@ func TestCampusHTTPJourney(t *testing.T) {
 				assert.EqualValues(t, 1, history.Total)
 				assert.Empty(t, history.Items)
 				j.api(t, partner, "GET", "/api/campus/self/records/invitations?size=101", nil, false, nil)
+				var adminHistory struct {
+					Total int64                         `json:"total"`
+					Items []model.CampusAdminInvitation `json:"items"`
+				}
+				adminPath := fmt.Sprintf("/api/campus/admin/records/invitations?inviter=%%23%d&invitee=%%23%d", partner.id, buyer.id)
+				j.api(t, j.admin, "GET", adminPath, nil, true, &adminHistory)
+				require.EqualValues(t, 1, adminHistory.Total)
+				require.Len(t, adminHistory.Items, 1)
+				assert.Equal(t, partner.id, adminHistory.Items[0].InviterID)
+				assert.Equal(t, buyer.id, adminHistory.Items[0].UserID)
+				assert.NotEmpty(t, adminHistory.Items[0].Username)
+				assert.NotEmpty(t, adminHistory.Items[0].InviterUsername)
+				assert.Equal(t, http.StatusForbidden, j.request(partner, "GET", adminPath, nil).Code)
+				for _, query := range []string{"start_timestamp=invalid", "start_timestamp=-1", "end_timestamp=253402300800", "start_timestamp=2000&end_timestamp=1000", "inviter=" + strings.Repeat("a", 101)} {
+					j.api(t, j.admin, "GET", "/api/campus/admin/records/invitations?"+query, nil, false, nil)
+				}
+				self := j.request(partner, "GET", "/api/campus/self/records/invitations?admin=true&inviter=999999", nil)
+				assert.NotContains(t, self.Body.String(), "inviter_username")
+				assert.NotContains(t, self.Body.String(), "display_name")
 			})
 
 			require.True(t, t.Run("concurrent_withdrawals_idempotency_and_review_states", func(t *testing.T) {
@@ -625,6 +644,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				require.NoError(t, j.db.Model(&model.User{}).Where("id = ?", staff.id).Update("role", common.RoleAdminUser).Error)
 				require.NoError(t, authz.SetUserPermissions(staff.id, authz.PermissionsMap{authz.CampusRead.Resource: {"read": true, "write": false}}))
 				j.api(t, staff, "GET", "/api/campus/admin/config", nil, true, nil)
+				j.api(t, staff, "GET", "/api/campus/admin/records/invitations", nil, true, nil)
 				assert.Equal(t, 403, j.request(staff, "PUT", "/api/campus/admin/config", gin.H{"enabled": false}).Code)
 				req := httptest.NewRequest("POST", "https://beiapi.cn/api/campus/self/join", strings.NewReader("{}"))
 				req.Header.Set("Authorization", "Bearer "+stranger.token)

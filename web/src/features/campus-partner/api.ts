@@ -42,6 +42,18 @@ export type CampaignConfig = {
   plan_revision: number
   plan_options: PlanOption[]
 }
+export type CampusAdminInvitation = {
+  user_id: number
+  username: string
+  display_name: string
+  inviter_id: number
+  inviter_username: string
+  inviter_display_name: string
+  bound_at: number
+  registered_at: number
+  paid_cents: number
+  commission_cents: number
+}
 export interface Overview {
   expected_batch: string
   enabled: boolean

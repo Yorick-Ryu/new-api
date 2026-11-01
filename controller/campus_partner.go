@@ -97,7 +97,19 @@ func campusList(c *gin.Context, admin bool) {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
-	rows, total, err := model.CampusList(c.GetInt("id"), admin, c.Param("kind"), page, size)
+	var rows any
+	var total int64
+	var err error
+	if admin && c.Param("kind") == "invitations" {
+		var filter model.CampusInvitationFilter
+		if err := c.ShouldBindQuery(&filter); err != nil || (filter.StartTimestamp != nil && filter.EndTimestamp != nil && *filter.StartTimestamp > *filter.EndTimestamp) {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		rows, total, err = model.CampusListAdminInvitations(filter, page, size)
+	} else {
+		rows, total, err = model.CampusList(c.GetInt("id"), admin, c.Param("kind"), page, size)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return

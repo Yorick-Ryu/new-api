@@ -37,16 +37,9 @@ type CampusInvitation struct {
 	Commission   cp.Money `json:"commission_cents"`
 }
 
-func campusListInvitations(userID int, admin bool, page, size int) (any, int64, error) {
-	query := DB.Model(&CampusMember{}).Where("campus_members.inviter_id > 0")
-	totals := DB.Model(&CampusPayment{}).
-		Select("user_id, inviter_id, SUM(paid - refunded) AS paid, SUM(commission - reversed) AS commission").
-		Where("eligibility = ? AND settled_at > 0", string(cp.Eligible)).
-		Group("user_id, inviter_id")
-	if !admin {
-		query = query.Where("campus_members.inviter_id = ?", userID)
-		totals = totals.Where("inviter_id = ?", userID)
-	}
+func campusListInvitations(userID int, page, size int) (any, int64, error) {
+	query := DB.Model(&CampusMember{}).Where("campus_members.inviter_id > 0 AND campus_members.inviter_id = ?", userID)
+	totals := campusInvitationTotals().Where("inviter_id = ?", userID)
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
@@ -173,7 +166,10 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	var rows any
 	switch kind {
 	case "invitations":
-		return campusListInvitations(userID, admin, page, size)
+		if admin {
+			return CampusListAdminInvitations(CampusInvitationFilter{}, page, size)
+		}
+		return campusListInvitations(userID, page, size)
 	case "payments":
 		query = query.Model(&CampusPayment{})
 		if !admin {
