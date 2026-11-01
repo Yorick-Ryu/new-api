@@ -2,6 +2,7 @@ package campuspartner
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -324,8 +325,9 @@ func TestFreezeAndWithdrawalDates(t *testing.T) {
 }
 
 func TestConfiguredCommissionTiers(t *testing.T) {
-	tiers := []TierRule{{Floor: 0, RateBPS: 1250}, {Floor: 10000, RateBPS: 3325}, {Floor: 30000, RateBPS: 0}}
+	tiers := []TierRule{{Name: "校园新星", Floor: 0, RateBPS: 1250}, {Floor: 10000, RateBPS: 3325}, {Floor: 30000, RateBPS: 0}}
 	require.NoError(t, ValidateTiers(tiers))
+	require.NoError(t, ValidateTiers([]TierRule{{Name: strings.Repeat("星", 80), Floor: 0, RateBPS: 100}}))
 	commission, err := CalculateCommission(5000, 30000, TopUp, tiers)
 	require.NoError(t, err)
 	assert.EqualValues(t, 7275, commission.Amount)
@@ -352,6 +354,8 @@ func TestConfiguredCommissionTiers(t *testing.T) {
 		{{Floor: 0, RateBPS: 100}, {Floor: 0, RateBPS: 200}},
 		{{Floor: 0, RateBPS: 100}, {Floor: MaxMoney + 1, RateBPS: 200}},
 		make([]TierRule, 51),
+		{{Name: strings.Repeat("星", 81), Floor: 0, RateBPS: 100}},
+		{{Name: string([]byte{0xff}), Floor: 0, RateBPS: 100}},
 	} {
 		assert.Error(t, ValidateTiers(invalid))
 		_, err = CalculateCommission(0, 100, TopUp, invalid)

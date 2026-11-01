@@ -26,3 +26,11 @@ export const campusWithdrawalStateLabels: Record<string, string> = {
   failed: 'Transfer failed',
   cancelled: 'Cancelled',
 }
+
+export const campusTierNameKeys = [
+  'Apprentice partner',
+  'Growing partner',
+  'Elite partner',
+  'Senior partner',
+  'Lead partner',
+] as const

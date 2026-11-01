@@ -30,6 +30,7 @@ import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { cash, type Overview } from './api'
+import { campusTierNameKeys } from './constants'
 
 export function PartnerTiers(props: { data: Overview }): ReactElement {
   const { t, i18n } = useTranslation()
@@ -128,6 +129,12 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                       )}
                     >
                       {formatNumber(rule.rate_bps / 100, locale)}%
+                    </p>
+                    <p className='text-sm font-medium [overflow-wrap:anywhere] break-words'>
+                      {rule.name ||
+                        t(campusTierNameKeys[index] || 'Tier {{level}}', {
+                          level: index + 1,
+                        })}
                     </p>
                     <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
                       {tierAmount.format(rule.floor_cents / 100)}

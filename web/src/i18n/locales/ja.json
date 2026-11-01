@@ -8156,6 +8156,8 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Tier {{level}} name": "ランク {{level}} の名前",
+    "Tier names must be at most 80 characters": "ランク名は80文字以内で入力してください"
   }
 }

@@ -451,3 +451,44 @@ test('removing every participating subscription saves an explicit empty list', a
     )
   )
 })
+
+test('tier names save trimmed text and remain editable after reloading settings', async () => {
+  const { user, put } = renderConfiguration()
+  const name = screen.getByRole('textbox', { name: 'Tier 1 name' })
+  expect(name).toHaveAttribute('placeholder', 'Apprentice partner')
+  await user.type(name, '  校园新星  ')
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledExactlyOnceWith('/api/campus/admin/tiers', {
+      tier_revision: 0,
+      tiers: [
+        { name: '校园新星', floor_cents: 0, rate_bps: 3000 },
+        { floor_cents: 200000, rate_bps: 3500 },
+      ],
+    })
+  )
+  expect(
+    await screen.findByRole('textbox', { name: 'Tier 1 name' })
+  ).toHaveValue('校园新星')
+})
+
+test('tier names longer than 80 characters show a validation error and cannot save', async () => {
+  const { user, put } = renderConfiguration()
+  await user.type(
+    screen.getByRole('textbox', { name: 'Tier 1 name' }),
+    '星'.repeat(81)
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  expect(
+    await screen.findByText('Tier names must be at most 80 characters')
+  ).toBeVisible()
+  expect(screen.getByRole('textbox', { name: 'Tier 1 name' })).toHaveAttribute(
+    'aria-invalid',
+    'true'
+  )
+  expect(put).not.toHaveBeenCalled()
+})

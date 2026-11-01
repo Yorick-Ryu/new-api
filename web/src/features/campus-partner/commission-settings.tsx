@@ -52,6 +52,7 @@ import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
 import { useCampusAction, type CampaignConfig } from './api'
+import { campusTierNameKeys } from './constants'
 
 // Parse decimal cash/percent values into integer hundredths without float rounding.
 function decimalUnits(value: string): number {
@@ -76,7 +77,19 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
   const schema = z
     .object({
       tiers: z
-        .array(z.object({ floor: amount, rate }))
+        .array(
+          z.object({
+            name: z
+              .string()
+              .trim()
+              .refine(
+                (value) => [...value].length <= 80,
+                t('Tier names must be at most 80 characters')
+              ),
+            floor: amount,
+            rate,
+          })
+        )
         .min(1)
         .max(50),
     })
@@ -103,6 +116,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
     resolver: zodResolver(schema),
     defaultValues: {
       tiers: props.config.tiers.map((tier) => ({
+        name: tier.name || '',
         floor: String(tier.floor_cents / 100),
         rate: String(tier.rate_bps / 100),
       })),
@@ -134,6 +148,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
             onSubmit={form.handleSubmit((values) =>
               save.mutate(
                 values.tiers.map((tier) => ({
+                  ...(tier.name ? { name: tier.name } : {}),
                   floor_cents: decimalUnits(tier.floor),
                   rate_bps: decimalUnits(tier.rate),
                 })),
@@ -148,7 +163,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                 data={rows.fields}
                 getRowKey={(row) => row.id}
                 tableProps={{ 'aria-label': t('Top-up commission tiers') }}
-                tableClassName='min-w-[720px] table-fixed [&_tbody>tr]:h-12'
+                tableClassName='min-w-[920px] table-fixed [&_tbody>tr]:h-12'
                 columns={[
                   {
                     id: 'tier',
@@ -156,6 +171,37 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                     className: 'w-24',
                     cell: (_row, index) =>
                       t('Tier {{level}}', { level: index + 1 }),
+                  },
+                  {
+                    id: 'name',
+                    header: t('Tier name'),
+                    className: 'w-48',
+                    cell: (_row, index) => (
+                      <FormField
+                        control={form.control}
+                        name={`tiers.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem className='gap-1'>
+                            <FormLabel className='sr-only'>
+                              {t('Tier {{level}} name', {
+                                level: index + 1,
+                              })}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder={
+                                  campusTierNameKeys[index]
+                                    ? t(campusTierNameKeys[index])
+                                    : t('Tier {{level}}', { level: index + 1 })
+                                }
+                              />
+                            </FormControl>
+                            <FormMessage className='whitespace-normal' />
+                          </FormItem>
+                        )}
+                      />
+                    ),
                   },
                   {
                     id: 'range',
@@ -268,7 +314,11 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                   variant='outline'
                   disabled={rows.fields.length >= 50}
                   onClick={() =>
-                    rows.append({ floor: '', rate: values.at(-1)?.rate || '0' })
+                    rows.append({
+                      name: '',
+                      floor: '',
+                      rate: values.at(-1)?.rate || '0',
+                    })
                   }
                 >
                   {t('Add tier')}

@@ -360,7 +360,7 @@ func TestCampusDatabase(t *testing.T) {
 			var historicalCommission CampusPayment
 			require.NoError(t, db.Where("trade_no = ?", "concurrent-a").First(&historicalCommission).Error)
 			require.NoError(t, InsertCampusTopUp(&TopUp{UserId: 7, TradeNo: "custom-tiers", Money: 200, Status: common.TopUpStatusPending}, true, "CNY", false))
-			custom := []cp.TierRule{{Floor: 0, RateBPS: 1250}, {Floor: 310000, RateBPS: 3325}}
+			custom := []cp.TierRule{{Name: "校园新星", Floor: 0, RateBPS: 1250}, {Name: "进阶合伙人", Floor: 310000, RateBPS: 3325}}
 			require.NoError(t, CampusConfigureTiers(custom, 0, 1))
 			assert.Error(t, CampusConfigureTiers(custom, 0, 1), "stale writes must not overwrite newer tiers")
 			assert.Error(t, CampusConfigureTiers([]cp.TierRule{}, 1, 1))

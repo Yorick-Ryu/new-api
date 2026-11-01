@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"unicode/utf8"
 )
 
 const RuleVersion = "campus-partner-v1"
@@ -43,8 +44,9 @@ type Tier struct {
 // Upper bounds are the next tier's floor; the final tier has no upper bound.
 // Rates use integer basis points to preserve two decimal places of percent.
 type TierRule struct {
-	Floor   Money `json:"floor_cents"`
-	RateBPS int64 `json:"rate_bps"`
+	Name    string `json:"name,omitempty"`
+	Floor   Money  `json:"floor_cents"`
+	RateBPS int64  `json:"rate_bps"`
 }
 
 type PlanRate struct {
@@ -69,7 +71,7 @@ func ValidatePlanRates(plans []PlanRate) error {
 var ErrTiers = errors.New("Invalid commission tiers")
 
 func DefaultTiers() []TierRule {
-	return []TierRule{{0, 3000}, {200_000, 3500}, {1_000_000, 4000}, {3_000_000, 4500}, {8_000_000, 5000}}
+	return []TierRule{{Floor: 0, RateBPS: 3000}, {Floor: 200_000, RateBPS: 3500}, {Floor: 1_000_000, RateBPS: 4000}, {Floor: 3_000_000, RateBPS: 4500}, {Floor: 8_000_000, RateBPS: 5000}}
 }
 
 func ValidateTiers(tiers []TierRule) error {
@@ -77,7 +79,7 @@ func ValidateTiers(tiers []TierRule) error {
 		return ErrTiers
 	}
 	for i, tier := range tiers {
-		if !tier.Floor.Valid() || tier.RateBPS < 0 || tier.RateBPS > 10000 || (i > 0 && tier.Floor <= tiers[i-1].Floor) {
+		if !utf8.ValidString(tier.Name) || utf8.RuneCountInString(tier.Name) > 80 || !tier.Floor.Valid() || tier.RateBPS < 0 || tier.RateBPS > 10000 || (i > 0 && tier.Floor <= tiers[i-1].Floor) {
 			return ErrTiers
 		}
 	}

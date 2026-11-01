@@ -8156,6 +8156,8 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Tier {{level}} name": "档位 {{level}} 名称",
+    "Tier names must be at most 80 characters": "档位名称不能超过80个字符"
   }
 }

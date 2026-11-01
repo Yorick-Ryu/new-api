@@ -272,3 +272,31 @@ test('existing invitation controls remain available and positive refund recovery
   ])
   expect(screen.getByText('Refund recovery due')).toBeVisible()
 })
+
+test('partner tiers display configured names and defaults for unnamed tiers', async () => {
+  const name = '校园超级合伙人'.repeat(10)
+  renderPage(<CampusPartner />, {
+    tiers: [
+      { name, floor_cents: 0, rate_bps: 3000 },
+      { floor_cents: 200000, rate_bps: 3500 },
+      { floor_cents: 1000000, rate_bps: 4000 },
+      { floor_cents: 3000000, rate_bps: 4500 },
+      { floor_cents: 8000000, rate_bps: 5000 },
+      { floor_cents: 9000000, rate_bps: 5500 },
+    ],
+  })
+  expect(await screen.findByText(name)).toHaveClass(
+    'break-words',
+    '[overflow-wrap:anywhere]'
+  )
+  for (const label of [
+    'Growing partner',
+    'Elite partner',
+    'Senior partner',
+    'Lead partner',
+  ]) {
+    expect(screen.getByText(label)).toBeVisible()
+  }
+  expect(screen.queryByText('Apprentice partner')).not.toBeInTheDocument()
+  expect(screen.getAllByText('Tier 6').length).toBeGreaterThan(0)
+})

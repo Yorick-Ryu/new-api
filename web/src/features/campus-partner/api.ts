@@ -24,7 +24,7 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 import { campusSite } from './storage'
 
 export { campusSite, invitationCode } from './storage'
-export type TierRule = { floor_cents: number; rate_bps: number }
+export type TierRule = { name?: string; floor_cents: number; rate_bps: number }
 export type PlanRate = { plan_id: number; rate_bps: number }
 export type PlanOption = {
   id: number
