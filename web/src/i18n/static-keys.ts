@@ -71,7 +71,7 @@ export const STATIC_I18N_KEYS = [
   'Available commission',
   'Awaiting review',
   'Bind invitation',
-  'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself.',
+  'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.',
   'Callback URL configuration error',
   'Campaign net paid sales',
   'Campaign settings',

@@ -63,7 +63,7 @@ export function PartnerInvitation(props: {
             <AlertTitle>{t('No invitation bound yet?')}</AlertTitle>
             <AlertDescription>
               {t(
-                'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself.'
+                'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.'
               )}
             </AlertDescription>
             <AlertAction>
