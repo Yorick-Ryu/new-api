@@ -33,6 +33,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import { campusPost, campusSite, useCampus, useCampusAction } from './api'
+import { campusTierNameKeys } from './constants'
 import { CampusFields } from './forms'
 import { PartnerInvitation } from './partner-invitation'
 import { PartnerRules } from './partner-rules'
@@ -65,7 +66,11 @@ export function CampusPartner(): ReactElement {
       <SectionPageLayout.Actions>
         <Badge variant='outline' className='border-primary/30 text-primary'>
           {t('Lv.{{level}}', { level: data.tier.level })} ·{' '}
-          {t('Current top-up rate')}{' '}
+          {data.tiers[data.tier.level - 1]?.name ||
+            t(campusTierNameKeys[data.tier.level - 1] || 'Lv.{{level}}', {
+              level: data.tier.level,
+            })}{' '}
+          · {t('Current commission rate')}{' '}
           {formatNumber(data.tier.rate_percent, locale)}%
         </Badge>
         <Badge variant='outline'>
