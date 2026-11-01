@@ -107,8 +107,10 @@ func main() {
 	names := []string{"林晓", "陈宇", "周宁", "李悦", "张晨", "王然", "赵敏", "刘洋", "孙琪", "郑安", "吴桐", "许晴", "何川", "高远", "徐沐", "唐逸", "宋澄", "谢薇", "梁羽", "韩星", "罗欣", "马可", "顾言", "苏禾", "秦明", "程璐", "沈哲", "陆瑶"}
 	for i, name := range names {
 		registered := g.start.AddDate(0, 0, 1+i%6).Add(time.Hour)
-		if i >= 20 {
-			registered = now.Add(-time.Duration(27-i) * 8 * time.Hour)
+		if i >= 20 && i < 24 {
+			registered = now.Add(-time.Duration(24-i) * 4 * time.Hour)
+		} else if i >= 24 {
+			registered = now.Add(-time.Duration(28-i) * 8 * time.Hour)
 		}
 		invitation := owner.Code
 		if i >= 24 {
@@ -166,6 +168,19 @@ func main() {
 		var earliest int64
 		must(g.db.Model(&model.CampusPayment{}).Where("user_id = ? AND settled_at > 0", u.Id).Select("COALESCE(MIN(settled_at),0)").Scan(&earliest).Error)
 		must(g.db.Model(&model.CampusMember{}).Where("user_id = ?", u.Id).Update("first_paid_at", earliest).Error)
+		var subscriptions []model.UserSubscription
+		must(g.db.Where("user_id = ?", u.Id).Find(&subscriptions).Error)
+		for _, sub := range subscriptions {
+			plan, err := model.GetSubscriptionPlanById(sub.PlanId)
+			must(err)
+			if plan.QuotaResetPeriod != "custom" || plan.QuotaResetCustomSeconds != 604800 {
+				panic("review fixture for changed subscription reset rules")
+			}
+			// Simulate the intervening weekly resets without touching existing subscriptions.
+			period := int64(plan.QuotaResetCustomSeconds)
+			last := sub.StartTime + (now.Unix()-sub.StartTime)/period*period
+			must(g.db.Model(&sub).Updates(map[string]any{"last_reset_time": last, "next_reset_time": last + period, "updated_at": max(sub.UpdatedAt, last)}).Error)
+		}
 	}
 	_, err = model.CampusGetOverview(1)
 	must(err)
@@ -253,7 +268,15 @@ func (g *generator) order(index int, e event) {
 			subscriptionID = sub.Id
 			if !e.Renew {
 				start := e.At
-				must(g.db.Model(&sub).Updates(map[string]any{"start_time": start.Unix(), "end_time": start.AddDate(0, 1, 0).Unix(), "created_at": start.Unix(), "updated_at": start.Unix(), "last_reset_time": start.Unix(), "next_reset_time": start.Add(24 * time.Hour).Unix()}).Error)
+				must(g.db.Model(&sub).Updates(map[string]any{"start_time": start.Unix(), "end_time": start.AddDate(0, 1, 0).Unix(), "created_at": start.Unix(), "updated_at": start.Unix(), "last_reset_time": start.Unix(), "next_reset_time": start.Add(7 * 24 * time.Hour).Unix()}).Error)
+				var windows []model.UserSubscriptionQuotaWindow
+				must(g.db.Where("user_subscription_id = ?", sub.Id).Find(&windows).Error)
+				for _, window := range windows {
+					if window.PeriodUnit != "month" || window.PeriodValue != 1 {
+						panic("review fixture for changed additional quota windows")
+					}
+					must(g.db.Model(&window).Updates(map[string]any{"window_start": start.Unix(), "next_reset_time": start.AddDate(0, 1, 0).Unix(), "created_at": start.Unix(), "updated_at": start.Unix()}).Error)
+				}
 			} else {
 				must(g.db.Model(&sub).Update("updated_at", e.At.Unix()).Error)
 			}
