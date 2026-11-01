@@ -153,25 +153,53 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                   <legend className='px-1 text-sm font-medium'>
                     {t('Tier {{level}}', { level: index + 1 })}
                   </legend>
-                  <div className='grid items-start gap-4 sm:grid-cols-3'>
-                    <div className='space-y-2'>
-                      <p className='text-sm font-medium'>
-                        {t('Minimum sales (CNY)')}
-                      </p>
-                      <p className='text-sm tabular-nums'>
-                        {Number.isNaN(decimalUnits(values[index]?.floor ?? ''))
-                          ? '—'
-                          : cash(decimalUnits(values[index].floor), locale)}
-                      </p>
-                    </div>
-                    {index + 1 < rows.fields.length ? (
+                  <div className='flex items-start gap-4'>
+                    <div className='grid min-w-0 flex-1 items-start gap-4 sm:grid-cols-3'>
+                      <div className='space-y-2'>
+                        <p className='text-sm font-medium'>
+                          {t('Minimum sales (CNY)')}
+                        </p>
+                        <p className='text-sm tabular-nums'>
+                          {Number.isNaN(
+                            decimalUnits(values[index]?.floor ?? '')
+                          )
+                            ? '—'
+                            : cash(decimalUnits(values[index].floor), locale)}
+                        </p>
+                      </div>
+                      {index + 1 < rows.fields.length ? (
+                        <FormField
+                          control={form.control}
+                          name={`tiers.${index + 1}.floor`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('Tier {{level}} upper bound (CNY)', {
+                                  level: index + 1,
+                                })}
+                              </FormLabel>
+                              <FormControl>
+                                <Input {...field} inputMode='decimal' />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <div className='space-y-2'>
+                          <p className='text-sm font-medium'>
+                            {t('Upper bound (exclusive)')}
+                          </p>
+                          <p className='text-sm'>{t('Unlimited')}</p>
+                        </div>
+                      )}
                       <FormField
                         control={form.control}
-                        name={`tiers.${index + 1}.floor`}
+                        name={`tiers.${index}.rate`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              {t('Tier {{level}} upper bound (CNY)', {
+                              {t('Tier {{level}} commission (%)', {
                                 level: index + 1,
                               })}
                             </FormLabel>
@@ -182,34 +210,9 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                           </FormItem>
                         )}
                       />
-                    ) : (
-                      <div className='space-y-2'>
-                        <p className='text-sm font-medium'>
-                          {t('Upper bound (exclusive)')}
-                        </p>
-                        <p className='text-sm'>{t('Unlimited')}</p>
-                      </div>
-                    )}
-                    <FormField
-                      control={form.control}
-                      name={`tiers.${index}.rate`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            {t('Tier {{level}} commission (%)', {
-                              level: index + 1,
-                            })}
-                          </FormLabel>
-                          <FormControl>
-                            <Input {...field} inputMode='decimal' />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className='mt-3 flex justify-end'>
+                    </div>
                     <Button
+                      className='mt-6 shrink-0'
                       type='button'
                       variant='ghost'
                       size='sm'
