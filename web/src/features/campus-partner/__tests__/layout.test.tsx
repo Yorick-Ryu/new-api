@@ -133,7 +133,7 @@ test('administration places campaign status in its own first row inside settings
   expect(within(panel).queryByText('Campaign settings')).toBeNull()
 })
 
-test('partner page keeps the original introduction before invitation, benefits, commission summary, tiers, records and rules', async () => {
+test('partner page merges the introduction into the invitation card before benefits, commission summary, tiers, records and rules', async () => {
   renderPage(<CampusPartner />)
   const content = await screen.findByRole('region', { name: 'Campus Partner' })
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
@@ -141,7 +141,9 @@ test('partner page keeps the original introduction before invitation, benefits, 
   const intro = screen.getByRole('heading', {
     name: 'Your recommendations deserve a reward.',
   })
-  const invitation = screen.getByRole('heading', { name: 'Invite a friend' })
+  const invitation = screen.getByRole('button', {
+    name: 'Get my invitation code',
+  })
   const benefits = screen.getByRole('heading', { name: 'Friend benefits' })
   const available = screen.getByText('Available commission')
   const tiers = screen.getByRole('heading', { name: 'Top-up commission tiers' })
@@ -163,9 +165,7 @@ test('partner page keeps the original introduction before invitation, benefits, 
     'href',
     '#campus-rules'
   )
-  expect(
-    screen.getByText('Exclusive campus partner invitation code')
-  ).toBeVisible()
+  expect(intro.closest('[data-slot="card"]')).toContainElement(invitation)
   expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
 })
 
@@ -216,8 +216,14 @@ test.each([9999, 10000])(
     const button = await screen.findByRole('button', {
       name: 'Request withdrawal',
     })
-    if (available < 10000) expect(button).toBeDisabled()
-    else expect(button).toBeEnabled()
+    const remaining = screen.queryByText(/CN¥0\.01 remaining|¥0\.01 remaining/)
+    if (available < 10000) {
+      expect(button).toBeDisabled()
+      expect(remaining).toBeVisible()
+    } else {
+      expect(button).toBeEnabled()
+      expect(remaining).toBeNull()
+    }
   }
 )
 
@@ -254,5 +260,15 @@ test('existing invitation controls remain available and positive refund recovery
   expect(
     screen.getByRole('button', { name: 'Copy invitation link' })
   ).toBeEnabled()
+  expect(
+    screen.getByText('Exclusive campus partner invitation code')
+  ).toBeVisible()
+  expect(
+    screen.getAllByRole('listitem').map((item) => item.textContent)
+  ).toEqual([
+    '1Share your link or invitation code',
+    '2Friends bind and receive a 5% off coupon',
+    '3Earn commission on each qualifying payment',
+  ])
   expect(screen.getByText('Refund recovery due')).toBeVisible()
 })

@@ -16,7 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { CircleDollarSign, RotateCcw, Users, Wallet } from 'lucide-react'
+import {
+  ChartNoAxesColumn,
+  CircleDollarSign,
+  RotateCcw,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -38,15 +44,23 @@ export function PartnerSummary(props: {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   return (
     <>
-      <div className='grid min-w-0 gap-4 lg:grid-cols-3'>
-        <Card>
+      <div className='grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+        <Card className='bg-primary/5 ring-primary/20'>
           <CardContent className='flex flex-1 flex-col gap-4'>
             <StatCard
               title={t('Available commission')}
               value={cash(props.data.available_cents, locale)}
-              description={t('Withdrawal minimum: {{amount}}', {
-                amount: cash(10000, locale),
-              })}
+              description={
+                props.data.available_cents < 10000
+                  ? `${t('Withdrawal minimum: {{amount}}', {
+                      amount: cash(10000, locale),
+                    })} · ${t('{{amount}} remaining', {
+                      amount: cash(10000 - props.data.available_cents, locale),
+                    })}`
+                  : t('Withdrawal minimum: {{amount}}', {
+                      amount: cash(10000, locale),
+                    })
+              }
               icon={Wallet}
               iconTone='primary'
             />
@@ -99,6 +113,17 @@ export function PartnerSummary(props: {
               value={formatNumber(props.data.invited, locale)}
               description={`${t('New this month')}: ${formatNumber(props.data.this_month, locale)}`}
               icon={Users}
+              iconTone='primary'
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <StatCard
+              title={t('Campaign net paid sales')}
+              value={cash(props.data.member.performance_cents, locale)}
+              description={`${t('Current top-up rate')}: ${formatNumber(props.data.tier.rate_percent, locale)}%`}
+              icon={ChartNoAxesColumn}
               iconTone='primary'
             />
           </CardContent>

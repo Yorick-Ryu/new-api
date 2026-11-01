@@ -75,10 +75,21 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                 })
               : t('Highest partner tier reached')}
           </p>
-          <Progress
-            value={progress}
-            aria-label={t('Top-up commission tiers')}
-          />
+          <div className='flex gap-1.5'>
+            {props.data.tiers.map((rule, index) => {
+              let value = 0
+              if (index + 1 < tier.level) value = 100
+              else if (index + 1 === tier.level) value = progress
+              return (
+                <Progress
+                  key={rule.floor_cents}
+                  value={value}
+                  className='min-w-0 flex-1'
+                  aria-label={t('Tier {{level}}', { level: index + 1 })}
+                />
+              )
+            })}
+          </div>
         </div>
         {props.data.tiers.length > 0 ? (
           <div className='grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3'>
@@ -92,7 +103,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   aria-current={active ? 'step' : undefined}
                   className={cn(
                     'min-w-0',
-                    active && 'bg-primary/5 ring-primary/30'
+                    active && 'bg-primary/5 ring-primary ring-2'
                   )}
                 >
                   <CardHeader className='flex flex-wrap items-center justify-between gap-2'>
@@ -134,7 +145,11 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
               </h4>
               <div className='grid gap-3 sm:grid-cols-2'>
                 {props.data.plan_rates.map((plan) => (
-                  <Card key={plan.plan_id} size='sm'>
+                  <Card
+                    key={plan.plan_id}
+                    size='sm'
+                    className='bg-primary/5 ring-primary/20'
+                  >
                     <CardContent className='flex min-w-0 flex-wrap items-center justify-between gap-3'>
                       <span className='min-w-0 text-sm font-medium break-words'>
                         {props.data.plan_options.find(

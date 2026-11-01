@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { BookOpen, GraduationCap } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -65,8 +65,9 @@ export function CampusPartner(): ReactElement {
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Campus Partner')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
-        <Badge variant='secondary'>
+        <Badge variant='outline' className='border-primary/30 text-primary'>
           {t('Tier {{level}}', { level: data.tier.level })} ·{' '}
+          {t('Current top-up rate')}{' '}
           {formatNumber(data.tier.rate_percent, locale)}%
         </Badge>
         <Badge variant='outline'>
@@ -87,43 +88,9 @@ export function CampusPartner(): ReactElement {
           aria-label={t('Campus Partner')}
           className='flex w-full min-w-0 flex-col gap-4'
         >
-          <section
-            aria-labelledby='campus-intro-title'
-            className='via-background relative overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50 to-teal-50 p-5 sm:p-8 dark:from-emerald-950/30 dark:to-teal-950/20'
-          >
-            <div className='mb-4 flex items-center gap-2 text-emerald-700 dark:text-emerald-300'>
-              <GraduationCap className='size-5' />
-              <span className='text-sm font-medium'>
-                {t('Share useful AI. Grow together.')}
-              </span>
-            </div>
-            <div className='grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end'>
-              <div className='min-w-0'>
-                <h1
-                  id='campus-intro-title'
-                  className='text-2xl font-semibold tracking-tight sm:text-3xl'
-                >
-                  {t('Your recommendations deserve a reward.')}
-                </h1>
-                <p className='text-muted-foreground mt-3 text-sm leading-6'>
-                  {t(
-                    'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className='text-muted-foreground text-xs'>
-                  {t('Top-up commission up to')}
-                </p>
-                <p className='text-5xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-300'>
-                  {formatNumber(maximumRate, locale)}
-                  <span className='text-2xl'>%</span>
-                </p>
-              </div>
-            </div>
-          </section>
           <PartnerInvitation
             data={data}
+            maximumRate={formatNumber(maximumRate, locale)}
             pending={join.isPending}
             onJoin={() => join.mutate()}
           />

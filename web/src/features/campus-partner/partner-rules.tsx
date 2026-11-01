@@ -20,6 +20,8 @@ import { BookOpen } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Card, CardContent } from '@/components/ui/card'
+import { IconBadge } from '@/components/ui/icon-badge'
 import { TitledCard } from '@/components/ui/titled-card'
 
 export function PartnerRules(): ReactElement {
@@ -57,15 +59,27 @@ export function PartnerRules(): ReactElement {
       <TitledCard
         title={<h3>{t('Rules')}</h3>}
         icon={<BookOpen />}
-        contentClassName='grid gap-5 md:grid-cols-2'
+        className='bg-muted/30'
+        contentClassName='grid gap-3 md:grid-cols-2'
       >
-        {rules.map((rule) => (
-          <div key={rule.title} className='min-w-0 space-y-2'>
-            <h4 className='text-sm font-medium'>{rule.title}</h4>
-            <p className='text-muted-foreground text-xs leading-6'>
-              {rule.description}
-            </p>
-          </div>
+        {rules.map((rule, index) => (
+          <Card key={rule.title} size='sm' className='min-w-0'>
+            <CardContent className='flex min-w-0 gap-3'>
+              <IconBadge
+                tone='primary'
+                size='sm'
+                className='font-mono text-xs font-semibold'
+              >
+                {String(index + 1).padStart(2, '0')}
+              </IconBadge>
+              <div className='min-w-0 space-y-1'>
+                <h4 className='text-sm font-medium'>{rule.title}</h4>
+                <p className='text-muted-foreground text-xs leading-6'>
+                  {rule.description}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </TitledCard>
     </section>
