@@ -133,11 +133,14 @@ test('administration places campaign status in its own first row inside settings
   expect(within(panel).queryByText('Campaign settings')).toBeNull()
 })
 
-test('partner page puts invitation and benefits before commission summary, tiers, records and rules within shared gutters', async () => {
+test('partner page keeps the original introduction before invitation, benefits, commission summary, tiers, records and rules', async () => {
   renderPage(<CampusPartner />)
   const content = await screen.findByRole('region', { name: 'Campus Partner' })
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
+  const intro = screen.getByRole('heading', {
+    name: 'Your recommendations deserve a reward.',
+  })
   const invitation = screen.getByRole('heading', { name: 'Invite a friend' })
   const benefits = screen.getByRole('heading', { name: 'Friend benefits' })
   const available = screen.getByText('Available commission')
@@ -145,6 +148,7 @@ test('partner page puts invitation and benefits before commission summary, tiers
   const records = screen.getByRole('tablist')
   const rules = screen.getByRole('heading', { name: 'Rules' })
   for (const [before, after] of [
+    [intro, invitation],
     [invitation, benefits],
     [benefits, available],
     [available, tiers],
@@ -198,6 +202,11 @@ test('partner rewards and maximum rate reflect configured tiers and subscription
   expect(within(tiers).getByText('12.34%')).toBeVisible()
   expect(within(tiers).getByText('Highest partner tier reached')).toBeVisible()
   expect(within(tiers).queryByText('50%')).not.toBeInTheDocument()
+  const intro = screen.getByRole('region', {
+    name: 'Your recommendations deserve a reward.',
+  })
+  expect(within(intro).getByText('42.75')).toBeVisible()
+  expect(within(intro).queryByText('50')).not.toBeInTheDocument()
 })
 
 test.each([9999, 10000])(

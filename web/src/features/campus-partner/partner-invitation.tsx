@@ -82,11 +82,6 @@ export function PartnerInvitation(props: {
           className='min-w-0 lg:col-span-2'
           contentClassName='space-y-4'
         >
-          <p className='text-muted-foreground text-sm leading-6'>
-            {t(
-              'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
-            )}
-          </p>
           {props.data.member.joined_at > 0 ? (
             <>
               <div className='space-y-2'>
