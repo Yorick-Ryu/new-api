@@ -20,8 +20,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
+import { createInstance } from 'i18next'
+import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { afterEach, expect, test, vi } from 'vitest'
 
+import en from '@/i18n/locales/en.json'
+import fr from '@/i18n/locales/fr.json'
+import ja from '@/i18n/locales/ja.json'
+import ru from '@/i18n/locales/ru.json'
+import viLocale from '@/i18n/locales/vi.json'
+import zhTW from '@/i18n/locales/zh-TW.json'
+import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 
 import { InvitationField } from '../forms'
@@ -114,3 +123,75 @@ test('an invitation link survives an untouched registration form and clearing it
     screen.queryByRole('button', { name: 'Bind invitation' })
   ).not.toBeInTheDocument()
 })
+
+test('the registration invitation renders Chinese from the actual locale resource and responds to language changes', async () => {
+  const instance = createInstance()
+  await instance.use(initReactI18next).init({
+    lng: 'zhCN',
+    fallbackLng: 'en',
+    resources: { en, zhCN, zhTW, fr, ru, ja, vi: viLocale },
+    interpolation: { escapeValue: false },
+  })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <I18nextProvider i18n={instance}>
+      <QueryClientProvider client={client}>
+        <InvitationField registration />
+      </QueryClientProvider>
+    </I18nextProvider>
+  )
+  expect(
+    screen.getByRole('textbox', { name: '校园合伙人邀请码（选填）' })
+  ).toBeVisible()
+  expect(
+    screen.getByText('成功绑定邀请后，获得一张仅限本人使用的 95 折充值券。')
+  ).toBeVisible()
+  await act(async () => {
+    await instance.changeLanguage('zhTW')
+  })
+  expect(
+    screen.getByRole('textbox', { name: '校園合夥人邀請碼（選填）' })
+  ).toBeVisible()
+  await act(async () => {
+    await instance.changeLanguage('en')
+  })
+  expect(
+    screen.getByRole('textbox', { name: 'Campus invitation code (optional)' })
+  ).toBeVisible()
+})
+
+test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
+  'the %s resource translates each invitation state inside the loaded namespace',
+  async (language, resource) => {
+    expect(Object.keys(resource)).toEqual(['translation'])
+    const instance = createInstance()
+    await instance.init({
+      lng: language,
+      fallbackLng: false,
+      resources: { [language]: resource },
+    })
+    for (const key of [
+      'Campus invitation code (optional)',
+      'Get a personal 5% off top-up coupon when you bind an invitation.',
+      'Checking invitation...',
+      'Enter the complete invitation code.',
+      'Unable to validate this code. Correct it or try again.',
+      'Bind invitation',
+      'Confirm invitation',
+      'Campus Partner',
+      'Campus coupon available',
+      'This invitation cannot be bound to your account',
+      'View campus partner finances',
+      'Campaign configuration updated',
+      'First verified settlement',
+    ]) {
+      expect(instance.exists(key), key).toBe(true)
+      expect(instance.t(key), key).not.toBe(key)
+    }
+    const inviter = instance.t('Invited by {{name}}', { name: 'Friend*' })
+    expect(inviter).toContain('Friend*')
+    expect(inviter).not.toBe('Invited by Friend*')
+  }
+)

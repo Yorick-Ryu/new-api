@@ -34,6 +34,15 @@ export const STATIC_I18N_KEYS = [
   'no_binding_at_settlement',
 
   // Campus campaign labels, states and server messages.
+  'Campaign configuration updated',
+  'Invitation bound; one personal top-up coupon issued',
+  'First verified settlement',
+  'Refund recorded before settlement',
+  'Matured commission collected against refund debt',
+  'Pending review; manual payout at month end',
+  'Refund changed reserved commission; review required',
+  'Collected commission after refund',
+
   '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.',
   'A dedicated invitation, separate from the previous referral program.',
   'Actual payment received',
