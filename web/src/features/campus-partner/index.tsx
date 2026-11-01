@@ -16,36 +16,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
-import { ArrowUpRight, Gift, GraduationCap, Users } from 'lucide-react'
-import { useState } from 'react'
+import { BookOpen } from 'lucide-react'
+import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
-import { campusPost, campusSite, cash, useCampus, useCampusAction } from './api'
-import { CampusFields, InvitationField } from './forms'
+import { campusPost, campusSite, useCampus, useCampusAction } from './api'
+import { CampusFields } from './forms'
+import { PartnerInvitation } from './partner-invitation'
+import { PartnerRules } from './partner-rules'
+import { PartnerSummary } from './partner-summary'
+import { PartnerTiers } from './partner-tiers'
 import { CampusRecords } from './records'
 
-export function CampusPartner() {
+export function CampusPartner(): ReactElement {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const overview = useCampus()
@@ -64,269 +59,70 @@ export function CampusPartner() {
     return <ErrorState onRetry={() => void overview.refetch()} />
   }
   const data = overview.data
-  const link = `https://beiapi.cn/sign-up?campus=${data.member.code}`
-  const maximumRate = Math.max(...data.tiers.map((tier) => tier.rate_bps)) / 100
-  const stats = [
-    [t('Available commission'), data.available_cents],
-    [t('Settlement freeze'), data.frozen_cents],
-    [t('Net lifetime commission'), data.net_cents],
-    [t('Paid out'), data.paid_cents],
-    [t('Payout processing'), data.processing_cents],
-    ...(data.member.debt_cents > 0
-      ? [[t('Refund recovery due'), data.member.debt_cents] as const]
-      : []),
-  ] as const
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Campus Partner')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
+        <Badge variant='secondary'>
+          {t('Tier {{level}}', { level: data.tier.level })} ·{' '}
+          {formatNumber(data.tier.rate_percent, locale)}%
+        </Badge>
         <Badge variant='outline'>
           {data.enabled ? t('Enrollment open') : t('Enrollment paused')}
         </Badge>
+        <Button
+          variant='outline'
+          size='sm'
+          role='link'
+          render={<a href='#campus-rules' />}
+        >
+          <BookOpen />
+          {t('Rules')}
+        </Button>
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <div className='flex w-full min-w-0 flex-col gap-4'>
-          <section className='via-background relative overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50 to-teal-50 p-5 sm:p-8 dark:from-emerald-950/30 dark:to-teal-950/20'>
-            <div className='mb-4 flex items-center gap-2 text-emerald-700 dark:text-emerald-300'>
-              <GraduationCap className='size-5' />
-              <span className='text-sm font-medium'>
-                {t('Share useful AI. Grow together.')}
-              </span>
-            </div>
-            <div className='grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end'>
-              <div>
-                <h1 className='max-w-xl text-2xl font-semibold tracking-tight sm:text-3xl'>
-                  {t('Your recommendations deserve a reward.')}
-                </h1>
-                <p className='text-muted-foreground mt-3 max-w-xl text-sm leading-6'>
-                  {t(
-                    'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
-                  )}
-                </p>
+        <section
+          aria-label={t('Campus Partner')}
+          className='flex w-full min-w-0 flex-col gap-4'
+        >
+          <PartnerInvitation
+            data={data}
+            pending={join.isPending}
+            onJoin={() => join.mutate()}
+          />
+          <PartnerSummary data={data} onWithdraw={() => setWithdraw(true)} />
+          <PartnerTiers data={data} />
+          <Card className='py-0'>
+            <Tabs defaultValue='payments'>
+              <div className='border-b p-3 sm:px-5'>
+                <TabsList className='flex h-auto flex-wrap'>
+                  <TabsTrigger value='payments'>
+                    {t('Commission orders')}
+                  </TabsTrigger>
+                  <TabsTrigger value='invitations'>
+                    {t('Invitations')}
+                  </TabsTrigger>
+                  <TabsTrigger value='entries'>
+                    {t('Commission ledger')}
+                  </TabsTrigger>
+                  <TabsTrigger value='withdrawals'>
+                    {t('Withdrawals')}
+                  </TabsTrigger>
+                </TabsList>
               </div>
-              <div>
-                <p className='text-muted-foreground text-xs'>
-                  {t('Top-up commission up to')}
-                </p>
-                <p className='text-5xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-300'>
-                  {formatNumber(maximumRate, locale)}
-                  <span className='text-2xl'>%</span>
-                </p>
-              </div>
-            </div>
-          </section>
-          <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
-            {stats.map(([label, amount]) => (
-              <Card key={label}>
-                <CardHeader className='pb-2'>
-                  <CardDescription>{label}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className='font-mono text-2xl font-semibold break-all tabular-nums'>
-                    {cash(amount, locale)}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          {data.member.debt_cents > 0 && (
-            <p className='rounded-xl border p-4 text-sm'>
-              {t(
-                'Refunded paid-out commissions are recovered from available funds, then future matured commissions. No separate transfer is required.'
-              )}
-            </p>
-          )}
-          <div className='grid items-start gap-4 lg:grid-cols-2'>
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('Invite a friend')}</CardTitle>
-                <CardDescription>
-                  {t('Exclusive campus partner invitation code')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                {data.member.joined_at > 0 ? (
-                  <>
-                    <div className='bg-muted flex min-w-0 items-center justify-between gap-2 rounded-lg p-3'>
-                      <code className='text-base break-all'>
-                        {data.member.code}
-                      </code>
-                      <CopyButton value={data.member.code} />
-                    </div>
-                    <div className='flex min-w-0 items-center gap-2'>
-                      <p className='text-muted-foreground min-w-0 flex-1 text-xs break-all'>
-                        {link}
-                      </p>
-                      <CopyButton
-                        value={link}
-                        tooltip={t('Copy invitation link')}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <Button
-                    disabled={!data.enabled || join.isPending}
-                    onClick={() => join.mutate()}
-                  >
-                    {t('Get my invitation code')}
-                    <ArrowUpRight className='size-4' />
-                  </Button>
-                )}
-                <div className='flex flex-wrap gap-5 text-sm'>
-                  <span className='flex items-center gap-2'>
-                    <Users className='size-4' />
-                    {t('Invited')}: {data.invited}
-                  </span>
-                  <span>
-                    {t('New this month')}: {data.this_month}
-                  </span>
-                </div>
-                {data.can_bind && <InvitationField />}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {t('Tier {{level}}', { level: data.tier.level })}
-                </CardTitle>
-                <CardDescription>
-                  {t('Current top-up rate')}: {data.tier.rate_percent}%
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div>
-                  <p className='text-muted-foreground text-sm'>
-                    {t('Campaign net paid sales')}
-                  </p>
-                  <p className='mt-1 font-mono text-2xl font-semibold break-all tabular-nums'>
-                    {cash(data.member.performance_cents, locale)}
-                  </p>
-                </div>
-                <Progress
-                  value={
-                    data.tier.next_cents
-                      ? Math.min(
-                          100,
-                          ((data.member.performance_cents -
-                            data.tier.floor_cents) /
-                            (data.tier.next_cents - data.tier.floor_cents)) *
-                            100
-                        )
-                      : 100
-                  }
-                />
-                <p className='text-sm'>
-                  {data.tier.next_cents
-                    ? t('{{amount}} to the next tier', {
-                        amount: cash(data.tier.remaining_cents, locale),
-                      })
-                    : t('Highest partner tier reached')}
-                </p>
-                <p className='text-muted-foreground text-xs leading-5'>
-                  {t(
-                    'Qualifying top-ups and participating subscriptions count toward tier progress. Top-ups use progressive tier rates; subscriptions use their configured rates. Existing commissions stay unchanged.'
-                  )}
-                </p>
-                <div className='flex flex-wrap gap-2'>
-                  {data.tiers.map((tier, index) => (
-                    <Badge
-                      key={tier.floor_cents}
-                      variant={
-                        data.tier.level === index + 1 ? 'default' : 'outline'
-                      }
-                    >
-                      Lv.{index + 1} ·{' '}
-                      {formatNumber(tier.rate_bps / 100, locale)}% ·{' '}
-                      {cash(tier.floor_cents, locale)}+
-                    </Badge>
-                  ))}
-                </div>
-                {data.plan_rates.length > 0 && (
-                  <div className='space-y-2'>
-                    <p className='text-sm font-medium'>
-                      {t('Subscription commissions')}
-                    </p>
-                    <div className='flex flex-wrap gap-2'>
-                      {data.plan_rates.map((plan) => (
-                        <Badge key={plan.plan_id} variant='outline'>
-                          {data.plan_options.find(
-                            (option) => option.id === plan.plan_id
-                          )?.title || `#${plan.plan_id}`}{' '}
-                          · {formatNumber(plan.rate_bps / 100, locale)}%
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+              <CardContent className='p-3 sm:p-5'>
+                {['payments', 'invitations', 'entries', 'withdrawals'].map(
+                  (kind) => (
+                    <TabsContent key={kind} value={kind}>
+                      <CampusRecords kind={kind} />
+                    </TabsContent>
+                  )
                 )}
               </CardContent>
-            </Card>
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('Withdraw to Alipay')}</CardTitle>
-              <CardDescription>
-                {t(
-                  'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid manually at month end.'
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='flex flex-wrap items-center gap-4'>
-              <Button
-                disabled={data.available_cents < 10000}
-                onClick={() => setWithdraw(true)}
-              >
-                {t('Request withdrawal')}
-              </Button>
-              <p className='text-muted-foreground flex-1 text-xs leading-5'>
-                {t(
-                  'Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward; weekends do not change payout dates.'
-                )}
-              </p>
-            </CardContent>
+            </Tabs>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Gift className='size-4' />
-                {t('My coupon')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='flex flex-wrap items-center gap-3'>
-              <span className='text-sm'>
-                {data.member.coupon_state
-                  ? t(`Campus coupon ${data.member.coupon_state}`)
-                  : t('No campus coupon yet')}
-              </span>
-              <p className='text-muted-foreground min-w-0 flex-1 text-xs'>
-                {t(
-                  '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
-                )}
-              </p>
-              <Link to='/wallet'>
-                <Button variant='outline'>{t('Go to wallet')}</Button>
-              </Link>
-            </CardContent>
-          </Card>
-          <Tabs defaultValue='payments'>
-            <TabsList className='flex h-auto flex-wrap'>
-              <TabsTrigger value='payments'>
-                {t('Commission orders')}
-              </TabsTrigger>
-              <TabsTrigger value='invitations'>{t('Invitations')}</TabsTrigger>
-              <TabsTrigger value='entries'>
-                {t('Commission ledger')}
-              </TabsTrigger>
-              <TabsTrigger value='withdrawals'>{t('Withdrawals')}</TabsTrigger>
-            </TabsList>
-            {['payments', 'invitations', 'entries', 'withdrawals'].map(
-              (kind) => (
-                <TabsContent key={kind} value={kind}>
-                  <CampusRecords kind={kind} />
-                </TabsContent>
-              )
-            )}
-          </Tabs>
-        </div>
+          <PartnerRules />
+        </section>
         <Dialog
           open={withdraw}
           onOpenChange={setWithdraw}

@@ -24,6 +24,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router'
 import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, expect, test } from 'vitest'
 
@@ -132,15 +133,36 @@ test('administration places campaign status in its own first row inside settings
   expect(within(panel).queryByText('Campaign settings')).toBeNull()
 })
 
-test('partner content aligns with the shared page gutters without an extra centered width constraint', async () => {
+test('partner page puts invitation and benefits before commission summary, tiers, records and rules within shared gutters', async () => {
   renderPage(<CampusPartner />)
-  const content = (
-    await screen.findByRole('heading', {
-      name: 'Your recommendations deserve a reward.',
-    })
-  ).closest('section')?.parentElement
+  const content = await screen.findByRole('region', { name: 'Campus Partner' })
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
+  const invitation = screen.getByRole('heading', { name: 'Invite a friend' })
+  const benefits = screen.getByRole('heading', { name: 'Friend benefits' })
+  const available = screen.getByText('Available commission')
+  const tiers = screen.getByRole('heading', { name: 'Top-up commission tiers' })
+  const records = screen.getByRole('tablist')
+  const rules = screen.getByRole('heading', { name: 'Rules' })
+  for (const [before, after] of [
+    [invitation, benefits],
+    [benefits, available],
+    [available, tiers],
+    [tiers, records],
+    [records, rules],
+  ]) {
+    expect(
+      before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  }
+  expect(screen.getByRole('link', { name: 'Rules' })).toHaveAttribute(
+    'href',
+    '#campus-rules'
+  )
+  expect(
+    screen.getByText('Exclusive campus partner invitation code')
+  ).toBeVisible()
+  expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
 })
 
 test('partner rewards and maximum rate reflect configured tiers and subscription percentages', async () => {
@@ -167,8 +189,61 @@ test('partner rewards and maximum rate reflect configured tiers and subscription
       remaining_cents: 0,
     },
   })
-  expect(await screen.findByText('Tier 2')).toBeVisible()
-  expect(screen.getByText('Custom Plan · 12.34%')).toBeVisible()
-  expect(screen.getByText('42.75')).toBeVisible()
-  expect(screen.queryByText('50')).not.toBeInTheDocument()
+  const tiers = await screen.findByRole('region', {
+    name: 'Top-up commission tiers',
+  })
+  expect(within(tiers).getByText('Tier 2')).toBeVisible()
+  expect(within(tiers).getByText('42.75%')).toBeVisible()
+  expect(within(tiers).getByText('Custom Plan')).toBeVisible()
+  expect(within(tiers).getByText('12.34%')).toBeVisible()
+  expect(within(tiers).getByText('Highest partner tier reached')).toBeVisible()
+  expect(within(tiers).queryByText('50%')).not.toBeInTheDocument()
+})
+
+test.each([9999, 10000])(
+  'available commission of %s cents keeps the existing withdrawal threshold',
+  async (available) => {
+    renderPage(<CampusPartner />, { available_cents: available })
+    const button = await screen.findByRole('button', {
+      name: 'Request withdrawal',
+    })
+    if (available < 10000) expect(button).toBeDisabled()
+    else expect(button).toBeEnabled()
+  }
+)
+
+test('eligible withdrawal still opens the existing application dialog from the summary card', async () => {
+  const user = userEvent.setup()
+  renderPage(<CampusPartner />, { available_cents: 10000 })
+  await user.click(
+    await screen.findByRole('button', { name: 'Request withdrawal' })
+  )
+  const dialog = screen.getByRole('dialog', { name: 'Request withdrawal' })
+  expect(within(dialog).getByLabelText('Amount (CNY)')).toHaveValue('100.00')
+  expect(within(dialog).getByLabelText('Alipay account')).toBeVisible()
+  expect(
+    within(dialog).getByRole('button', { name: 'Submit for review' })
+  ).toBeVisible()
+})
+
+test('existing invitation controls remain available and positive refund recovery stays visible', async () => {
+  renderPage(<CampusPartner />, {
+    member: {
+      code: 'AB12CD',
+      joined_at: 1,
+      inviter_id: 0,
+      performance_cents: 0,
+      debt_cents: 1250,
+      coupon_state: '',
+      coupon_trade: '',
+    },
+  })
+  expect(await screen.findByText('AB12CD')).toBeVisible()
+  expect(screen.getByRole('textbox', { name: 'Invitation link' })).toHaveValue(
+    'https://beiapi.cn/sign-up?campus=AB12CD'
+  )
+  expect(
+    screen.getByRole('button', { name: 'Copy invitation link' })
+  ).toBeEnabled()
+  expect(screen.getByText('Refund recovery due')).toBeVisible()
 })
