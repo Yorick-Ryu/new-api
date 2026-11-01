@@ -48,11 +48,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
-import { cash, useCampusAction, type CampaignConfig } from './api'
+import { useCampusAction, type CampaignConfig } from './api'
 
 // Parse decimal cash/percent values into integer hundredths without float rounding.
 function decimalUnits(value: string): number {
@@ -63,8 +62,7 @@ function decimalUnits(value: string): number {
 }
 
 export function CampusTierSettings(props: { config: CampaignConfig }) {
-  const { t, i18n } = useTranslation()
-  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const { t } = useTranslation()
   const amount = z
     .string()
     .refine(
@@ -125,7 +123,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
         <CardTitle>{t('Top-up commission tiers')}</CardTitle>
         <CardDescription>
           {t(
-            'Ranges start at zero and connect automatically. The final tier has no upper limit. Changes apply to future settlements; existing commissions stay unchanged.'
+            'Ranges include the lower bound and exclude the upper bound. Adjacent boundaries update together. The first range starts at zero; the final range has no upper limit. Save to apply changes to future settlements.'
           )}
         </CardDescription>
       </CardHeader>
@@ -150,7 +148,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                 data={rows.fields}
                 getRowKey={(row) => row.id}
                 tableProps={{ 'aria-label': t('Top-up commission tiers') }}
-                tableClassName='min-w-[640px] table-fixed [&_tbody>tr]:h-12'
+                tableClassName='min-w-[720px] table-fixed [&_tbody>tr]:h-12'
                 columns={[
                   {
                     id: 'tier',
@@ -160,42 +158,64 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                       t('Tier {{level}}', { level: index + 1 }),
                   },
                   {
-                    id: 'floor',
-                    header: t('Minimum sales (CNY)'),
-                    cell: (_row, index) =>
-                      Number.isNaN(decimalUnits(values[index]?.floor ?? ''))
-                        ? '—'
-                        : cash(decimalUnits(values[index].floor), locale),
-                  },
-                  {
-                    id: 'upper-bound',
-                    header: t('Upper bound (exclusive)'),
-                    cell: (_row, index) =>
-                      index + 1 < rows.fields.length ? (
+                    id: 'range',
+                    header: t('Cumulative paid sales range (CNY)'),
+                    cell: (_row, index) => (
+                      <div className='flex items-start gap-2'>
                         <FormField
                           control={form.control}
-                          name={`tiers.${index + 1}.floor`}
+                          name={`tiers.${index}.floor`}
                           render={({ field }) => (
-                            <FormItem className='gap-1'>
+                            <FormItem className='w-28 shrink-0 gap-1'>
                               <FormLabel className='sr-only'>
-                                {t('Tier {{level}} upper bound (CNY)', {
+                                {t('Tier {{level}} lower bound (CNY)', {
                                   level: index + 1,
                                 })}
                               </FormLabel>
                               <FormControl>
-                                <Input {...field} inputMode='decimal' />
+                                <Input
+                                  {...field}
+                                  inputMode='decimal'
+                                  readOnly={index === 0}
+                                  tabIndex={index === 0 ? -1 : undefined}
+                                />
                               </FormControl>
                               <FormMessage className='whitespace-normal' />
                             </FormItem>
                           )}
                         />
-                      ) : (
-                        t('Unlimited')
-                      ),
+                        <span className='flex h-8 items-center'>
+                          ≤ {t('Amount')}
+                        </span>
+                        {index + 1 < rows.fields.length && (
+                          <>
+                            <span className='flex h-8 items-center'>&lt;</span>
+                            <FormField
+                              control={form.control}
+                              name={`tiers.${index + 1}.floor`}
+                              render={({ field }) => (
+                                <FormItem className='w-28 shrink-0 gap-1'>
+                                  <FormLabel className='sr-only'>
+                                    {t('Tier {{level}} upper bound (CNY)', {
+                                      level: index + 1,
+                                    })}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input {...field} inputMode='decimal' />
+                                  </FormControl>
+                                  <FormMessage className='whitespace-normal' />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     id: 'rate',
                     header: <>{t('Commission')} (%)</>,
+                    className: 'w-40',
                     cell: (_row, index) => (
                       <FormField
                         control={form.control}

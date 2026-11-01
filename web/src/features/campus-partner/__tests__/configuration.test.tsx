@@ -273,11 +273,26 @@ test('administrators can edit, add and delete table rows and save decimal commis
   await user.clear(rate)
   await user.type(rate, '42.75')
   expect(rate).toHaveFocus()
-  expect(within(tierRows[3]).getByText('Unlimited')).toBeVisible()
+  expect(
+    within(tierRows[3]).getByRole('textbox', {
+      name: 'Tier 3 lower bound (CNY)',
+    })
+  ).toHaveValue('5000')
+  expect(
+    within(tierRows[3]).queryByRole('textbox', {
+      name: 'Tier 3 upper bound (CNY)',
+    })
+  ).toBeNull()
   await user.click(
     within(tierRows[2]).getByRole('button', { name: 'Remove tier 2' })
   )
   expect(table.getAllByRole('row')).toHaveLength(3)
+  expect(
+    table.getByRole('textbox', { name: 'Tier 2 lower bound (CNY)' })
+  ).toHaveValue('5000')
+  expect(
+    table.getByRole('textbox', { name: 'Tier 1 upper bound (CNY)' })
+  ).toHaveValue('5000')
   await user.click(
     screen.getByRole('button', { name: 'Save commission tiers' })
   )
@@ -287,6 +302,44 @@ test('administrators can edit, add and delete table rows and save decimal commis
       tiers: [
         { floor_cents: 0, rate_bps: 3000 },
         { floor_cents: 500000, rate_bps: 4275 },
+      ],
+    })
+  )
+})
+
+test('editing either side of a shared range boundary updates the adjacent tier and saves one boundary', async () => {
+  const { user, put } = renderConfiguration()
+  const table = within(
+    screen.getByRole('table', { name: 'Top-up commission tiers' })
+  )
+  expect(
+    table.getByRole('columnheader', {
+      name: 'Cumulative paid sales range (CNY)',
+    })
+  ).toBeVisible()
+  expect(
+    table.getByRole('textbox', { name: 'Tier 1 lower bound (CNY)' })
+  ).toHaveAttribute('readonly')
+  const upper = table.getByRole('textbox', { name: 'Tier 1 upper bound (CNY)' })
+  const lower = table.getByRole('textbox', { name: 'Tier 2 lower bound (CNY)' })
+  await user.clear(upper)
+  await user.type(upper, '1000.50')
+  expect(upper).toHaveFocus()
+  expect(lower).toHaveValue('1000.50')
+  await user.clear(lower)
+  await user.type(lower, '1500.25')
+  expect(lower).toHaveFocus()
+  expect(upper).toHaveValue('1500.25')
+  expect(put).not.toHaveBeenCalled()
+  await user.click(
+    screen.getByRole('button', { name: 'Save commission tiers' })
+  )
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledExactlyOnceWith('/api/campus/admin/tiers', {
+      tier_revision: 0,
+      tiers: [
+        { floor_cents: 0, rate_bps: 3000 },
+        { floor_cents: 150025, rate_bps: 3500 },
       ],
     })
   )
@@ -305,9 +358,11 @@ test('invalid ranges and out-of-range percentages cannot be saved', async () => 
   await user.click(
     screen.getByRole('button', { name: 'Save commission tiers' })
   )
-  expect(
-    await screen.findByText('Tier boundaries must increase from zero')
-  ).toBeVisible()
+  const boundaryErrors = await screen.findAllByText(
+    'Tier boundaries must increase from zero'
+  )
+  expect(boundaryErrors).toHaveLength(2)
+  boundaryErrors.forEach((error) => expect(error).toBeVisible())
   expect(
     screen.getByText(
       'Enter a percentage from 0 to 100 with at most two decimal places'
