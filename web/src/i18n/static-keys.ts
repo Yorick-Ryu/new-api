@@ -199,7 +199,7 @@ export const STATIC_I18N_KEYS = [
   'Withdraw to Alipay',
   'Withdrawal must be at least CNY 100 and within available commission',
   'Withdrawals',
-  'Your recommendations deserve a reward.',
+  'Invite friends to register and earn commission on every top-up.',
   'bound',
   'commission',
   'configure',

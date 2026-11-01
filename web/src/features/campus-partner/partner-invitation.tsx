@@ -94,12 +94,14 @@ export function PartnerInvitation(props: {
                     id='campus-intro-title'
                     className='text-lg font-semibold tracking-tight sm:text-xl'
                   >
-                    {t('Your recommendations deserve a reward.')}
+                    {t(
+                      'Invite friends to register and earn commission on every top-up.'
+                    )}
                   </h2>
                 </div>
                 <p className='text-muted-foreground text-sm leading-6'>
                   {t(
-                    'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
+                    'Friends can register through your exclusive link or enter your invitation code during registration to bind with you. Earn commission on each qualifying top-up or subscription payment under the current rules.'
                   )}
                 </p>
               </div>

@@ -139,7 +139,7 @@ test('partner page merges the introduction into the invitation card before benef
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
   const intro = screen.getByRole('heading', {
-    name: 'Your recommendations deserve a reward.',
+    name: 'Invite friends to register and earn commission on every top-up.',
   })
   const invitation = screen.getByRole('button', {
     name: 'Get my invitation code',
@@ -203,7 +203,7 @@ test('partner rewards and maximum rate reflect configured tiers and subscription
   expect(within(tiers).getByText('Highest partner tier reached')).toBeVisible()
   expect(within(tiers).queryByText('50%')).not.toBeInTheDocument()
   const intro = screen.getByRole('region', {
-    name: 'Your recommendations deserve a reward.',
+    name: 'Invite friends to register and earn commission on every top-up.',
   })
   expect(within(intro).getByText('42.75')).toBeVisible()
   expect(within(intro).queryByText('50')).not.toBeInTheDocument()
