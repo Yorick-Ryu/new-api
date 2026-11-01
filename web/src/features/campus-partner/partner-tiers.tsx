@@ -42,6 +42,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
     maximumFractionDigits: 0,
   })
   const tier = props.data.tier
+  const nextTier = props.data.tiers[tier.level]
   const progress =
     tier.next_cents > tier.floor_cents
       ? Math.max(
@@ -58,29 +59,31 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
     <section aria-label={t('Top-up commission levels')}>
       <TitledCard
         title={<h3>{t('Top-up commission levels')}</h3>}
-        description={`${t('Current top-up rate')}: ${formatNumber(tier.rate_percent, locale)}%`}
+        description={t(
+          'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
+        )}
         icon={<TrendingUp />}
         iconTone='primary'
         action={
-          <div className='space-y-1 sm:text-right'>
-            <p className='text-muted-foreground text-xs'>
-              {t('Friends cumulative top-ups')}
-            </p>
-            <p className='font-mono text-2xl font-semibold tabular-nums'>
+          <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs sm:justify-end sm:text-sm'>
+            <span>{t('Friends cumulative top-ups')}</span>
+            <span className='text-foreground font-mono font-semibold tabular-nums'>
               {cash(props.data.member.performance_cents, locale)}
-            </p>
+            </span>
+            <span aria-hidden='true'>·</span>
+            <span className='text-primary font-medium'>
+              {tier.next_cents && nextTier
+                ? t('Top up {{amount}} more to reach {{rate}}%', {
+                    amount: cash(tier.remaining_cents, locale),
+                    rate: formatNumber(nextTier.rate_bps / 100, locale),
+                  })
+                : t('Highest partner tier reached')}
+            </span>
           </div>
         }
         contentClassName='space-y-4'
       >
         <div className='space-y-2'>
-          <p className='text-muted-foreground text-sm'>
-            {tier.next_cents
-              ? t('{{amount}} to the next tier', {
-                  amount: cash(tier.remaining_cents, locale),
-                })
-              : t('Highest partner tier reached')}
-          </p>
           <div className='flex gap-1.5'>
             {props.data.tiers.map((rule, index) => {
               let value = 0

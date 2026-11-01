@@ -3,6 +3,8 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "Tự động lên cấp theo tổng tiền nạp của bạn bè. Các lần nạp mới sau khi lên cấp được tính hoa hồng theo tỷ lệ mới.",
+    "Top up {{amount}} more to reach {{rate}}%": "Nạp thêm {{amount}} để đạt {{rate}}%",
     "Friends cumulative top-ups": "Tổng tiền nạp của bạn bè",
     "Lifetime commission": "Hoa hồng tích lũy",
     "Withdrawing": "Đang rút tiền",

@@ -3,6 +3,8 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.": "Уровень повышается автоматически по сумме пополнений друзей. После повышения новые пополнения приносят комиссию по новой ставке.",
+    "Top up {{amount}} more to reach {{rate}}%": "Ещё {{amount}} пополнений до ставки {{rate}}%",
     "Friends cumulative top-ups": "Сумма пополнений друзей",
     "Lifetime commission": "Накопленная комиссия",
     "Withdrawing": "Вывод средств",
