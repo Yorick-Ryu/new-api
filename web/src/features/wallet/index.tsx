@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
-import { CampusCouponCard } from '@/features/campus-partner/wallet-coupon'
+import { CampusCouponSection } from '@/features/campus-partner/wallet-coupon'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
@@ -288,11 +288,6 @@ export function Wallet(props: WalletProps) {
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
             <WalletStatsCard user={user} loading={userLoading} />
-            <CampusCouponCard
-              selected={campusCoupon}
-              onChange={setCampusCoupon}
-            />
-
             <div id='wallet-add-funds' className='scroll-mt-4'>
               <RechargeFormCard
                 topupInfo={topupInfo}
@@ -317,6 +312,12 @@ export function Wallet(props: WalletProps) {
                 waffoMinTopup={topupInfo?.waffo_min_topup}
                 onWaffoMethodSelect={handleWaffoMethodSelect}
                 enableWaffoPancakeTopup={topupInfo?.enable_waffo_pancake_topup}
+                beforePaymentMethods={
+                  <CampusCouponSection
+                    selected={campusCoupon}
+                    onChange={setCampusCoupon}
+                  />
+                }
               />
             </div>
 

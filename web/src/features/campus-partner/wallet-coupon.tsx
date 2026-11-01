@@ -16,25 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { submitPaymentForm } from '@/features/wallet/lib'
 
 import { useCampus, campusSite, campusPost, useCampusAction } from './api'
 
-export function CampusCouponCard(props: {
+// Rendered inside Add Funds above the payment methods, only while the user
+// holds a coupon that can still be applied or whose order is still pending.
+export function CampusCouponSection(props: {
   selected: boolean
   onChange: (value: boolean) => void
 }) {
@@ -47,17 +41,13 @@ export function CampusCouponCard(props: {
   )
   if (!campusSite() || !overview.data) return null
   const coupon = overview.data.member.coupon_state
+  if (coupon !== 'available' && coupon !== 'reserved') return null
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('My coupon')}</CardTitle>
-        <CardDescription>
-          {t(
-            '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className='space-y-2.5 sm:space-y-3'>
+      <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
+        {t('My coupon')}
+      </Label>
+      <div className='space-y-2 rounded-lg border p-3'>
         <div className='flex flex-wrap items-center gap-3'>
           <Switch
             id='campus-coupon'
@@ -69,14 +59,16 @@ export function CampusCouponCard(props: {
             {t('Use my campus top-up coupon')}
           </Label>
           <span className='text-muted-foreground text-xs'>
-            {coupon ? t(`Campus coupon ${coupon}`) : t('No campus coupon yet')}
+            {t(`Campus coupon ${coupon}`)}
           </span>
-          <Link to='/campus-partner' className='text-sm underline'>
-            {t('Campus Partner')}
-          </Link>
         </div>
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
+          )}
+        </p>
         {coupon === 'reserved' && (
-          <div className='mt-4 space-y-2'>
+          <div className='space-y-2'>
             <p className='text-muted-foreground text-xs'>
               {t(
                 'Payment status is still pending. Continue the original order, or contact support to reconcile a definitively closed unpaid order.'
@@ -97,7 +89,7 @@ export function CampusCouponCard(props: {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
