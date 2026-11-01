@@ -79,7 +79,7 @@ export function PartnerInvitation(props: {
         </Collapsible>
       )}
       <div className='grid min-w-0 gap-4 lg:grid-cols-3'>
-        <Card className='min-w-0 lg:col-span-2'>
+        <Card className='min-w-0 py-0 lg:col-span-2'>
           <CardContent className='space-y-5 p-3 sm:p-5'>
             <section
               aria-labelledby='campus-intro-title'
