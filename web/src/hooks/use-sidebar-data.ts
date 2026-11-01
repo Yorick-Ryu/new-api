@@ -83,6 +83,7 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
                   url: '/campus-partner',
                   icon: Gift,
                   badge: t('Up to 50%'),
+                  badgePlacement: 'inline' as const,
                 },
               ]
             : []),

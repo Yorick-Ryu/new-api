@@ -41,6 +41,7 @@ type BaseNavItem = {
  */
 export type NavLink = BaseNavItem & {
   url: LinkProps['to'] | (string & {})
+  badgePlacement?: 'inline' | 'end'
   items?: never
   type?: never
 }

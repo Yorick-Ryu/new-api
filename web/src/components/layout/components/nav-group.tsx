@@ -127,7 +127,6 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
       <SidebarMenuButton
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
-        className={item.badge ? 'gap-1' : undefined}
         render={
           <Link
             to={item.url}
@@ -137,8 +136,17 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
         }
       >
         {item.icon && <item.icon className='shrink-0' />}
-        <span className='min-w-0 flex-1 truncate'>{item.title}</span>
-        {item.badge && <NavBadge>{item.badge}</NavBadge>}
+        {item.badge && item.badgePlacement === 'inline' ? (
+          <div className='flex min-w-0 items-center gap-1'>
+            <span className='truncate'>{item.title}</span>
+            <NavBadge>{item.badge}</NavBadge>
+          </div>
+        ) : (
+          <>
+            <span className='min-w-0 flex-1 truncate'>{item.title}</span>
+            {item.badge && <NavBadge>{item.badge}</NavBadge>}
+          </>
+        )}
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
