@@ -3,6 +3,7 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Subscription commission rates": "プランの報酬率",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "あと <amount>{{amount}}</amount> のチャージで <rate>{{rate}}%</rate> にアップ",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "報酬は 168 時間後に出金可能になります。100 人民元から申請でき、承認された申請は月末に振り込まれます。",
     "Approved applications are paid at month end. Submission is not a completed transfer.": "承認された申請は月末に振り込まれます。申請の送信は振込の完了を意味しません。",

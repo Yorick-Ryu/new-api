@@ -3,6 +3,7 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Subscription commission rates": "Taux de commission des abonnements",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Encore <amount>{{amount}}</amount> de recharges pour atteindre <rate>{{rate}} %</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Les commissions deviennent disponibles après 168 heures. Retrait à partir de 100 CNY ; les demandes approuvées sont payées en fin de mois.",
     "Approved applications are paid at month end. Submission is not a completed transfer.": "Les demandes approuvées sont payées en fin de mois. L’envoi d’une demande ne signifie pas que le virement est effectué.",

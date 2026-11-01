@@ -3,6 +3,7 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Subscription commission rates": "Ставки комиссии по подпискам",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Ещё <amount>{{amount}}</amount> пополнений до ставки <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Комиссия становится доступной через 168 часов. Вывод от 100 CNY; одобренные заявки оплачиваются в конце месяца.",
     "Approved applications are paid at month end. Submission is not a completed transfer.": "Одобренные заявки оплачиваются в конце месяца. Отправка заявки не означает, что перевод выполнен.",

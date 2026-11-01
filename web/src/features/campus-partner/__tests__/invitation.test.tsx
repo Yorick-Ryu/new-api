@@ -209,7 +209,7 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       'Refund registration',
       'Top-up commission levels',
       'Save commission tiers',
-      'Subscription commissions',
+      'Subscription commission rates',
       'Save subscription commissions',
       'Tier {{level}} commission (%)',
       'Subscription plan {{number}}',

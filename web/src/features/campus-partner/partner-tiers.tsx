@@ -170,7 +170,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         {props.data.plan_rates.length > 0 && (
           <div className='space-y-3'>
             <h4 className='text-sm font-medium'>
-              {t('Subscription commissions')}
+              {t('Subscription commission rates')}
             </h4>
             <div className='grid gap-3 sm:grid-cols-2'>
               {props.data.plan_rates.map((plan) => (

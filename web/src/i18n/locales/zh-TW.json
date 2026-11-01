@@ -3,6 +3,7 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Subscription commission rates": "方案返佣比例",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "再儲值 <amount>{{amount}}</amount> 升至 <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "每筆傭金滿 168 小時解凍，滿 ¥100 可隨時申請。審核通過後於每月月底打款。",
     "Approved applications are paid at month end. Submission is not a completed transfer.": "審核通過後於月底統一打款，提交申請不代表已到賬。",

@@ -3,6 +3,7 @@
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Subscription commission rates": "Tỷ lệ hoa hồng gói đăng ký",
     "Top up <amount>{{amount}}</amount> more to reach <rate>{{rate}}%</rate>": "Nạp thêm <amount>{{amount}}</amount> để đạt <rate>{{rate}}%</rate>",
     "Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.": "Hoa hồng được mở khóa sau 168 giờ. Có thể rút từ 100 CNY; yêu cầu được duyệt sẽ được chuyển tiền vào cuối tháng.",
     "Approved applications are paid at month end. Submission is not a completed transfer.": "Yêu cầu được duyệt sẽ được chuyển tiền vào cuối tháng. Gửi yêu cầu không có nghĩa là đã chuyển tiền.",
