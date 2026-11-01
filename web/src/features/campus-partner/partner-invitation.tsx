@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight, Gift, TicketPercent } from 'lucide-react'
+import { ArrowUpRight, Gift, GraduationCap, TicketPercent } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -88,12 +88,17 @@ export function PartnerInvitation(props: {
               className='grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start'
             >
               <div className='min-w-0 space-y-2'>
-                <h2
-                  id='campus-intro-title'
-                  className='text-lg font-semibold tracking-tight sm:text-xl'
-                >
-                  {t('Your recommendations deserve a reward.')}
-                </h2>
+                <div className='flex items-center gap-2'>
+                  <IconBadge tone='primary' size='title'>
+                    <GraduationCap />
+                  </IconBadge>
+                  <h2
+                    id='campus-intro-title'
+                    className='text-lg font-semibold tracking-tight sm:text-xl'
+                  >
+                    {t('Your recommendations deserve a reward.')}
+                  </h2>
+                </div>
                 <p className='text-muted-foreground text-sm leading-6'>
                   {t(
                     'Recommend friends and earn commissions on qualifying top-ups and subscriptions under the current rules. Friends receive one personal 5% off top-up coupon.'
