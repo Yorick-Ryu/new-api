@@ -144,7 +144,9 @@ test('partner page merges the introduction into the invitation card before benef
   const invitation = screen.getByRole('button', {
     name: 'Get my invitation code',
   })
-  const benefits = screen.getByRole('heading', { name: 'Friend benefits' })
+  const benefits = screen.getByRole('heading', {
+    name: 'Exclusive friend benefits',
+  })
   const available = screen.getByText('Available commission')
   const tiers = screen.getByRole('heading', { name: 'Top-up commission tiers' })
   const records = screen.getByRole('tablist')

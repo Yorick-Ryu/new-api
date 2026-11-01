@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowUpRight, Gift, GraduationCap, TicketPercent } from 'lucide-react'
+import { ArrowUpRight, Gift, GraduationCap } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -187,28 +187,38 @@ export function PartnerInvitation(props: {
           </CardContent>
         </Card>
         <TitledCard
-          title={<h3>{t('Friend benefits')}</h3>}
+          title={<h3>{t('Exclusive friend benefits')}</h3>}
           icon={<Gift />}
           iconTone='primary'
           className='bg-primary/5 ring-primary/20 min-w-0'
           headerClassName='border-primary/10'
           contentClassName='space-y-4'
         >
-          <div className='bg-card flex min-w-0 items-center gap-3 rounded-lg border p-3'>
-            <IconBadge tone='primary' size='lg'>
-              <TicketPercent />
-            </IconBadge>
-            <div className='min-w-0'>
-              <p className='text-primary font-mono text-2xl font-semibold tabular-nums'>
-                {t('5% off')}
+          <div className='bg-card ring-primary/20 flex min-w-0 overflow-hidden rounded-xl ring-1'>
+            <div className='bg-primary text-primary-foreground border-primary-foreground/40 flex w-24 shrink-0 flex-col items-center justify-center border-r-2 border-dashed px-2 py-4 sm:w-32'>
+              <span className='font-mono text-4xl leading-none font-bold tracking-wider tabular-nums sm:text-5xl'>
+                {t('Coupon discount value')}
+              </span>
+              <span className='mt-1 text-sm font-semibold'>
+                {t('Coupon discount unit')}
+              </span>
+            </div>
+            <div className='min-w-0 space-y-1.5 p-3 sm:p-4'>
+              <p className='text-base font-semibold'>
+                {t('New user top-up coupon')}
               </p>
-              <p className='text-muted-foreground text-xs leading-5'>
+              <p className='text-muted-foreground text-xs leading-5 sm:text-sm sm:leading-6'>
                 {t(
-                  '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
+                  "Sign up with your invitation link or code and it is issued to your friend's account automatically"
                 )}
               </p>
             </div>
           </div>
+          <p className='text-primary text-sm leading-6'>
+            {t(
+              'Your friends save and you earn commission. When sharing, tell classmates: "Sign up with my invitation code and get 5% off top-ups."'
+            )}
+          </p>
         </TitledCard>
       </div>
     </>
