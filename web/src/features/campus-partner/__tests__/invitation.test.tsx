@@ -207,7 +207,7 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       'Campaign enabled',
       'Campaign disabled',
       'Refund registration',
-      'Top-up commission tiers',
+      'Top-up commission levels',
       'Save commission tiers',
       'Subscription commissions',
       'Save subscription commissions',

@@ -55,9 +55,9 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         )
       : 100
   return (
-    <section aria-label={t('Top-up commission tiers')}>
+    <section aria-label={t('Top-up commission levels')}>
       <TitledCard
-        title={<h3>{t('Top-up commission tiers')}</h3>}
+        title={<h3>{t('Top-up commission levels')}</h3>}
         description={`${t('Current top-up rate')}: ${formatNumber(tier.rate_percent, locale)}%`}
         icon={<TrendingUp />}
         iconTone='primary'
@@ -91,7 +91,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   key={rule.floor_cents}
                   value={value}
                   className='min-w-0 flex-1'
-                  aria-label={t('Tier {{level}}', { level: index + 1 })}
+                  aria-label={t('Lv.{{level}}', { level: index + 1 })}
                 />
               )
             })}
@@ -114,7 +114,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                 >
                   <CardHeader className='flex flex-wrap items-center justify-between gap-2'>
                     <span className='text-sm font-medium'>
-                      {t('Tier {{level}}', { level: index + 1 })}
+                      {t('Lv.{{level}}', { level: index + 1 })}
                     </span>
                     {active && <Badge>{t('Current')}</Badge>}
                     {index + 1 < tier.level && (
@@ -132,15 +132,15 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                     </p>
                     <p className='text-sm font-medium [overflow-wrap:anywhere] break-words'>
                       {rule.name ||
-                        t(campusTierNameKeys[index] || 'Tier {{level}}', {
+                        t(campusTierNameKeys[index] || 'Lv.{{level}}', {
                           level: index + 1,
                         })}
                     </p>
                     <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
                       {tierAmount.format(rule.floor_cents / 100)}
                       {next
-                        ? ` – ${tierAmount.format(next.floor_cents / 100)}`
-                        : '+'}
+                        ? ` – ${formatNumber(Math.round(next.floor_cents / 100), locale)}`
+                        : ` ${t('and above')}`}
                     </p>
                   </CardContent>
                 </Card>

@@ -148,7 +148,9 @@ test('partner page merges the introduction into the invitation card before benef
     name: 'Exclusive friend benefits',
   })
   const available = screen.getByText('Available commission')
-  const tiers = screen.getByRole('heading', { name: 'Top-up commission tiers' })
+  const tiers = screen.getByRole('heading', {
+    name: 'Top-up commission levels',
+  })
   const records = screen.getByRole('tablist')
   const rules = screen.getByRole('heading', { name: 'Rules' })
   for (const [before, after] of [
@@ -196,9 +198,9 @@ test('partner rewards and maximum rate reflect configured tiers and subscription
     },
   })
   const tiers = await screen.findByRole('region', {
-    name: 'Top-up commission tiers',
+    name: 'Top-up commission levels',
   })
-  expect(within(tiers).getByText('Tier 2')).toBeVisible()
+  expect(within(tiers).getByText('Lv.2')).toBeVisible()
   expect(within(tiers).getByText('42.75%')).toBeVisible()
   expect(within(tiers).getByText('Custom Plan')).toBeVisible()
   expect(within(tiers).getByText('12.34%')).toBeVisible()
@@ -300,5 +302,5 @@ test('partner tiers display configured names and defaults for unnamed tiers', as
     expect(screen.getByText(label)).toBeVisible()
   }
   expect(screen.queryByText('Apprentice partner')).not.toBeInTheDocument()
-  expect(screen.getAllByText('Tier 6').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Lv.6').length).toBeGreaterThan(0)
 })

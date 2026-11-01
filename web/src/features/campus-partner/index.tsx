@@ -66,7 +66,7 @@ export function CampusPartner(): ReactElement {
       <SectionPageLayout.Title>{t('Campus Partner')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
         <Badge variant='outline' className='border-primary/30 text-primary'>
-          {t('Tier {{level}}', { level: data.tier.level })} ·{' '}
+          {t('Lv.{{level}}', { level: data.tier.level })} ·{' '}
           {t('Current top-up rate')}{' '}
           {formatNumber(data.tier.rate_percent, locale)}%
         </Badge>
