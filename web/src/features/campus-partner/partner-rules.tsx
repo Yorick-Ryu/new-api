@@ -71,14 +71,14 @@ export function PartnerRules(): ReactElement {
       description: t(
         'If you registered without an invitation, you may bind once before your first successful top-up or subscription payment and receive the same coupon. A successful payment closes this option permanently, even if refunded. Binding cannot be changed, and self-invitations or reciprocal invitations are prohibited.'
       ),
-      fullWidth: true,
+      wide: true,
     },
     {
       title: t('Refunds and commission recovery'),
       description: t(
         'Refunds reverse the original order commission proportionally and reduce cumulative level progress, which may lower your level. Other completed orders are not recalculated. Paid-out commission is recovered from available funds first, then future matured commissions; no separate transfer is required.'
       ),
-      fullWidth: true,
+      wide: true,
     },
   ]
   return (
@@ -87,7 +87,7 @@ export function PartnerRules(): ReactElement {
         title={<h3>{t('Rules')}</h3>}
         icon={<BookOpen />}
         className='bg-muted/30'
-        contentClassName='grid gap-3 md:grid-cols-2 xl:grid-cols-3'
+        contentClassName='grid gap-3 md:grid-cols-2 xl:grid-cols-6'
       >
         {rules.map((rule, index) => (
           <Card
@@ -95,7 +95,7 @@ export function PartnerRules(): ReactElement {
             size='sm'
             className={cn(
               'min-w-0',
-              rule.fullWidth && 'md:col-span-2 xl:col-span-3'
+              rule.wide ? 'xl:col-span-3' : 'xl:col-span-2'
             )}
           >
             <CardContent className='flex min-w-0 gap-3'>
