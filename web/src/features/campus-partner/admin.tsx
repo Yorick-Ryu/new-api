@@ -78,40 +78,39 @@ export function CampusAdmin() {
         {t('Campus Partner administration')}
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
-        <div className='flex w-full min-w-0 flex-col gap-4'>
-          <div className='grid items-start gap-4 lg:grid-cols-2'>
-            <CampusConfiguration config={config.data} />
-            <CampusRefundForm />
-          </div>
-          <CampusTierSettings
-            key={`tiers-${config.data.tier_revision}`}
-            config={config.data}
-          />
-          <CampusPlanSettings
-            key={`plans-${config.data.plan_revision}`}
-            config={config.data}
-          />
-          <Tabs defaultValue='withdrawals'>
-            <TabsList className='flex h-auto flex-wrap'>
-              {[
-                ['withdrawals', 'Withdrawals'],
-                ['payments', 'Commission orders'],
-                ['refunds', 'Refunds'],
-                ['entries', 'Audit trail'],
-                ['invitations', 'Invitations'],
-              ].map(([key, label]) => (
-                <TabsTrigger key={key} value={key}>
-                  {t(label)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        <Tabs defaultValue='settings' className='w-full min-w-0 gap-4'>
+          <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
             {[
-              'withdrawals',
-              'payments',
-              'refunds',
-              'entries',
-              'invitations',
-            ].map((kind) => (
+              ['settings', 'Campaign settings'],
+              ['withdrawals', 'Withdrawals'],
+              ['payments', 'Commission orders'],
+              ['refunds', 'Refunds'],
+              ['entries', 'Audit trail'],
+              ['invitations', 'Invitations'],
+            ].map(([key, label]) => (
+              <TabsTrigger key={key} value={key}>
+                {t(label)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value='settings' keepMounted>
+            <div className='flex w-full min-w-0 flex-col gap-4'>
+              <div className='grid items-start gap-4 lg:grid-cols-2'>
+                <CampusConfiguration config={config.data} />
+                <CampusRefundForm />
+              </div>
+              <CampusTierSettings
+                key={`tiers-${config.data.tier_revision}`}
+                config={config.data}
+              />
+              <CampusPlanSettings
+                key={`plans-${config.data.plan_revision}`}
+                config={config.data}
+              />
+            </div>
+          </TabsContent>
+          {['withdrawals', 'payments', 'refunds', 'entries', 'invitations'].map(
+            (kind) => (
               <TabsContent key={kind} value={kind}>
                 <CampusRecords
                   kind={kind}
@@ -119,9 +118,9 @@ export function CampusAdmin() {
                   onAction={kind === 'withdrawals' ? setSelected : undefined}
                 />
               </TabsContent>
-            ))}
-          </Tabs>
-        </div>
+            )
+          )}
+        </Tabs>
         <Dialog
           open={!!selected}
           onOpenChange={(open) => {

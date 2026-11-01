@@ -111,6 +111,46 @@ function renderConfiguration(enabled = false) {
   return { put, client, user: userEvent.setup() }
 }
 
+test('top-level tabs separate settings from each record list and retain unsaved settings when returning', async () => {
+  const { user, put } = renderConfiguration()
+  expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+    'Campaign settings',
+    'Withdrawals',
+    'Commission orders',
+    'Refunds',
+    'Audit trail',
+    'Invitations',
+  ])
+  const settingsTab = screen.getByRole('tab', { name: 'Campaign settings' })
+  expect(settingsTab).toHaveAttribute('aria-selected', 'true')
+  const rate = screen.getByRole('textbox', { name: 'Tier 1 commission (%)' })
+  await user.clear(rate)
+  await user.type(rate, '25.50')
+
+  for (const name of [
+    'Withdrawals',
+    'Commission orders',
+    'Refunds',
+    'Audit trail',
+    'Invitations',
+  ]) {
+    await user.click(screen.getByRole('tab', { name }))
+    expect(screen.getByRole('tabpanel', { name })).toBeVisible()
+    expect(await screen.findByText('No records yet')).toBeVisible()
+    expect(screen.queryByRole('switch', { name: 'Enable campaign' })).toBeNull()
+    expect(screen.getByText('Refund registration')).not.toBeVisible()
+  }
+
+  await user.click(settingsTab)
+  expect(
+    screen.getByRole('tabpanel', { name: 'Campaign settings' })
+  ).toBeVisible()
+  expect(rate).toBeVisible()
+  expect(rate).toHaveValue('25.50')
+  expect(screen.queryByRole('table')).toBeNull()
+  expect(put).not.toHaveBeenCalled()
+})
+
 test.each([false, true])(
   'changing the campaign from enabled=%s saves immediately without a confirmation dialog',
   async (enabled) => {

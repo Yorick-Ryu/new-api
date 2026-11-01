@@ -23,7 +23,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, expect, test } from 'vitest'
 
@@ -106,9 +106,16 @@ function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
 
 test('administration panels use the shared page gutters and natural panel heights on a responsive grid', async () => {
   renderPage(<CampusAdmin />)
-  const settings = (await screen.findByText('Campaign settings')).closest(
-    '[data-slot="card"]'
-  )
+  const panel = await screen.findByRole('tabpanel', {
+    name: 'Campaign settings',
+  })
+  const settings = within(panel)
+    .getByText('Campaign settings')
+    .closest('[data-slot="card"]')
+  expect(
+    screen.getByRole('tablist').compareDocumentPosition(panel) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
   expect(
     screen.queryByText('Reconcile a payment order')
   ).not.toBeInTheDocument()
