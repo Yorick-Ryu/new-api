@@ -22,14 +22,17 @@ import { useTranslation } from 'react-i18next'
 
 import {
   StaticDataTable,
+  staticDataTableClassNames,
   type StaticDataTableColumn,
 } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
+import { getUserAvatarStyle } from '@/lib/avatar'
 
 import { beijingDate, campusGet, cash } from './api'
 import { campusWithdrawalStateLabels } from './constants'
@@ -37,6 +40,8 @@ import { campusWithdrawalStateLabels } from './constants'
 export type CampusRecord = {
   id: number
   user_id: number
+  masked_name?: string
+  registered_at?: number
   payment_id?: number
   withdrawal_id?: number
   actor_id?: number
@@ -79,46 +84,96 @@ export function CampusRecords(props: {
         `${props.admin ? 'admin' : 'self'}/records/${props.kind}?page=${page}&size=10`
       ),
   })
-  const columns: StaticDataTableColumn<CampusRecord>[] = [
-    {
-      id: 'date',
-      header: t('Time (Beijing)'),
-      cell: (row) =>
-        beijingDate(
-          row.created_at || row.settled_at || row.bound_at || 0,
-          locale
-        ),
-    },
-    {
-      id: 'source',
-      header: t('Source'),
-      cell: (row) => (
-        <div className='max-w-64 break-all whitespace-normal'>
-          {row.trade_no || (row.kind ? t(row.kind) : `#${row.user_id}`)}
-          {row.payment_id ? (
-            <p className='text-xs'>
-              {t('Commission order')} #{row.payment_id}
-            </p>
-          ) : null}
-          {row.withdrawal_id ? (
-            <p className='text-xs'>
-              {t('Withdrawal request')} #{row.withdrawal_id}
-            </p>
-          ) : null}
-          {props.admin && (
-            <p className='text-xs'>
-              {t('Account')} #{row.user_id}
-            </p>
-          )}
-          {row.product && (
-            <div className='text-muted-foreground text-xs'>
-              {t(row.product)}
-            </div>
-          )}
-        </div>
-      ),
-    },
-  ]
+  const columns: StaticDataTableColumn<CampusRecord>[] =
+    props.kind === 'invitations'
+      ? [
+          {
+            id: 'friend',
+            header: t('Friend'),
+            cell: (row) => {
+              const name = row.masked_name || '***'
+              return (
+                <div className='flex items-center gap-3'>
+                  <Avatar aria-hidden='true'>
+                    <AvatarFallback
+                      style={getUserAvatarStyle(String(row.user_id))}
+                    >
+                      {[...name][0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className='min-w-0'>
+                    <p className='font-medium'>{name}</p>
+                    {props.admin && (
+                      <p className='text-muted-foreground text-xs'>
+                        #{row.user_id}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            },
+          },
+          {
+            id: 'registered',
+            header: t('Registration time'),
+            cellClassName: 'tabular-nums',
+            cell: (row) => beijingDate(row.registered_at || 0, locale),
+          },
+          {
+            id: 'paid',
+            header: t('Cumulative top-ups'),
+            className: 'text-right',
+            cellClassName: 'text-right tabular-nums',
+            cell: (row) => cash(row.paid_cents || 0, locale),
+          },
+          {
+            id: 'commission',
+            header: props.admin ? t('Commission') : t('Commission contributed'),
+            className: 'text-right',
+            cellClassName: 'text-primary text-right font-semibold tabular-nums',
+            cell: (row) => cash(row.commission_cents || 0, locale),
+          },
+        ]
+      : [
+          {
+            id: 'date',
+            header: t('Time (Beijing)'),
+            cell: (row) =>
+              beijingDate(
+                row.created_at || row.settled_at || row.bound_at || 0,
+                locale
+              ),
+          },
+          {
+            id: 'source',
+            header: t('Source'),
+            cell: (row) => (
+              <div className='max-w-64 break-all whitespace-normal'>
+                {row.trade_no || (row.kind ? t(row.kind) : `#${row.user_id}`)}
+                {row.payment_id ? (
+                  <p className='text-xs'>
+                    {t('Commission order')} #{row.payment_id}
+                  </p>
+                ) : null}
+                {row.withdrawal_id ? (
+                  <p className='text-xs'>
+                    {t('Withdrawal request')} #{row.withdrawal_id}
+                  </p>
+                ) : null}
+                {props.admin && (
+                  <p className='text-xs'>
+                    {t('Account')} #{row.user_id}
+                  </p>
+                )}
+                {row.product && (
+                  <div className='text-muted-foreground text-xs'>
+                    {t(row.product)}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+        ]
   if (props.kind !== 'invitations') {
     columns.push({
       id: 'amount',
@@ -135,70 +190,70 @@ export function CampusRecords(props: {
         </div>
       ),
     })
-  }
-  columns.push({
-    id: 'details',
-    header: t('Details'),
-    cell: (row) => (
-      <div className='max-w-72 space-y-2 whitespace-normal'>
-        {row.state && (
-          <Badge variant='outline'>
-            {t(campusWithdrawalStateLabels[row.state] || row.state)}
-          </Badge>
-        )}
-        {row.batch && (
-          <p>
-            {t('Expected payout')}: {row.batch}
-          </p>
-        )}
-        {row.account && (
-          <p className='break-all'>
-            {row.account} · {row.real_name}
-          </p>
-        )}
-        {row.eligibility && <p className='text-xs'>{t(row.eligibility)}</p>}
-        {row.reference && (
-          <p className='text-xs break-all'>
-            {t('Refund reference')}: {row.reference}
-          </p>
-        )}
-        {props.admin && !!row.actor_id && (
-          <p className='text-xs'>
-            {t('Processed by')} #{row.actor_id}
-          </p>
-        )}
-        {row.reason && (
-          <p className='text-muted-foreground text-xs'>{t(row.reason)}</p>
-        )}
-        {row.paid_at ? (
-          <p>
-            {t('Actual transfer time')}: {beijingDate(row.paid_at, locale)}
-          </p>
-        ) : null}
-        {row.receipt && (
-          <p className='break-all'>
-            {t('Transfer receipt')}: {row.receipt}
-          </p>
-        )}
-        {row.commission_cents !== undefined && (
-          <p className='text-xs'>
-            {t('Settlement freeze')}: {cash(row.frozen_cents || 0, locale)} ·{' '}
-            {t('Available')}: {cash(row.available_cents || 0, locale)}
-          </p>
-        )}
-        {row.segments && (
-          <details>
-            <summary className='cursor-pointer text-xs'>
-              {t('Commission calculation')}
-            </summary>
-            <p className='text-xs break-all'>
-              {formatSegments(row.segments, locale)}
+    columns.push({
+      id: 'details',
+      header: t('Details'),
+      cell: (row) => (
+        <div className='max-w-72 space-y-2 whitespace-normal'>
+          {row.state && (
+            <Badge variant='outline'>
+              {t(campusWithdrawalStateLabels[row.state] || row.state)}
+            </Badge>
+          )}
+          {row.batch && (
+            <p>
+              {t('Expected payout')}: {row.batch}
             </p>
-          </details>
-        )}
-      </div>
-    ),
-  })
+          )}
+          {row.account && (
+            <p className='break-all'>
+              {row.account} · {row.real_name}
+            </p>
+          )}
+          {row.eligibility && <p className='text-xs'>{t(row.eligibility)}</p>}
+          {row.reference && (
+            <p className='text-xs break-all'>
+              {t('Refund reference')}: {row.reference}
+            </p>
+          )}
+          {props.admin && !!row.actor_id && (
+            <p className='text-xs'>
+              {t('Processed by')} #{row.actor_id}
+            </p>
+          )}
+          {row.reason && (
+            <p className='text-muted-foreground text-xs'>{t(row.reason)}</p>
+          )}
+          {row.paid_at ? (
+            <p>
+              {t('Actual transfer time')}: {beijingDate(row.paid_at, locale)}
+            </p>
+          ) : null}
+          {row.receipt && (
+            <p className='break-all'>
+              {t('Transfer receipt')}: {row.receipt}
+            </p>
+          )}
+          {row.commission_cents !== undefined && (
+            <p className='text-xs'>
+              {t('Settlement freeze')}: {cash(row.frozen_cents || 0, locale)} ·{' '}
+              {t('Available')}: {cash(row.available_cents || 0, locale)}
+            </p>
+          )}
+          {row.segments && (
+            <details>
+              <summary className='cursor-pointer text-xs'>
+                {t('Commission calculation')}
+              </summary>
+              <p className='text-xs break-all'>
+                {formatSegments(row.segments, locale)}
+              </p>
+            </details>
+          )}
+        </div>
+      ),
+    })
+  }
   if (props.onAction) {
     columns.push({
       id: 'action',
@@ -218,14 +273,34 @@ export function CampusRecords(props: {
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />
   return (
     <div className='space-y-3'>
+      {props.kind === 'invitations' && !props.admin && (
+        <p className='text-muted-foreground text-xs leading-5 sm:text-right'>
+          {t('Only friends bound to you are shown; names are masked.')}
+        </p>
+      )}
       <div className='max-w-full overflow-x-auto'>
         <StaticDataTable
           data={query.data.items || []}
           columns={columns}
           getRowKey={(row) => row.id || row.user_id}
           emptyContent={<EmptyState title={t('No records yet')} />}
+          tableClassName={
+            props.kind === 'invitations' ? 'min-w-[640px]' : undefined
+          }
+          headerRowClassName={
+            props.kind === 'invitations'
+              ? staticDataTableClassNames.mutedHeaderRow
+              : undefined
+          }
         />
       </div>
+      {props.kind === 'invitations' && (
+        <p className='text-muted-foreground text-xs leading-5'>
+          {t(
+            'Totals include qualifying top-ups and subscriptions after binding, less refunds. Times are shown in Beijing time.'
+          )}
+        </p>
+      )}
       <div className='flex flex-wrap items-center justify-end gap-3'>
         <Button
           variant='outline'

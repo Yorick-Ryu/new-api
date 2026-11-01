@@ -78,15 +78,15 @@ export function CampusAdmin() {
         {t('Campus Partner administration')}
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
-        <Tabs defaultValue='settings' className='w-full min-w-0 gap-4'>
+        <Tabs defaultValue='invitations' className='w-full min-w-0 gap-4'>
           <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
             {[
-              ['settings', 'Campaign settings'],
+              ['invitations', 'Invitations'],
+              ['payments', 'Commission ledger'],
               ['withdrawals', 'Withdrawals'],
-              ['payments', 'Commission orders'],
               ['refunds', 'Refunds'],
               ['entries', 'Audit trail'],
-              ['invitations', 'Invitations'],
+              ['settings', 'Campaign settings'],
             ].map(([key, label]) => (
               <TabsTrigger key={key} value={key}>
                 {t(label)}

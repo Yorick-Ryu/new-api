@@ -90,16 +90,14 @@ function renderPage(
     },
     ...overrides,
   })
-  client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
-    items: [],
-    total: 0,
-  })
   for (const kind of ['invitations', 'payments', 'entries', 'withdrawals']) {
     const items = records[kind] || []
-    client.setQueryData(['campus', 'records', false, kind, 1], {
-      items,
-      total: items.length,
-    })
+    for (const admin of [false, true]) {
+      client.setQueryData(['campus', 'records', admin, kind, 1], {
+        items,
+        total: items.length,
+      })
+    }
   }
   const root = createRootRoute({ component: () => page })
   const router = createRouter({
@@ -114,7 +112,11 @@ function renderPage(
 }
 
 test('administration places campaign status in its own first row inside settings and keeps the shared page gutters', async () => {
+  const user = userEvent.setup()
   renderPage(<CampusAdmin />)
+  await user.click(
+    await screen.findByRole('tab', { name: 'Campaign settings' })
+  )
   const panel = await screen.findByRole('tabpanel', {
     name: 'Campaign settings',
   })
@@ -184,15 +186,15 @@ test('partner page merges the introduction into the invitation card before benef
 test('partner records open on invitations and expose commission and withdrawal history through three tabs', async () => {
   const user = userEvent.setup()
   renderPage(<CampusPartner />)
-  const invitations = await screen.findByRole('tab', { name: 'Invitations' })
+  const invitations = await screen.findByRole('tab', { name: 'Invitations 0' })
   expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-    'Invitations',
+    'Invitations 0',
     'Commission ledger',
     'Withdrawals',
   ])
   expect(invitations).toHaveAttribute('aria-selected', 'true')
   expect(
-    within(screen.getByRole('tabpanel', { name: 'Invitations' })).getByText(
+    within(screen.getByRole('tabpanel', { name: 'Invitations 0' })).getByText(
       'No records yet'
     )
   ).toBeVisible()

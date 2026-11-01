@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -25,6 +26,49 @@ type CampusOverview struct {
 	Tiers         []cp.TierRule      `json:"tiers" gorm:"-"`
 	PlanRates     []cp.PlanRate      `json:"plan_rates" gorm:"-"`
 	PlanOptions   []CampusPlanOption `json:"plan_options" gorm:"-"`
+}
+
+type CampusInvitation struct {
+	UserID       int      `json:"user_id"`
+	BoundAt      int64    `json:"bound_at"`
+	MaskedName   string   `json:"masked_name"`
+	RegisteredAt int64    `json:"registered_at"`
+	Paid         cp.Money `json:"paid_cents"`
+	Commission   cp.Money `json:"commission_cents"`
+}
+
+func campusListInvitations(userID int, admin bool, page, size int) (any, int64, error) {
+	query := DB.Model(&CampusMember{}).Where("campus_members.inviter_id > 0")
+	totals := DB.Model(&CampusPayment{}).
+		Select("user_id, inviter_id, SUM(paid - refunded) AS paid, SUM(commission - reversed) AS commission").
+		Where("eligibility = ? AND settled_at > 0", string(cp.Eligible)).
+		Group("user_id, inviter_id")
+	if !admin {
+		query = query.Where("campus_members.inviter_id = ?", userID)
+		totals = totals.Where("inviter_id = ?", userID)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	rows := []CampusInvitation{}
+	err := query.Select("campus_members.user_id, campus_members.bound_at, COALESCE(NULLIF(users.display_name, ''), users.username, '') AS masked_name, COALESCE(users.created_at, 0) AS registered_at, COALESCE(totals.paid, 0) AS paid, COALESCE(totals.commission, 0) AS commission").
+		Joins("LEFT JOIN users ON users.id = campus_members.user_id AND users.deleted_at IS NULL").
+		Joins("LEFT JOIN (?) AS totals ON totals.user_id = campus_members.user_id AND totals.inviter_id = campus_members.inviter_id", totals).
+		Order("campus_members.bound_at desc, campus_members.user_id desc").
+		Offset((page - 1) * size).Limit(size).Scan(&rows).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	// Only the masked display name may leave this read-only history query.
+	for i := range rows {
+		name := []rune(strings.TrimSpace(rows[i].MaskedName))
+		rows[i].MaskedName = "***"
+		if len(name) > 0 {
+			rows[i].MaskedName = string(name[:1]) + "**"
+		}
+	}
+	return &rows, count, nil
 }
 
 func CampusGetOverview(userID int) (CampusOverview, error) {
@@ -129,15 +173,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	var rows any
 	switch kind {
 	case "invitations":
-		query = query.Model(&CampusMember{})
-		if !admin {
-			query = query.Where("inviter_id = ?", userID)
-		}
-		rows = &[]struct {
-			UserID  int   `json:"user_id"`
-			BoundAt int64 `json:"bound_at"`
-		}{}
-		query = query.Select("user_id,bound_at").Where("inviter_id > 0")
+		return campusListInvitations(userID, admin, page, size)
 	case "payments":
 		query = query.Model(&CampusPayment{})
 		if !admin {
@@ -168,11 +204,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
-	order := "id desc"
-	if kind == "invitations" {
-		order = "bound_at desc,user_id desc"
-	}
-	if err := query.Order(order).Offset((page - 1) * size).Limit(size).Find(rows).Error; err != nil {
+	if err := query.Order("id desc").Offset((page - 1) * size).Limit(size).Find(rows).Error; err != nil {
 		return nil, 0, err
 	}
 	if !admin && kind == "withdrawals" {

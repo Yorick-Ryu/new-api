@@ -441,6 +441,66 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Equal(t, 1, audit.ActorID)
 			assert.Contains(t, audit.Details, `"rate_bps":3325`)
 
+			t.Run("invitation history masks names and isolates net contributions with pagination", func(t *testing.T) {
+				for _, user := range []User{
+					{Id: 201, Username: "lin-private", DisplayName: "林小明", CreatedAt: 800},
+					{Id: 202, Username: "chen-private", CreatedAt: 900},
+					{Id: 203, Username: "other-partner", DisplayName: "Other", CreatedAt: 1000},
+					{Id: 204, Username: "deleted-friend", DisplayName: "Deleted", CreatedAt: 1100},
+				} {
+					user.AffCode = fmt.Sprintf("query-%d", user.Id)
+					require.NoError(t, db.Create(&user).Error)
+				}
+				require.NoError(t, db.Delete(&User{}, 204).Error)
+				require.NoError(t, db.Create(&[]CampusMember{
+					{UserID: 201, Code: "QRY201", InviterID: 101, BoundAt: 2000},
+					{UserID: 202, Code: "QRY202", InviterID: 101, BoundAt: 1000},
+					{UserID: 203, Code: "QRY203", InviterID: 102, BoundAt: 3000},
+					{UserID: 204, Code: "QRY204", InviterID: 101, BoundAt: 500},
+				}).Error)
+				require.NoError(t, db.Create(&[]CampusPayment{
+					{TradeNo: "query-topup", UserID: 201, InviterID: 101, Product: cp.TopUp, Eligibility: string(cp.Eligible), SettledAt: 2100, Paid: 10000, Refunded: 2000, Commission: 3000, Reversed: 600},
+					{TradeNo: "query-subscription", UserID: 201, InviterID: 101, Product: cp.Subscription, Eligibility: string(cp.Eligible), SettledAt: 2200, Paid: 5000, Commission: 500},
+					{TradeNo: "query-full-refund", UserID: 201, InviterID: 101, Eligibility: string(cp.Eligible), SettledAt: 2300, Paid: 1000, Refunded: 1000, Commission: 300, Reversed: 300},
+					{TradeNo: "query-pending", UserID: 201, InviterID: 101, Eligibility: string(cp.Eligible), Paid: 99999},
+					{TradeNo: "query-ineligible", UserID: 201, InviterID: 101, Eligibility: "ineligible", SettledAt: 2400, Paid: 50000},
+					{TradeNo: "query-other-inviter", UserID: 201, InviterID: 102, Eligibility: string(cp.Eligible), SettledAt: 2500, Paid: 20000, Commission: 6000},
+					{TradeNo: "query-other-friend", UserID: 203, InviterID: 102, Eligibility: string(cp.Eligible), SettledAt: 3100, Paid: 30000, Commission: 9000},
+				}).Error)
+
+				result, total, err := CampusList(101, false, "invitations", 1, 1)
+				require.NoError(t, err)
+				assert.EqualValues(t, 3, total)
+				rows := *result.(*[]CampusInvitation)
+				require.Len(t, rows, 1)
+				assert.Equal(t, CampusInvitation{UserID: 201, BoundAt: 2000, MaskedName: "林**", RegisteredAt: 800, Paid: 13000, Commission: 2900}, rows[0])
+				encoded, err := common.Marshal(result)
+				require.NoError(t, err)
+				assert.NotContains(t, string(encoded), "林小明")
+				assert.NotContains(t, string(encoded), "lin-private")
+
+				result, total, err = CampusList(101, false, "invitations", 2, 1)
+				require.NoError(t, err)
+				assert.EqualValues(t, 3, total)
+				rows = *result.(*[]CampusInvitation)
+				require.Len(t, rows, 1)
+				assert.Equal(t, CampusInvitation{UserID: 202, BoundAt: 1000, MaskedName: "c**", RegisteredAt: 900}, rows[0])
+
+				result, _, err = CampusList(101, false, "invitations", 3, 1)
+				require.NoError(t, err)
+				rows = *result.(*[]CampusInvitation)
+				require.Len(t, rows, 1)
+				assert.Equal(t, CampusInvitation{UserID: 204, BoundAt: 500, MaskedName: "***"}, rows[0])
+
+				result, total, err = CampusList(999, false, "invitations", 1, 10)
+				require.NoError(t, err)
+				assert.Zero(t, total)
+				assert.Empty(t, *result.(*[]CampusInvitation))
+				result, _, err = CampusList(0, true, "invitations", 1, 100)
+				require.NoError(t, err)
+				assert.Contains(t, *result.(*[]CampusInvitation), CampusInvitation{UserID: 203, BoundAt: 3000, MaskedName: "O**", RegisteredAt: 1000, Paid: 30000, Commission: 9000})
+			})
+
 		})
 	}
 }

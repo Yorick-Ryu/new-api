@@ -41,7 +41,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function renderConfiguration(enabled = false) {
+async function renderConfiguration(enabled = false, openSettings = true) {
   let config: CampaignConfig = {
     enabled,
 
@@ -115,20 +115,29 @@ function renderConfiguration(enabled = false) {
       <CampusAdmin />
     </QueryClientProvider>
   )
-  return { put, client, user: userEvent.setup() }
+  const user = userEvent.setup()
+  if (openSettings) {
+    await user.click(screen.getByRole('tab', { name: 'Campaign settings' }))
+  }
+  return { put, client, user }
 }
 
 test('top-level tabs separate settings from each record list and retain unsaved settings when returning', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration(false, false)
   expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-    'Campaign settings',
+    'Invitations',
+    'Commission ledger',
     'Withdrawals',
-    'Commission orders',
     'Refunds',
     'Audit trail',
-    'Invitations',
+    'Campaign settings',
   ])
+  expect(screen.getByRole('tab', { name: 'Invitations' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
   const settingsTab = screen.getByRole('tab', { name: 'Campaign settings' })
+  await user.click(settingsTab)
   expect(settingsTab).toHaveAttribute('aria-selected', 'true')
   const rate = screen.getByRole('textbox', { name: 'Tier 1 commission (%)' })
   await user.clear(rate)
@@ -136,7 +145,7 @@ test('top-level tabs separate settings from each record list and retain unsaved 
 
   for (const name of [
     'Withdrawals',
-    'Commission orders',
+    'Commission ledger',
     'Refunds',
     'Audit trail',
     'Invitations',
@@ -164,7 +173,7 @@ test('top-level tabs separate settings from each record list and retain unsaved 
 test.each([false, true])(
   'changing the campaign from enabled=%s saves immediately without a confirmation dialog',
   async (enabled) => {
-    const { user, put } = renderConfiguration(enabled)
+    const { user, put } = await renderConfiguration(enabled)
     await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     await waitFor(() =>
@@ -180,7 +189,7 @@ test.each([false, true])(
 )
 
 test('a failed activation keeps the previous switch state and allows retry without a dialog', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   put.mockRejectedValueOnce(new Error('offline'))
   const control = screen.getByRole('switch', { name: 'Enable campaign' })
   await user.click(control)
@@ -195,7 +204,7 @@ test('a failed activation keeps the previous switch state and allows retry witho
 })
 
 test('activation waits for the server and prevents repeated switch saves while pending', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   let resolve!: (response: AxiosResponse) => void
   put.mockImplementationOnce(
     () =>
@@ -222,7 +231,7 @@ test('activation waits for the server and prevents repeated switch saves while p
 })
 
 test('changing campaign status preserves unsaved tier edits until the tier save is clicked', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const upper = screen.getByRole('textbox', {
     name: 'Tier 1 upper bound (CNY)',
   })
@@ -253,7 +262,7 @@ test('changing campaign status preserves unsaved tier edits until the tier save 
 })
 
 test('administrators can edit, add and delete table rows and save decimal commission rates', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const table = within(
     screen.getByRole('table', { name: 'Top-up commission tiers' })
   )
@@ -308,7 +317,7 @@ test('administrators can edit, add and delete table rows and save decimal commis
 })
 
 test('editing either side of a shared range boundary updates the adjacent tier and saves one boundary', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const table = within(
     screen.getByRole('table', { name: 'Top-up commission tiers' })
   )
@@ -346,7 +355,7 @@ test('editing either side of a shared range boundary updates the adjacent tier a
 })
 
 test('invalid ranges and out-of-range percentages cannot be saved', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const upper = screen.getByRole('textbox', {
     name: 'Tier 1 upper bound (CNY)',
   })
@@ -372,7 +381,7 @@ test('invalid ranges and out-of-range percentages cannot be saved', async () => 
 })
 
 test('subscription rules use a plan dropdown and save independent percentages without changing tiers', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   await user.click(
     screen.getByRole('button', { name: 'Add subscription plan' })
   )
@@ -412,7 +421,7 @@ test('subscription rules use a plan dropdown and save independent percentages wi
 })
 
 test('a failed tier save retains the draft and lets the administrator retry', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const rate = screen.getByRole('textbox', { name: 'Tier 1 commission (%)' })
   await user.clear(rate)
   await user.type(rate, '25.50')
@@ -434,7 +443,7 @@ test('a failed tier save retains the draft and lets the administrator retry', as
 })
 
 test('removing every participating subscription saves an explicit empty list', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   await user.click(
     screen.getByRole('button', { name: 'Remove subscription plan 1' })
   )
@@ -453,7 +462,7 @@ test('removing every participating subscription saves an explicit empty list', a
 })
 
 test('tier names save trimmed text and remain editable after reloading settings', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   const name = screen.getByRole('textbox', { name: 'Tier 1 name' })
   expect(name).toHaveAttribute('placeholder', 'Apprentice partner')
   await user.type(name, '  校园新星  ')
@@ -475,7 +484,7 @@ test('tier names save trimmed text and remain editable after reloading settings'
 })
 
 test('tier names longer than 80 characters show a validation error and cannot save', async () => {
-  const { user, put } = renderConfiguration()
+  const { user, put } = await renderConfiguration()
   await user.type(
     screen.getByRole('textbox', { name: 'Tier 1 name' }),
     '星'.repeat(81)
