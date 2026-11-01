@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "確保字串有指定前綴",
     "Ensure the string has a specified suffix": "確保字串有指定後綴",
     "Enter 6-digit code": "輸入 6 位數字代碼",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "請輸入6位邀請碼，僅限大寫字母和數字。",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "只填寫網域，例如 example.com 或 localhost，不包含通訊協定、連接埠或路徑。含連接埠的完整位址請填入「允許使用通行密鑰的網站」。",
     "Enter a finite, non-negative price": "請輸入有限的非負價格",
     "Enter a finite, non-negative price.": "請輸入有限的非負價格。",

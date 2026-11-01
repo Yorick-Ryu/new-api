@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "文字列に指定のプレフィックスがあることを確認",
     "Ensure the string has a specified suffix": "文字列に指定のサフィックスがあることを確認",
     "Enter 6-digit code": "6桁のコードを入力",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "英大文字と数字（A–Z、0–9）で構成された6文字の招待コードを入力してください。",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "example.com や localhost などのドメインのみを入力し、プロトコル、ポート、パスは含めないでください。ポート付きのアドレスは「Passkey の利用を許可するサイト」に入力します。",
     "Enter a finite, non-negative price": "有限の非負の料金を入力してください",
     "Enter a finite, non-negative price.": "有限の非負の料金を入力してください。",

@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "Убедиться, что строка имеет указанный префикс",
     "Ensure the string has a specified suffix": "Убедиться, что строка имеет указанный суффикс",
     "Enter 6-digit code": "Введите 6-значный код",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "Введите код приглашения из 6 символов (A–Z, 0–9).",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "Укажите домен, например example.com или localhost, без протокола, порта и пути. Адреса с портами добавьте в «Сайты, разрешённые для Passkey».",
     "Enter a finite, non-negative price": "Введите конечную неотрицательную цену",
     "Enter a finite, non-negative price.": "Введите конечную неотрицательную цену.",

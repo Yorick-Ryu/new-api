@@ -2,9 +2,9 @@ package model
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -164,18 +164,49 @@ func campusLock(tx *gorm.DB) (*CampusCampaign, error) {
 	}
 	return &config, nil
 }
+
+const campusInvitationAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func validCampusInvitationCode(code string) bool {
+	if len(code) != 6 {
+		return false
+	}
+	for _, char := range code {
+		if !strings.ContainsRune(campusInvitationAlphabet, char) {
+			return false
+		}
+	}
+	return true
+}
+
 func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
 	var member CampusMember
 	err := lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return &member, err
 	}
-	var random [10]byte
-	if _, err := rand.Read(random[:]); err != nil {
-		return nil, err
+	// Callers hold the campaign lock, so checking before insertion also avoids
+	// aborting a PostgreSQL transaction when a short code is already allocated.
+	for range 10 {
+		var code [6]byte
+		for i := range code {
+			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(campusInvitationAlphabet))))
+			if err != nil {
+				return nil, err
+			}
+			code[i] = campusInvitationAlphabet[n.Int64()]
+		}
+		var count int64
+		if err := tx.Model(&CampusMember{}).Where("code = ?", string(code[:])).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			continue
+		}
+		member = CampusMember{UserID: userID, Code: string(code[:])}
+		return &member, tx.Create(&member).Error
 	}
-	member = CampusMember{UserID: userID, Code: "CP" + strings.ToUpper(hex.EncodeToString(random[:]))}
-	return &member, tx.Create(&member).Error
+	return nil, ErrCampusState
 }
 func campusEntry(tx *gorm.DB, userID int, paymentID, withdrawalID int64, kind string, amount cp.Money, actor int, reason string) error {
 	return tx.Create(&CampusEntry{UserID: userID, PaymentID: paymentID, WithdrawalID: withdrawalID, Kind: kind, Amount: amount, CreatedAt: time.Now().Unix(), ActorID: actor, Reason: reason}).Error
@@ -359,6 +390,10 @@ func CampusJoin(userID int) (*CampusMember, error) {
 	return result, err
 }
 func CampusValidateCode(code string) (string, error) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if !validCampusInvitationCode(code) {
+		return "", ErrCampusBinding
+	}
 	var inviter CampusMember
 	var config CampusCampaign
 	if err := DB.First(&config, 1).Error; err != nil {
@@ -366,9 +401,6 @@ func CampusValidateCode(code string) (string, error) {
 	}
 	if !config.Enabled {
 		return "", ErrCampusDisabled
-	}
-	if !strings.HasPrefix(code, "CP") || len(code) != 22 {
-		return "", ErrCampusBinding
 	}
 	if err := DB.Where("code = ? AND joined_at > 0", code).First(&inviter).Error; err != nil {
 		return "", ErrCampusBinding
@@ -390,6 +422,10 @@ func CampusBind(userID int, code string) error {
 // Used inside registration transactions as well as the authenticated late-bind
 // endpoint. All graph edges and first-success payment checks share this lock.
 func CampusBindTx(tx *gorm.DB, userID int, code string) error {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if !validCampusInvitationCode(code) {
+		return ErrCampusBinding
+	}
 	config, err := campusLock(tx)
 	if err != nil {
 		return err

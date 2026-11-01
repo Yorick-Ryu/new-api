@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "Ensure the string has a specified prefix",
     "Ensure the string has a specified suffix": "Ensure the string has a specified suffix",
     "Enter 6-digit code": "Enter 6-digit code",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "Enter a 6-character invitation code (A–Z, 0–9).",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.",
     "Enter a finite, non-negative price": "Enter a finite, non-negative price",
     "Enter a finite, non-negative price.": "Enter a finite, non-negative price.",

@@ -1173,6 +1173,17 @@ func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, inviter.Id, overview.Member.InviterID)
 	assert.Equal(t, "available", overview.Member.CouponState)
+	// The authenticated binding endpoint accepts the same six-character code.
+	bindRecorder := httptest.NewRecorder()
+	bindContext, _ := gin.CreateTestContext(bindRecorder)
+	bindContext.Set("id", created.Id)
+	bindContext.Request = httptest.NewRequest(http.MethodPost, "/api/campus/self/bind", strings.NewReader(fmt.Sprintf(`{"code":%q}`, member.Code)))
+	CampusBind(bindContext)
+	var bound struct {
+		Success bool `json:"success"`
+	}
+	require.NoError(t, common.Unmarshal(bindRecorder.Body.Bytes(), &bound))
+	assert.True(t, bound.Success)
 	existing, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", "invalid-new-invitation")
 	require.NoError(t, err)
 	assert.Equal(t, created.Id, existing.Id)

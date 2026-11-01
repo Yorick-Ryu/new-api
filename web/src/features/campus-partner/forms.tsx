@@ -85,17 +85,20 @@ export function CampusFields(props: {
 }
 export function InvitationField(props: { registration?: boolean }) {
   const { t } = useTranslation()
-  const [code, setCode] = useState(
-    () =>
+  const [code, setCode] = useState(() =>
+    (
       new URLSearchParams(window.location.search).get('campus') ||
       invitationCode()
+    )
+      .trim()
+      .toUpperCase()
   )
   const [confirm, setConfirm] = useState(false)
   const invitation = useQuery({
     queryKey: ['campus', 'invite', code],
     queryFn: () =>
       campusGet<{ inviter: string }>(`invite/${encodeURIComponent(code)}`),
-    enabled: code.length === 22,
+    enabled: /^[A-Z0-9]{6}$/.test(code),
     retry: false,
     meta: { errorToast: false },
   })
@@ -109,7 +112,7 @@ export function InvitationField(props: { registration?: boolean }) {
     'Get a personal 5% off top-up coupon when you bind an invitation.'
   )
   if (code) {
-    message = t('Enter the complete invitation code.')
+    message = t('Enter a 6-character invitation code (A–Z, 0–9).')
     if (invitation.isFetching) message = t('Checking invitation...')
     else if (invitation.isError) {
       message = t('Unable to validate this code. Correct it or try again.')
@@ -125,8 +128,11 @@ export function InvitationField(props: { registration?: boolean }) {
       <Input
         id='campus-invitation'
         value={code}
-        maxLength={22}
-        placeholder='CP…'
+        maxLength={6}
+        placeholder='K7MN2R'
+        autoCapitalize='characters'
+        autoComplete='off'
+        spellCheck={false}
         onChange={(event) => setCode(event.target.value.trim().toUpperCase())}
       />
       <p className='text-muted-foreground text-xs' aria-live='polite'>

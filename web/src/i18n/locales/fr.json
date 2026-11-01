@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "S'assurer que la chaîne a un préfixe spécifié",
     "Ensure the string has a specified suffix": "S'assurer que la chaîne a un suffixe spécifié",
     "Enter 6-digit code": "Saisir le code à 6 chiffres",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "Saisissez un code d’invitation de 6 caractères (A–Z, 0–9).",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "Saisissez un domaine comme example.com ou localhost, sans protocole, port ni chemin. Placez les adresses avec un port dans « Sites autorisés pour les Passkeys ».",
     "Enter a finite, non-negative price": "Saisissez un prix fini et positif ou nul",
     "Enter a finite, non-negative price.": "Saisissez un prix fini et non négatif.",

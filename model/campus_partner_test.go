@@ -1,8 +1,11 @@
 package model
 
 import (
+	"bytes"
+	"crypto/rand"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -84,11 +87,36 @@ func TestCampusDatabase(t *testing.T) {
 			prelaunch := SubscriptionOrder{UserId: 2, PlanId: 6, TradeNo: "pending-subscription", Money: 100, Status: common.TopUpStatusPending}
 			require.NoError(t, InsertCampusSubscription(&prelaunch, true, "CNY"))
 			require.NoError(t, CampusConfigure(true, 1))
-			first, err := CampusJoin(1)
-			require.NoError(t, err)
-			second, err := CampusJoin(2)
-			require.NoError(t, err)
-			require.NoError(t, CampusBind(2, first.Code))
+			var first, second *CampusMember
+			t.Run("six-character invitations retry collisions and validate the complete code", func(t *testing.T) {
+				originalReader := rand.Reader
+				rand.Reader = bytes.NewReader([]byte{
+					0, 1, 2, 26, 27, 28, // ABC012
+					0, 1, 2, 26, 27, 28, // Collides with the first member.
+					25, 35, 24, 34, 23, 33, // Z9Y8X7
+				})
+				t.Cleanup(func() { rand.Reader = originalReader })
+				first, err = CampusJoin(1)
+				require.NoError(t, err)
+				require.Equal(t, "ABC012", first.Code)
+				second, err = CampusJoin(2)
+				require.NoError(t, err)
+				assert.Equal(t, "Z9Y8X7", second.Code)
+				repeated, err := CampusJoin(1)
+				require.NoError(t, err)
+				assert.Equal(t, first.Code, repeated.Code)
+				name, err := CampusValidateCode(" abc012 ")
+				require.NoError(t, err)
+				assert.Equal(t, "C***", name)
+				for _, invalid := range []string{"ABCDE", "ABCDEFG", "ABC!12", "ＡBC012", "CP11111111111111111111"} {
+					_, err := CampusValidateCode(invalid)
+					assert.ErrorIs(t, err, ErrCampusBinding)
+					assert.ErrorIs(t, CampusBind(3, invalid), ErrCampusBinding)
+				}
+			})
+			require.NotNil(t, first)
+			require.NotNil(t, second)
+			require.NoError(t, CampusBind(2, strings.ToLower(first.Code)))
 			require.NoError(t, CampusBind(2, first.Code))
 			assert.ErrorIs(t, CampusBind(1, second.Code), ErrCampusBinding)
 			assert.ErrorIs(t, CampusBind(1, first.Code), ErrCampusBinding)

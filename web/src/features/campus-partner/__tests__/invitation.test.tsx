@@ -52,8 +52,8 @@ afterEach(() => {
 })
 
 test('changing a valid invitation never shows the previous inviter or enables binding while verification is pending', async () => {
-  const first = 'CP11111111111111111111'
-  const next = 'CP22222222222222222222'
+  const first = 'ABC012'
+  const next = 'Z9Y8X7'
   let resolveNext!: (value: AxiosResponse) => void
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (String(url).endsWith(first)) {
@@ -70,7 +70,9 @@ test('changing a valid invitation never shows the previous inviter or enables bi
   const code = screen.getByRole('textbox', {
     name: 'Campus invitation code (optional)',
   })
-  await user.type(code, first)
+  expect(code).toHaveAttribute('maxlength', '6')
+  await user.type(code, first.toLowerCase())
+  expect(code).toHaveValue(first)
   expect(await screen.findByText('Invited by Alice*')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Bind invitation' })).toBeEnabled()
   await user.clear(code)
@@ -93,12 +95,19 @@ test('changing a valid invitation never shows the previous inviter or enables bi
 })
 
 test('an invalid invitation shows a text error and cannot be bound', async () => {
-  vi.spyOn(api, 'get').mockResolvedValue({
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
     data: { success: false, message: 'Invalid invitation' },
   } as AxiosResponse)
   const user = userEvent.setup()
   renderInvitation()
-  await user.type(screen.getByRole('textbox'), 'CP33333333333333333333')
+  await user.type(screen.getByRole('textbox'), 'ABC!12')
+  expect(get).not.toHaveBeenCalled()
+  expect(
+    screen.getByText('Enter a 6-character invitation code (A–Z, 0–9).')
+  ).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Bind invitation' })).toBeDisabled()
+  await user.clear(screen.getByRole('textbox'))
+  await user.type(screen.getByRole('textbox'), 'BAD123')
   expect(
     await screen.findByText(
       'Unable to validate this code. Correct it or try again.'
@@ -108,8 +117,8 @@ test('an invalid invitation shows a text error and cannot be bound', async () =>
 })
 
 test('an invitation link survives an untouched registration form and clearing it removes the signup intent', async () => {
-  const code = 'CP44444444444444444444'
-  window.history.replaceState({}, '', `/?campus=${code}`)
+  const code = 'K7MN2R'
+  window.history.replaceState({}, '', `/?campus=${code.toLowerCase()}`)
   vi.spyOn(api, 'get').mockResolvedValue({
     data: { success: true, data: { inviter: 'Friend*' } },
   } as AxiosResponse)
@@ -176,7 +185,7 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       'Campus invitation code (optional)',
       'Get a personal 5% off top-up coupon when you bind an invitation.',
       'Checking invitation...',
-      'Enter the complete invitation code.',
+      'Enter a 6-character invitation code (A–Z, 0–9).',
       'Unable to validate this code. Correct it or try again.',
       'Bind invitation',
       'Confirm invitation',

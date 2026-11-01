@@ -64,7 +64,7 @@ func CampusBind(c *gin.Context) {
 	var req struct {
 		Code string `json:"code"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || len(req.Code) != 22 {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiError(c, model.ErrCampusBinding)
 		return
 	}

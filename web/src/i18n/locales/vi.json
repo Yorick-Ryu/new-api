@@ -2534,6 +2534,7 @@
     "Ensure the string has a specified prefix": "Đảm bảo chuỗi có tiền tố chỉ định",
     "Ensure the string has a specified suffix": "Đảm bảo chuỗi có hậu tố chỉ định",
     "Enter 6-digit code": "Nhập mã 6 chữ số",
+    "Enter a 6-character invitation code (A–Z, 0–9).": "Nhập mã mời gồm 6 ký tự (A–Z, 0–9).",
     "Enter a domain such as example.com or localhost, without a protocol, port or path. Put addresses with ports in Allowed Passkey websites.": "Chỉ nhập tên miền như example.com hoặc localhost, không kèm giao thức, cổng hay đường dẫn. Điền địa chỉ có cổng vào «Các trang được phép dùng Passkey».",
     "Enter a finite, non-negative price": "Nhập giá hữu hạn, không âm",
     "Enter a finite, non-negative price.": "Nhập mức giá hữu hạn, không âm.",
