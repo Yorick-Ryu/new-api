@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
 import { ArrowUpRight, Gift, GraduationCap, TicketPercent } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,7 +27,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -208,25 +206,6 @@ export function PartnerInvitation(props: {
                 )}
               </p>
             </div>
-          </div>
-          <div className='flex flex-wrap items-center justify-between gap-2'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='text-sm font-medium'>{t('My coupon')}</span>
-              <Badge variant='secondary'>
-                {props.data.member.coupon_state
-                  ? t(`Campus coupon ${props.data.member.coupon_state}`)
-                  : t('No campus coupon yet')}
-              </Badge>
-            </div>
-            <Button
-              variant='outline'
-              size='sm'
-              role='link'
-              render={<Link to='/wallet' />}
-            >
-              {t('Go to wallet')}
-              <ArrowUpRight />
-            </Button>
           </div>
         </TitledCard>
       </div>
