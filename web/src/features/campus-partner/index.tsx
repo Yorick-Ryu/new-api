@@ -88,7 +88,7 @@ export function CampusPartner() {
         </Badge>
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <div className='mx-auto max-w-6xl min-w-0 space-y-5 pb-8'>
+        <div className='flex w-full min-w-0 flex-col gap-4'>
           <section className='via-background relative overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50 to-teal-50 p-5 sm:p-8 dark:from-emerald-950/30 dark:to-teal-950/20'>
             <div className='mb-4 flex items-center gap-2 text-emerald-700 dark:text-emerald-300'>
               <GraduationCap className='size-5' />
@@ -138,7 +138,7 @@ export function CampusPartner() {
               )}
             </p>
           )}
-          <div className='grid gap-5 lg:grid-cols-2'>
+          <div className='grid items-start gap-4 lg:grid-cols-2'>
             <Card>
               <CardHeader>
                 <CardTitle>{t('Invite a friend')}</CardTitle>

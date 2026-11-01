@@ -72,8 +72,8 @@ export function CampusAdmin() {
         {t('Campus Partner administration')}
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
-        <div className='mx-auto max-w-6xl space-y-5 pb-8'>
-          <div className='grid gap-5 lg:grid-cols-2'>
+        <div className='flex w-full min-w-0 flex-col gap-4'>
+          <div className='grid items-start gap-4 lg:grid-cols-2'>
             <CampusConfiguration
               key={JSON.stringify(config.data)}
               config={config.data}
@@ -155,7 +155,7 @@ function CampusConfiguration(props: { config: Config }) {
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className='space-y-5'>
+      <CardContent className='flex flex-col gap-4'>
         <div className='flex items-center gap-3'>
           <Switch
             id='campus-enabled'
@@ -357,7 +357,7 @@ function CampusReconcileForm() {
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className='space-y-4'>
+      <CardContent className='flex flex-col gap-4'>
         <div className='flex flex-wrap gap-2'>
           <Button
             variant={result === 'paid' ? 'default' : 'outline'}
