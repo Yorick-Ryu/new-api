@@ -209,7 +209,7 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
                 {
                   title: t('Partners'),
                   url: '/campus-admin',
-                  icon: Gift,
+                  icon: GraduationCap,
                   requiredRole: ROLE.ADMIN,
                 },
               ]
