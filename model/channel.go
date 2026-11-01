@@ -559,7 +559,7 @@ func channelSupportsResponsesTransport(channelType int, settings dto.ChannelOthe
 	switch channelType {
 	case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex:
 		return true
-	case constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
+	case constant.ChannelTypeAzure, constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
 		return settings.ResponsesWebSocketEnabled != nil && *settings.ResponsesWebSocketEnabled
 	case constant.ChannelTypeAdvancedCustom:
 		if settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled || settings.AdvancedCustom == nil {

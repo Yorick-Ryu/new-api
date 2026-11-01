@@ -317,7 +317,13 @@ it('caps reporting choices at 30 days and switches the cohort using keyboard', a
   const get = vi.spyOn(api, 'get').mockImplementation(async (_url, config) => ({
     data: {
       success: true,
-      data: { ...fixture(), new_users: config?.params.days === 30 ? 30 : 7 },
+      data: {
+        ...fixture(),
+        new_users:
+          (config?.params as { days?: number } | undefined)?.days === 30
+            ? 30
+            : 7,
+      },
     },
   }))
   mount(ROLE.ADMIN)

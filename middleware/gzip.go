@@ -68,20 +68,26 @@ func DecompressRequestMiddleware() gin.HandlerFunc {
 			})
 			decompressed = true
 		case "zstd":
-			// OpenAI Codex CLI/Desktop default to zstd request-body compression
-			// (client feature `enable_request_compression`). Without this branch
-			// the raw zstd frame (magic 0x28 0xb5 0x2f 0xfd) is handed to the
-			// JSON parser and fails with `invalid character '('`.
-			zstdReader, err := zstd.NewReader(origBody, zstd.WithDecoderConcurrency(1))
+			// The frame header sets the decoder's window, and the decoder allocates
+			// it before any output exists, so the output limit below does not bound
+			// it. 8MiB is the window RFC 8878 asks encoders to stay within.
+			// In streaming mode MaxMemory also caps the window at the request limit.
+			// Disable async decoding to avoid reading the body before downstream
+			// middleware (including authentication) decides to consume it.
+			reader, err := zstd.NewReader(origBody,
+				zstd.WithDecoderMaxWindow(8<<20),
+				zstd.WithDecoderMaxMemory(uint64(maxBytes)),
+				zstd.WithDecoderConcurrency(1),
+			)
 			if err != nil {
 				_ = origBody.Close()
 				c.AbortWithStatus(http.StatusBadRequest)
 				return
 			}
 			c.Request.Body = wrapMaxBytes(&readCloser{
-				Reader: zstdReader,
+				Reader: reader,
 				closeFn: func() error {
-					zstdReader.Close()
+					reader.Close()
 					return origBody.Close()
 				},
 			})
