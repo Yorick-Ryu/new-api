@@ -68,7 +68,6 @@ export function CampusAdmin() {
     queryFn: () => campusGet<CampaignConfig>('admin/config'),
   })
   const [selected, setSelected] = useState<CampusRecord | null>(null)
-  const [activeTab, setActiveTab] = useState('settings')
   if (config.isPending) return <LoadingState />
   if (config.isError) {
     return <ErrorState onRetry={() => void config.refetch()} />
@@ -78,17 +77,8 @@ export function CampusAdmin() {
       <SectionPageLayout.Title>
         {t('Campus Partner administration')}
       </SectionPageLayout.Title>
-      <SectionPageLayout.Actions>
-        <div hidden={activeTab !== 'settings'}>
-          <CampusConfiguration config={config.data} />
-        </div>
-      </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className='w-full min-w-0 gap-4'
-        >
+        <Tabs defaultValue='settings' className='w-full min-w-0 gap-4'>
           <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
             {[
               ['settings', 'Campaign settings'],
@@ -105,6 +95,11 @@ export function CampusAdmin() {
           </TabsList>
           <TabsContent value='settings' keepMounted>
             <div className='flex w-full min-w-0 flex-col gap-4'>
+              <Card>
+                <CardContent>
+                  <CampusConfiguration config={config.data} />
+                </CardContent>
+              </Card>
               <CampusTierSettings
                 key={`tiers-${config.data.tier_revision}`}
                 config={config.data}

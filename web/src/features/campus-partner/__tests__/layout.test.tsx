@@ -104,7 +104,7 @@ function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
   )
 }
 
-test('administration places campaign status in the shared page header and keeps settings within page gutters', async () => {
+test('administration places campaign status in its own first row inside settings and keeps the shared page gutters', async () => {
   renderPage(<CampusAdmin />)
   const panel = await screen.findByRole('tabpanel', {
     name: 'Campaign settings',
@@ -116,8 +116,8 @@ test('administration places campaign status in the shared page header and keeps 
   const heading = screen.getByRole('heading', {
     name: 'Campus Partner administration',
   })
-  expect(heading.parentElement?.parentElement).toContainElement(control)
-  expect(panel).not.toContainElement(control)
+  expect(heading.parentElement?.parentElement).not.toContainElement(control)
+  expect(panel).toContainElement(control)
   expect(
     screen.getByRole('tablist').compareDocumentPosition(panel) &
       Node.DOCUMENT_POSITION_FOLLOWING
@@ -126,6 +126,7 @@ test('administration places campaign status in the shared page header and keeps 
     screen.queryByText('Reconcile a payment order')
   ).not.toBeInTheDocument()
   const content = settings?.parentElement
+  expect(content?.firstElementChild).toBe(control.closest('[data-slot="card"]'))
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
   expect(within(panel).queryByText('Campaign settings')).toBeNull()
