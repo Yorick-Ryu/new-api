@@ -68,6 +68,7 @@ export function CampusAdmin() {
     queryFn: () => campusGet<CampaignConfig>('admin/config'),
   })
   const [selected, setSelected] = useState<CampusRecord | null>(null)
+  const [activeTab, setActiveTab] = useState('settings')
   if (config.isPending) return <LoadingState />
   if (config.isError) {
     return <ErrorState onRetry={() => void config.refetch()} />
@@ -77,8 +78,17 @@ export function CampusAdmin() {
       <SectionPageLayout.Title>
         {t('Campus Partner administration')}
       </SectionPageLayout.Title>
+      <SectionPageLayout.Actions>
+        <div hidden={activeTab !== 'settings'}>
+          <CampusConfiguration config={config.data} />
+        </div>
+      </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <Tabs defaultValue='settings' className='w-full min-w-0 gap-4'>
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className='w-full min-w-0 gap-4'
+        >
           <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
             {[
               ['settings', 'Campaign settings'],
@@ -95,10 +105,6 @@ export function CampusAdmin() {
           </TabsList>
           <TabsContent value='settings' keepMounted>
             <div className='flex w-full min-w-0 flex-col gap-4'>
-              <div className='grid items-start gap-4 lg:grid-cols-2'>
-                <CampusConfiguration config={config.data} />
-                <CampusRefundForm />
-              </div>
               <CampusTierSettings
                 key={`tiers-${config.data.tier_revision}`}
                 config={config.data}
@@ -107,6 +113,7 @@ export function CampusAdmin() {
                 key={`plans-${config.data.plan_revision}`}
                 config={config.data}
               />
+              <CampusRefundForm />
             </div>
           </TabsContent>
           {['withdrawals', 'payments', 'refunds', 'entries', 'invitations'].map(
@@ -150,35 +157,27 @@ function CampusConfiguration(props: { config: Config }) {
     return requireServerSuccess(response.data)
   })
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('Campaign settings')}</CardTitle>
-        <CardDescription>
-          {t('Campaign status changes are saved automatically.')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className='flex flex-col gap-4'>
-        <SettingsSwitchField
-          controlId='campus-enabled'
-          label={t('Enable campaign')}
-          checked={props.config.enabled}
-          onCheckedChange={(enabled) =>
-            save.mutate(
-              {
-                enabled,
-              },
-              {
-                onSuccess: () =>
-                  toast.success(
-                    enabled ? t('Campaign enabled') : t('Campaign disabled')
-                  ),
-              }
-            )
+    <SettingsSwitchField
+      className='gap-3 py-0'
+      controlId='campus-enabled'
+      label={t('Enable campaign')}
+      description={t('Campaign status changes are saved automatically.')}
+      checked={props.config.enabled}
+      onCheckedChange={(enabled) =>
+        save.mutate(
+          {
+            enabled,
+          },
+          {
+            onSuccess: () =>
+              toast.success(
+                enabled ? t('Campaign enabled') : t('Campaign disabled')
+              ),
           }
-          disabled={save.isPending}
-        />
-      </CardContent>
-    </Card>
+        )
+      }
+      disabled={save.isPending}
+    />
   )
 }
 function CampusRefundForm() {

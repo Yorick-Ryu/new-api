@@ -214,7 +214,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                     <Button
                       className='mt-6 shrink-0'
                       type='button'
-                      variant='ghost'
+                      variant='destructive'
                       size='sm'
                       disabled={rows.fields.length === 1}
                       aria-label={t('Remove tier {{level}}', {
@@ -422,7 +422,7 @@ export function CampusPlanSettings(props: { config: CampaignConfig }) {
                   <Button
                     className='sm:mt-6'
                     type='button'
-                    variant='ghost'
+                    variant='destructive'
                     aria-label={t('Remove subscription plan {{number}}', {
                       number: index + 1,
                     })}

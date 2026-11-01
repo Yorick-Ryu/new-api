@@ -104,14 +104,20 @@ function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
   )
 }
 
-test('administration panels use the shared page gutters and natural panel heights on a responsive grid', async () => {
+test('administration places campaign status in the shared page header and keeps settings within page gutters', async () => {
   renderPage(<CampusAdmin />)
   const panel = await screen.findByRole('tabpanel', {
     name: 'Campaign settings',
   })
   const settings = within(panel)
-    .getByText('Campaign settings')
+    .getByText('Top-up commission tiers')
     .closest('[data-slot="card"]')
+  const control = screen.getByRole('switch', { name: 'Enable campaign' })
+  const heading = screen.getByRole('heading', {
+    name: 'Campus Partner administration',
+  })
+  expect(heading.parentElement?.parentElement).toContainElement(control)
+  expect(panel).not.toContainElement(control)
   expect(
     screen.getByRole('tablist').compareDocumentPosition(panel) &
       Node.DOCUMENT_POSITION_FOLLOWING
@@ -119,14 +125,10 @@ test('administration panels use the shared page gutters and natural panel height
   expect(
     screen.queryByText('Reconcile a payment order')
   ).not.toBeInTheDocument()
-  const grid = settings?.parentElement
-  const content = grid?.parentElement
+  const content = settings?.parentElement
   expect(content).toHaveClass('w-full', 'min-w-0', 'gap-4')
   expect(content).not.toHaveClass('mx-auto', 'max-w-6xl', 'pb-8')
-  expect(grid).toHaveClass('grid', 'items-start', 'gap-4', 'lg:grid-cols-2')
-  expect(settings?.querySelector('[data-slot="card-content"]')).toHaveClass(
-    'gap-4'
-  )
+  expect(within(panel).queryByText('Campaign settings')).toBeNull()
 })
 
 test('partner content aligns with the shared page gutters without an extra centered width constraint', async () => {
