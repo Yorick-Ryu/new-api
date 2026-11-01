@@ -70,6 +70,8 @@ function sidebarFor(admin?: object, user?: object, canConfigure = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  client.setQueryDefaults(['campus'], { staleTime: Infinity })
+  client.setQueryData(['campus', 'overview'], { enabled: false })
   client.setQueryData(['status'], {
     SidebarModulesAdmin: admin ? JSON.stringify(admin) : '',
   })

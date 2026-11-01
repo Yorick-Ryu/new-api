@@ -557,25 +557,8 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 
-/* Micro-interactions — Vercel-style subtle hover/active feedback */
+/* Cards stay stationary; pressed controls retain their active feedback. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-slot='card']:not([data-card-hover='false']) {
-    transition:
-      transform 150ms ease,
-      box-shadow 150ms ease;
-  }
-
-  @media (min-width: 641px) {
-    [data-slot='card']:not([data-card-hover='false']):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.06);
-    }
-
-    .dark [data-slot='card']:not([data-card-hover='false']):hover {
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
-    }
-  }
-
   button:not(:disabled):active,
   [role='button']:not(:disabled):active {
     transform: scale(0.98);

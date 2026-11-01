@@ -81,6 +81,7 @@ function mount(role: number, path = '/business', sidebarConfig = '') {
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   })
   clients.push(client)
+  client.setQueryData(['campus', 'overview'], { enabled: false })
   client.setQueryData(['status'], { SidebarModulesAdmin: sidebarConfig })
   const get = vi
     .spyOn(api, 'get')

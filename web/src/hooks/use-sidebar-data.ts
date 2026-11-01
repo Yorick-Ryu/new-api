@@ -45,7 +45,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import type { SidebarBadges, SidebarData } from '@/components/layout/types'
-import { campusSite } from '@/features/campus-partner/api'
+import { campusSite, useCampus } from '@/features/campus-partner/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -58,6 +58,7 @@ import { useAuthStore } from '@/stores/auth-store'
 export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
   const { t } = useTranslation()
   const role = useAuthStore((state) => state.auth.user?.role)
+  const campus = useCampus()
 
   return {
     navGroups: [
@@ -75,7 +76,7 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             url: '/image-studio',
             icon: ImagePlus,
           },
-          ...(campusSite()
+          ...(campusSite() && campus.isSuccess && campus.data.enabled
             ? [
                 {
                   title: t('Campus Partner'),

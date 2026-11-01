@@ -56,6 +56,8 @@ function Navigation() {
 function renderNavigation(admin = '', personal = '') {
   const client = new QueryClient()
   clients.push(client)
+  client.setQueryDefaults(['campus'], { staleTime: Infinity })
+  client.setQueryData(['campus', 'overview'], { enabled: false })
   client.setQueryData(['status'], { SidebarModulesAdmin: admin })
   useAuthStore.getState().auth.setUser({
     id: 1,

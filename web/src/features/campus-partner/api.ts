@@ -69,6 +69,9 @@ export function useCampus() {
     queryKey: ['campus', 'overview'],
     queryFn: () => campusGet<Overview>('self'),
     enabled: campusSite(),
+    refetchOnWindowFocus: true,
+    // Navigation hides an unavailable campaign; the page has its own retry UI.
+    meta: { errorToast: false, errorRedirect: false },
   })
 }
 export function useCampusAction<T = void>(
