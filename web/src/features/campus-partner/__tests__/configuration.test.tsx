@@ -256,10 +256,18 @@ test('subscription rules use a plan dropdown and save independent percentages wi
   await user.click(
     screen.getByRole('button', { name: 'Add subscription plan' })
   )
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Subscription plan 2' }),
-    '2'
+  const planSelect = screen.getByRole('combobox', {
+    name: 'Subscription plan 2',
+  })
+  await user.click(planSelect)
+  expect(planSelect).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('option', { name: 'Plus · #1' })).toHaveAttribute(
+    'aria-disabled',
+    'true'
   )
+  await user.click(screen.getByRole('option', { name: 'Ultra · #2' }))
+  expect(planSelect).toHaveTextContent('Ultra · #2')
+  expect(planSelect).toHaveAttribute('aria-expanded', 'false')
   const rate = screen.getByRole('textbox', {
     name: 'Subscription commission 2 (%)',
   })

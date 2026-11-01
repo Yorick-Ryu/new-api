@@ -39,7 +39,14 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -291,6 +298,10 @@ export function CampusPlanSettings(props: { config: CampaignConfig }) {
   })
   const rows = useFieldArray({ control: form.control, name: 'plans' })
   const values = useWatch({ control: form.control, name: 'plans' })
+  const planOptions = props.config.plan_options.map((plan) => ({
+    value: String(plan.id),
+    label: `${plan.title} · #${plan.id}${!plan.enabled ? ` · ${t('Disabled')}` : ''}`,
+  }))
   const save = useCampusAction(async (plans: CampaignConfig['plan_rates']) => {
     const response = await api.put('/api/campus/admin/plan-rates', {
       plan_rates: plans,
@@ -348,27 +359,42 @@ export function CampusPlanSettings(props: { config: CampaignConfig }) {
                             number: index + 1,
                           })}
                         </FormLabel>
-                        <FormControl>
-                          <NativeSelect {...field} className='w-full'>
-                            <NativeSelectOption value=''>
-                              {t('Select a subscription plan')}
-                            </NativeSelectOption>
-                            {props.config.plan_options.map((plan) => (
-                              <NativeSelectOption
-                                key={plan.id}
-                                value={String(plan.id)}
-                                disabled={values.some(
-                                  (row, rowIndex) =>
-                                    rowIndex !== index &&
-                                    row.plan === String(plan.id)
-                                )}
-                              >
-                                {plan.title} · #{plan.id}
-                                {!plan.enabled ? ` · ${t('Disabled')}` : ''}
-                              </NativeSelectOption>
-                            ))}
-                          </NativeSelect>
-                        </FormControl>
+                        <Select
+                          items={planOptions}
+                          name={field.name}
+                          value={field.value || null}
+                          onValueChange={field.onChange}
+                          disabled={save.isPending}
+                        >
+                          <FormControl>
+                            <SelectTrigger
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              className='w-full'
+                            >
+                              <SelectValue
+                                placeholder={t('Select a subscription plan')}
+                              />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent alignItemWithTrigger={false}>
+                            <SelectGroup>
+                              {planOptions.map((plan) => (
+                                <SelectItem
+                                  key={plan.value}
+                                  value={plan.value}
+                                  disabled={values.some(
+                                    (row, rowIndex) =>
+                                      rowIndex !== index &&
+                                      row.plan === plan.value
+                                  )}
+                                >
+                                  {plan.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
