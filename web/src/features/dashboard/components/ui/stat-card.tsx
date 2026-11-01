@@ -41,7 +41,7 @@ export interface StatCardDetail {
 interface StatCardProps {
   title: string
   value: string | number
-  description: string
+  description?: string
   icon: LucideIcon
   sparkline?: number[]
   sparklineVariant?: StatCardSparklineVariant
@@ -261,14 +261,16 @@ export function StatCard(props: StatCardProps) {
         <div className='text-muted-foreground mt-0.5 font-mono text-base font-bold tracking-tight break-all tabular-nums sm:text-2xl'>
           --
         </div>
-        <p
-          className={cn(
-            'text-muted-foreground/60 line-clamp-1 text-[11px] sm:text-xs',
-            props.compactMobile && 'hidden sm:block'
-          )}
-        >
-          {props.description}
-        </p>
+        {props.description && (
+          <p
+            className={cn(
+              'text-muted-foreground/60 line-clamp-1 text-[11px] sm:text-xs',
+              props.compactMobile && 'hidden sm:block'
+            )}
+          >
+            {props.description}
+          </p>
+        )}
       </div>
     )
   } else {
@@ -277,14 +279,16 @@ export function StatCard(props: StatCardProps) {
         <div className='text-foreground font-mono text-base font-semibold tracking-tight break-all tabular-nums sm:text-2xl'>
           {props.value}
         </div>
-        <p
-          className={cn(
-            'text-muted-foreground/60 line-clamp-1 text-[11px] leading-relaxed sm:text-xs',
-            props.compactMobile && 'hidden sm:block'
-          )}
-        >
-          {props.description}
-        </p>
+        {props.description && (
+          <p
+            className={cn(
+              'text-muted-foreground/60 line-clamp-1 text-[11px] leading-relaxed sm:text-xs',
+              props.compactMobile && 'hidden sm:block'
+            )}
+          >
+            {props.description}
+          </p>
+        )}
       </div>
     )
   }

@@ -50,17 +50,6 @@ export function PartnerSummary(props: {
             <StatCard
               title={t('Available commission')}
               value={cash(props.data.available_cents, locale)}
-              description={
-                props.data.available_cents < 10000
-                  ? `${t('Withdrawal minimum: {{amount}}', {
-                      amount: cash(10000, locale),
-                    })} · ${t('{{amount}} remaining', {
-                      amount: cash(10000 - props.data.available_cents, locale),
-                    })}`
-                  : t('Withdrawal minimum: {{amount}}', {
-                      amount: cash(10000, locale),
-                    })
-              }
               icon={Wallet}
               iconTone='primary'
             />
@@ -71,6 +60,17 @@ export function PartnerSummary(props: {
               )}
               aria-label={t('Available commission')}
             />
+            <p className='text-muted-foreground text-xs leading-relaxed'>
+              {props.data.available_cents < 10000
+                ? `${t('Withdrawal minimum: {{amount}}', {
+                    amount: cash(10000, locale),
+                  })} · ${t('{{amount}} remaining', {
+                    amount: cash(10000 - props.data.available_cents, locale),
+                  })}`
+                : t('Withdrawal minimum: {{amount}}', {
+                    amount: cash(10000, locale),
+                  })}
+            </p>
             <Button
               disabled={props.data.available_cents < 10000}
               onClick={props.onWithdraw}
@@ -83,7 +83,7 @@ export function PartnerSummary(props: {
         <Card>
           <CardContent>
             <StatCard
-              title={t('Net lifetime commission')}
+              title={t('Lifetime commission')}
               value={cash(props.data.net_cents, locale)}
               description={t('Commission ledger')}
               icon={CircleDollarSign}
@@ -95,11 +95,11 @@ export function PartnerSummary(props: {
                   value: cash(props.data.paid_cents, locale),
                 },
                 {
-                  label: t('Settlement freeze'),
+                  label: t('Settling'),
                   value: cash(props.data.frozen_cents, locale),
                 },
                 {
-                  label: t('Payout processing'),
+                  label: t('Withdrawing'),
                   value: cash(props.data.processing_cents, locale),
                 },
               ]}
