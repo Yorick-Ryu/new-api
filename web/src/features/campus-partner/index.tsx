@@ -25,6 +25,12 @@ import { Dialog } from '@/components/dialog'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -96,12 +102,9 @@ export function CampusPartner(): ReactElement {
           <PartnerSummary data={data} onWithdraw={() => setWithdraw(true)} />
           <PartnerTiers data={data} />
           <Card className='py-0'>
-            <Tabs defaultValue='payments'>
+            <Tabs defaultValue='invitations'>
               <div className='border-b p-3 sm:px-5'>
                 <TabsList className='flex h-auto flex-wrap'>
-                  <TabsTrigger value='payments'>
-                    {t('Commission orders')}
-                  </TabsTrigger>
                   <TabsTrigger value='invitations'>
                     {t('Invitations')}
                   </TabsTrigger>
@@ -114,13 +117,25 @@ export function CampusPartner(): ReactElement {
                 </TabsList>
               </div>
               <CardContent className='p-3 sm:p-5'>
-                {['payments', 'invitations', 'entries', 'withdrawals'].map(
-                  (kind) => (
-                    <TabsContent key={kind} value={kind}>
-                      <CampusRecords kind={kind} />
-                    </TabsContent>
-                  )
-                )}
+                <TabsContent value='invitations'>
+                  <CampusRecords kind='invitations' />
+                </TabsContent>
+                <TabsContent value='entries' className='space-y-4'>
+                  <CampusRecords kind='payments' />
+                  <Accordion>
+                    <AccordionItem value='balance-changes'>
+                      <AccordionTrigger>
+                        {t('Balance changes')}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <CampusRecords kind='entries' />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </TabsContent>
+                <TabsContent value='withdrawals'>
+                  <CampusRecords kind='withdrawals' />
+                </TabsContent>
               </CardContent>
             </Tabs>
           </Card>

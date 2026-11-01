@@ -31,6 +31,7 @@ import { afterEach, expect, test } from 'vitest'
 import { CampusPartner } from '..'
 import { CampusAdmin } from '../admin'
 import type { Overview } from '../api'
+import type { CampusRecord } from '../records'
 
 const clients: QueryClient[] = []
 afterEach(() => {
@@ -38,7 +39,11 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
 })
 
-function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
+function renderPage(
+  page: ReactNode,
+  overrides: Partial<Overview> = {},
+  records: Partial<Record<string, CampusRecord[]>> = {}
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   })
@@ -89,10 +94,13 @@ function renderPage(page: ReactNode, overrides: Partial<Overview> = {}) {
     items: [],
     total: 0,
   })
-  client.setQueryData(['campus', 'records', false, 'payments', 1], {
-    items: [],
-    total: 0,
-  })
+  for (const kind of ['invitations', 'payments', 'entries', 'withdrawals']) {
+    const items = records[kind] || []
+    client.setQueryData(['campus', 'records', false, kind, 1], {
+      items,
+      total: items.length,
+    })
+  }
   const root = createRootRoute({ component: () => page })
   const router = createRouter({
     routeTree: root,
@@ -171,6 +179,99 @@ test('partner page merges the introduction into the invitation card before benef
   )
   expect(intro.closest('[data-slot="card"]')).toContainElement(invitation)
   expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
+})
+
+test('partner records open on invitations and expose commission and withdrawal history through three tabs', async () => {
+  const user = userEvent.setup()
+  renderPage(<CampusPartner />)
+  const invitations = await screen.findByRole('tab', { name: 'Invitations' })
+  expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+    'Invitations',
+    'Commission ledger',
+    'Withdrawals',
+  ])
+  expect(invitations).toHaveAttribute('aria-selected', 'true')
+  expect(
+    within(screen.getByRole('tabpanel', { name: 'Invitations' })).getByText(
+      'No records yet'
+    )
+  ).toBeVisible()
+
+  await user.click(invitations)
+  await user.keyboard('{ArrowRight}{Enter}')
+  expect(
+    screen.getByRole('tab', { name: 'Commission ledger' })
+  ).toHaveAttribute('aria-selected', 'true')
+  const commission = screen.getByRole('tabpanel', { name: 'Commission ledger' })
+  expect(within(commission).getByText('No records yet')).toBeVisible()
+  expect(
+    within(commission).getByRole('button', { name: 'Balance changes' })
+  ).toHaveAttribute('aria-expanded', 'false')
+
+  await user.click(screen.getByRole('tab', { name: 'Withdrawals' }))
+  expect(
+    within(screen.getByRole('tabpanel', { name: 'Withdrawals' })).getByText(
+      'No records yet'
+    )
+  ).toBeVisible()
+})
+
+test('commission history retains order calculations and lets users expand related balance changes', async () => {
+  const user = userEvent.setup()
+  renderPage(
+    <CampusPartner />,
+    {},
+    {
+      payments: [
+        {
+          id: 81,
+          user_id: 2,
+          trade_no: 'TOPUP-81',
+          paid_cents: 10000,
+          commission_cents: 3000,
+          reversed_cents: 500,
+          frozen_cents: 2000,
+          available_cents: 500,
+          segments: '[{"base_cents":10000,"rate_percent":30}]',
+        },
+      ],
+      entries: [
+        {
+          id: 91,
+          user_id: 1,
+          payment_id: 81,
+          amount_cents: -500,
+          reference: 'REFUND-81',
+        },
+      ],
+    }
+  )
+  await user.click(
+    await screen.findByRole('tab', { name: 'Commission ledger' })
+  )
+  const panel = screen.getByRole('tabpanel', { name: 'Commission ledger' })
+  expect(within(panel).getByText('TOPUP-81')).toBeVisible()
+  expect(within(panel).getByText(/Commission:.*25\.00/)).toBeVisible()
+  expect(
+    within(panel).getByText(/Settlement freeze:.*20\.00.*Available:.*5\.00/)
+  ).toBeVisible()
+  await user.click(within(panel).getByText('Commission calculation'))
+  expect(within(panel).getByText(/100\.00 × 30%/)).toBeVisible()
+
+  const balance = within(panel).getByRole('button', { name: 'Balance changes' })
+  expect(balance).toHaveAttribute('aria-expanded', 'false')
+  expect(
+    within(panel).queryByText('Refund reference: REFUND-81')
+  ).not.toBeInTheDocument()
+  await user.click(balance)
+  expect(balance).toHaveAttribute('aria-expanded', 'true')
+  expect(
+    await within(panel).findByText('Refund reference: REFUND-81')
+  ).toBeVisible()
+  expect(within(panel).getByText('Commission order #81')).toBeVisible()
+  expect(within(panel).getByText('TOPUP-81')).toBeVisible()
+  await user.keyboard('{Enter}')
+  expect(balance).toHaveAttribute('aria-expanded', 'false')
 })
 
 test('partner rewards reflect configured tiers and subscription percentages', async () => {

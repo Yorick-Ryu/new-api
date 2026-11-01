@@ -43,7 +43,7 @@ export function PartnerRules(): ReactElement {
     {
       title: t('Cross-level commission calculation'),
       description: t(
-        'When one top-up crosses a level boundary, the amounts below and above the boundary use their respective rates, then the commissions are added together. The highest rate does not apply to the entire payment. View the breakdown in commission orders.'
+        'When one top-up crosses a level boundary, the amounts below and above the boundary use their respective rates, then the commissions are added together. The highest rate does not apply to the entire payment. View the breakdown in the commission ledger.'
       ),
     },
     {
