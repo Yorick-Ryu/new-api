@@ -40,6 +40,7 @@ import { Label } from '@/components/ui/label'
 import { TitledCard } from '@/components/ui/titled-card'
 
 import type { Overview } from './api'
+import { campusCardTypography } from './constants'
 import { InvitationField } from './forms'
 
 export function PartnerInvitation(props: {
@@ -88,14 +89,14 @@ export function PartnerInvitation(props: {
                   </IconBadge>
                   <h2
                     id='campus-intro-title'
-                    className='text-lg font-semibold tracking-tight sm:text-xl'
+                    className={campusCardTypography.title}
                   >
                     {t(
                       'Invite friends to register and earn commission on every top-up.'
                     )}
                   </h2>
                 </div>
-                <p className='text-muted-foreground text-sm leading-6'>
+                <p className={campusCardTypography.body}>
                   {t(
                     'Friends can register through your exclusive link or enter your invitation code during registration to bind with you. Earn commission on each qualifying top-up or subscription payment under the current rules.'
                   )}
@@ -128,10 +129,10 @@ export function PartnerInvitation(props: {
                 <div className='grid min-w-0 gap-4 sm:grid-cols-2 sm:items-center'>
                   <div className='border-primary/40 bg-primary/5 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
                     <div className='min-w-0 space-y-1'>
-                      <p className='text-muted-foreground text-xs'>
+                      <p className={campusCardTypography.caption}>
                         {t('Exclusive campus partner invitation code')}
                       </p>
-                      <code className='text-primary font-mono text-2xl font-semibold tracking-widest break-all'>
+                      <code className='text-primary font-mono text-2xl font-bold tracking-widest break-all'>
                         {props.data.member.code}
                       </code>
                     </div>
@@ -175,6 +176,7 @@ export function PartnerInvitation(props: {
         </Card>
         <TitledCard
           title={<h3>{t('Exclusive friend benefits')}</h3>}
+          titleClassName={campusCardTypography.title}
           icon={<Gift />}
           iconTone='primary'
           className='bg-primary/5 ring-primary/20 min-w-0'
@@ -191,10 +193,10 @@ export function PartnerInvitation(props: {
               </span>
             </div>
             <div className='min-w-0 space-y-1.5 p-3 sm:p-4'>
-              <p className='text-base font-semibold'>
+              <p className={campusCardTypography.subtitle}>
                 {t('New user top-up coupon')}
               </p>
-              <p className='text-muted-foreground text-xs leading-5 sm:text-sm sm:leading-6'>
+              <p className={campusCardTypography.body}>
                 {t(
                   "Sign up with your invitation link or code and it is issued to your friend's account automatically"
                 )}

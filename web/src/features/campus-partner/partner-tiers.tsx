@@ -30,7 +30,7 @@ import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { cash, type Overview } from './api'
-import { campusTierNameKeys } from './constants'
+import { campusCardTypography, campusTierNameKeys } from './constants'
 
 export function PartnerTiers(props: { data: Overview }): ReactElement {
   const { t, i18n } = useTranslation()
@@ -59,6 +59,8 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
     <section aria-label={t('Top-up commission levels')}>
       <TitledCard
         title={<h3>{t('Top-up commission levels')}</h3>}
+        titleClassName={campusCardTypography.title}
+        descriptionClassName={campusCardTypography.body}
         description={t(
           'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
         )}
@@ -124,7 +126,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                     )}
                   >
                     <CardHeader className='flex flex-wrap items-center justify-between gap-2'>
-                      <span className='text-sm font-medium'>
+                      <span className={campusCardTypography.subtitle}>
                         {t('Lv.{{level}}', { level: index + 1 })}
                       </span>
                       {active && <Badge>{t('Current')}</Badge>}
@@ -135,13 +137,18 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                     <CardContent className='space-y-2'>
                       <p
                         className={cn(
-                          'font-mono text-2xl font-semibold tabular-nums',
+                          campusCardTypography.metric,
                           active && 'text-primary'
                         )}
                       >
                         {formatNumber(rule.rate_bps / 100, locale)}%
                       </p>
-                      <p className='text-sm font-medium [overflow-wrap:anywhere] break-words'>
+                      <p
+                        className={cn(
+                          campusCardTypography.subtitle,
+                          '[overflow-wrap:anywhere] break-words'
+                        )}
+                      >
                         {rule.name ||
                           t(campusTierNameKeys[index] || 'Lv.{{level}}', {
                             level: index + 1,
@@ -164,7 +171,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         )}
         {props.data.plan_rates.length > 0 && (
           <div className='space-y-3'>
-            <h4 className='text-sm font-medium'>
+            <h4 className={campusCardTypography.subtitle}>
               {t('Subscription commission rates')}
             </h4>
             <div className='grid gap-3 sm:grid-cols-2'>
@@ -175,12 +182,12 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   className='bg-primary/5 ring-primary/20'
                 >
                   <CardContent className='flex min-w-0 flex-wrap items-center justify-between gap-3'>
-                    <span className='min-w-0 text-sm font-medium break-words'>
+                    <span className='min-w-0 text-sm font-semibold break-words'>
                       {props.data.plan_options.find(
                         (option) => option.id === plan.plan_id
                       )?.title || `#${plan.plan_id}`}
                     </span>
-                    <span className='text-primary font-mono text-xl font-semibold tabular-nums'>
+                    <span className='text-primary font-mono text-xl font-bold tabular-nums'>
                       {formatNumber(plan.rate_bps / 100, locale)}%
                     </span>
                   </CardContent>

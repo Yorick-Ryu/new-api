@@ -25,6 +25,8 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { TitledCard } from '@/components/ui/titled-card'
 import { cn } from '@/lib/utils'
 
+import { campusCardTypography } from './constants'
+
 export function PartnerRules(): ReactElement {
   const { t } = useTranslation()
   const rules = [
@@ -85,6 +87,7 @@ export function PartnerRules(): ReactElement {
     <section id='campus-rules' className='scroll-mt-4'>
       <TitledCard
         title={<h3>{t('Rules')}</h3>}
+        titleClassName={campusCardTypography.title}
         icon={<BookOpen />}
         className='bg-muted/30'
         contentClassName='grid gap-3 md:grid-cols-2 xl:grid-cols-6'
@@ -107,10 +110,8 @@ export function PartnerRules(): ReactElement {
                 {String(index + 1).padStart(2, '0')}
               </IconBadge>
               <div className='min-w-0 space-y-1'>
-                <h4 className='text-sm font-medium'>{rule.title}</h4>
-                <p className='text-muted-foreground text-xs leading-6 sm:text-sm'>
-                  {rule.description}
-                </p>
+                <h4 className={campusCardTypography.subtitle}>{rule.title}</h4>
+                <p className={campusCardTypography.body}>{rule.description}</p>
               </div>
             </CardContent>
           </Card>
