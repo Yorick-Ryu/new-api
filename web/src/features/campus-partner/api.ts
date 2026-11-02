@@ -123,11 +123,16 @@ export function cash(cents: number, locale?: string) {
     currency: 'CNY',
   }).format(cents / 100)
 }
-export function beijingDate(seconds: number, locale?: string) {
+export function beijingDate(
+  seconds: number,
+  locale?: string,
+  showSeconds = false
+) {
   if (!seconds) return '—'
   return new Intl.DateTimeFormat(locale, {
     timeZone: 'Asia/Shanghai',
     dateStyle: 'medium',
-    timeStyle: 'short',
+    timeStyle: showSeconds ? 'medium' : 'short',
+    hourCycle: showSeconds ? 'h23' : undefined,
   }).format(new Date(seconds * 1000))
 }

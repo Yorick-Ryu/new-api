@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 import { beijingDate, cash } from './api'
+import { CampusFriend } from './friend-cell'
 import type { CampusRecord } from './records'
 
 export function commissionStatus(row: CampusRecord): string {
@@ -49,17 +50,19 @@ export function commissionColumns(
   return [
     {
       id: 'time',
-      header: t('Time (Beijing)'),
-      cell: (row) => beijingDate(row.settled_at || 0, locale),
+      header: t('Time'),
+      cell: (row) => beijingDate(row.settled_at || 0, locale, true),
     },
     {
       id: 'friend',
       header: t('Friend'),
-      cell: (row) => row.masked_name || '***',
+      cell: (row) => (
+        <CampusFriend userId={row.user_id} name={row.masked_name} />
+      ),
     },
     {
       id: 'order',
-      header: t('Masked order number'),
+      header: t('Order number'),
       cell: (row) => row.trade_no || '—',
     },
     {

@@ -28,16 +28,15 @@ import {
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
-import { getUserAvatarStyle } from '@/lib/avatar'
 
 import { beijingDate, campusGet, cash } from './api'
 import { commissionColumns } from './commission-columns'
 import { CommissionDetails } from './commission-records'
 import { campusWithdrawalStateLabels } from './constants'
+import { CampusFriend } from './friend-cell'
 
 export type CampusRecord = {
   id: number
@@ -98,28 +97,13 @@ export function CampusRecords(props: {
           {
             id: 'friend',
             header: t('Friend'),
-            cell: (row) => {
-              const name = row.masked_name || '***'
-              return (
-                <div className='flex items-center gap-3'>
-                  <Avatar aria-hidden='true'>
-                    <AvatarFallback
-                      style={getUserAvatarStyle(String(row.user_id))}
-                    >
-                      {[...name][0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='min-w-0'>
-                    <p className='font-medium'>{name}</p>
-                    {props.admin && (
-                      <p className='text-muted-foreground text-xs'>
-                        #{row.user_id}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )
-            },
+            cell: (row) => (
+              <CampusFriend
+                userId={row.user_id}
+                name={row.masked_name}
+                admin={props.admin}
+              />
+            ),
           },
           {
             id: 'registered',

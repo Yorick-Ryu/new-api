@@ -35,9 +35,9 @@ export function CommissionDetails(props: {
   const row = props.row
   if (!row) return null
   const fields = [
-    [t('Time (Beijing)'), beijingDate(row.settled_at || 0, locale)],
+    [t('Time'), beijingDate(row.settled_at || 0, locale, true)],
     [t('Friend'), row.masked_name || '***'],
-    [t('Masked order number'), row.trade_no || '—'],
+    [t('Order number'), row.trade_no || '—'],
     [
       t('Top-up type'),
       t(

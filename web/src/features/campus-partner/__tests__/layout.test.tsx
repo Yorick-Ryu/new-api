@@ -255,7 +255,7 @@ test('commission history shows seven columns and opens masked order details with
           masked_name: '林**',
           trade_no: 'USR9***-063',
           product: 'topup',
-          settled_at: 1793532600,
+          settled_at: 1793532605,
           paid_cents: 10000,
           commission_cents: 3000,
           reversed_cents: 500,
@@ -276,15 +276,17 @@ test('commission history shows seven columns and opens masked order details with
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent)
   ).toEqual([
-    'Time (Beijing)',
+    'Time',
     'Friend',
-    'Masked order number',
+    'Order number',
     'Top-up type',
     'Commission',
     'Status',
     'Details',
   ])
   expect(within(panel).getByText('林**')).toBeVisible()
+  expect(within(panel).getByText('林')).toBeInTheDocument()
+  expect(within(panel).getByText(/19:30:05/)).toBeVisible()
   expect(within(panel).getByText('USR9***-063')).toBeVisible()
   expect(within(panel).getByText('Partially refunded')).toBeVisible()
   expect(within(panel).queryByText('Balance changes')).not.toBeInTheDocument()
@@ -294,6 +296,7 @@ test('commission history shows seven columns and opens masked order details with
     name: 'Commission details',
   })
   expect(within(dialog).getByText('USR9***-063')).toBeVisible()
+  expect(within(dialog).getByText(/19:30:05/)).toBeVisible()
   expect(within(dialog).getByText(/100\.00 × 30% = .*30\.00/)).toBeVisible()
   expect(within(dialog).getByText(/30\.00 − .*5\.00 = .*25\.00/)).toBeVisible()
   await user.keyboard('{Escape}')
