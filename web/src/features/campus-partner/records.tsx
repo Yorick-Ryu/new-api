@@ -165,6 +165,9 @@ export function CampusRecords(props: {
             ),
           },
         ]
+  if (props.kind === 'withdrawals') {
+    columns = columns.filter((column) => column.id !== 'source')
+  }
   if (commissionView) columns = paymentColumns
   if (props.kind !== 'invitations' && !commissionView) {
     columns.push({
