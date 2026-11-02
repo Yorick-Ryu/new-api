@@ -33,7 +33,6 @@ import { useAuthStore } from '@/stores/auth-store'
 import { CampusPartner } from '..'
 import { CampusAdmin } from '../admin'
 import type { Overview } from '../api'
-import { commissionStatus } from '../commission-columns'
 import type { CampusRecord } from '../records'
 
 const clients: QueryClient[] = []
@@ -243,7 +242,7 @@ test('partner records open on invitations and expose commission and withdrawal h
   ).toBeVisible()
 })
 
-test('commission history shows seven columns and opens masked order details with the saved formula', async () => {
+test('commission history shows six columns and opens masked order details with the saved formula', async () => {
   const user = userEvent.setup()
   renderPage(
     <CampusPartner />,
@@ -282,14 +281,15 @@ test('commission history shows seven columns and opens masked order details with
     'Order number',
     'Top-up type',
     'Commission',
-    'Status',
     'Details',
   ])
   expect(within(panel).getByText('林**')).toBeVisible()
   expect(within(panel).getByText('林')).toBeInTheDocument()
   expect(within(panel).getByText(/19:30:05/)).toBeVisible()
   expect(within(panel).getByText('USR9***-063')).toBeVisible()
-  expect(within(panel).getByText('Partially refunded')).toBeVisible()
+  expect(
+    within(panel).queryByRole('columnheader', { name: 'Status' })
+  ).not.toBeInTheDocument()
   expect(within(panel).queryByText('Balance changes')).not.toBeInTheDocument()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   await user.click(within(panel).getByRole('button', { name: 'Details' }))
@@ -429,13 +429,4 @@ test('partner tiers display configured names and defaults for unnamed tiers', as
   }
   expect(screen.queryByText('Apprentice partner')).not.toBeInTheDocument()
   expect(screen.getAllByText('Lv.6').length).toBeGreaterThan(0)
-})
-
-test('commission status uses commission balances even when the historical settlement timestamp is missing', () => {
-  expect(commissionStatus({ id: 1, user_id: 2, frozen_cents: 350 })).toBe(
-    'Pending settlement'
-  )
-  expect(commissionStatus({ id: 2, user_id: 2, available_cents: 350 })).toBe(
-    'Available to withdraw'
-  )
 })

@@ -23,7 +23,6 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import { beijingDate, cash } from './api'
-import { commissionStatus } from './commission-columns'
 import type { CampusRecord } from './records'
 
 export function CommissionDetails(props: {
@@ -51,7 +50,6 @@ export function CommissionDetails(props: {
       t('Commission'),
       cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
     ],
-    [t('Status'), t(commissionStatus(row))],
     [t('Settlement freeze'), cash(row.frozen_cents || 0, locale)],
     [t('Available'), cash(row.available_cents || 0, locale)],
     [t('Withdrawal in progress'), cash(row.reserved_cents || 0, locale)],
