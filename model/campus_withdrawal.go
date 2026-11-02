@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,10 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
+var campusAlipayAccountPattern = regexp.MustCompile(`^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14}|[^\s@]+@[^\s@.]+(\.[^\s@.]+)+)$`)
+
 func CampusRequestWithdrawal(userID int, requestID, account, name string, amount cp.Money) (*CampusWithdrawal, error) {
 	account, name = strings.TrimSpace(account), strings.TrimSpace(name)
 	if len(requestID) < 16 || len(requestID) > 64 || len(account) < 3 || len(account) > 128 || name == "" || len(name) > 128 {
 		return nil, ErrCampusState
+	}
+	if !campusAlipayAccountPattern.MatchString(account) {
+		return nil, common.NewMessage("Enter a valid Alipay phone number or email address")
 	}
 	var result CampusWithdrawal
 	err := DB.Transaction(func(tx *gorm.DB) error {

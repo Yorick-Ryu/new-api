@@ -35,20 +35,23 @@ export function WithdrawalDetails(props: {
   const row = props.row
   if (!row) return null
   const fields = [
-    [t('Withdrawal request'), `#${row.id}`],
-    [t('Time'), beijingDate(row.created_at || 0, locale)],
+    [t('ID'), `#${row.id}`],
+    [t('Time'), beijingDate(row.created_at || 0, locale, true)],
     [t('Amount'), cash(row.amount_cents || 0, locale)],
     [
       t('Status'),
       t(campusWithdrawalStateLabels[row.state || ''] || row.state || '—'),
     ],
     [t('Expected payout'), row.batch || '—'],
-    [t('Account'), row.account || '—'],
+    [t('Alipay account'), row.account || '—'],
     [t('Real name'), row.real_name || '—'],
   ]
   if (row.reason) fields.push([t('Reason'), t(row.reason)])
   if (row.paid_at) {
-    fields.push([t('Actual transfer time'), beijingDate(row.paid_at, locale)])
+    fields.push([
+      t('Actual transfer time'),
+      beijingDate(row.paid_at, locale, true),
+    ])
   }
   if (row.receipt) fields.push([t('Transfer receipt'), row.receipt])
   if (props.admin && row.actor_id) {

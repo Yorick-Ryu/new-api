@@ -168,6 +168,16 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Model(&CampusPayment{}).Where("trade_no = ?", "large").Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
 			w, err := CampusRequestWithdrawal(1, "request-0000000001", "alipay@example.test", "Test", 30000)
 			require.NoError(t, err)
+			own, ownCount, err := CampusList(1, false, "withdrawals", 1, 10)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, ownCount)
+			ownRows := *own.(*[]CampusWithdrawal)
+			require.Equal(t, "alipay@example.test", ownRows[0].Account)
+			require.Equal(t, "Test", ownRows[0].RealName)
+			otherWithdrawals, otherCount, err := CampusList(999, false, "withdrawals", 1, 10)
+			require.NoError(t, err)
+			require.Zero(t, otherCount)
+			require.Empty(t, *otherWithdrawals.(*[]CampusWithdrawal))
 			again, err := CampusRequestWithdrawal(1, "request-0000000001", "alipay@example.test", "Test", 30000)
 			require.NoError(t, err)
 			assert.Equal(t, w.ID, again.ID)
@@ -555,5 +565,16 @@ func TestCampusDatabase(t *testing.T) {
 			})
 
 		})
+	}
+}
+
+func TestCampusAlipayAccountFormat(t *testing.T) {
+	for _, account := range []string{"13800138000", "+85291234567", "person+tag@example.com"} {
+		assert.True(t, campusAlipayAccountPattern.MatchString(account), account)
+	}
+	for _, account := range []string{"123", "name", "name@", "name@example", "name @example.com", "1380013800", "a@@example.com"} {
+		assert.False(t, campusAlipayAccountPattern.MatchString(account), account)
+		_, err := CampusRequestWithdrawal(1, "format-request-0001", account, "Test", 10000)
+		require.Error(t, err)
 	}
 }

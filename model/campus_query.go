@@ -245,16 +245,5 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		}
 		return &result, count, nil
 	}
-	if !admin && kind == "withdrawals" {
-		for i := range *rows.(*[]CampusWithdrawal) {
-			w := &(*rows.(*[]CampusWithdrawal))[i]
-			r := []rune(w.Account)
-			w.Account = "***"
-			if len(r) > 4 {
-				w.Account += string(r[len(r)-4:])
-			}
-			w.RealName = "***"
-		}
-	}
 	return rows, count, nil
 }

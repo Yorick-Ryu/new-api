@@ -63,8 +63,8 @@ test('withdrawal history shows the pending batch and failure reason without call
             state: 'paused',
             batch: '2026-11-30',
             reason: 'Recipient verification required',
-            account: '***1234',
-            real_name: '***',
+            account: 'person@example.com',
+            real_name: '测试姓名',
           },
         ],
         total: 11,
@@ -94,6 +94,10 @@ test('withdrawal history shows the pending batch and failure reason without call
     within(dialog).getByText('Recipient verification required')
   ).toBeVisible()
   expect(within(dialog).getByText('2026-11-30')).toBeVisible()
+  expect(within(dialog).getByText('person@example.com')).toBeVisible()
+  expect(within(dialog).getByText('测试姓名')).toBeVisible()
+  expect(within(dialog).getByText('Alipay account')).toBeVisible()
+  expect(within(dialog).getByText('ID')).toBeVisible()
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.queryByText('Paid')).not.toBeInTheDocument()

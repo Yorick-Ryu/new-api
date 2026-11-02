@@ -47,7 +47,27 @@ export function CampusFields(props: {
   const { t } = useTranslation()
   const form = useForm<Record<string, string>>({
     resolver: zodResolver(
-      z.record(z.string(), z.string().trim().min(1).max(2000))
+      z
+        .record(z.string(), z.string().trim().min(1).max(2000))
+        .superRefine((values, context) => {
+          for (const field of props.fields) {
+            if (
+              field.label === 'Alipay account' &&
+              (values[field.name].length > 128 ||
+                !/^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14}|[^\s@]+@[^\s@.]+(\.[^\s@.]+)+)$/.test(
+                  values[field.name]
+                ))
+            ) {
+              context.addIssue({
+                code: 'custom',
+                path: [field.name],
+                message: t(
+                  'Enter a valid Alipay phone number or email address'
+                ),
+              })
+            }
+          }
+        })
     ),
     defaultValues: Object.fromEntries(
       props.fields.map((field) => [field.name, field.value || ''])
