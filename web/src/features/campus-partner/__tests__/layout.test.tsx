@@ -197,9 +197,9 @@ test('partner page merges the introduction into the invitation card before benef
 test('partner records open on invitations and expose commission and withdrawal history through three tabs', async () => {
   const user = userEvent.setup()
   renderPage(<CampusPartner />)
-  const invitations = await screen.findByRole('tab', { name: 'Invitations 0' })
+  const invitations = await screen.findByRole('tab', { name: 'Invitations' })
   expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-    'Invitations 0',
+    'Invitations',
     'Commission ledger',
     'Withdrawals',
   ])
@@ -212,10 +212,10 @@ test('partner records open on invitations and expose commission and withdrawal h
     privacyNote
   )
   expect(
-    screen.getByRole('tabpanel', { name: 'Invitations 0' })
+    screen.getByRole('tabpanel', { name: 'Invitations' })
   ).not.toContainElement(privacyNote)
   expect(
-    within(screen.getByRole('tabpanel', { name: 'Invitations 0' })).getByText(
+    within(screen.getByRole('tabpanel', { name: 'Invitations' })).getByText(
       'No records yet'
     )
   ).toBeVisible()

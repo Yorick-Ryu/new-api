@@ -107,10 +107,7 @@ export function CampusPartner(): ReactElement {
               <div className='flex flex-wrap items-center justify-between gap-3 border-b p-3 sm:px-5'>
                 <TabsList className='flex h-auto flex-wrap'>
                   <TabsTrigger value='invitations'>
-                    {t('Invitations')}{' '}
-                    <span className='tabular-nums'>
-                      {formatNumber(data.invited, locale)}
-                    </span>
+                    {t('Invitations')}
                   </TabsTrigger>
                   <TabsTrigger value='entries'>
                     {t('Commission ledger')}
