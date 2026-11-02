@@ -28,7 +28,6 @@ import {
   AlertTitle,
 } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Collapsible,
   CollapsibleContent,
@@ -79,101 +78,94 @@ export function PartnerInvitation(props: {
         </Collapsible>
       )}
       <div className='grid min-w-0 gap-4 lg:grid-cols-3'>
-        <Card className='min-w-0 py-0 lg:col-span-2'>
-          <CardContent className='space-y-5 p-3 sm:p-5'>
-            <section aria-labelledby='campus-intro-title' className='min-w-0'>
-              <div className='min-w-0 space-y-2'>
-                <div className='flex items-center gap-2'>
-                  <IconBadge tone='primary' size='title'>
-                    <GraduationCap />
-                  </IconBadge>
-                  <h2
-                    id='campus-intro-title'
-                    className={campusCardTypography.title}
+        <TitledCard
+          className='min-w-0 lg:col-span-2'
+          title={
+            <h2 id='campus-intro-title'>
+              {t(
+                'Invite friends to register and earn commission on every top-up.'
+              )}
+            </h2>
+          }
+          description={t(
+            'Friends can register through your exclusive link or enter your invitation code during registration to bind with you. Earn commission on each qualifying top-up or subscription payment under the current rules.'
+          )}
+          titleClassName={campusCardTypography.title}
+          descriptionClassName={campusCardTypography.body}
+          icon={<GraduationCap />}
+          iconTone='primary'
+          contentClassName='space-y-5'
+        >
+          {props.data.member.joined_at > 0 ? (
+            <>
+              <div className='space-y-2'>
+                <Label htmlFor='campus-invitation-link'>
+                  {t('Invitation link')}
+                </Label>
+                <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
+                  <Input
+                    id='campus-invitation-link'
+                    value={link}
+                    readOnly
+                    className='min-w-0 flex-1 basis-full font-mono text-xs sm:basis-auto'
+                  />
+                  <CopyButton
+                    value={link}
+                    variant='default'
+                    size='default'
+                    tooltip={t('Copy invitation link')}
                   >
-                    {t(
-                      'Invite friends to register and earn commission on every top-up.'
-                    )}
-                  </h2>
+                    {t('Copy invitation link')}
+                  </CopyButton>
                 </div>
-                <p className={campusCardTypography.body}>
-                  {t(
-                    'Friends can register through your exclusive link or enter your invitation code during registration to bind with you. Earn commission on each qualifying top-up or subscription payment under the current rules.'
-                  )}
-                </p>
               </div>
-            </section>
-            {props.data.member.joined_at > 0 ? (
-              <>
-                <div className='space-y-2'>
-                  <Label htmlFor='campus-invitation-link'>
-                    {t('Invitation link')}
-                  </Label>
-                  <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
-                    <Input
-                      id='campus-invitation-link'
-                      value={link}
-                      readOnly
-                      className='min-w-0 flex-1 basis-full font-mono text-xs sm:basis-auto'
-                    />
-                    <CopyButton
-                      value={link}
-                      variant='default'
-                      size='default'
-                      tooltip={t('Copy invitation link')}
-                    >
-                      {t('Copy invitation link')}
-                    </CopyButton>
+              <div className='grid min-w-0 gap-4 sm:grid-cols-2 sm:items-center'>
+                <div className='border-primary/40 bg-primary/5 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
+                  <div className='min-w-0 space-y-1'>
+                    <p className={campusCardTypography.caption}>
+                      {t('Exclusive campus partner invitation code')}
+                    </p>
+                    <code className='text-primary font-mono text-2xl font-bold tracking-widest break-all'>
+                      {props.data.member.code}
+                    </code>
                   </div>
+                  <CopyButton
+                    value={props.data.member.code}
+                    variant='outline'
+                    size='sm'
+                  >
+                    {t('Copy')}
+                  </CopyButton>
                 </div>
-                <div className='grid min-w-0 gap-4 sm:grid-cols-2 sm:items-center'>
-                  <div className='border-primary/40 bg-primary/5 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
-                    <div className='min-w-0 space-y-1'>
-                      <p className={campusCardTypography.caption}>
-                        {t('Exclusive campus partner invitation code')}
-                      </p>
-                      <code className='text-primary font-mono text-2xl font-bold tracking-widest break-all'>
-                        {props.data.member.code}
-                      </code>
-                    </div>
-                    <CopyButton
-                      value={props.data.member.code}
-                      variant='outline'
-                      size='sm'
+                <ol className='space-y-2'>
+                  {steps.map((step, index) => (
+                    <li
+                      key={step}
+                      className='text-muted-foreground flex items-center gap-2 text-xs'
                     >
-                      {t('Copy')}
-                    </CopyButton>
-                  </div>
-                  <ol className='space-y-2'>
-                    {steps.map((step, index) => (
-                      <li
-                        key={step}
-                        className='text-muted-foreground flex items-center gap-2 text-xs'
+                      <IconBadge
+                        size='xs'
+                        tone='primary'
+                        className='font-mono text-[10px] font-semibold'
                       >
-                        <IconBadge
-                          size='xs'
-                          tone='primary'
-                          className='font-mono text-[10px] font-semibold'
-                        >
-                          {index + 1}
-                        </IconBadge>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </>
-            ) : (
-              <Button
-                disabled={!props.data.enabled || props.pending}
-                onClick={props.onJoin}
-              >
-                {t('Get my invitation code')}
-                <ArrowUpRight />
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+                        {index + 1}
+                      </IconBadge>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </>
+          ) : (
+            <Button
+              disabled={!props.data.enabled || props.pending}
+              onClick={props.onJoin}
+            >
+              {t('Get my invitation code')}
+              <ArrowUpRight />
+            </Button>
+          )}
+        </TitledCard>
         <TitledCard
           title={<h3>{t('Exclusive friend benefits')}</h3>}
           titleClassName={campusCardTypography.title}
