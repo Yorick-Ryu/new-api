@@ -492,3 +492,12 @@ test('zero commission retains all four legend amounts without creating invalid s
     composition.querySelectorAll('[data-slot="tooltip-trigger"]')
   ).toHaveLength(0)
 })
+
+test('partner summary uses content-sized statistics without reserving empty chart space', async () => {
+  renderPage(<CampusPartner />)
+  const title = await screen.findByText('Lifetime commission')
+  const stat = title.closest('.group')
+  expect(stat).not.toHaveClass('sm:min-h-32', 'justify-between')
+  expect(stat?.querySelector('.h-8')).toBeNull()
+  expect(title.closest('[data-slot="card"]')).toHaveAttribute('data-size', 'sm')
+})

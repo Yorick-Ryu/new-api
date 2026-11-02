@@ -52,6 +52,7 @@ interface StatCardProps {
   error?: boolean
   action?: ReactNode
   iconTone?: IconBadgeTone
+  compact?: boolean
   compactMobile?: boolean
 }
 
@@ -305,7 +306,8 @@ export function StatCard(props: StatCardProps) {
   return (
     <div
       className={cn(
-        'group flex flex-col justify-between sm:min-h-32 sm:gap-3',
+        'group flex flex-col',
+        props.compact ? 'gap-2' : 'justify-between sm:min-h-32 sm:gap-3',
         props.compactMobile ? 'gap-1' : 'gap-1.5'
       )}
     >
@@ -330,9 +332,11 @@ export function StatCard(props: StatCardProps) {
 
       {valueContent}
 
-      <div className={cn(!props.showDetailsOnMobile && 'hidden sm:block')}>
-        {visualization}
-      </div>
+      {(!props.compact || props.details?.length || props.sparkline?.length) && (
+        <div className={cn(!props.showDetailsOnMobile && 'hidden sm:block')}>
+          {visualization}
+        </div>
+      )}
     </div>
   )
 }

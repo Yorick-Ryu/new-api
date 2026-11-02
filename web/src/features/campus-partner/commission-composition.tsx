@@ -57,7 +57,7 @@ export function CommissionComposition(props: { data: Overview }) {
   const total = parts.reduce((sum, part) => sum + Math.max(0, part.amount), 0)
   return (
     <div
-      className='mt-4 space-y-4'
+      className='mt-3 space-y-3'
       role='group'
       aria-label={t('Commission ledger')}
     >
@@ -84,7 +84,7 @@ export function CommissionComposition(props: { data: Overview }) {
             )
           })}
       </div>
-      <dl className='grid grid-cols-2 gap-x-3 gap-y-3'>
+      <dl className='grid grid-cols-2 gap-x-3 gap-y-2'>
         {parts.map((part) => (
           <div key={part.label} className='min-w-0 space-y-1'>
             <dt className='text-muted-foreground flex items-center gap-1.5 text-xs'>

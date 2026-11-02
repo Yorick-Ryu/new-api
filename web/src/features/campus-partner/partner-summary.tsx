@@ -46,9 +46,10 @@ export function PartnerSummary(props: {
   return (
     <>
       <div className='grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-        <Card className='bg-primary/5 ring-primary/20'>
-          <CardContent className='flex flex-1 flex-col gap-4'>
+        <Card size='sm' className='bg-primary/5 ring-primary/20'>
+          <CardContent className='flex flex-1 flex-col gap-3'>
             <StatCard
+              compact
               title={t('Available commission')}
               value={cash(props.data.available_cents, locale)}
               icon={Wallet}
@@ -81,9 +82,10 @@ export function PartnerSummary(props: {
             </Button>
           </CardContent>
         </Card>
-        <Card>
+        <Card size='sm'>
           <CardContent>
             <StatCard
+              compact
               title={t('Lifetime commission')}
               value={cash(props.data.net_cents, locale)}
               icon={CircleDollarSign}
@@ -92,9 +94,10 @@ export function PartnerSummary(props: {
             <CommissionComposition data={props.data} />
           </CardContent>
         </Card>
-        <Card>
+        <Card size='sm'>
           <CardContent>
             <StatCard
+              compact
               title={t('Invited')}
               value={formatNumber(props.data.invited, locale)}
               description={`${t('New this month')}: ${formatNumber(props.data.this_month, locale)}`}
@@ -103,9 +106,10 @@ export function PartnerSummary(props: {
             />
           </CardContent>
         </Card>
-        <Card>
+        <Card size='sm'>
           <CardContent>
             <StatCard
+              compact
               title={t('Friends cumulative top-ups')}
               value={cash(props.data.member.performance_cents, locale)}
               description={`${t('Current top-up rate')}: ${formatNumber(props.data.tier.rate_percent, locale)}%`}
