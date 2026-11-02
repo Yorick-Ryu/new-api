@@ -270,6 +270,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		for i := range *rows.(*[]CampusWithdrawal) {
 			row := &(*rows.(*[]CampusWithdrawal))[i]
 			row.RealName = campusMaskedRealName(row.RealName)
+			row.Account = campusMaskedAlipayAccount(row.Account)
 		}
 	}
 	return rows, count, nil
@@ -288,4 +289,20 @@ func campusMaskedRealName(name string) string {
 		}
 	}
 	return string(chars[:keep]) + strings.Repeat("*", len(chars)-keep)
+}
+
+func campusMaskedAlipayAccount(account string) string {
+	account = strings.TrimSpace(account)
+	if local, domain, ok := strings.Cut(account, "@"); ok {
+		chars := []rune(local)
+		if len(chars) == 0 {
+			return "***@" + domain
+		}
+		return string(chars[:1]) + "***@" + domain
+	}
+	chars := []rune(account)
+	if len(chars) < 8 {
+		return "***"
+	}
+	return string(chars[:3]) + strings.Repeat("*", len(chars)-7) + string(chars[len(chars)-4:])
 }
