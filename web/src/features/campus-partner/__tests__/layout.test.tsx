@@ -204,6 +204,16 @@ test('partner records open on invitations and expose commission and withdrawal h
     'Withdrawals',
   ])
   expect(invitations).toHaveAttribute('aria-selected', 'true')
+  const privacyNote = screen.getByText(
+    'Only friends bound to you are shown; names are masked.'
+  )
+  expect(privacyNote).toBeVisible()
+  expect(screen.getByRole('tablist').parentElement).toContainElement(
+    privacyNote
+  )
+  expect(
+    screen.getByRole('tabpanel', { name: 'Invitations 0' })
+  ).not.toContainElement(privacyNote)
   expect(
     within(screen.getByRole('tabpanel', { name: 'Invitations 0' })).getByText(
       'No records yet'
@@ -215,6 +225,9 @@ test('partner records open on invitations and expose commission and withdrawal h
   expect(
     screen.getByRole('tab', { name: 'Commission ledger' })
   ).toHaveAttribute('aria-selected', 'true')
+  expect(
+    screen.queryByText('Only friends bound to you are shown; names are masked.')
+  ).not.toBeInTheDocument()
   const commission = screen.getByRole('tabpanel', { name: 'Commission ledger' })
   expect(within(commission).getByText('No records yet')).toBeVisible()
   expect(

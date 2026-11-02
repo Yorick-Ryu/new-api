@@ -273,11 +273,6 @@ export function CampusRecords(props: {
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />
   return (
     <div className='space-y-3'>
-      {props.kind === 'invitations' && !props.admin && (
-        <p className='text-muted-foreground text-xs leading-5 sm:text-right'>
-          {t('Only friends bound to you are shown; names are masked.')}
-        </p>
-      )}
       <div className='max-w-full overflow-x-auto'>
         <StaticDataTable
           data={query.data.items || []}

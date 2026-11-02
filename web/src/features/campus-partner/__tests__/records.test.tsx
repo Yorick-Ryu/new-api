@@ -139,7 +139,7 @@ test('invitation history shows masked friends, registration dates and net contri
   expect(within(rows[2]).getByText('—')).toBeVisible()
   expect(within(rows[2]).getAllByText(/0\.00/)).toHaveLength(2)
   expect(
-    screen.getByText('Only friends bound to you are shown; names are masked.')
-  ).toBeVisible()
+    screen.queryByText('Only friends bound to you are shown; names are masked.')
+  ).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 })

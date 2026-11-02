@@ -51,6 +51,7 @@ export function CampusPartner(): ReactElement {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const overview = useCampus()
+  const [recordsTab, setRecordsTab] = useState<string | number>('invitations')
   const [withdraw, setWithdraw] = useState(false)
   const [requestID, setRequestID] = useState(() => crypto.randomUUID())
   const join = useCampusAction(() => campusPost('self/join'))
@@ -102,8 +103,8 @@ export function CampusPartner(): ReactElement {
           <PartnerSummary data={data} onWithdraw={() => setWithdraw(true)} />
           <PartnerTiers data={data} />
           <Card className='py-0'>
-            <Tabs defaultValue='invitations'>
-              <div className='border-b p-3 sm:px-5'>
+            <Tabs value={recordsTab} onValueChange={setRecordsTab}>
+              <div className='flex flex-wrap items-center justify-between gap-3 border-b p-3 sm:px-5'>
                 <TabsList className='flex h-auto flex-wrap'>
                   <TabsTrigger value='invitations'>
                     {t('Invitations')}{' '}
@@ -118,6 +119,13 @@ export function CampusPartner(): ReactElement {
                     {t('Withdrawals')}
                   </TabsTrigger>
                 </TabsList>
+                {recordsTab === 'invitations' && (
+                  <p className='text-muted-foreground text-xs leading-5'>
+                    {t(
+                      'Only friends bound to you are shown; names are masked.'
+                    )}
+                  </p>
+                )}
               </div>
               <CardContent className='p-3 sm:p-5'>
                 <TabsContent value='invitations'>
