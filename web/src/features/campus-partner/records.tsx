@@ -37,6 +37,7 @@ import { commissionColumns } from './commission-columns'
 import { CommissionDetails } from './commission-records'
 import { campusWithdrawalStateLabels } from './constants'
 import { CampusFriend } from './friend-cell'
+import { WithdrawalDetails } from './withdrawal-details'
 
 export type CampusRecord = {
   id: number
@@ -172,7 +173,7 @@ export function CampusRecords(props: {
   if (props.kind !== 'invitations' && !commissionView) {
     columns.push({
       id: 'amount',
-      header: t('Amount (CNY)'),
+      header: props.kind === 'withdrawals' ? t('Amount') : t('Amount (CNY)'),
       cell: (row) => (
         <div className='space-y-1 tabular-nums'>
           {cash(row.amount_cents ?? row.paid_cents ?? 0, locale)}
@@ -249,6 +250,31 @@ export function CampusRecords(props: {
       ),
     })
   }
+  if (props.kind === 'withdrawals') {
+    columns = columns.filter((column) => column.id !== 'details')
+    columns.push(
+      {
+        id: 'status',
+        header: t('Status'),
+        cell: (row) => (
+          <Badge variant='outline'>
+            {t(
+              campusWithdrawalStateLabels[row.state || ''] || row.state || '—'
+            )}
+          </Badge>
+        ),
+      },
+      {
+        id: 'details',
+        header: t('Details'),
+        cell: (row) => (
+          <Button variant='outline' size='sm' onClick={() => setSelected(row)}>
+            {t('Details')}
+          </Button>
+        ),
+      }
+    )
+  }
   if (props.onAction) {
     columns.push({
       id: 'action',
@@ -282,7 +308,15 @@ export function CampusRecords(props: {
           }
         />
       </div>
-      <CommissionDetails row={selected} onClose={() => setSelected(null)} />
+      {props.kind === 'withdrawals' ? (
+        <WithdrawalDetails
+          row={selected}
+          admin={props.admin}
+          onClose={() => setSelected(null)}
+        />
+      ) : (
+        <CommissionDetails row={selected} onClose={() => setSelected(null)} />
+      )}
       <div className='flex flex-wrap items-center justify-end gap-3'>
         <Button
           variant='outline'

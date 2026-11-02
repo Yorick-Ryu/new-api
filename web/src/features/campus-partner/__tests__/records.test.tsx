@@ -80,8 +80,22 @@ test('withdrawal history shows the pending batch and failure reason without call
     </QueryClientProvider>
   )
   expect(await screen.findByText('Payout paused')).toBeVisible()
-  expect(screen.getByText('Recipient verification required')).toBeVisible()
-  expect(screen.getByText('Expected payout: 2026-11-30')).toBeVisible()
+  expect(
+    screen.getAllByRole('columnheader').map((header) => header.textContent)
+  ).toEqual(['Time', 'Amount', 'Status', 'Details'])
+  expect(
+    screen.queryByText('Recipient verification required')
+  ).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Details' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(
+    within(dialog).getByText('Recipient verification required')
+  ).toBeVisible()
+  expect(within(dialog).getByText('2026-11-30')).toBeVisible()
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.queryByText('Paid')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
 })

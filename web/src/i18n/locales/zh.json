@@ -793,7 +793,7 @@
     "Apprentice partner": "见习合伙人",
     "Approve": "审核通过",
     "Approve first, transfer manually at month end, then record the actual transfer. An unknown result must not release reserved funds.": "先审核，月底人工转账后再登记实际打款。转账结果未知时，必须保留占用额度并核实，不能重复转账。",
-    "Approved · month-end payout": "审核通过，待月底打款",
+    "Approved · month-end payout": "审核通过待打款",
     "Approved applications are paid manually at month end. Submission is not a completed transfer.": "审核通过后于月底统一人工打款，提交申请不代表已到账。",
     "Approx.": "约",
     "Approximate prices for common specs.": "常见规格的参考价。",
