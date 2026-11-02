@@ -289,13 +289,6 @@ export function CampusRecords(props: {
           }
         />
       </div>
-      {props.kind === 'invitations' && (
-        <p className='text-muted-foreground text-xs leading-5'>
-          {t(
-            'Totals include qualifying top-ups and subscriptions after binding, less refunds. Times are shown in Beijing time.'
-          )}
-        </p>
-      )}
       <div className='flex flex-wrap items-center justify-end gap-3'>
         <Button
           variant='outline'
