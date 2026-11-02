@@ -272,11 +272,7 @@ export function CampusRecords(props: {
           columns={columns}
           getRowKey={(row) => row.id || row.user_id}
           emptyContent={<EmptyState title={t('No records yet')} />}
-          tableClassName={
-            props.kind === 'invitations' || commissionView
-              ? 'min-w-[900px]'
-              : undefined
-          }
+          tableClassName={commissionView ? 'min-w-[900px]' : undefined}
           headerRowClassName={
             props.kind === 'invitations'
               ? staticDataTableClassNames.mutedHeaderRow
