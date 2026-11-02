@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Withdrawable": "Withdrawable",
     "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.",
     "Enter a valid Alipay phone number or email address": "Enter a valid Alipay phone number or email address",
     "Refund amount": "Refund amount",

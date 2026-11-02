@@ -34,7 +34,7 @@ export function CommissionComposition(props: { data: Overview }) {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const parts = [
     {
-      label: 'Available commission',
+      label: 'Withdrawable',
       amount: props.data.available_cents,
       color: 'bg-emerald-500',
     },

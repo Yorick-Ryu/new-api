@@ -465,7 +465,7 @@ test('commission composition shows four amounts and identifies each proportional
     name: 'Commission ledger',
   })
   for (const label of [
-    'Available commission',
+    'Withdrawable',
     'Settling',
     'Withdrawing',
     'Paid out',
@@ -473,13 +473,13 @@ test('commission composition shows four amounts and identifies each proportional
     expect(within(composition).getByText(label)).toBeVisible()
   }
   const segment = within(composition).getByLabelText(
-    /Available commission.*400\.00.*40%/
+    /Withdrawable.*400\.00.*40%/
   )
   expect(segment).toHaveStyle({ width: '40%' })
   await user.hover(segment)
   expect(
-    await screen.findByText(/Available commission.*400\.00.*40%/)
-  ).toHaveTextContent(/Available commission.*400\.00.*40%/)
+    await screen.findByText(/Withdrawable.*400\.00.*40%/)
+  ).toHaveTextContent(/Withdrawable.*400\.00.*40%/)
 })
 
 test('zero commission retains all four legend amounts without creating invalid segments', async () => {
