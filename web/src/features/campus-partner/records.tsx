@@ -129,7 +129,8 @@ export function CampusRecords(props: {
       : [
           {
             id: 'date',
-            header: t('Time (Beijing)'),
+            header:
+              props.kind === 'withdrawals' ? t('Time') : t('Time (Beijing)'),
             cell: (row) =>
               beijingDate(
                 row.created_at || row.settled_at || row.bound_at || 0,
