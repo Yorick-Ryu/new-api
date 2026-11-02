@@ -464,22 +464,16 @@ test('commission composition shows four amounts and identifies each proportional
   const composition = await screen.findByRole('group', {
     name: 'Commission ledger',
   })
-  for (const label of [
-    'Withdrawable',
-    'Settling',
-    'Withdrawing',
-    'Paid out',
-  ]) {
+  for (const label of ['Withdrawable', 'Settling', 'Withdrawing', 'Paid out']) {
     expect(within(composition).getByText(label)).toBeVisible()
   }
-  const segment = within(composition).getByLabelText(
-    /Withdrawable.*400\.00.*40%/
-  )
+  const segment = within(composition).getByLabelText(/Withdrawable.*400\.00/)
   expect(segment).toHaveStyle({ width: '40%' })
+  expect(segment).not.toHaveAccessibleName(/%/)
   await user.hover(segment)
-  expect(
-    await screen.findByText(/Withdrawable.*400\.00.*40%/)
-  ).toHaveTextContent(/Withdrawable.*400\.00.*40%/)
+  expect(await screen.findByText(/Withdrawable.*400\.00/)).toHaveTextContent(
+    /Withdrawable.*400\.00/
+  )
 })
 
 test('zero commission retains all four legend amounts without creating invalid segments', async () => {

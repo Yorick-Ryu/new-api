@@ -24,7 +24,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { cash, type Overview } from './api'
@@ -66,7 +65,7 @@ export function CommissionComposition(props: { data: Overview }) {
           .filter((part) => part.amount > 0)
           .map((part) => {
             const percent = (part.amount / total) * 100
-            const description = `${t(part.label)} · ${cash(part.amount, locale)} · ${formatNumber(Math.round(percent * 10) / 10, locale)}%`
+            const description = `${t(part.label)} · ${cash(part.amount, locale)}`
             return (
               <Tooltip key={part.label}>
                 <TooltipTrigger
