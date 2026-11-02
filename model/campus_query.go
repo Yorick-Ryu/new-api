@@ -203,6 +203,48 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	if err := query.Order("id desc").Offset((page - 1) * size).Limit(size).Find(rows).Error; err != nil {
 		return nil, 0, err
 	}
+	if !admin && kind == "payments" {
+		type paymentRecord struct {
+			CampusPayment
+			MaskedName string `json:"masked_name"`
+		}
+		payments := *rows.(*[]CampusPayment)
+		ids := make([]int, 0, len(payments))
+		for _, payment := range payments {
+			ids = append(ids, payment.UserID)
+		}
+		var users []User
+		if len(ids) > 0 {
+			if err := DB.Select("id,display_name,username").Where("id IN ?", ids).Find(&users).Error; err != nil {
+				return nil, 0, err
+			}
+		}
+		names := make(map[int]string, len(users))
+		for _, user := range users {
+			name := strings.TrimSpace(user.DisplayName)
+			if name == "" {
+				name = strings.TrimSpace(user.Username)
+			}
+			if chars := []rune(name); len(chars) > 0 {
+				names[user.Id] = string(chars[:1]) + "**"
+			}
+		}
+		result := make([]paymentRecord, 0, len(payments))
+		for _, payment := range payments {
+			name := names[payment.UserID]
+			if name == "" {
+				name = "***"
+			}
+			trade := []rune(payment.TradeNo)
+			payment.TradeNo = "***"
+			if len(trade) > 8 {
+				payment.TradeNo = string(trade[:4]) + "***" + string(trade[len(trade)-4:])
+			}
+			payment.ProviderTrade = nil
+			result = append(result, paymentRecord{CampusPayment: payment, MaskedName: name})
+		}
+		return &result, count, nil
+	}
 	if !admin && kind == "withdrawals" {
 		for i := range *rows.(*[]CampusWithdrawal) {
 			w := &(*rows.(*[]CampusWithdrawal))[i]

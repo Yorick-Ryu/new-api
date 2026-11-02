@@ -504,6 +504,18 @@ func TestCampusDatabase(t *testing.T) {
 				require.NoError(t, err)
 				assert.Contains(t, *result.(*[]CampusAdminInvitation), CampusAdminInvitation{UserID: 203, Username: "other-partner", DisplayName: "Other", InviterID: 102, InviterUsername: "partner-bob", InviterDisplayName: "邀请人乙", BoundAt: 3000, RegisteredAt: 1000, Paid: 30000, Commission: 9000})
 
+				paymentRows, paymentTotal, err := CampusList(101, false, "payments", 1, 100)
+				require.NoError(t, err)
+				assert.EqualValues(t, 4, paymentTotal)
+				encodedPayments, err := common.Marshal(paymentRows)
+				require.NoError(t, err)
+				assert.Contains(t, string(encodedPayments), `"masked_name":"林**"`)
+				assert.Contains(t, string(encodedPayments), `"trade_no":"quer***opup"`)
+				assert.NotContains(t, string(encodedPayments), "query-topup")
+				assert.NotContains(t, string(encodedPayments), "林小明")
+				assert.NotContains(t, string(encodedPayments), "provider_transaction")
+				assert.NotContains(t, string(encodedPayments), "query-other-inviter")
+
 				start, end := int64(1000), int64(2000)
 				for _, test := range []struct {
 					name   string

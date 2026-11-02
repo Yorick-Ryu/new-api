@@ -25,12 +25,6 @@ import { Dialog } from '@/components/dialog'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -130,16 +124,6 @@ export function CampusPartner(): ReactElement {
                 </TabsContent>
                 <TabsContent value='entries' className='space-y-4'>
                   <CampusRecords kind='payments' />
-                  <Accordion>
-                    <AccordionItem value='balance-changes'>
-                      <AccordionTrigger>
-                        {t('Balance changes')}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <CampusRecords kind='entries' />
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
                 </TabsContent>
                 <TabsContent value='withdrawals'>
                   <CampusRecords kind='withdrawals' />

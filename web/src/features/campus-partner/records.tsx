@@ -35,6 +35,8 @@ import { toIntlLocale } from '@/i18n/languages'
 import { getUserAvatarStyle } from '@/lib/avatar'
 
 import { beijingDate, campusGet, cash } from './api'
+import { commissionColumns } from './commission-columns'
+import { CommissionDetails } from './commission-records'
 import { campusWithdrawalStateLabels } from './constants'
 
 export type CampusRecord = {
@@ -56,6 +58,9 @@ export type CampusRecord = {
   frozen_cents?: number
   available_cents?: number
   reserved_cents?: number
+  refunded_cents?: number
+  paid_out_cents?: number
+  offset_cents?: number
   eligibility?: string
   segments?: string
   state?: string
@@ -77,6 +82,9 @@ export function CampusRecords(props: {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<CampusRecord | null>(null)
+  const paymentColumns = commissionColumns(t, locale, setSelected)
+  const commissionView = props.kind === 'payments' && !props.admin
   const query = useQuery({
     queryKey: ['campus', 'records', !!props.admin, props.kind, page],
     queryFn: () =>
@@ -84,7 +92,7 @@ export function CampusRecords(props: {
         `${props.admin ? 'admin' : 'self'}/records/${props.kind}?page=${page}&size=10`
       ),
   })
-  const columns: StaticDataTableColumn<CampusRecord>[] =
+  let columns: StaticDataTableColumn<CampusRecord>[] =
     props.kind === 'invitations'
       ? [
           {
@@ -174,7 +182,8 @@ export function CampusRecords(props: {
             ),
           },
         ]
-  if (props.kind !== 'invitations') {
+  if (commissionView) columns = paymentColumns
+  if (props.kind !== 'invitations' && !commissionView) {
     columns.push({
       id: 'amount',
       header: t('Amount (CNY)'),
@@ -280,7 +289,9 @@ export function CampusRecords(props: {
           getRowKey={(row) => row.id || row.user_id}
           emptyContent={<EmptyState title={t('No records yet')} />}
           tableClassName={
-            props.kind === 'invitations' ? 'min-w-[640px]' : undefined
+            props.kind === 'invitations' || commissionView
+              ? 'min-w-[900px]'
+              : undefined
           }
           headerRowClassName={
             props.kind === 'invitations'
@@ -289,6 +300,7 @@ export function CampusRecords(props: {
           }
         />
       </div>
+      <CommissionDetails row={selected} onClose={() => setSelected(null)} />
       <div className='flex flex-wrap items-center justify-end gap-3'>
         <Button
           variant='outline'

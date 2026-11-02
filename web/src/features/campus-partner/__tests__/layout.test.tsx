@@ -231,8 +231,8 @@ test('partner records open on invitations and expose commission and withdrawal h
   const commission = screen.getByRole('tabpanel', { name: 'Commission ledger' })
   expect(within(commission).getByText('No records yet')).toBeVisible()
   expect(
-    within(commission).getByRole('button', { name: 'Balance changes' })
-  ).toHaveAttribute('aria-expanded', 'false')
+    within(commission).queryByRole('button', { name: 'Balance changes' })
+  ).not.toBeInTheDocument()
 
   await user.click(screen.getByRole('tab', { name: 'Withdrawals' }))
   expect(
@@ -242,7 +242,7 @@ test('partner records open on invitations and expose commission and withdrawal h
   ).toBeVisible()
 })
 
-test('commission history retains order calculations and lets users expand related balance changes', async () => {
+test('commission history shows seven columns and opens masked order details with the saved formula', async () => {
   const user = userEvent.setup()
   renderPage(
     <CampusPartner />,
@@ -252,22 +252,17 @@ test('commission history retains order calculations and lets users expand relate
         {
           id: 81,
           user_id: 2,
-          trade_no: 'TOPUP-81',
+          masked_name: '林**',
+          trade_no: 'USR9***-063',
+          product: 'topup',
+          settled_at: 1793532600,
           paid_cents: 10000,
           commission_cents: 3000,
           reversed_cents: 500,
+          refunded_cents: 1667,
           frozen_cents: 2000,
           available_cents: 500,
           segments: '[{"base_cents":10000,"rate_percent":30}]',
-        },
-      ],
-      entries: [
-        {
-          id: 91,
-          user_id: 1,
-          payment_id: 81,
-          amount_cents: -500,
-          reference: 'REFUND-81',
         },
       ],
     }
@@ -276,28 +271,33 @@ test('commission history retains order calculations and lets users expand relate
     await screen.findByRole('tab', { name: 'Commission ledger' })
   )
   const panel = screen.getByRole('tabpanel', { name: 'Commission ledger' })
-  expect(within(panel).getByText('TOPUP-81')).toBeVisible()
-  expect(within(panel).getByText(/Commission:.*25\.00/)).toBeVisible()
   expect(
-    within(panel).getByText(/Settlement freeze:.*20\.00.*Available:.*5\.00/)
-  ).toBeVisible()
-  await user.click(within(panel).getByText('Commission calculation'))
-  expect(within(panel).getByText(/100\.00 × 30%/)).toBeVisible()
-
-  const balance = within(panel).getByRole('button', { name: 'Balance changes' })
-  expect(balance).toHaveAttribute('aria-expanded', 'false')
-  expect(
-    within(panel).queryByText('Refund reference: REFUND-81')
-  ).not.toBeInTheDocument()
-  await user.click(balance)
-  expect(balance).toHaveAttribute('aria-expanded', 'true')
-  expect(
-    await within(panel).findByText('Refund reference: REFUND-81')
-  ).toBeVisible()
-  expect(within(panel).getByText('Commission order #81')).toBeVisible()
-  expect(within(panel).getByText('TOPUP-81')).toBeVisible()
-  await user.keyboard('{Enter}')
-  expect(balance).toHaveAttribute('aria-expanded', 'false')
+    within(panel)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent)
+  ).toEqual([
+    'Time (Beijing)',
+    'Friend',
+    'Masked order number',
+    'Top-up type',
+    'Commission',
+    'Status',
+    'Details',
+  ])
+  expect(within(panel).getByText('林**')).toBeVisible()
+  expect(within(panel).getByText('USR9***-063')).toBeVisible()
+  expect(within(panel).getByText('Partially refunded')).toBeVisible()
+  expect(within(panel).queryByText('Balance changes')).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  await user.click(within(panel).getByRole('button', { name: 'Details' }))
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Commission details',
+  })
+  expect(within(dialog).getByText('USR9***-063')).toBeVisible()
+  expect(within(dialog).getByText(/100\.00 × 30% = .*30\.00/)).toBeVisible()
+  expect(within(dialog).getByText(/30\.00 − .*5\.00 = .*25\.00/)).toBeVisible()
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
 test('partner rewards reflect configured tiers and subscription percentages', async () => {
