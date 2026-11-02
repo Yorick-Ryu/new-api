@@ -97,70 +97,64 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         }
         contentClassName='space-y-4'
       >
-        <div className='space-y-2'>
-          <div className='flex gap-1.5'>
-            {props.data.tiers.map((rule, index) => {
-              let value = 0
-              if (index + 1 < tier.level) value = 100
-              else if (index + 1 === tier.level) value = progress
-              return (
-                <Progress
-                  key={rule.floor_cents}
-                  value={value}
-                  className='min-w-0 flex-1'
-                  aria-label={t('Lv.{{level}}', { level: index + 1 })}
-                />
-              )
-            })}
-          </div>
-        </div>
         {props.data.tiers.length > 0 ? (
           <div className='grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3'>
             {props.data.tiers.map((rule, index) => {
               const active = tier.level === index + 1
               const next = props.data.tiers[index + 1]
+              let value = 0
+              if (index + 1 < tier.level) value = 100
+              else if (active) value = progress
               return (
-                <Card
+                <div
                   key={rule.floor_cents}
-                  size='sm'
-                  aria-current={active ? 'step' : undefined}
-                  className={cn(
-                    'min-w-0',
-                    active && 'bg-primary/5 ring-primary ring-2'
-                  )}
+                  className='flex min-w-0 flex-col gap-3'
                 >
-                  <CardHeader className='flex flex-wrap items-center justify-between gap-2'>
-                    <span className='text-sm font-medium'>
-                      {t('Lv.{{level}}', { level: index + 1 })}
-                    </span>
-                    {active && <Badge>{t('Current')}</Badge>}
-                    {index + 1 < tier.level && (
-                      <Badge variant='secondary'>{t('Completed')}</Badge>
+                  <Progress
+                    value={value}
+                    aria-label={t('Lv.{{level}}', { level: index + 1 })}
+                  />
+                  <Card
+                    size='sm'
+                    aria-current={active ? 'step' : undefined}
+                    className={cn(
+                      'min-w-0 flex-1',
+                      active && 'bg-primary/5 ring-primary ring-2'
                     )}
-                  </CardHeader>
-                  <CardContent className='space-y-2'>
-                    <p
-                      className={cn(
-                        'font-mono text-2xl font-semibold tabular-nums',
-                        active && 'text-primary'
+                  >
+                    <CardHeader className='flex flex-wrap items-center justify-between gap-2'>
+                      <span className='text-sm font-medium'>
+                        {t('Lv.{{level}}', { level: index + 1 })}
+                      </span>
+                      {active && <Badge>{t('Current')}</Badge>}
+                      {index + 1 < tier.level && (
+                        <Badge variant='secondary'>{t('Completed')}</Badge>
                       )}
-                    >
-                      {formatNumber(rule.rate_bps / 100, locale)}%
-                    </p>
-                    <p className='text-sm font-medium [overflow-wrap:anywhere] break-words'>
-                      {rule.name ||
-                        t(campusTierNameKeys[index] || 'Lv.{{level}}', {
-                          level: index + 1,
-                        })}
-                    </p>
-                    <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
-                      {tierAmount.format(rule.floor_cents / 100)}
-                      {next
-                        ? ` – ${tierAmount.format(next.floor_cents / 100)}`
-                        : ` ${t('and above')}`}
-                    </p>
-                  </CardContent>
-                </Card>
+                    </CardHeader>
+                    <CardContent className='space-y-2'>
+                      <p
+                        className={cn(
+                          'font-mono text-2xl font-semibold tabular-nums',
+                          active && 'text-primary'
+                        )}
+                      >
+                        {formatNumber(rule.rate_bps / 100, locale)}%
+                      </p>
+                      <p className='text-sm font-medium [overflow-wrap:anywhere] break-words'>
+                        {rule.name ||
+                          t(campusTierNameKeys[index] || 'Lv.{{level}}', {
+                            level: index + 1,
+                          })}
+                      </p>
+                      <p className='text-muted-foreground font-mono text-xs leading-5 break-words tabular-nums'>
+                        {tierAmount.format(rule.floor_cents / 100)}
+                        {next
+                          ? ` – ${tierAmount.format(next.floor_cents / 100)}`
+                          : ` ${t('and above')}`}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
               )
             })}
           </div>
