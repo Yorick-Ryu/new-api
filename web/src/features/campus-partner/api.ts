@@ -68,6 +68,12 @@ export interface Overview {
     coupon_state: string
     coupon_trade: string
   }
+  withdrawal_cutoff?: string
+  withdrawal_next_start?: string
+  withdrawal_month_end?: string
+  withdrawal_next_month_end?: string
+  withdrawal_account?: string
+  withdrawal_name?: string
   frozen_cents: number
   available_cents: number
   processing_cents: number

@@ -173,7 +173,15 @@ func TestCampusDatabase(t *testing.T) {
 			require.EqualValues(t, 1, ownCount)
 			ownRows := *own.(*[]CampusWithdrawal)
 			require.Equal(t, "alipay@example.test", ownRows[0].Account)
-			require.Equal(t, "Test", ownRows[0].RealName)
+			require.Equal(t, "T***", ownRows[0].RealName)
+			recipientOverview, err := CampusGetOverview(1)
+			require.NoError(t, err)
+			require.Equal(t, "alipay@example.test", recipientOverview.WithdrawalAccount)
+			require.Equal(t, "Test", recipientOverview.WithdrawalName)
+			otherOverview, err := CampusGetOverview(999)
+			require.NoError(t, err)
+			require.Empty(t, otherOverview.WithdrawalAccount)
+			require.Empty(t, otherOverview.WithdrawalName)
 			otherWithdrawals, otherCount, err := CampusList(999, false, "withdrawals", 1, 10)
 			require.NoError(t, err)
 			require.Zero(t, otherCount)
@@ -576,5 +584,11 @@ func TestCampusAlipayAccountFormat(t *testing.T) {
 		assert.False(t, campusAlipayAccountPattern.MatchString(account), account)
 		_, err := CampusRequestWithdrawal(1, "format-request-0001", account, "Test", 10000)
 		require.Error(t, err)
+	}
+}
+
+func TestCampusMaskedRealName(t *testing.T) {
+	for name, want := range map[string]string{"张三": "张*", "王小明": "王**", "欧阳小明": "欧阳**", "李": "*", "": "*", "  张三  ": "张*"} {
+		assert.Equal(t, want, campusMaskedRealName(name))
 	}
 }

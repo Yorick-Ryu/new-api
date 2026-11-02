@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "{{cutoff}}まで（当日を含む）の申請は承認後{{currentEnd}}に振込予定です。{{nextStart}}以降の申請は{{nextEnd}}に振込予定です。日付は北京時間です。",
     "Enter a valid Alipay phone number or email address": "有効なAlipayの電話番号またはメールアドレスを入力してください",
     "Refund amount": "返金額",
     "Order number": "注文番号",

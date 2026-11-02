@@ -10,22 +10,28 @@ import (
 )
 
 type CampusOverview struct {
-	ExpectedBatch string             `json:"expected_batch"`
-	Enabled       bool               `json:"enabled"`
-	Version       string             `json:"version"`
-	Member        *CampusMember      `json:"member" gorm:"-"`
-	CanBind       bool               `json:"can_bind"`
-	Frozen        cp.Money           `json:"frozen_cents"`
-	Available     cp.Money           `json:"available_cents"`
-	Processing    cp.Money           `json:"processing_cents"`
-	Paid          cp.Money           `json:"paid_cents"`
-	Net           cp.Money           `json:"net_cents"`
-	Invited       int64              `json:"invited"`
-	ThisMonth     int64              `json:"this_month"`
-	Tier          cp.Tier            `json:"tier" gorm:"-"`
-	Tiers         []cp.TierRule      `json:"tiers" gorm:"-"`
-	PlanRates     []cp.PlanRate      `json:"plan_rates" gorm:"-"`
-	PlanOptions   []CampusPlanOption `json:"plan_options" gorm:"-"`
+	WithdrawalCutoff       string             `json:"withdrawal_cutoff"`
+	WithdrawalNextStart    string             `json:"withdrawal_next_start"`
+	WithdrawalMonthEnd     string             `json:"withdrawal_month_end"`
+	WithdrawalNextMonthEnd string             `json:"withdrawal_next_month_end"`
+	WithdrawalAccount      string             `json:"withdrawal_account"`
+	WithdrawalName         string             `json:"withdrawal_name"`
+	ExpectedBatch          string             `json:"expected_batch"`
+	Enabled                bool               `json:"enabled"`
+	Version                string             `json:"version"`
+	Member                 *CampusMember      `json:"member" gorm:"-"`
+	CanBind                bool               `json:"can_bind"`
+	Frozen                 cp.Money           `json:"frozen_cents"`
+	Available              cp.Money           `json:"available_cents"`
+	Processing             cp.Money           `json:"processing_cents"`
+	Paid                   cp.Money           `json:"paid_cents"`
+	Net                    cp.Money           `json:"net_cents"`
+	Invited                int64              `json:"invited"`
+	ThisMonth              int64              `json:"this_month"`
+	Tier                   cp.Tier            `json:"tier" gorm:"-"`
+	Tiers                  []cp.TierRule      `json:"tiers" gorm:"-"`
+	PlanRates              []cp.PlanRate      `json:"plan_rates" gorm:"-"`
+	PlanOptions            []CampusPlanOption `json:"plan_options" gorm:"-"`
 }
 
 type CampusInvitation struct {
@@ -91,6 +97,21 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 		if err := campusUnlockTx(tx, member, time.Now().Unix()); err != nil {
 			return err
 		}
+		var recipient CampusWithdrawal
+		if err := tx.Select("account, real_name").Where("user_id = ?", userID).Order("id desc").Limit(1).Find(&recipient).Error; err != nil {
+			return err
+		}
+		result.WithdrawalAccount, result.WithdrawalName = recipient.Account, recipient.RealName
+		localNow := time.Now().In(time.FixedZone("Asia/Shanghai", 28800))
+		year, month, _ := localNow.Date()
+		date := func(month time.Month, day int) string {
+			return time.Date(year, month, day, 0, 0, 0, 0, localNow.Location()).Format(time.DateOnly)
+		}
+		result.WithdrawalCutoff = date(month, 25)
+		result.WithdrawalNextStart = date(month, 26)
+		result.WithdrawalMonthEnd = date(month+1, 0)
+		result.WithdrawalNextMonthEnd = date(month+2, 0)
+
 		result.Member = member
 		result.CanBind = config.Enabled && member.InviterID == 0 && member.FirstPaidAt == 0
 		if result.CanBind {
@@ -245,5 +266,26 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		}
 		return &result, count, nil
 	}
+	if !admin && kind == "withdrawals" {
+		for i := range *rows.(*[]CampusWithdrawal) {
+			row := &(*rows.(*[]CampusWithdrawal))[i]
+			row.RealName = campusMaskedRealName(row.RealName)
+		}
+	}
 	return rows, count, nil
+}
+
+func campusMaskedRealName(name string) string {
+	chars := []rune(strings.TrimSpace(name))
+	if len(chars) <= 1 {
+		return "*"
+	}
+	keep := 1
+	if len(chars) > 2 {
+		switch string(chars[:2]) {
+		case "欧阳", "歐陽", "司马", "司馬", "上官", "诸葛", "諸葛", "东方", "東方", "皇甫", "尉迟", "尉遲", "公孙", "公孫", "慕容", "宇文", "司徒", "司空", "令狐", "长孙", "長孫", "夏侯", "闻人", "聞人", "澹台", "赫连", "赫連", "宗政", "濮阳", "濮陽", "淳于", "单于", "單于", "太叔", "申屠", "公羊", "仲孙", "仲孫", "轩辕", "軒轅", "钟离", "鍾離", "闾丘", "閭丘", "鲜于", "鮮于", "段干", "百里", "东郭", "東郭", "南宫", "南宮", "呼延", "羊舌", "微生", "梁丘", "左丘", "东门", "東門", "西门", "西門", "第五":
+			keep = 2
+		}
+	}
+	return string(chars[:keep]) + strings.Repeat("*", len(chars)-keep)
 }

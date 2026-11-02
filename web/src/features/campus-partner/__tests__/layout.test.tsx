@@ -358,13 +358,35 @@ test.each([9999, 10000])(
 
 test('eligible withdrawal still opens the existing application dialog from the summary card', async () => {
   const user = userEvent.setup()
-  renderPage(<CampusPartner />, { available_cents: 10000 })
+  renderPage(<CampusPartner />, {
+    available_cents: 10000,
+    withdrawal_account: 'person@example.com',
+    withdrawal_name: '张三',
+    withdrawal_cutoff: '2026-11-25',
+    withdrawal_next_start: '2026-11-26',
+    withdrawal_month_end: '2026-11-30',
+    withdrawal_next_month_end: '2026-12-31',
+  })
   await user.click(
     await screen.findByRole('button', { name: 'Request withdrawal' })
   )
   const dialog = screen.getByRole('dialog', { name: 'Request withdrawal' })
   expect(within(dialog).getByLabelText('Amount (CNY)')).toHaveValue('100.00')
-  expect(within(dialog).getByLabelText('Alipay account')).toBeVisible()
+  expect(within(dialog).getByLabelText('Alipay account')).toHaveValue(
+    'person@example.com'
+  )
+  expect(within(dialog).getByLabelText('Real name')).toHaveValue('张三')
+  expect(
+    within(dialog).getByText(/2026-11-25.*2026-11-30.*2026-11-26.*2026-12-31/)
+  ).toBeVisible()
+  await user.clear(within(dialog).getByLabelText('Alipay account'))
+  await user.type(
+    within(dialog).getByLabelText('Alipay account'),
+    '13800138000'
+  )
+  expect(within(dialog).getByLabelText('Alipay account')).toHaveValue(
+    '13800138000'
+  )
   expect(
     within(dialog).getByRole('button', { name: 'Submit for review' })
   ).toBeVisible()

@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "Demandes déposées au plus tard le {{cutoff}} : versement prévu le {{currentEnd}} après approbation. À partir du {{nextStart}} : versement prévu le {{nextEnd}}. Dates en heure de Pékin.",
     "Enter a valid Alipay phone number or email address": "Saisissez un numéro de téléphone ou une adresse e-mail Alipay valide",
     "Refund amount": "Montant remboursé",
     "Order number": "Numéro de commande",

@@ -138,8 +138,13 @@ export function CampusPartner(): ReactElement {
           onOpenChange={setWithdraw}
           title={t('Request withdrawal')}
           description={t(
-            'We will review your request as soon as possible and pay after approval. Expected payout: {{date}}',
-            { date: data.expected_batch }
+            'Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.',
+            {
+              cutoff: data.withdrawal_cutoff,
+              currentEnd: data.withdrawal_month_end,
+              nextStart: data.withdrawal_next_start,
+              nextEnd: data.withdrawal_next_month_end,
+            }
           )}
         >
           <CampusFields
@@ -150,8 +155,12 @@ export function CampusPartner(): ReactElement {
                 label: 'Amount (CNY)',
                 value: (data.available_cents / 100).toFixed(2),
               },
-              { name: 'account', label: 'Alipay account' },
-              { name: 'name', label: 'Real name' },
+              {
+                name: 'account',
+                label: 'Alipay account',
+                value: data.withdrawal_account,
+              },
+              { name: 'name', label: 'Real name', value: data.withdrawal_name },
             ]}
             submit='Submit for review'
             pending={apply.isPending}
