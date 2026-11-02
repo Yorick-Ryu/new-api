@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { CampusPartner } from '..'
 import { CampusAdmin } from '../admin'
 import type { Overview } from '../api'
+import { commissionStatus } from '../commission-columns'
 import type { CampusRecord } from '../records'
 
 const clients: QueryClient[] = []
@@ -428,4 +429,13 @@ test('partner tiers display configured names and defaults for unnamed tiers', as
   }
   expect(screen.queryByText('Apprentice partner')).not.toBeInTheDocument()
   expect(screen.getAllByText('Lv.6').length).toBeGreaterThan(0)
+})
+
+test('commission status uses commission balances even when the historical settlement timestamp is missing', () => {
+  expect(commissionStatus({ id: 1, user_id: 2, frozen_cents: 350 })).toBe(
+    'Pending settlement'
+  )
+  expect(commissionStatus({ id: 2, user_id: 2, available_cents: 350 })).toBe(
+    'Available to withdraw'
+  )
 })

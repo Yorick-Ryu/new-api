@@ -33,7 +33,6 @@ export function commissionStatus(row: CampusRecord): string {
     }
     return 'Partially refunded'
   }
-  if (!row.settled_at) return 'Awaiting payment'
   if ((row.frozen_cents || 0) > 0) return 'Pending settlement'
   if ((row.reserved_cents || 0) > 0) return 'Withdrawal in progress'
   if ((row.available_cents || 0) > 0) return 'Available to withdraw'
