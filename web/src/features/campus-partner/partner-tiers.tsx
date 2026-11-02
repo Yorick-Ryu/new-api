@@ -111,6 +111,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   className='flex min-w-0 flex-col gap-3'
                 >
                   <Progress
+                    className='[&_[data-slot=progress-track]]:h-2'
                     value={value}
                     aria-label={t('Lv.{{level}}', { level: index + 1 })}
                   />

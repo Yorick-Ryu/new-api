@@ -61,7 +61,7 @@ export function CommissionComposition(props: { data: Overview }) {
       role='group'
       aria-label={t('Commission ledger')}
     >
-      <div className='bg-muted flex h-3 w-full overflow-hidden rounded-full'>
+      <div className='bg-muted flex h-2 w-full overflow-hidden rounded-full'>
         {parts
           .filter((part) => part.amount > 0)
           .map((part) => {
@@ -94,7 +94,7 @@ export function CommissionComposition(props: { data: Overview }) {
               />
               {t(part.label)}
             </dt>
-            <dd className='font-mono text-sm font-medium break-all tabular-nums'>
+            <dd className='text-foreground font-mono text-sm font-semibold break-all tabular-nums'>
               {cash(part.amount, locale)}
             </dd>
           </div>

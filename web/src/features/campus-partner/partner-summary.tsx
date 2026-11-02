@@ -56,6 +56,7 @@ export function PartnerSummary(props: {
               iconTone='primary'
             />
             <Progress
+              className='[&_[data-slot=progress-track]]:h-2'
               value={Math.max(
                 0,
                 Math.min(100, props.data.available_cents / 100)
