@@ -51,9 +51,6 @@ export function CommissionDetails(props: {
       cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
     ],
     [t('Settlement freeze'), cash(row.frozen_cents || 0, locale)],
-    [t('Available'), cash(row.available_cents || 0, locale)],
-    [t('Withdrawal in progress'), cash(row.reserved_cents || 0, locale)],
-    [t('Paid out'), cash(row.paid_out_cents || 0, locale)],
   ]
   let formula = t('Calculation unavailable')
   try {

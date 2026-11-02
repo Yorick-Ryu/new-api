@@ -56,9 +56,7 @@ export type CampusRecord = {
   reversed_cents?: number
   frozen_cents?: number
   available_cents?: number
-  reserved_cents?: number
   refunded_cents?: number
-  paid_out_cents?: number
   offset_cents?: number
   eligibility?: string
   segments?: string
