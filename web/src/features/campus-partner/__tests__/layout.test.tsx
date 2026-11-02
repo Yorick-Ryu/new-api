@@ -168,7 +168,7 @@ test('partner page merges the introduction into the invitation card before benef
   const benefits = screen.getByRole('heading', {
     name: 'Exclusive friend benefits',
   })
-  const available = screen.getByText('Available commission')
+  const available = screen.getAllByText('Available commission')[0]
   const tiers = screen.getByRole('heading', {
     name: 'Top-up commission levels',
   })
@@ -450,4 +450,45 @@ test('partner tiers display configured names and defaults for unnamed tiers', as
   }
   expect(screen.queryByText('Apprentice partner')).not.toBeInTheDocument()
   expect(screen.getAllByText('Lv.6').length).toBeGreaterThan(0)
+})
+
+test('commission composition shows four amounts and identifies each proportional segment on hover', async () => {
+  const user = userEvent.setup()
+  renderPage(<CampusPartner />, {
+    available_cents: 40000,
+    frozen_cents: 10000,
+    processing_cents: 20000,
+    paid_cents: 30000,
+    net_cents: 100000,
+  })
+  const composition = await screen.findByRole('group', {
+    name: 'Commission ledger',
+  })
+  for (const label of [
+    'Available commission',
+    'Settling',
+    'Withdrawing',
+    'Paid out',
+  ]) {
+    expect(within(composition).getByText(label)).toBeVisible()
+  }
+  const segment = within(composition).getByLabelText(
+    /Available commission.*400\.00.*40%/
+  )
+  expect(segment).toHaveStyle({ width: '40%' })
+  await user.hover(segment)
+  expect(
+    await screen.findByText(/Available commission.*400\.00.*40%/)
+  ).toHaveTextContent(/Available commission.*400\.00.*40%/)
+})
+
+test('zero commission retains all four legend amounts without creating invalid segments', async () => {
+  renderPage(<CampusPartner />)
+  const composition = await screen.findByRole('group', {
+    name: 'Commission ledger',
+  })
+  expect(within(composition).getAllByText(/0\.00/)).toHaveLength(4)
+  expect(
+    composition.querySelectorAll('[data-slot="tooltip-trigger"]')
+  ).toHaveLength(0)
 })

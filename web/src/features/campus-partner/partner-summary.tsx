@@ -35,6 +35,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import { cash, type Overview } from './api'
+import { CommissionComposition } from './commission-composition'
 
 export function PartnerSummary(props: {
   data: Overview
@@ -85,25 +86,10 @@ export function PartnerSummary(props: {
             <StatCard
               title={t('Lifetime commission')}
               value={cash(props.data.net_cents, locale)}
-              description={t('Commission ledger')}
               icon={CircleDollarSign}
               iconTone='primary'
-              showDetailsOnMobile
-              details={[
-                {
-                  label: t('Paid out'),
-                  value: cash(props.data.paid_cents, locale),
-                },
-                {
-                  label: t('Settling'),
-                  value: cash(props.data.frozen_cents, locale),
-                },
-                {
-                  label: t('Withdrawing'),
-                  value: cash(props.data.processing_cents, locale),
-                },
-              ]}
             />
+            <CommissionComposition data={props.data} />
           </CardContent>
         </Card>
         <Card>
