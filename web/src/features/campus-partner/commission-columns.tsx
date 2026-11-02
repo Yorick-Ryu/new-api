@@ -19,11 +19,21 @@ For commercial licensing, please contact support@quantumnous.com
 import type { TFunction } from 'i18next'
 
 import type { StaticDataTableColumn } from '@/components/data-table'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 import { beijingDate, cash } from './api'
 import { CampusFriend } from './friend-cell'
 import type { CampusRecord } from './records'
+
+export function commissionStatus(row: CampusRecord): string {
+  if ((row.refunded_cents || 0) > 0) {
+    return (row.refunded_cents || 0) >= (row.paid_cents || 0)
+      ? 'Fully refunded'
+      : 'Partially refunded'
+  }
+  return (row.frozen_cents || 0) > 0 ? 'Pending settlement' : 'Settled'
+}
 
 export function commissionColumns(
   t: TFunction,
@@ -64,6 +74,13 @@ export function commissionColumns(
       cellClassName: 'font-semibold tabular-nums',
       cell: (row) =>
         cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
+    },
+    {
+      id: 'status',
+      header: t('Status'),
+      cell: (row) => (
+        <Badge variant='outline'>{t(commissionStatus(row))}</Badge>
+      ),
     },
     {
       id: 'details',

@@ -281,15 +281,14 @@ test('commission history shows six columns and opens masked order details with t
     'Order number',
     'Top-up type',
     'Commission',
+    'Status',
     'Details',
   ])
   expect(within(panel).getByText('林**')).toBeVisible()
   expect(within(panel).getByText('林')).toBeInTheDocument()
   expect(within(panel).getByText(/19:30:05/)).toBeVisible()
   expect(within(panel).getByText('USR9***-063')).toBeVisible()
-  expect(
-    within(panel).queryByRole('columnheader', { name: 'Status' })
-  ).not.toBeInTheDocument()
+  expect(within(panel).getByText('Partially refunded')).toBeVisible()
   expect(within(panel).queryByText('Balance changes')).not.toBeInTheDocument()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   await user.click(within(panel).getByRole('button', { name: 'Details' }))
