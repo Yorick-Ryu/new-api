@@ -130,18 +130,17 @@ export function CampusRecords(props: {
       : [
           {
             id: 'date',
-            header:
-              props.kind === 'withdrawals' ? t('Time') : t('Time (Beijing)'),
+            header: t('Time'),
             cell: (row) =>
               beijingDate(
                 row.created_at || row.settled_at || row.bound_at || 0,
                 locale,
-                props.kind === 'withdrawals'
+                props.kind === 'withdrawals' || props.kind === 'refunds'
               ),
           },
           {
             id: 'source',
-            header: t('Source'),
+            header: props.kind === 'refunds' ? t('Order number') : t('Source'),
             cell: (row) => (
               <div className='max-w-64 break-all whitespace-normal'>
                 {row.trade_no || `#${row.user_id}`}
@@ -155,7 +154,7 @@ export function CampusRecords(props: {
                     {t('Withdrawal request')} #{row.withdrawal_id}
                   </p>
                 ) : null}
-                {props.admin && (
+                {props.admin && props.kind !== 'refunds' && (
                   <p className='text-xs'>
                     {t('Account')} #{row.user_id}
                   </p>
@@ -294,7 +293,10 @@ export function CampusRecords(props: {
       ),
     })
   }
-  if (props.admin && props.kind === 'withdrawals') {
+  if (
+    props.admin &&
+    (props.kind === 'withdrawals' || props.kind === 'refunds')
+  ) {
     columns.unshift({
       id: 'user',
       header: t('User'),

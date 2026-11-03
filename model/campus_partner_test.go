@@ -208,6 +208,23 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Error(t, err)
 			_, err = CampusRegisterRefund("large", "partial-pending", "confirmed provider refund", 10000, 1, false)
 			require.NoError(t, err)
+			refundRows, refundCount, err := CampusList(1, true, "refunds", 1, 10)
+			require.NoError(t, err)
+			require.Positive(t, refundCount)
+			encodedRefunds, err := common.Marshal(refundRows)
+			require.NoError(t, err)
+			var refundUsers []struct {
+				TradeNo  string `json:"trade_no"`
+				UserID   int    `json:"user_id"`
+				Username string `json:"username"`
+			}
+			require.NoError(t, common.Unmarshal(encodedRefunds, &refundUsers))
+			require.NotEmpty(t, refundUsers)
+			assert.Equal(t, "large", refundUsers[0].TradeNo)
+			var refundedPayment CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "large").First(&refundedPayment).Error)
+			assert.Equal(t, refundedPayment.UserID, refundUsers[0].UserID)
+			assert.Equal(t, fmt.Sprintf("campus-%d", refundedPayment.UserID), refundUsers[0].Username)
 			require.NoError(t, db.First(w, w.ID).Error)
 			assert.Equal(t, "paused", w.State)
 			assert.Equal(t, cp.Money(27000), w.Amount)

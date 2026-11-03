@@ -205,3 +205,42 @@ test.each([false, true])(
     }
   }
 )
+
+test('admin refunds show payer, second-precision time and the original order number', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: [
+          {
+            id: 9,
+            user_id: 42,
+            username: 'payer42',
+            trade_no: 'original-order-9',
+            created_at: Date.UTC(2026, 10, 3, 6, 12, 37) / 1000,
+            amount_cents: 10000,
+          },
+        ],
+        total: 1,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='refunds' admin />
+    </QueryClientProvider>
+  )
+  const table = await screen.findByRole('table')
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .slice(0, 3)
+      .map((header) => header.textContent)
+  ).toEqual(['User', 'Time', 'Order number'])
+  expect(within(table).getByText('payer42')).toBeVisible()
+  expect(within(table).getByText('original-order-9')).toBeVisible()
+  expect(within(table).getByText(/14:12:37/)).toBeVisible()
+})
