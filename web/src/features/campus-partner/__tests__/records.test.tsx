@@ -24,6 +24,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
+import { matchesRecordFilters } from '../record-filter-matching'
 import { CampusRecords } from '../records'
 
 afterEach(() => vi.restoreAllMocks())
@@ -272,6 +273,7 @@ test('withdrawal status filtering includes matches beyond the first server page'
   )
   await user.click(await screen.findByRole('combobox', { name: 'Status' }))
   await user.click(screen.getByRole('option', { name: /^Paid$/ }))
+  await user.click(screen.getByRole('button', { name: 'Search' }))
   expect(await screen.findByText(/123\.45/)).toBeVisible()
   expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument()
   expect(get).toHaveBeenCalledWith(
@@ -333,4 +335,83 @@ test('admin commissions show inviter and invitee before the partner-style column
   const dialog = await screen.findByRole('dialog')
   expect(within(dialog).getByText('partner7 #7')).toBeVisible()
   expect(within(dialog).getByText('buyer42 #42')).toBeVisible()
+})
+
+test('commission filters combine time, both accounts, order and status and reset to all records', async () => {
+  const rows = [
+    {
+      id: 1,
+      user_id: 42,
+      username: 'buyer',
+      inviter_id: 7,
+      inviter_username: 'partner',
+      trade_no: 'ORDER-ABC',
+      settled_at: 1791000000,
+      paid_cents: 10000,
+      refunded_cents: 1000,
+    },
+    {
+      id: 2,
+      user_id: 43,
+      username: 'someone',
+      inviter_id: 8,
+      inviter_username: 'other',
+      trade_no: 'ORDER-XYZ',
+      settled_at: 1791000000,
+      paid_cents: 10000,
+      refunded_cents: 0,
+    },
+  ]
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { items: rows, total: 2 } },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='payments' admin />
+    </QueryClientProvider>
+  )
+  await user.type(await screen.findByRole('textbox', { name: 'Inviter' }), '#7')
+  await user.type(screen.getByRole('textbox', { name: 'Invitee' }), 'buyer')
+  await user.type(screen.getByRole('textbox', { name: 'Order number' }), 'abc')
+  await user.click(screen.getByRole('combobox', { name: 'Status' }))
+  await user.click(screen.getByRole('option', { name: 'Partially refunded' }))
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  expect(await screen.findByText('ORDER-ABC')).toBeVisible()
+  expect(screen.queryByText('ORDER-XYZ')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reset' }))
+  expect(await screen.findByText('ORDER-XYZ')).toBeVisible()
+  client.clear()
+})
+
+test('time filters include boundaries and use application time for withdrawals and settlement time for commissions', () => {
+  const row = {
+    id: 1,
+    user_id: 42,
+    username: 'buyer',
+    created_at: 100,
+    settled_at: 200,
+  }
+  expect(
+    matchesRecordFilters(
+      row,
+      { start: new Date(100000), end: new Date(100000), user: '#42' },
+      false
+    )
+  ).toBe(true)
+  expect(matchesRecordFilters(row, { start: new Date(100001) }, false)).toBe(
+    false
+  )
+  expect(
+    matchesRecordFilters(
+      row,
+      { start: new Date(200000), end: new Date(200000), invitee: 'BUYER' },
+      true
+    )
+  ).toBe(true)
+  expect(matchesRecordFilters(row, { end: new Date(199999) }, true)).toBe(false)
+  expect(matchesRecordFilters(row, { user: '#4' }, false)).toBe(false)
 })

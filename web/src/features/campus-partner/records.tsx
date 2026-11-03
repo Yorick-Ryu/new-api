@@ -30,13 +30,6 @@ import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { toIntlLocale } from '@/i18n/languages'
 
 import { beijingDate, campusGet, cash } from './api'
@@ -45,11 +38,16 @@ import { CommissionDetails } from './commission-records'
 import { campusWithdrawalStateLabels } from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
+import { matchesRecordFilters } from './record-filter-matching'
+import { CampusRecordFilters, type RecordFilters } from './record-filters'
 import { WithdrawalDetails } from './withdrawal-details'
 
 export type CampusRecord = {
   id: number
   user_id: number
+  partner_tier?: { level: number; name?: string; rate_percent: number }
+  partner_tier_name?: string
+  performance_cents?: number
   inviter_id?: number
   inviter_username?: string
   inviter_display_name?: string
@@ -92,26 +90,21 @@ export function CampusRecords(props: {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [page, setPage] = useState(1)
-  const [withdrawalState, setWithdrawalState] = useState('all')
-  const statusOptions = [
-    { value: 'all', label: t('All') },
-    ...Object.entries(campusWithdrawalStateLabels).map(([value, label]) => ({
-      value,
-      label: t(label),
-    })),
-  ]
+  const [draft, setDraft] = useState<RecordFilters>({})
+  const [filters, setFilters] = useState<RecordFilters>({})
   const [selected, setSelected] = useState<CampusRecord | null>(null)
   const paymentColumns = commissionColumns(t, locale, setSelected, props.admin)
   const commissionView = props.kind === 'payments'
-  const filterWithdrawals =
-    props.kind === 'withdrawals' && withdrawalState !== 'all'
+  const hasFilters = Object.values(filters).some(
+    (value) => value && value !== 'all'
+  )
   const query = useQuery({
-    queryKey: filterWithdrawals
-      ? ['campus', 'records', !!props.admin, props.kind, page, withdrawalState]
+    queryKey: hasFilters
+      ? ['campus', 'records', !!props.admin, props.kind, page, filters]
       : ['campus', 'records', !!props.admin, props.kind, page],
     queryFn: async () => {
       const path = `${props.admin ? 'admin' : 'self'}/records/${props.kind}`
-      if (!filterWithdrawals) {
+      if (!hasFilters) {
         return campusGet<{ items: CampusRecord[]; total: number }>(
           `${path}?page=${page}&size=10`
         )
@@ -129,7 +122,9 @@ export function CampusRecords(props: {
         if (result.items.length === 0) break
         currentPage += 1
       } while (items.length < total)
-      const filtered = items.filter((row) => row.state === withdrawalState)
+      const filtered = items.filter((row) =>
+        matchesRecordFilters(row, filters, commissionView)
+      )
       return {
         items: filtered.slice((page - 1) * 10, page * 10),
         total: filtered.length,
@@ -358,28 +353,23 @@ export function CampusRecords(props: {
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />
   return (
     <div className='space-y-3'>
-      {props.kind === 'withdrawals' && (
-        <Select
-          items={statusOptions}
-          value={withdrawalState}
-          onValueChange={(value) => {
-            if (value) {
-              setWithdrawalState(value)
-              setPage(1)
-            }
+      {(commissionView || props.kind === 'withdrawals') && (
+        <CampusRecordFilters
+          payments={commissionView}
+          admin={props.admin}
+          value={draft}
+          onChange={setDraft}
+          loading={query.isFetching}
+          onSearch={() => {
+            setFilters({ ...draft })
+            setPage(1)
           }}
-        >
-          <SelectTrigger aria-label={t('Status')} className='w-56'>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onReset={() => {
+            setDraft({})
+            setFilters({})
+            setPage(1)
+          }}
+        />
       )}
       <div className='max-w-full overflow-x-auto'>
         <StaticDataTable

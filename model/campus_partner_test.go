@@ -211,15 +211,19 @@ func TestCampusDatabase(t *testing.T) {
 			encodedRows, err := common.Marshal(adminRows)
 			require.NoError(t, err)
 			var recipients []struct {
-				UserID      int    `json:"user_id"`
-				Username    string `json:"username"`
-				DisplayName string `json:"display_name"`
+				PartnerTier *cp.Tier `json:"partner_tier"`
+				UserID      int      `json:"user_id"`
+				Username    string   `json:"username"`
+				DisplayName string   `json:"display_name"`
 			}
 			require.NoError(t, common.Unmarshal(encodedRows, &recipients))
 			require.Len(t, recipients, 1)
 			assert.Equal(t, 1, recipients[0].UserID)
 			assert.Equal(t, "campus-1", recipients[0].Username)
 			assert.Equal(t, "Campus", recipients[0].DisplayName)
+			require.NotNil(t, recipients[0].PartnerTier)
+			assert.Positive(t, recipients[0].PartnerTier.Level)
+			assert.Positive(t, recipients[0].PartnerTier.RatePercent)
 			own, ownCount, err := CampusList(1, false, "withdrawals", 1, 10)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, ownCount)

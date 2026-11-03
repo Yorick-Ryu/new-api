@@ -253,8 +253,11 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	if admin && kind == "withdrawals" {
 		type withdrawalRecord struct {
 			CampusWithdrawal
-			Username    string `json:"username"`
-			DisplayName string `json:"display_name"`
+			Username        string   `json:"username"`
+			DisplayName     string   `json:"display_name"`
+			PartnerTierName string   `json:"partner_tier_name"`
+			PartnerTier     *cp.Tier `json:"partner_tier,omitempty"`
+			Performance     cp.Money `json:"performance_cents"`
 		}
 		withdrawals := *rows.(*[]CampusWithdrawal)
 		ids := make([]int, 0, len(withdrawals))
@@ -271,10 +274,33 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		for _, user := range users {
 			names[user.Id] = user
 		}
+		var members []CampusMember
+		if len(ids) > 0 {
+			if err := DB.Select("user_id", "performance").Where("user_id IN ?", ids).Find(&members).Error; err != nil {
+				return nil, 0, err
+			}
+		}
+		config, err := CampusGetConfig()
+		if err != nil {
+			return nil, 0, err
+		}
+		memberByID := make(map[int]CampusMember, len(members))
+		for _, member := range members {
+			memberByID[member.UserID] = member
+		}
 		result := make([]withdrawalRecord, 0, len(withdrawals))
 		for _, withdrawal := range withdrawals {
 			user := names[withdrawal.UserID]
-			result = append(result, withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName})
+			record := withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName}
+			if member, ok := memberByID[withdrawal.UserID]; ok {
+				tier, err := cp.CurrentTier(member.Performance, config.Tiers)
+				if err != nil {
+					return nil, 0, err
+				}
+				record.PartnerTier, record.Performance = &tier, member.Performance
+				record.PartnerTierName = config.Tiers[tier.Level-1].Name
+			}
+			result = append(result, record)
 		}
 		return result, count, nil
 	}

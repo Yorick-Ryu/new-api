@@ -542,7 +542,18 @@ test.each([
     const { user, client } = await renderConfiguration(false, false)
     await act(async () => {
       client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
-        items: [{ id: 91, user_id: 1, state, amount_cents: 10000 }],
+        items: [
+          {
+            id: 91,
+            user_id: 1,
+            username: 'partner-test',
+            state,
+            amount_cents: 10000,
+            partner_tier: { level: 2, rate_percent: 35 },
+            partner_tier_name: 'Campus star',
+            performance_cents: 200000,
+          },
+        ],
         total: 1,
       })
     })
@@ -569,6 +580,9 @@ test.each([
         dialog.queryByRole('button', { name: 'Confirm operation' })
       ).toBeNull()
     }
+    expect(dialog.getByText('partner-test (#1)')).toBeVisible()
+    expect(dialog.getByText('Lv.2 · Campus star')).toBeVisible()
+    expect(dialog.getByText('35%')).toBeVisible()
     expect(dialog.getByText('Alipay account')).toBeVisible()
     expect(dialog.getByText('Expected payout')).toBeVisible()
     if (state === 'pending') {

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Partner level": "合伙人等级",
+    "Top-up commission rate": "充值佣金比例",
+    "Username, display name or ID": "用户名、显示名称或 ID",
     "Reason (optional)": "理由（选填）",
     "Enter approval reason (optional)": "请输入审核通过的理由（选填）",
     "Enter pause reason (optional)": "请输入暂停的理由（选填）",

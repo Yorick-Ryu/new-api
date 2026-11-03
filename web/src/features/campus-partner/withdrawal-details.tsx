@@ -20,9 +20,10 @@ import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
 import { toIntlLocale } from '@/i18n/languages'
+import { formatNumber } from '@/lib/format'
 
 import { beijingDate, cash } from './api'
-import { campusWithdrawalStateLabels } from './constants'
+import { campusTierNameKeys, campusWithdrawalStateLabels } from './constants'
 import type { CampusRecord } from './records'
 
 export function WithdrawalDetails(props: {
@@ -65,6 +66,30 @@ export function WithdrawalSummary(props: {
     [t('Alipay account'), row.account || '—'],
     [t('Real name'), row.real_name || '—'],
   ]
+  if (props.admin) {
+    fields.unshift([
+      t('User'),
+      `${row.username || row.display_name || '—'} (#${row.user_id})`,
+    ])
+    if (row.partner_tier) {
+      fields.splice(
+        1,
+        0,
+        [
+          t('Partner level'),
+          `Lv.${row.partner_tier.level} · ${row.partner_tier_name || t(campusTierNameKeys[row.partner_tier.level - 1] || 'Partner level')}`,
+        ],
+        [
+          t('Top-up commission rate'),
+          `${formatNumber(row.partner_tier.rate_percent, locale)}%`,
+        ],
+        [
+          t('Friends cumulative top-ups'),
+          cash(row.performance_cents || 0, locale),
+        ]
+      )
+    }
+  }
   if (row.reason) fields.push([t('Reason'), t(row.reason)])
   if (row.paid_at) {
     fields.push([
