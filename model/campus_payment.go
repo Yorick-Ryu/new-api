@@ -124,6 +124,18 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	if payment.UserID != userID {
 		return ErrCampusState
 	}
+	if member.InviterID == 0 {
+		payment.SettledAt = now
+		payment.Eligibility = string(cp.NoBindingAtSettlement)
+		if len(proofs) == 1 {
+			reference := "epay:" + proofs[0].Transaction
+			payment.ProviderTrade = &reference
+		}
+		if err := tx.Save(member).Error; err != nil {
+			return err
+		}
+		return tx.Save(&payment).Error
+	}
 	// Resolve rates at the first verified settlement. A checkout explicitly
 	// excluded from the campaign stays excluded, even if that plan is added later.
 	var subscriptionRate int64

@@ -192,7 +192,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		}
 		return campusListInvitations(userID, page, size)
 	case "payments":
-		query = query.Model(&CampusPayment{})
+		query = query.Model(&CampusPayment{}).Where("inviter_id > 0 AND settled_at > 0 AND eligibility = ?", string(cp.Eligible))
 		if !admin {
 			query = query.Where("inviter_id = ? AND eligibility = ?", userID, string(cp.Eligible))
 		}
@@ -228,6 +228,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		}
 		result := make([]paymentRecord, 0)
 		err := DB.Table("campus_payments AS p").
+			Where("p.inviter_id > 0 AND p.settled_at > 0 AND p.eligibility = ?", string(cp.Eligible)).
 			Select("p.*, u.username, u.display_name, i.username AS inviter_username, i.display_name AS inviter_display_name").
 			Joins("LEFT JOIN users AS u ON u.id = p.user_id").
 			Joins("LEFT JOIN users AS i ON i.id = p.inviter_id").

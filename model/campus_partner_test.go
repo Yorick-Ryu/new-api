@@ -114,6 +114,24 @@ func TestCampusDatabase(t *testing.T) {
 					assert.ErrorIs(t, CampusBind(3, invalid), ErrCampusBinding)
 				}
 			})
+			t.Run("uninvited payment bypasses commission and stays out of ledger", func(t *testing.T) {
+				order := TopUp{UserId: 8, TradeNo: "uninvited-checkout", Money: 10, Status: common.TopUpStatusPending}
+				require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
+				require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, order.TradeNo, 8) }))
+				var payment CampusPayment
+				require.NoError(t, db.Where("trade_no = ?", order.TradeNo).First(&payment).Error)
+				assert.Zero(t, payment.InviterID)
+				assert.Zero(t, payment.Commission)
+				assert.Zero(t, payment.Frozen)
+				assert.Empty(t, payment.Segments)
+				assert.Empty(t, payment.RuleVersion)
+				assert.Positive(t, payment.SettledAt)
+				rows, _, err := CampusList(1, true, "payments", 1, 100)
+				require.NoError(t, err)
+				encoded, err := common.Marshal(rows)
+				require.NoError(t, err)
+				assert.NotContains(t, string(encoded), order.TradeNo)
+			})
 			require.NotNil(t, first)
 			require.NotNil(t, second)
 			require.NoError(t, CampusBind(2, strings.ToLower(first.Code)))
@@ -181,6 +199,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, common.Unmarshal(paymentJSON, &paymentUsers))
 			require.NotEmpty(t, paymentUsers)
 			for _, payment := range paymentUsers {
+				assert.Positive(t, payment.InviterID)
 				assert.Equal(t, fmt.Sprintf("campus-%d", payment.UserID), payment.Username)
 				if payment.InviterID != 0 {
 					assert.Equal(t, fmt.Sprintf("campus-%d", payment.InviterID), payment.InviterUsername)
@@ -573,10 +592,11 @@ func TestCampusDatabase(t *testing.T) {
 
 				paymentRows, paymentTotal, err := CampusList(101, false, "payments", 1, 100)
 				require.NoError(t, err)
-				assert.EqualValues(t, 4, paymentTotal)
+				assert.EqualValues(t, 3, paymentTotal)
 				encodedPayments, err := common.Marshal(paymentRows)
 				require.NoError(t, err)
 				assert.Contains(t, string(encodedPayments), `"masked_name":"林**"`)
+				assert.NotContains(t, string(encodedPayments), "query-pending")
 				assert.Contains(t, string(encodedPayments), `"trade_no":"quer***opup"`)
 				assert.NotContains(t, string(encodedPayments), "query-topup")
 				assert.NotContains(t, string(encodedPayments), "林小明")
