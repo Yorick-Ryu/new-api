@@ -27,6 +27,7 @@ import type { CampusRecord } from './records'
 
 export function CommissionDetails(props: {
   row: CampusRecord | null
+  admin?: boolean
   onClose: () => void
 }) {
   const { t, i18n } = useTranslation()
@@ -35,7 +36,12 @@ export function CommissionDetails(props: {
   if (!row) return null
   const fields = [
     [t('Time'), beijingDate(row.settled_at || 0, locale, true)],
-    [t('Friend'), row.masked_name || '***'],
+    [
+      t(props.admin ? 'Invitee' : 'Friend'),
+      props.admin
+        ? `${row.username || row.display_name || ''} #${row.user_id}`
+        : row.masked_name || '***',
+    ],
     [t('Order number'), row.trade_no || '—'],
     [
       t('Top-up type'),
@@ -52,6 +58,14 @@ export function CommissionDetails(props: {
     ],
     [t('Settlement freeze'), cash(row.frozen_cents || 0, locale)],
   ]
+  if (props.admin) {
+    fields.unshift([
+      t('Inviter'),
+      row.inviter_id
+        ? `${row.inviter_username || row.inviter_display_name || ''} #${row.inviter_id}`
+        : '—',
+    ])
+  }
   let formula = t('Calculation unavailable')
   try {
     const segments: unknown = JSON.parse(row.segments || 'null')

@@ -244,3 +244,93 @@ test('admin refunds show payer, second-precision time and the original order num
   expect(within(table).getByText('original-order-9')).toBeVisible()
   expect(within(table).getByText(/14:12:37/)).toBeVisible()
 })
+
+test('withdrawal status filtering includes matches beyond the first server page', async () => {
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    let items = [{ id: 1, user_id: 1, state: 'pending', amount_cents: 100 }]
+    const total = 101
+    if (String(url).includes('size=100')) {
+      items = String(url).includes('page=2')
+        ? [{ id: 101, user_id: 1, state: 'paid', amount_cents: 12345 }]
+        : Array.from({ length: 100 }, (_, index) => ({
+            id: index + 1,
+            user_id: 1,
+            state: 'pending',
+            amount_cents: 100,
+          }))
+    }
+    return { data: { success: true, data: { items, total } } } as AxiosResponse
+  })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='withdrawals' admin />
+    </QueryClientProvider>
+  )
+  await user.click(await screen.findByRole('combobox', { name: 'Status' }))
+  await user.click(screen.getByRole('option', { name: /^Paid$/ }))
+  expect(await screen.findByText(/123\.45/)).toBeVisible()
+  expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument()
+  expect(get).toHaveBeenCalledWith(
+    '/api/campus/admin/records/withdrawals?page=2&size=100'
+  )
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  client.clear()
+})
+
+test('admin commissions show inviter and invitee before the partner-style columns', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: [
+          {
+            id: 1,
+            user_id: 42,
+            username: 'buyer42',
+            inviter_id: 7,
+            inviter_username: 'partner7',
+            trade_no: 'payment-1',
+            eligibility: 'eligible',
+            commission_cents: 3500,
+          },
+        ],
+        total: 1,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='payments' admin />
+    </QueryClientProvider>
+  )
+  const table = await screen.findByRole('table')
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent)
+  ).toEqual([
+    'Inviter',
+    'Invitee',
+    'Time',
+    'Order number',
+    'Top-up type',
+    'Commission',
+    'Status',
+    'Details',
+  ])
+  expect(within(table).getByText('partner7')).toBeVisible()
+  expect(within(table).getByText('buyer42')).toBeVisible()
+  await userEvent
+    .setup()
+    .click(within(table).getByRole('button', { name: 'Details' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByText('partner7 #7')).toBeVisible()
+  expect(within(dialog).getByText('buyer42 #42')).toBeVisible()
+})

@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 
 import { beijingDate, cash } from './api'
 import { CampusFriend } from './friend-cell'
+import { InvitationAccount } from './invitation-account'
 import type { CampusRecord } from './records'
 
 export function commissionStatus(row: CampusRecord): string {
@@ -38,9 +39,10 @@ export function commissionStatus(row: CampusRecord): string {
 export function commissionColumns(
   t: TFunction,
   locale: string | undefined,
-  onDetails: (row: CampusRecord) => void
+  onDetails: (row: CampusRecord) => void,
+  admin = false
 ): StaticDataTableColumn<CampusRecord>[] {
-  return [
+  const columns: StaticDataTableColumn<CampusRecord>[] = [
     {
       id: 'time',
       header: t('Time'),
@@ -48,10 +50,17 @@ export function commissionColumns(
     },
     {
       id: 'friend',
-      header: t('Friend'),
-      cell: (row) => (
-        <CampusFriend userId={row.user_id} name={row.masked_name} />
-      ),
+      header: t(admin ? 'Invitee' : 'Friend'),
+      cell: (row) =>
+        admin ? (
+          <InvitationAccount
+            id={row.user_id}
+            username={row.username || ''}
+            displayName={row.display_name || ''}
+          />
+        ) : (
+          <CampusFriend userId={row.user_id} name={row.masked_name} />
+        ),
     },
     {
       id: 'order',
@@ -79,7 +88,13 @@ export function commissionColumns(
       id: 'status',
       header: t('Status'),
       cell: (row) => (
-        <Badge variant='outline'>{t(commissionStatus(row))}</Badge>
+        <Badge variant='outline'>
+          {t(
+            admin && row.eligibility && row.eligibility !== 'eligible'
+              ? row.eligibility
+              : commissionStatus(row)
+          )}
+        </Badge>
       ),
     },
     {
@@ -92,4 +107,23 @@ export function commissionColumns(
       ),
     },
   ]
+  if (admin) {
+    columns.unshift({
+      id: 'inviter',
+      header: t('Inviter'),
+      cell: (row) =>
+        row.inviter_id ? (
+          <InvitationAccount
+            id={row.inviter_id}
+            username={row.inviter_username || ''}
+            displayName={row.inviter_display_name || ''}
+          />
+        ) : (
+          '—'
+        ),
+    })
+    const friendIndex = columns.findIndex((column) => column.id === 'friend')
+    columns.splice(1, 0, ...columns.splice(friendIndex, 1))
+  }
+  return columns
 }

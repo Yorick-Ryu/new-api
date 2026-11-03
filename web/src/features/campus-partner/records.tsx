@@ -30,6 +30,13 @@ import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toIntlLocale } from '@/i18n/languages'
 
 import { beijingDate, campusGet, cash } from './api'
@@ -43,6 +50,9 @@ import { WithdrawalDetails } from './withdrawal-details'
 export type CampusRecord = {
   id: number
   user_id: number
+  inviter_id?: number
+  inviter_username?: string
+  inviter_display_name?: string
   username?: string
   display_name?: string
   masked_name?: string
@@ -82,15 +92,49 @@ export function CampusRecords(props: {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [page, setPage] = useState(1)
+  const [withdrawalState, setWithdrawalState] = useState('all')
+  const statusOptions = [
+    { value: 'all', label: t('All') },
+    ...Object.entries(campusWithdrawalStateLabels).map(([value, label]) => ({
+      value,
+      label: t(label),
+    })),
+  ]
   const [selected, setSelected] = useState<CampusRecord | null>(null)
-  const paymentColumns = commissionColumns(t, locale, setSelected)
-  const commissionView = props.kind === 'payments' && !props.admin
+  const paymentColumns = commissionColumns(t, locale, setSelected, props.admin)
+  const commissionView = props.kind === 'payments'
+  const filterWithdrawals =
+    props.kind === 'withdrawals' && withdrawalState !== 'all'
   const query = useQuery({
-    queryKey: ['campus', 'records', !!props.admin, props.kind, page],
-    queryFn: () =>
-      campusGet<{ items: CampusRecord[]; total: number }>(
-        `${props.admin ? 'admin' : 'self'}/records/${props.kind}?page=${page}&size=10`
-      ),
+    queryKey: filterWithdrawals
+      ? ['campus', 'records', !!props.admin, props.kind, page, withdrawalState]
+      : ['campus', 'records', !!props.admin, props.kind, page],
+    queryFn: async () => {
+      const path = `${props.admin ? 'admin' : 'self'}/records/${props.kind}`
+      if (!filterWithdrawals) {
+        return campusGet<{ items: CampusRecord[]; total: number }>(
+          `${path}?page=${page}&size=10`
+        )
+      }
+      const items: CampusRecord[] = []
+      let currentPage = 1
+      let total = 0
+      do {
+        const result = await campusGet<{
+          items: CampusRecord[]
+          total: number
+        }>(`${path}?page=${currentPage}&size=100`)
+        items.push(...result.items)
+        total = result.total
+        if (result.items.length === 0) break
+        currentPage += 1
+      } while (items.length < total)
+      const filtered = items.filter((row) => row.state === withdrawalState)
+      return {
+        items: filtered.slice((page - 1) * 10, page * 10),
+        total: filtered.length,
+      }
+    },
   })
   let columns: StaticDataTableColumn<CampusRecord>[] =
     props.kind === 'invitations'
@@ -313,6 +357,29 @@ export function CampusRecords(props: {
   if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />
   return (
     <div className='space-y-3'>
+      {props.kind === 'withdrawals' && (
+        <Select
+          items={statusOptions}
+          value={withdrawalState}
+          onValueChange={(value) => {
+            if (value) {
+              setWithdrawalState(value)
+              setPage(1)
+            }
+          }}
+        >
+          <SelectTrigger aria-label={t('Status')} className='w-56'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <div className='max-w-full overflow-x-auto'>
         <StaticDataTable
           data={query.data.items || []}
@@ -333,7 +400,11 @@ export function CampusRecords(props: {
           onClose={() => setSelected(null)}
         />
       ) : (
-        <CommissionDetails row={selected} onClose={() => setSelected(null)} />
+        <CommissionDetails
+          row={selected}
+          admin={props.admin}
+          onClose={() => setSelected(null)}
+        />
       )}
       <div className='flex flex-wrap items-center justify-end gap-3'>
         <Button

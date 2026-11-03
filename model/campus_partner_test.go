@@ -168,6 +168,24 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Model(&CampusPayment{}).Where("trade_no = ?", "large").Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
 			w, err := CampusRequestWithdrawal(1, "request-0000000001", "alipay@example.test", "Test", 30000)
 			require.NoError(t, err)
+			paymentRows, _, err := CampusList(1, true, "payments", 1, 100)
+			require.NoError(t, err)
+			paymentJSON, err := common.Marshal(paymentRows)
+			require.NoError(t, err)
+			var paymentUsers []struct {
+				UserID          int    `json:"user_id"`
+				InviterID       int    `json:"inviter_id"`
+				Username        string `json:"username"`
+				InviterUsername string `json:"inviter_username"`
+			}
+			require.NoError(t, common.Unmarshal(paymentJSON, &paymentUsers))
+			require.NotEmpty(t, paymentUsers)
+			for _, payment := range paymentUsers {
+				assert.Equal(t, fmt.Sprintf("campus-%d", payment.UserID), payment.Username)
+				if payment.InviterID != 0 {
+					assert.Equal(t, fmt.Sprintf("campus-%d", payment.InviterID), payment.InviterUsername)
+				}
+			}
 			adminRows, adminCount, err := CampusList(1, true, "withdrawals", 1, 10)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, adminCount)

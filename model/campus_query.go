@@ -218,6 +218,22 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	if err := query.Order("id desc").Offset((page - 1) * size).Limit(size).Find(rows).Error; err != nil {
 		return nil, 0, err
 	}
+	if admin && kind == "payments" {
+		type paymentRecord struct {
+			CampusPayment
+			Username           string `json:"username"`
+			DisplayName        string `json:"display_name"`
+			InviterUsername    string `json:"inviter_username"`
+			InviterDisplayName string `json:"inviter_display_name"`
+		}
+		result := make([]paymentRecord, 0)
+		err := DB.Table("campus_payments AS p").
+			Select("p.*, u.username, u.display_name, i.username AS inviter_username, i.display_name AS inviter_display_name").
+			Joins("LEFT JOIN users AS u ON u.id = p.user_id").
+			Joins("LEFT JOIN users AS i ON i.id = p.inviter_id").
+			Order("p.id desc").Offset((page - 1) * size).Limit(size).Scan(&result).Error
+		return result, count, err
+	}
 	if admin && kind == "refunds" {
 		type refundRecord struct {
 			CampusRefund
