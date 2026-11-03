@@ -17,10 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ArrowUpRight, Gift, GraduationCap } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
+import { Dialog } from '@/components/dialog'
 import {
   Alert,
   AlertAction,
@@ -28,11 +29,6 @@ import {
   AlertTitle,
 } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -48,7 +44,18 @@ export function PartnerInvitation(props: {
   onJoin: () => void
 }): ReactElement {
   const { t } = useTranslation()
+  const [bindOpen, setBindOpen] = useState(false)
   const link = `https://beiapi.cn/i/${props.data.member.code}`
+  let bindingUnavailable = ''
+  if (!props.data.can_bind) {
+    if (props.data.member.inviter_id > 0) {
+      bindingUnavailable = t('An invitation is already bound to your account.')
+    } else if (!props.data.enabled) {
+      bindingUnavailable = t('Campaign disabled')
+    } else {
+      bindingUnavailable = t('Invitation binding is currently unavailable.')
+    }
+  }
   const steps = [
     t('Share your link or invitation code'),
     t('Friends bind and receive a 5% off coupon'),
@@ -56,27 +63,26 @@ export function PartnerInvitation(props: {
   ]
   return (
     <>
-      {props.data.can_bind && (
-        <Collapsible>
-          <Alert>
-            <Gift />
-            <AlertTitle>{t('No invitation bound yet?')}</AlertTitle>
-            <AlertDescription>
-              {t(
-                'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.'
-              )}
-            </AlertDescription>
-            <AlertAction>
-              <CollapsibleTrigger render={<Button size='sm' />}>
-                {t('Bind invitation')}
-              </CollapsibleTrigger>
-            </AlertAction>
-          </Alert>
-          <CollapsibleContent className='pt-3'>
-            <InvitationField />
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+      <Alert>
+        <Gift />
+        <AlertTitle>{t('No invitation bound yet?')}</AlertTitle>
+        <AlertDescription id='campus-binding-description'>
+          {bindingUnavailable ||
+            t(
+              'Binding cannot be changed. Only qualifying payments after binding earn commission. You cannot invite yourself or invite each other.'
+            )}
+        </AlertDescription>
+        <AlertAction>
+          <Button
+            size='sm'
+            disabled={!props.data.can_bind}
+            aria-describedby='campus-binding-description'
+            onClick={() => setBindOpen(true)}
+          >
+            {t('Add invitation code')}
+          </Button>
+        </AlertAction>
+      </Alert>
       <div className='grid min-w-0 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'>
         <TitledCard
           className='min-w-0'
@@ -98,7 +104,7 @@ export function PartnerInvitation(props: {
         >
           {props.data.member.joined_at > 0 ? (
             <div className='grid min-w-0 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-6'>
-              <div className='space-y-2'>
+              <div className='space-y-2 md:col-span-2'>
                 <Label htmlFor='campus-invitation-link'>
                   {t('Invitation link')}
                 </Label>
@@ -136,7 +142,7 @@ export function PartnerInvitation(props: {
                   {t('Copy')}
                 </CopyButton>
               </div>
-              <ol className='space-y-3 md:col-start-2 md:row-span-2 md:row-start-1 md:self-center'>
+              <ol className='space-y-3 md:col-start-2 md:row-start-2 md:self-center'>
                 {steps.map((step, index) => (
                   <li
                     key={step}
@@ -195,11 +201,23 @@ export function PartnerInvitation(props: {
           </div>
           <p className='text-primary text-sm leading-6'>
             {t(
-              'Your friends save and you earn commission. When sharing, tell classmates: "Sign up with my invitation code and get 5% off top-ups."'
+              'Your friends save and you earn commission. Share your invitation code so friends can bind and receive one single-use 5% off top-up coupon.'
             )}
           </p>
         </TitledCard>
       </div>
+      {props.data.can_bind && (
+        <Dialog
+          open={bindOpen}
+          onOpenChange={setBindOpen}
+          title={t('Add invitation code')}
+          description={t(
+            'Binding cannot be changed. Only qualifying payments after binding earn commission. You cannot invite yourself or invite each other.'
+          )}
+        >
+          <InvitationField />
+        </Dialog>
+      )}
     </>
   )
 }

@@ -49,6 +49,8 @@ import {
   getAffiliateCode,
   saveAffiliateCode,
 } from '@/features/auth/lib/storage'
+import { campusSite } from '@/features/campus-partner/api'
+import { InvitationField } from '@/features/campus-partner/forms'
 import { useStatus } from '@/hooks/use-status'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
@@ -306,6 +308,8 @@ export function SignUpForm({
             </FormItem>
           )}
         />
+
+        {campusSite() && <InvitationField registration />}
 
         {/* Email Verification Section */}
         {emailVerificationRequired && (

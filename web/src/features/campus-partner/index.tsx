@@ -32,7 +32,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
-import { campusPost, campusSite, useCampus, useCampusAction } from './api'
+import {
+  payoutWindow,
+  campusPost,
+  campusSite,
+  useCampus,
+  useCampusAction,
+} from './api'
 import { campusTierNameKeys } from './constants'
 import { CampusFields } from './forms'
 import { PartnerInvitation } from './partner-invitation'
@@ -141,9 +147,9 @@ export function CampusPartner(): ReactElement {
             'Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.',
             {
               cutoff: data.withdrawal_cutoff,
-              currentEnd: data.withdrawal_month_end,
+              currentEnd: payoutWindow(data.withdrawal_month_end),
               nextStart: data.withdrawal_next_start,
-              nextEnd: data.withdrawal_next_month_end,
+              nextEnd: payoutWindow(data.withdrawal_next_month_end),
             }
           )}
         >
@@ -172,7 +178,9 @@ export function CampusPartner(): ReactElement {
                   toast.success(
                     t(
                       'Application submitted. Awaiting review. Expected payout: {{date}}',
-                      { date: (result as { batch: string }).batch }
+                      {
+                        date: payoutWindow((result as { batch: string }).batch),
+                      }
                     )
                   )
                 },

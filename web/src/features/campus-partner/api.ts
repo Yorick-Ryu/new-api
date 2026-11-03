@@ -142,3 +142,9 @@ export function beijingDate(
     hourCycle: showSeconds ? 'h23' : undefined,
   }).format(new Date(seconds * 1000))
 }
+
+// Batch remains a month-end date in the API; users see the full payout window.
+export function payoutWindow(batch?: string): string {
+  if (!batch) return '—'
+  return `${batch.slice(0, 7)}-26 ~ ${batch}`
+}

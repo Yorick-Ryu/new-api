@@ -1184,6 +1184,26 @@ func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testi
 	}
 	require.NoError(t, common.Unmarshal(bindRecorder.Body.Bytes(), &bound))
 	assert.True(t, bound.Success)
+	// A stale invitation must not block an existing account's OAuth login.
+	for _, code := range []string{member.Code, "invalid-new-invitation"} {
+		require.NoError(t, model.CampusConfigure(false, inviter.Id))
+		r := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(r)
+		c.Request = httptest.NewRequest(http.MethodPost, "https://beiapi.cn/api/oauth/state", strings.NewReader(fmt.Sprintf(`{"provider":"auth-flow-test","intent":"login","campus_code":%q}`, code)))
+		c.Request.Header.Set("Content-Type", "application/json")
+		GenerateOAuthCode(c)
+		var started struct {
+			Success bool `json:"success"`
+		}
+		require.NoError(t, common.Unmarshal(r.Body.Bytes(), &started))
+		require.True(t, started.Success, "stale invitations cannot block login")
+		existing, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", code)
+		require.NoError(t, err)
+		require.Equal(t, created.Id, existing.Id)
+		_, _, err = findOrCreateOAuthUser(ctx, provider, &oauth.OAuthUser{ProviderUserID: "unregistered-disabled", Username: "disabled-new"}, &oauth.OAuthToken{}, "", code)
+		require.Error(t, err, "new accounts still validate invitations atomically")
+	}
+	require.NoError(t, model.CampusConfigure(true, inviter.Id))
 	existing, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", "invalid-new-invitation")
 	require.NoError(t, err)
 	assert.Equal(t, created.Id, existing.Id)

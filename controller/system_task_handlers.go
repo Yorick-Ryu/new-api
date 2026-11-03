@@ -21,6 +21,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(modelUpdateHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+	service.RegisterSystemTaskHandler(campusBatchHandler{})
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and
@@ -159,4 +160,19 @@ func finishSystemTaskHandler(task *model.SystemTask, runnerID string, status mod
 	if err := model.FinishSystemTask(task.TaskID, runnerID, status, result, errorMessage); err != nil {
 		common.SysLog(common.LogText("system task %s failed to persist result: %v", task.TaskID, err))
 	}
+}
+
+// Continue processing existing withdrawals even when new invitations are disabled.
+type campusBatchHandler struct{}
+
+func (campusBatchHandler) Type() string            { return "campus_withdrawal_batches" }
+func (campusBatchHandler) Enabled() bool           { return true }
+func (campusBatchHandler) Interval() time.Duration { return time.Hour }
+func (campusBatchHandler) NewPayload() any         { return nil }
+func (campusBatchHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	if err := model.CampusAdvanceBatchesContext(ctx); err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, nil, nil)
 }

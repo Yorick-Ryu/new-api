@@ -17,14 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
-import { matchesRecordFilters } from '../record-filter-matching'
+import { recordFilterParams } from '../record-filter-matching'
 import { CampusRecords } from '../records'
 
 afterEach(() => vi.restoreAllMocks())
@@ -95,7 +95,7 @@ test('withdrawal history shows the pending batch and failure reason without call
   expect(
     within(dialog).getByText('Recipient verification required')
   ).toBeVisible()
-  expect(within(dialog).getByText('2026-11-30')).toBeVisible()
+  expect(within(dialog).getByText('2026-11-26 ~ 2026-11-30')).toBeVisible()
   expect(within(dialog).getByText('person@example.com')).toBeVisible()
   expect(within(dialog).getByText('测试姓名')).toBeVisible()
   expect(within(dialog).getByText('Alipay account')).toBeVisible()
@@ -250,16 +250,9 @@ test('admin refunds show payer, second-precision time and the original order num
 test('withdrawal status filtering includes matches beyond the first server page', async () => {
   const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
     let items = [{ id: 1, user_id: 1, state: 'pending', amount_cents: 100 }]
-    const total = 101
-    if (String(url).includes('size=100')) {
-      items = String(url).includes('page=2')
-        ? [{ id: 101, user_id: 1, state: 'paid', amount_cents: 12345 }]
-        : Array.from({ length: 100 }, (_, index) => ({
-            id: index + 1,
-            user_id: 1,
-            state: 'pending',
-            amount_cents: 100,
-          }))
+    const total = String(url).includes('status=paid') ? 11 : 101
+    if (String(url).includes('status=paid')) {
+      items = [{ id: 101, user_id: 1, state: 'paid', amount_cents: 12345 }]
     }
     return { data: { success: true, data: { items, total } } } as AxiosResponse
   })
@@ -278,9 +271,17 @@ test('withdrawal status filtering includes matches beyond the first server page'
   expect(await screen.findByText(/123\.45/)).toBeVisible()
   expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument()
   expect(get).toHaveBeenCalledWith(
-    '/api/campus/admin/records/withdrawals?page=2&size=100'
+    '/api/campus/admin/records/withdrawals?page=1&size=10&status=paid'
   )
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Next page' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenCalledWith(
+      '/api/campus/admin/records/withdrawals?page=2&size=10&status=paid'
+    )
+  )
+  expect(
+    get.mock.calls.every(([url]) => !String(url).includes('size=100'))
+  ).toBe(true)
   client.clear()
 })
 
@@ -363,9 +364,15 @@ test('commission filters combine time, both accounts, order and status and reset
       refunded_cents: 0,
     },
   ]
-  vi.spyOn(api, 'get').mockResolvedValue({
-    data: { success: true, data: { items: rows, total: 2 } },
-  } as AxiosResponse)
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    const filtered = String(url).includes('order=abc')
+    return {
+      data: {
+        success: true,
+        data: { items: filtered ? [rows[0]] : rows, total: filtered ? 1 : 2 },
+      },
+    } as AxiosResponse
+  })
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -383,36 +390,23 @@ test('commission filters combine time, both accounts, order and status and reset
   await user.click(screen.getByRole('button', { name: 'Search' }))
   expect(await screen.findByText('ORDER-ABC')).toBeVisible()
   expect(screen.queryByText('ORDER-XYZ')).not.toBeInTheDocument()
+  expect(get).toHaveBeenCalledWith(
+    '/api/campus/admin/records/payments?page=1&size=10&inviter=%237&invitee=buyer&order=abc&status=Partially+refunded'
+  )
   await user.click(screen.getByRole('button', { name: 'Reset' }))
   expect(await screen.findByText('ORDER-XYZ')).toBeVisible()
   client.clear()
 })
 
-test('time filters include boundaries and use application time for withdrawals and settlement time for commissions', () => {
-  const row = {
-    id: 1,
-    user_id: 42,
-    username: 'buyer',
-    created_at: 100,
-    settled_at: 200,
-  }
-  expect(
-    matchesRecordFilters(
-      row,
-      { start: new Date(100000), end: new Date(100000), user: '#42' },
-      false
-    )
-  ).toBe(true)
-  expect(matchesRecordFilters(row, { start: new Date(100001) }, false)).toBe(
-    false
-  )
-  expect(
-    matchesRecordFilters(
-      row,
-      { start: new Date(200000), end: new Date(200000), invitee: 'BUYER' },
-      true
-    )
-  ).toBe(true)
-  expect(matchesRecordFilters(row, { end: new Date(199999) }, true)).toBe(false)
-  expect(matchesRecordFilters(row, { user: '#4' }, false)).toBe(false)
+test('time filters send inclusive second boundaries to the server', () => {
+  const params = recordFilterParams(2, {
+    start: new Date(100001),
+    end: new Date(200999),
+    user: '#42',
+  })
+  expect(params.get('start_timestamp')).toBe('101')
+  expect(params.get('end_timestamp')).toBe('200')
+  expect(params.get('page')).toBe('2')
+  expect(params.get('size')).toBe('10')
+  expect(params.get('user')).toBe('#42')
 })

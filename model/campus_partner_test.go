@@ -132,13 +132,48 @@ func TestCampusDatabase(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotContains(t, string(encoded), order.TradeNo)
 			})
+			t.Run("paid users can bind without retroactive commission", func(t *testing.T) {
+				for _, id := range []int{801, 802} {
+					require.NoError(t, db.Create(&User{Id: id, Username: fmt.Sprintf("campus-%d", id), AffCode: fmt.Sprintf("late-%d", id), Status: common.UserStatusEnabled}).Error)
+				}
+				inviter, err := CampusJoin(801)
+				require.NoError(t, err)
+				require.NoError(t, db.Create(&SubscriptionOrder{UserId: 802, TradeNo: "late-historical-sub", Status: common.TopUpStatusSuccess}).Error)
+				old := TopUp{UserId: 802, TradeNo: "late-before", Money: 100, Status: common.TopUpStatusPending}
+				require.NoError(t, InsertCampusTopUp(&old, true, "CNY", false))
+				require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, old.TradeNo, 802) }))
+				overview, err := CampusGetOverview(802)
+				require.NoError(t, err)
+				require.True(t, overview.CanBind)
+				require.Positive(t, overview.Member.FirstPaidAt)
+				require.NoError(t, CampusBind(802, inviter.Code))
+				require.NoError(t, CampusBind(802, inviter.Code))
+				assert.ErrorIs(t, CampusBind(802, first.Code), ErrCampusBinding)
+				for _, trade := range []string{old.TradeNo, "late-historical-sub"} {
+					require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, trade, 802) }))
+					var payment CampusPayment
+					require.NoError(t, db.Where("trade_no = ?", trade).First(&payment).Error)
+					assert.Zero(t, payment.Commission)
+				}
+				next := TopUp{UserId: 802, TradeNo: "late-after", Money: 100, Status: common.TopUpStatusPending}
+				require.NoError(t, InsertCampusTopUp(&next, true, "CNY", false))
+				require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, next.TradeNo, 802) }))
+				var payment CampusPayment
+				require.NoError(t, db.Where("trade_no = ?", next.TradeNo).First(&payment).Error)
+				assert.EqualValues(t, 3000, payment.Commission)
+				assert.Equal(t, 801, payment.InviterID)
+				overview, err = CampusGetOverview(802)
+				require.NoError(t, err)
+				assert.False(t, overview.CanBind)
+				assert.Equal(t, "available", overview.Member.CouponState)
+			})
 			require.NotNil(t, first)
 			require.NotNil(t, second)
 			require.NoError(t, CampusBind(2, strings.ToLower(first.Code)))
 			require.NoError(t, CampusBind(2, first.Code))
 			assert.ErrorIs(t, CampusBind(1, second.Code), ErrCampusBinding)
 			assert.ErrorIs(t, CampusBind(1, first.Code), ErrCampusBinding)
-			assert.ErrorIs(t, CampusBind(8, first.Code), ErrCampusBinding)
+			require.NoError(t, CampusBind(8, first.Code))
 			third, err := CampusJoin(3)
 			require.NoError(t, err)
 			require.NoError(t, CampusBind(3, second.Code))
@@ -272,10 +307,12 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Equal(t, "paused", w.State)
 			assert.Equal(t, cp.Money(27000), w.Amount)
 			assert.Error(t, CampusActWithdrawal(w.ID, 1, "paid", "", "receipt", time.Now().Unix()))
+			assert.ErrorIs(t, CampusActWithdrawal(w.ID, 1, "failed", "", "", 0), ErrCampusState)
 			require.NoError(t, CampusActWithdrawal(w.ID, 1, "resume", "", "", 0))
 			assert.ErrorIs(t, CampusActWithdrawal(w.ID, 1, "paid", "transfer evidence", "unapproved-receipt", time.Now().Unix()), ErrCampusState)
 			require.NoError(t, db.First(w, w.ID).Error)
 			assert.Equal(t, "pending", w.State)
+			assert.ErrorIs(t, CampusActWithdrawal(w.ID, 1, "failed", "", "", 0), ErrCampusState)
 			require.NoError(t, CampusActWithdrawal(w.ID, 1, "reject", "", "", 0))
 			overview, err = CampusGetOverview(1)
 			require.NoError(t, err)
@@ -308,9 +345,41 @@ func TestCampusDatabase(t *testing.T) {
 			clock := time.Now().In(zone)
 			lastMonthEnd := time.Date(clock.Year(), clock.Month(), 0, 12, 0, 0, 0, zone)
 			require.NoError(t, db.Model(paid).Updates(map[string]any{"batch": lastMonthEnd.Format(time.DateOnly), "created_at": lastMonthEnd.Add(-24 * time.Hour).Unix()}).Error)
+			batchFixtures := make([]CampusWithdrawal, 101)
+			for i := range batchFixtures {
+				batchFixtures[i] = CampusWithdrawal{UserID: 888, RequestID: fmt.Sprintf("batch-fixture-%d", i), State: "pending", Batch: lastMonthEnd.Format(time.DateOnly)}
+			}
+			require.NoError(t, db.Create(&batchFixtures).Error)
 			require.NoError(t, CampusAdvanceBatches())
+			require.NoError(t, CampusAdvanceBatches())
+			var overdue int64
+			require.NoError(t, db.Model(&CampusWithdrawal{}).Where("user_id = ? AND batch <= ?", 888, lastMonthEnd.Format(time.DateOnly)).Count(&overdue).Error)
+			assert.Zero(t, overdue)
+
 			require.NoError(t, db.First(paid, paid.ID).Error)
 			assert.Equal(t, lastMonthEnd.Format(time.DateOnly), paid.Batch, "approved transfers retain the batch when recorded after month end")
+			t.Run("payout window begins on the 26th and preserves batch and approval guards", func(t *testing.T) {
+				for _, month := range []time.Month{time.February, time.April, time.December} {
+					batch := time.Date(2024, month+1, 0, 0, 0, 0, 0, zone)
+					for _, day := range []int{25, 26, batch.Day()} {
+						err := db.Transaction(func(tx *gorm.DB) error {
+							previous := DB
+							DB = tx
+							defer func() { DB = previous }()
+							require.NoError(t, tx.Model(paid).Updates(map[string]any{"batch": batch.Format(time.DateOnly), "created_at": batch.AddDate(0, 0, -40).Unix()}).Error)
+							actual := time.Date(2024, month, day, 0, 0, 0, 0, zone)
+							result := CampusActWithdrawal(paid.ID, 1, "paid", "", "window-receipt", actual.Unix())
+							if day < 26 {
+								require.Error(t, result)
+							} else {
+								require.NoError(t, result)
+							}
+							return errCampusPreview
+						})
+						require.ErrorIs(t, err, errCampusPreview)
+					}
+				}
+			})
 			require.NoError(t, CampusActWithdrawal(paid.ID, 1, "paid", "bank transfer checked", "unique-receipt-001", lastMonthEnd.Unix()))
 			require.NoError(t, CampusActWithdrawal(paid.ID, 1, "paid", "bank transfer checked", "unique-receipt-001", lastMonthEnd.Unix()))
 			_, err = CampusRegisterRefund("large", "paid-full-refund", "confirmed full provider refund", 90000, 1, false)
@@ -564,6 +633,43 @@ func TestCampusDatabase(t *testing.T) {
 					{TradeNo: "query-other-inviter", UserID: 201, InviterID: 102, Eligibility: string(cp.Eligible), SettledAt: 2500, Paid: 20000, Commission: 6000},
 					{TradeNo: "query-other-friend", UserID: 203, InviterID: 102, Eligibility: string(cp.Eligible), SettledAt: 3100, Paid: 30000, Commission: 9000},
 				}).Error)
+
+				t.Run("record filters apply before pagination and preserve ownership", func(t *testing.T) {
+					boundary := int64(2100)
+					for _, test := range []struct {
+						filter CampusRecordFilter
+						count  int64
+					}{
+						{CampusRecordFilter{Inviter: "PARTNER-ALICE", Invitee: "林小明", Order: "QUERY-TOPUP", Status: "Partially refunded", StartTimestamp: &boundary, EndTimestamp: &boundary}, 1},
+						{CampusRecordFilter{Inviter: "#101", Status: "Fully refunded"}, 1},
+						{CampusRecordFilter{Inviter: "#101", Status: "Settled"}, 1},
+						{CampusRecordFilter{Inviter: "#101", Status: "Pending settlement"}, 0},
+						{CampusRecordFilter{Order: "query-%"}, 0},
+						{CampusRecordFilter{Inviter: "101", Invitee: "#20"}, 0},
+					} {
+						_, total, err := CampusList(0, true, "payments", 1, 1, test.filter)
+						require.NoError(t, err)
+						assert.Equal(t, test.count, total)
+					}
+					for page := 1; page <= 4; page++ {
+						rows, total, err := CampusList(0, true, "payments", page, 1, CampusRecordFilter{Inviter: "#101"})
+						require.NoError(t, err)
+						assert.EqualValues(t, 3, total)
+						data, err := common.Marshal(rows)
+						require.NoError(t, err)
+						var records []CampusPayment
+						require.NoError(t, common.Unmarshal(data, &records))
+						if page == 4 {
+							assert.Empty(t, records)
+						} else {
+							require.Len(t, records, 1)
+							assert.Equal(t, 101, records[0].InviterID)
+						}
+					}
+					_, total, err := CampusList(999, false, "payments", 1, 10, CampusRecordFilter{Inviter: "101", Order: "query"})
+					require.NoError(t, err)
+					assert.Zero(t, total)
+				})
 
 				result, total, err := CampusList(101, false, "invitations", 1, 1)
 				require.NoError(t, err)

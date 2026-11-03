@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
 
-import { beijingDate, campusGet, cash } from './api'
+import { payoutWindow, beijingDate, campusGet, cash } from './api'
 import { commissionColumns } from './commission-columns'
 import { CommissionDetails } from './commission-records'
 import {
@@ -41,7 +41,7 @@ import {
 } from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
-import { matchesRecordFilters } from './record-filter-matching'
+import { recordFilterParams } from './record-filter-matching'
 import { CampusRecordFilters, type RecordFilters } from './record-filters'
 import { WithdrawalDetails } from './withdrawal-details'
 
@@ -108,31 +108,9 @@ export function CampusRecords(props: {
       : ['campus', 'records', !!props.admin, props.kind, page],
     queryFn: async () => {
       const path = `${props.admin ? 'admin' : 'self'}/records/${props.kind}`
-      if (!hasFilters) {
-        return campusGet<{ items: CampusRecord[]; total: number }>(
-          `${path}?page=${page}&size=10`
-        )
-      }
-      const items: CampusRecord[] = []
-      let currentPage = 1
-      let total = 0
-      do {
-        const result = await campusGet<{
-          items: CampusRecord[]
-          total: number
-        }>(`${path}?page=${currentPage}&size=100`)
-        items.push(...result.items)
-        total = result.total
-        if (result.items.length === 0) break
-        currentPage += 1
-      } while (items.length < total)
-      const filtered = items.filter((row) =>
-        matchesRecordFilters(row, filters, commissionView)
+      return campusGet<{ items: CampusRecord[]; total: number }>(
+        `${path}?${recordFilterParams(page, filters)}`
       )
-      return {
-        items: filtered.slice((page - 1) * 10, page * 10),
-        total: filtered.length,
-      }
     },
   })
   let columns: StaticDataTableColumn<CampusRecord>[] =
@@ -243,7 +221,7 @@ export function CampusRecords(props: {
           )}
           {row.batch && (
             <p>
-              {t('Expected payout')}: {row.batch}
+              {t('Expected payout')}: {payoutWindow(row.batch)}
             </p>
           )}
           {row.account && (

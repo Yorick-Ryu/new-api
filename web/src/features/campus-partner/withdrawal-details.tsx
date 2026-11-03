@@ -23,7 +23,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { beijingDate, cash } from './api'
+import { payoutWindow, beijingDate, cash } from './api'
 import {
   campusAmountTypography,
   campusTierNameKeys,
@@ -67,7 +67,7 @@ export function WithdrawalSummary(props: {
       t('Status'),
       t(campusWithdrawalStateLabels[row.state || ''] || row.state || '—'),
     ],
-    [t('Expected payout'), row.batch || '—'],
+    [t('Expected payout'), payoutWindow(row.batch)],
     [t('Alipay account'), row.account || '—'],
     [t('Real name'), row.real_name || '—'],
   ]

@@ -1,10 +1,10 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	cp "github.com/QuantumNous/new-api/pkg/campuspartner"
 	"gorm.io/gorm"
 )
@@ -113,18 +113,7 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 		result.WithdrawalNextMonthEnd = date(month+2, 0)
 
 		result.Member = member
-		result.CanBind = config.Enabled && member.InviterID == 0 && member.FirstPaidAt == 0
-		if result.CanBind {
-			var n int64
-			if err := tx.Model(&TopUp{}).Where("user_id = ? AND status = ?", userID, common.TopUpStatusSuccess).Count(&n).Error; err != nil {
-				return err
-			}
-			result.CanBind = n == 0
-			if err := tx.Model(&SubscriptionOrder{}).Where("user_id = ? AND status = ?", userID, common.TopUpStatusSuccess).Count(&n).Error; err != nil {
-				return err
-			}
-			result.CanBind = result.CanBind && n == 0
-		}
+		result.CanBind = config.Enabled && member.InviterID == 0
 		var totals struct{ Frozen, Available, Processing, Net cp.Money }
 		if err := tx.Model(&CampusPayment{}).Select("COALESCE(SUM(frozen),0) AS frozen, COALESCE(SUM(available),0) AS available, COALESCE(SUM(reserved),0) AS processing, COALESCE(SUM(commission - reversed),0) AS net").Where("inviter_id = ?", userID).Scan(&totals).Error; err != nil {
 			return err
@@ -175,7 +164,84 @@ func CampusReminder(userID int) (bool, error) {
 	})
 	return show, err
 }
-func CampusList(userID int, admin bool, kind string, page, size int) (any, int64, error) {
+
+type CampusRecordFilter struct {
+	StartTimestamp *int64 `form:"start_timestamp" binding:"omitempty,gte=0,lte=253402300799"`
+	EndTimestamp   *int64 `form:"end_timestamp" binding:"omitempty,gte=0,lte=253402300799"`
+	Inviter        string `form:"inviter" binding:"max=100"`
+	Invitee        string `form:"invitee" binding:"max=100"`
+	User           string `form:"user" binding:"max=100"`
+	Order          string `form:"order" binding:"max=100"`
+	Status         string `form:"status" binding:"max=100"`
+}
+
+func (filter CampusRecordFilter) apply(query *gorm.DB, admin bool, kind string) (*gorm.DB, error) {
+	if kind != "payments" && kind != "withdrawals" {
+		return query, nil
+	}
+	column := "created_at"
+	if kind == "payments" {
+		column = "settled_at"
+	}
+	if filter.StartTimestamp != nil {
+		query = query.Where(column+" >= ?", *filter.StartTimestamp)
+	}
+	if filter.EndTimestamp != nil {
+		query = query.Where(column+" <= ?", *filter.EndTimestamp)
+	}
+	if filter.StartTimestamp != nil && filter.EndTimestamp != nil && *filter.StartTimestamp > *filter.EndTimestamp {
+		return nil, ErrCampusState
+	}
+	if filter.Status != "" && filter.Status != "all" {
+		if kind == "withdrawals" {
+			switch filter.Status {
+			case "pending", "approved", "paused", "unknown", "paid", "failed", "rejected", "cancelled":
+				query = query.Where("state = ?", filter.Status)
+			default:
+				return nil, ErrCampusState
+			}
+		} else {
+			switch filter.Status {
+			case "Fully refunded":
+				query = query.Where("refunded > 0 AND refunded >= paid")
+			case "Partially refunded":
+				query = query.Where("refunded > 0 AND refunded < paid")
+			case "Pending settlement":
+				query = query.Where("refunded = 0 AND frozen > 0")
+			case "Settled":
+				query = query.Where("refunded = 0 AND frozen = 0")
+			default:
+				return nil, ErrCampusState
+			}
+		}
+	}
+	if order := strings.TrimSpace(filter.Order); order != "" && kind == "payments" {
+		pattern := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(order)) + "%"
+		query = query.Where("LOWER(trade_no) LIKE ? ESCAPE '!'", pattern)
+	}
+	if admin {
+		searches := []struct{ keyword, column string }{{filter.User, "user_id"}}
+		if kind == "payments" {
+			searches = []struct{ keyword, column string }{{filter.Inviter, "inviter_id"}, {filter.Invitee, "user_id"}}
+		}
+		for _, search := range searches {
+			keyword := strings.TrimSpace(search.keyword)
+			if keyword == "" {
+				continue
+			}
+			pattern := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(keyword)) + "%"
+			users := DB.Model(&User{}).Select("id").Where("LOWER(username) LIKE ? ESCAPE '!' OR LOWER(display_name) LIKE ? ESCAPE '!'", pattern, pattern)
+			if id, err := strconv.Atoi(strings.TrimPrefix(keyword, "#")); err == nil && id > 0 {
+				query = query.Where("("+search.column+" IN (?) OR "+search.column+" = ?)", users, id)
+			} else {
+				query = query.Where(search.column+" IN (?)", users)
+			}
+		}
+	}
+	return query, nil
+}
+
+func CampusList(userID int, admin bool, kind string, page, size int, filters ...CampusRecordFilter) (any, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -212,6 +278,13 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	default:
 		return nil, 0, ErrCampusState
 	}
+	if len(filters) > 0 {
+		var err error
+		query, err = filters[0].apply(query, admin, kind)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
@@ -227,12 +300,16 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 			InviterDisplayName string `json:"inviter_display_name"`
 		}
 		result := make([]paymentRecord, 0)
+		ids := make([]int64, 0)
+		for _, row := range *rows.(*[]CampusPayment) {
+			ids = append(ids, row.ID)
+		}
 		err := DB.Table("campus_payments AS p").
-			Where("p.inviter_id > 0 AND p.settled_at > 0 AND p.eligibility = ?", string(cp.Eligible)).
+			Where("p.id IN ?", ids).
 			Select("p.*, u.username, u.display_name, i.username AS inviter_username, i.display_name AS inviter_display_name").
 			Joins("LEFT JOIN users AS u ON u.id = p.user_id").
 			Joins("LEFT JOIN users AS i ON i.id = p.inviter_id").
-			Order("p.id desc").Offset((page - 1) * size).Limit(size).Scan(&result).Error
+			Order("p.id desc").Scan(&result).Error
 		return result, count, err
 	}
 	if admin && kind == "refunds" {

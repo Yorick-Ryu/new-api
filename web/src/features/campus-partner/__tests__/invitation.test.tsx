@@ -155,9 +155,8 @@ test('the registration invitation renders Chinese from the actual locale resourc
   expect(
     screen.getByRole('textbox', { name: '校园合伙人邀请码（选填）' })
   ).toBeVisible()
-  expect(
-    screen.getByText('成功绑定邀请后，获得一张仅限本人使用的 95 折充值券。')
-  ).toBeVisible()
+  expect(screen.getByText('绑定邀请后，可获得一张 95 折充值优惠券')).toBeVisible()
+  expect(screen.getByPlaceholderText('请输入邀请码')).toHaveValue('')
   await act(async () => {
     await instance.changeLanguage('zhTW')
   })
@@ -184,7 +183,7 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
     })
     for (const key of [
       'Campus invitation code (optional)',
-      'Get a personal 5% off top-up coupon when you bind an invitation.',
+      'Bind an invitation to receive a 5% off top-up coupon.',
       'Checking invitation...',
       'Enter a 6-character invitation code (A–Z, 0–9).',
       'Unable to validate this code. Correct it or try again.',

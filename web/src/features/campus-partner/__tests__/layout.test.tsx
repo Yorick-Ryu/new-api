@@ -419,6 +419,15 @@ test('existing invitation controls remain available and positive refund recovery
     screen.getByText('Exclusive campus partner invitation code')
   ).toBeVisible()
   expect(
+    screen.getByRole('textbox', { name: 'Invitation link' }).parentElement
+      ?.parentElement
+  ).toHaveClass('md:col-span-2')
+  expect(screen.getByRole('list')).toHaveClass(
+    'md:row-start-2',
+    'md:col-start-2'
+  )
+  expect(screen.getByRole('list')).not.toHaveClass('md:row-span-2')
+  expect(
     screen.getAllByRole('listitem').map((item) => item.textContent)
   ).toEqual([
     '1Share your link or invitation code',
@@ -499,3 +508,42 @@ test('partner summary uses content-sized statistics without reserving empty char
   expect(stat?.querySelector('.h-8')).toBeNull()
   expect(title.closest('[data-slot="card"]')).toHaveAttribute('data-size', 'sm')
 })
+
+test('eligible users can add their missing invitation above both cards', async () => {
+  sessionStorage.removeItem('campus-invitation')
+  renderPage(<CampusPartner />, { can_bind: true })
+  const heading = await screen.findByRole('heading', {
+    name: 'Exclusive friend benefits',
+  })
+  const button = screen.getByRole('button', { name: 'Add invitation code' })
+  expect(heading.closest('[data-slot="card"]')).not.toContainElement(button)
+  expect(
+    button.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  expect(screen.getByRole('alert')).toContainElement(button)
+  await userEvent.setup().click(button)
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Add invitation code',
+  })
+  expect(
+    within(dialog).getByLabelText('Campus invitation code (optional)')
+  ).toBeVisible()
+  expect(
+    within(dialog).getByRole('button', { name: 'Bind invitation' })
+  ).toBeDisabled()
+})
+
+test.each([
+  [false, 'Campaign disabled'],
+  [true, 'Invitation binding is currently unavailable.'],
+] as const)(
+  'ineligible users still see the entry and reason when enabled=%s',
+  async (enabled, reason) => {
+    renderPage(<CampusPartner />, { can_bind: false, enabled })
+    await screen.findByRole('heading', { name: 'Exclusive friend benefits' })
+    expect(
+      screen.getByRole('button', { name: 'Add invitation code' })
+    ).toBeDisabled()
+    expect(screen.getByText(reason)).toBeVisible()
+  }
+)

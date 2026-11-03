@@ -389,7 +389,7 @@ func CampusBind(userID int, code string) error {
 }
 
 // Used inside registration transactions as well as the authenticated late-bind
-// endpoint. All graph edges and first-success payment checks share this lock.
+// endpoint. All binding graph changes and payment settlements share this lock.
 func CampusBindTx(tx *gorm.DB, userID int, code string) error {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if !validCampusInvitationCode(code) {
@@ -417,20 +417,7 @@ func CampusBindTx(tx *gorm.DB, userID int, code string) error {
 	if member.InviterID == inviter.UserID {
 		return nil
 	}
-	if member.InviterID != 0 || member.FirstPaidAt != 0 || inviter.UserID == userID {
-		return ErrCampusBinding
-	}
-	var count int64
-	if err := tx.Model(&TopUp{}).Where("user_id = ? AND status = ?", userID, common.TopUpStatusSuccess).Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		return ErrCampusBinding
-	}
-	if err := tx.Model(&SubscriptionOrder{}).Where("user_id = ? AND status = ?", userID, common.TopUpStatusSuccess).Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
+	if member.InviterID != 0 || inviter.UserID == userID {
 		return ErrCampusBinding
 	}
 	seen := map[int]bool{userID: true}

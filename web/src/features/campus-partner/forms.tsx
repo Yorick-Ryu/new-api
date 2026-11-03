@@ -147,9 +147,7 @@ export function InvitationField(props: { registration?: boolean }) {
   useEffect(() => {
     if (props.registration) sessionStorage.setItem('campus-invitation', code)
   }, [props.registration, code])
-  let message = t(
-    'Get a personal 5% off top-up coupon when you bind an invitation.'
-  )
+  let message = t('Bind an invitation to receive a 5% off top-up coupon.')
   if (code) {
     message = t('Enter a 6-character invitation code (A–Z, 0–9).')
     if (invitation.isFetching) message = t('Checking invitation...')
@@ -160,7 +158,11 @@ export function InvitationField(props: { registration?: boolean }) {
     }
   }
   return (
-    <div className='space-y-3 rounded-xl border p-4'>
+    <div
+      className={
+        props.registration ? 'space-y-2' : 'space-y-3 rounded-xl border p-4'
+      }
+    >
       <Label htmlFor='campus-invitation'>
         {t('Campus invitation code (optional)')}
       </Label>
@@ -168,7 +170,7 @@ export function InvitationField(props: { registration?: boolean }) {
         id='campus-invitation'
         value={code}
         maxLength={6}
-        placeholder='K7MN2R'
+        placeholder={t('Enter invitation code')}
         autoCapitalize='characters'
         autoComplete='off'
         spellCheck={false}
@@ -190,7 +192,7 @@ export function InvitationField(props: { registration?: boolean }) {
         onOpenChange={setConfirm}
         title={t('Confirm invitation')}
         desc={t(
-          'Binding cannot be changed. Only available before your first successful payment. You cannot invite yourself or invite each other.'
+          'Binding cannot be changed. Only qualifying payments after binding earn commission. You cannot invite yourself or invite each other.'
         )}
         isLoading={bind.isPending}
         handleConfirm={() =>

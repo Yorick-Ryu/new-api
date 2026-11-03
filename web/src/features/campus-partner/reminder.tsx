@@ -88,7 +88,7 @@ export function CampusReminder() {
     >
       <p className='text-muted-foreground text-sm'>
         {t(
-          'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.'
+          'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid from the 26th through month end.'
         )}
       </p>
     </Dialog>

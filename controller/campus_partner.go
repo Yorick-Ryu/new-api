@@ -85,12 +85,6 @@ func CampusReminder(c *gin.Context) {
 func CampusList(c *gin.Context)      { campusList(c, false) }
 func CampusAdminList(c *gin.Context) { campusList(c, true) }
 func campusList(c *gin.Context, admin bool) {
-	if c.Param("kind") == "withdrawals" {
-		if err := model.CampusAdvanceBatches(); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
 	if page < 1 || page > 100000 || size < 1 || size > 100 {
@@ -108,7 +102,12 @@ func campusList(c *gin.Context, admin bool) {
 		}
 		rows, total, err = model.CampusListAdminInvitations(filter, page, size)
 	} else {
-		rows, total, err = model.CampusList(c.GetInt("id"), admin, c.Param("kind"), page, size)
+		var filter model.CampusRecordFilter
+		if err := c.ShouldBindQuery(&filter); err != nil || (filter.StartTimestamp != nil && filter.EndTimestamp != nil && *filter.StartTimestamp > *filter.EndTimestamp) {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		rows, total, err = model.CampusList(c.GetInt("id"), admin, c.Param("kind"), page, size, filter)
 	}
 	if err != nil {
 		common.ApiError(c, err)

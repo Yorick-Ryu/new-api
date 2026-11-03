@@ -57,7 +57,7 @@ export function PartnerRules(): ReactElement {
     {
       title: t('Settlement and withdrawals'),
       description: `${t(
-        'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid at month end.'
+        'Commission unlocks after 168 hours. Apply from CNY 100; approved applications are paid from the 26th through month end.'
       )} ${t(
         'Applications before the end of the 25th enter this month’s batch. Later applications enter next month. Balances carry forward.'
       )}`,
@@ -71,7 +71,7 @@ export function PartnerRules(): ReactElement {
     {
       title: t('Add an invitation code later'),
       description: t(
-        'If you registered without an invitation, you may bind once before your first successful top-up or subscription payment and receive the same coupon. A successful payment closes this option permanently, even if refunded. Binding cannot be changed, and self-invitations or reciprocal invitations are prohibited.'
+        'If you registered without an invitation, you may bind once even after a successful payment and receive the same coupon. Only qualifying payments after binding earn commission; historical payments do not. Binding cannot be changed, and self-invitations or reciprocal invitations are prohibited.'
       ),
       wide: true,
     },

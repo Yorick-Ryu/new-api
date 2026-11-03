@@ -63,14 +63,12 @@ func GenerateOAuthCode(c *gin.Context) {
 		return
 	}
 	if request.CampusCode != "" {
-		if request.Intent != model.AuthFlowIntentLogin || !CampusMainSite(c) {
+		if request.Intent != model.AuthFlowIntentLogin || !CampusMainSite(c) || len(request.CampusCode) > 100 {
 			common.ApiErrorT(c, "Invalid parameters")
 			return
 		}
-		if _, err := model.CampusValidateCode(request.CampusCode); err != nil {
-			common.ApiError(c, err)
-			return
-		}
+		// Validate only when creating a new account, inside its binding transaction.
+		// Existing accounts must remain able to log in after an invitation expires.
 	}
 	userID := 0
 	sessionID := ""

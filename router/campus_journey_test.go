@@ -514,9 +514,34 @@ func TestCampusHTTPJourney(t *testing.T) {
 				path := fmt.Sprintf("/api/campus/admin/withdrawals/%d", withdrawal.ID)
 				assert.Equal(t, 403, j.request(buyer, "POST", path, gin.H{"action": "approve"}).Code)
 				j.api(t, j.admin, "POST", path, gin.H{"action": "paid", "receipt": "premature", "paid_at": time.Now().Unix()}, false, nil)
+				j.api(t, j.admin, "POST", path, gin.H{"action": "failed"}, false, nil)
+				assert.EqualValues(t, 60000, j.overview(t, partner).Processing)
+				// Listing an overdue request must not mutate any batch or reason.
+				require.NoError(t, j.db.Model(&withdrawal).Updates(map[string]any{"batch": "2020-01-31", "reason": "keep review note"}).Error)
+				var filtered struct {
+					Total int64                    `json:"total"`
+					Items []model.CampusWithdrawal `json:"items"`
+				}
+				query := fmt.Sprintf("/api/campus/admin/records/withdrawals?status=pending&user=%%23%d&start_timestamp=%d&end_timestamp=%d&page=1&size=1", partner.id, withdrawal.CreatedAt, withdrawal.CreatedAt)
+				j.api(t, j.admin, "GET", query, nil, true, &filtered)
+				require.EqualValues(t, 1, filtered.Total)
+				require.Len(t, filtered.Items, 1)
+				assert.Equal(t, withdrawal.ID, filtered.Items[0].ID)
+				require.NoError(t, j.db.First(&withdrawal, withdrawal.ID).Error)
+				assert.Equal(t, "2020-01-31", withdrawal.Batch)
+				assert.Equal(t, "keep review note", withdrawal.Reason)
+				for _, invalid := range []string{"status=invalid", "start_timestamp=-1", "start_timestamp=2&end_timestamp=1", "user=" + strings.Repeat("a", 101)} {
+					j.api(t, j.admin, "GET", "/api/campus/admin/records/withdrawals?"+invalid, nil, false, nil)
+				}
 				j.api(t, j.admin, "POST", path, gin.H{"action": "pause", "reason": "verify recipient"}, true, nil)
+				j.api(t, j.admin, "POST", path, gin.H{"action": "failed"}, false, nil)
+				assert.EqualValues(t, 60000, j.overview(t, partner).Processing)
+
 				j.api(t, j.admin, "POST", path, gin.H{"action": "resume", "reason": "recipient confirmed"}, true, nil)
+				require.NoError(t, j.db.Model(&withdrawal).Update("batch", "2020-01-31").Error)
 				j.api(t, j.admin, "POST", path, gin.H{"action": "approve"}, true, nil)
+				require.NoError(t, j.db.First(&withdrawal, withdrawal.ID).Error)
+				assert.NotEqual(t, "2020-01-31", withdrawal.Batch, "approval advances overdue batches before maintenance runs")
 				j.api(t, j.admin, "POST", path, gin.H{"action": "unknown", "reason": "provider result pending"}, true, nil)
 				j.api(t, j.admin, "POST", path, gin.H{"action": "reject", "reason": "cannot release unknown transfer"}, false, nil)
 				assert.EqualValues(t, 60000, j.overview(t, partner).Processing)

@@ -154,6 +154,46 @@ it.each([
   }
 )
 
+it('places the optional invitation after password confirmation and before registration submission', async () => {
+  sessionStorage.removeItem('campus-invitation')
+  await renderForm('sign-up')
+  const password = screen.getByLabelText('Confirm password', { exact: true })
+  const invitation = screen.getByLabelText('Campus invitation code (optional)')
+  const submit = screen.getByRole('button', { name: 'Create account' })
+  expect(
+    password.compareDocumentPosition(invitation) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  expect(
+    invitation.compareDocumentPosition(submit) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  expect(invitation.closest('form')).toBe(password.closest('form'))
+  expect(invitation.parentElement).not.toHaveClass('border')
+  expect(invitation.parentElement).not.toHaveClass('p-4')
+})
+
+it('prefills the invitation from the URL and includes it in registration storage', async () => {
+  const originalUrl = window.location.href
+  window.history.replaceState(null, '', '/?campus=k7mn2r')
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { inviter: 'Partner' } },
+  })
+  try {
+    await renderForm('sign-up')
+    expect(
+      screen.getByLabelText('Campus invitation code (optional)')
+    ).toHaveValue('K7MN2R')
+    await waitFor(() =>
+      expect(sessionStorage.getItem('campus-invitation')).toBe('K7MN2R')
+    )
+  } finally {
+    window.history.replaceState(null, '', originalUrl)
+    sessionStorage.removeItem('campus-invitation')
+    vi.restoreAllMocks()
+  }
+})
+
 it('translates consent and both footer variants when switching to Chinese', async () => {
   const i18n = createInstance()
   await i18n

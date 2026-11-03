@@ -117,8 +117,8 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		member.FirstPaidAt = now
 	}
 	if payment.ID == 0 {
-		// Older orders have no trusted site/currency snapshot. They still close
-		// late-binding eligibility, but cannot become campaign sales retroactively.
+		// Older orders have no trusted site/currency snapshot and cannot
+		// become campaign sales retroactively after invitation binding.
 		payment = CampusPayment{TradeNo: trade, UserID: userID, Eligibility: string(cp.OutsideMainSite)}
 	}
 	if payment.UserID != userID {
