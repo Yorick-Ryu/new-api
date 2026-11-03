@@ -170,7 +170,7 @@ func (campusBatchHandler) Enabled() bool           { return true }
 func (campusBatchHandler) Interval() time.Duration { return time.Hour }
 func (campusBatchHandler) NewPayload() any         { return nil }
 func (campusBatchHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
-	if err := model.CampusAdvanceBatchesContext(ctx); err != nil {
+	if err := model.CampusAdvanceBatches(ctx); err != nil {
 		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
 		return
 	}

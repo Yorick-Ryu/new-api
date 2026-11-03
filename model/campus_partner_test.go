@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"os"
@@ -126,7 +127,7 @@ func TestCampusDatabase(t *testing.T) {
 				assert.Empty(t, payment.Segments)
 				assert.Empty(t, payment.RuleVersion)
 				assert.Positive(t, payment.SettledAt)
-				rows, _, err := CampusList(1, true, "payments", 1, 100)
+				rows, _, err := CampusList(1, true, "payments", 1, 100, CampusRecordFilter{})
 				require.NoError(t, err)
 				encoded, err := common.Marshal(rows)
 				require.NoError(t, err)
@@ -145,7 +146,6 @@ func TestCampusDatabase(t *testing.T) {
 				overview, err := CampusGetOverview(802)
 				require.NoError(t, err)
 				require.True(t, overview.CanBind)
-				require.Positive(t, overview.Member.FirstPaidAt)
 				require.NoError(t, CampusBind(802, inviter.Code))
 				require.NoError(t, CampusBind(802, inviter.Code))
 				assert.ErrorIs(t, CampusBind(802, first.Code), ErrCampusBinding)
@@ -221,7 +221,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Model(&CampusPayment{}).Where("trade_no = ?", "large").Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
 			w, err := CampusRequestWithdrawal(1, "request-0000000001", "alipay@example.test", "Test", 30000)
 			require.NoError(t, err)
-			paymentRows, _, err := CampusList(1, true, "payments", 1, 100)
+			paymentRows, _, err := CampusList(1, true, "payments", 1, 100, CampusRecordFilter{})
 			require.NoError(t, err)
 			paymentJSON, err := common.Marshal(paymentRows)
 			require.NoError(t, err)
@@ -240,7 +240,7 @@ func TestCampusDatabase(t *testing.T) {
 					assert.Equal(t, fmt.Sprintf("campus-%d", payment.InviterID), payment.InviterUsername)
 				}
 			}
-			adminRows, adminCount, err := CampusList(1, true, "withdrawals", 1, 10)
+			adminRows, adminCount, err := CampusList(1, true, "withdrawals", 1, 10, CampusRecordFilter{})
 			require.NoError(t, err)
 			require.EqualValues(t, 1, adminCount)
 			encodedRows, err := common.Marshal(adminRows)
@@ -260,7 +260,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NotNil(t, recipients[0].PartnerTier)
 			assert.Positive(t, recipients[0].PartnerTier.Level)
 			assert.Positive(t, recipients[0].PartnerTier.RatePercent)
-			own, ownCount, err := CampusList(1, false, "withdrawals", 1, 10)
+			own, ownCount, err := CampusList(1, false, "withdrawals", 1, 10, CampusRecordFilter{})
 			require.NoError(t, err)
 			require.EqualValues(t, 1, ownCount)
 			ownRows := *own.(*[]CampusWithdrawal)
@@ -275,7 +275,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, otherOverview.WithdrawalAccount)
 			require.Empty(t, otherOverview.WithdrawalName)
-			otherWithdrawals, otherCount, err := CampusList(999, false, "withdrawals", 1, 10)
+			otherWithdrawals, otherCount, err := CampusList(999, false, "withdrawals", 1, 10, CampusRecordFilter{})
 			require.NoError(t, err)
 			require.Zero(t, otherCount)
 			require.Empty(t, *otherWithdrawals.(*[]CampusWithdrawal))
@@ -286,7 +286,7 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Error(t, err)
 			_, err = CampusRegisterRefund("large", "partial-pending", "confirmed provider refund", 10000, 1, false)
 			require.NoError(t, err)
-			refundRows, refundCount, err := CampusList(1, true, "refunds", 1, 10)
+			refundRows, refundCount, err := CampusList(1, true, "refunds", 1, 10, CampusRecordFilter{})
 			require.NoError(t, err)
 			require.Positive(t, refundCount)
 			encodedRefunds, err := common.Marshal(refundRows)
@@ -350,8 +350,8 @@ func TestCampusDatabase(t *testing.T) {
 				batchFixtures[i] = CampusWithdrawal{UserID: 888, RequestID: fmt.Sprintf("batch-fixture-%d", i), State: "pending", Batch: lastMonthEnd.Format(time.DateOnly)}
 			}
 			require.NoError(t, db.Create(&batchFixtures).Error)
-			require.NoError(t, CampusAdvanceBatches())
-			require.NoError(t, CampusAdvanceBatches())
+			require.NoError(t, CampusAdvanceBatches(context.Background()))
+			require.NoError(t, CampusAdvanceBatches(context.Background()))
 			var overdue int64
 			require.NoError(t, db.Model(&CampusWithdrawal{}).Where("user_id = ? AND batch <= ?", 888, lastMonthEnd.Format(time.DateOnly)).Count(&overdue).Error)
 			assert.Zero(t, overdue)
@@ -506,10 +506,10 @@ func TestCampusDatabase(t *testing.T) {
 			show, err = CampusReminder(7)
 			require.NoError(t, err)
 			assert.False(t, show)
-			_, count, err := CampusList(7, false, "withdrawals", 1, 10)
+			_, count, err := CampusList(7, false, "withdrawals", 1, 10, CampusRecordFilter{})
 			require.NoError(t, err)
 			assert.Zero(t, count)
-			_, _, err = CampusList(7, false, "refunds", 1, 10)
+			_, _, err = CampusList(7, false, "refunds", 1, 10, CampusRecordFilter{})
 			assert.Error(t, err)
 			require.NoError(t, InitializeCampusPartner(db))
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, prelaunch.TradeNo, 2) }))
@@ -602,7 +602,7 @@ func TestCampusDatabase(t *testing.T) {
 			assert.EqualValues(t, 3, finalConfig.PlanRevision)
 
 			assert.False(t, db.Migrator().HasTable("campus_entries"))
-			_, _, err = CampusList(1, true, "entries", 1, 10)
+			_, _, err = CampusList(1, true, "entries", 1, 10, CampusRecordFilter{})
 			assert.ErrorIs(t, err, ErrCampusState)
 
 			t.Run("invitation history masks names and isolates net contributions with pagination", func(t *testing.T) {
@@ -671,7 +671,7 @@ func TestCampusDatabase(t *testing.T) {
 					assert.Zero(t, total)
 				})
 
-				result, total, err := CampusList(101, false, "invitations", 1, 1)
+				result, total, err := CampusList(101, false, "invitations", 1, 1, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.EqualValues(t, 3, total)
 				rows := *result.(*[]CampusInvitation)
@@ -684,28 +684,28 @@ func TestCampusDatabase(t *testing.T) {
 				assert.NotContains(t, string(encoded), "inviter_username")
 				assert.NotContains(t, string(encoded), "display_name")
 
-				result, total, err = CampusList(101, false, "invitations", 2, 1)
+				result, total, err = CampusList(101, false, "invitations", 2, 1, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.EqualValues(t, 3, total)
 				rows = *result.(*[]CampusInvitation)
 				require.Len(t, rows, 1)
 				assert.Equal(t, CampusInvitation{UserID: 202, BoundAt: 1000, MaskedName: "c**", RegisteredAt: 900}, rows[0])
 
-				result, _, err = CampusList(101, false, "invitations", 3, 1)
+				result, _, err = CampusList(101, false, "invitations", 3, 1, CampusRecordFilter{})
 				require.NoError(t, err)
 				rows = *result.(*[]CampusInvitation)
 				require.Len(t, rows, 1)
 				assert.Equal(t, CampusInvitation{UserID: 204, BoundAt: 500, MaskedName: "***"}, rows[0])
 
-				result, total, err = CampusList(999, false, "invitations", 1, 10)
+				result, total, err = CampusList(999, false, "invitations", 1, 10, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.Zero(t, total)
 				assert.Empty(t, *result.(*[]CampusInvitation))
-				result, _, err = CampusList(0, true, "invitations", 1, 100)
+				result, _, err = CampusList(0, true, "invitations", 1, 100, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.Contains(t, *result.(*[]CampusAdminInvitation), CampusAdminInvitation{UserID: 203, Username: "other-partner", DisplayName: "Other", InviterID: 102, InviterUsername: "partner-bob", InviterDisplayName: "邀请人乙", BoundAt: 3000, RegisteredAt: 1000, Paid: 30000, Commission: 9000})
 
-				paymentRows, paymentTotal, err := CampusList(101, false, "payments", 1, 100)
+				paymentRows, paymentTotal, err := CampusList(101, false, "payments", 1, 100, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.EqualValues(t, 3, paymentTotal)
 				encodedPayments, err := common.Marshal(paymentRows)

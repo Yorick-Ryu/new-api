@@ -252,11 +252,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 // Only unfinished reviews roll forward automatically. An approved request may
 // already have been transferred at month end and recorded later; preserve its
 // original batch until the operator reconciles the actual outcome.
-func CampusAdvanceBatches() error {
-	return CampusAdvanceBatchesContext(context.Background())
-}
-
-func CampusAdvanceBatchesContext(ctx context.Context) error {
+func CampusAdvanceBatches(ctx context.Context) error {
 	zone := time.FixedZone("Asia/Shanghai", 28800)
 	now := time.Now().In(zone)
 	for {

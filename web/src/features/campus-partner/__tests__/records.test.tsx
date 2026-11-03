@@ -24,7 +24,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
-import { recordFilterParams } from '../record-filter-matching'
+import { recordFilterParams } from '../record-filter-params'
 import { CampusRecords } from '../records'
 
 afterEach(() => vi.restoreAllMocks())

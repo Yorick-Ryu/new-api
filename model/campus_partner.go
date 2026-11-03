@@ -52,7 +52,6 @@ type CampusMember struct {
 	JoinedAt         int64    `json:"joined_at"`
 	InviterID        int      `json:"inviter_id" gorm:"index"`
 	BoundAt          int64    `json:"bound_at"`
-	FirstPaidAt      int64    `json:"first_paid_at"`
 	Performance      cp.Money `json:"performance_cents"`
 	Debt             cp.Money `json:"debt_cents"`
 	CouponState      string   `json:"coupon_state" gorm:"type:varchar(16)"`

@@ -74,7 +74,7 @@ async function renderConfiguration(enabled = false, openSettings = true) {
   })
   clients.push(client)
   client.setQueryData(['campus', 'config'], config)
-  client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
+  client.setQueryData(['campus', 'records', true, 'withdrawals', 1, {}], {
     items: [],
     total: 0,
   })
@@ -541,7 +541,7 @@ test.each([
   async (state, expectedActions) => {
     const { user, client } = await renderConfiguration(false, false)
     await act(async () => {
-      client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
+      client.setQueryData(['campus', 'records', true, 'withdrawals', 1, {}], {
         items: [
           {
             id: 91,

@@ -113,9 +113,6 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	if err != nil {
 		return err
 	}
-	if member.FirstPaidAt == 0 {
-		member.FirstPaidAt = now
-	}
 	if payment.ID == 0 {
 		// Older orders have no trusted site/currency snapshot and cannot
 		// become campaign sales retroactively after invitation binding.
@@ -130,9 +127,6 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		if len(proofs) == 1 {
 			reference := "epay:" + proofs[0].Transaction
 			payment.ProviderTrade = &reference
-		}
-		if err := tx.Save(member).Error; err != nil {
-			return err
 		}
 		return tx.Save(&payment).Error
 	}

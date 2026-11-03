@@ -41,7 +41,7 @@ import {
 } from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
-import { recordFilterParams } from './record-filter-matching'
+import { recordFilterParams } from './record-filter-params'
 import { CampusRecordFilters, type RecordFilters } from './record-filters'
 import { WithdrawalDetails } from './withdrawal-details'
 
@@ -99,13 +99,8 @@ export function CampusRecords(props: {
   const [selected, setSelected] = useState<CampusRecord | null>(null)
   const paymentColumns = commissionColumns(t, locale, setSelected, props.admin)
   const commissionView = props.kind === 'payments'
-  const hasFilters = Object.values(filters).some(
-    (value) => value && value !== 'all'
-  )
   const query = useQuery({
-    queryKey: hasFilters
-      ? ['campus', 'records', !!props.admin, props.kind, page, filters]
-      : ['campus', 'records', !!props.admin, props.kind, page],
+    queryKey: ['campus', 'records', !!props.admin, props.kind, page, filters],
     queryFn: async () => {
       const path = `${props.admin ? 'admin' : 'self'}/records/${props.kind}`
       return campusGet<{ items: CampusRecord[]; total: number }>(

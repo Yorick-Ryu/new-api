@@ -241,7 +241,7 @@ func (filter CampusRecordFilter) apply(query *gorm.DB, admin bool, kind string) 
 	return query, nil
 }
 
-func CampusList(userID int, admin bool, kind string, page, size int, filters ...CampusRecordFilter) (any, int64, error) {
+func CampusList(userID int, admin bool, kind string, page, size int, filter CampusRecordFilter) (any, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -260,7 +260,7 @@ func CampusList(userID int, admin bool, kind string, page, size int, filters ...
 	case "payments":
 		query = query.Model(&CampusPayment{}).Where("inviter_id > 0 AND settled_at > 0 AND eligibility = ?", string(cp.Eligible))
 		if !admin {
-			query = query.Where("inviter_id = ? AND eligibility = ?", userID, string(cp.Eligible))
+			query = query.Where("inviter_id = ?", userID)
 		}
 		rows = &[]CampusPayment{}
 	case "withdrawals":
@@ -278,12 +278,9 @@ func CampusList(userID int, admin bool, kind string, page, size int, filters ...
 	default:
 		return nil, 0, ErrCampusState
 	}
-	if len(filters) > 0 {
-		var err error
-		query, err = filters[0].apply(query, admin, kind)
-		if err != nil {
-			return nil, 0, err
-		}
+	query, err := filter.apply(query, admin, kind)
+	if err != nil {
+		return nil, 0, err
 	}
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
