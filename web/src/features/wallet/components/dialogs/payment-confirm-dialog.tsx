@@ -66,11 +66,11 @@ export function PaymentConfirmDialog({
   usdExchangeRate = 1,
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
-  const hasDiscount =
-    campusCoupon || (discountRate > 0 && discountRate < 1 && paymentAmount > 0)
-  let originalAmount = hasDiscount ? paymentAmount / discountRate : 0
-  if (campusCoupon) originalAmount = campusBefore
-  const discountAmount = hasDiscount ? originalAmount - paymentAmount : 0
+  const beforeCoupon = campusCoupon ? campusBefore : paymentAmount
+  const presetDiscount = discountRate > 0 && discountRate < 1 ? discountRate : 1
+  const originalAmount = beforeCoupon / presetDiscount
+  const discountAmount = Math.max(0, originalAmount - paymentAmount)
+  const hasDiscount = paymentAmount > 0 && discountAmount > 0
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -82,7 +82,7 @@ export function PaymentConfirmDialog({
           <AlertDialogDescription>
             {campusCoupon
               ? t(
-                  'Personal 5% off campus coupon applied. The displayed payment amount includes this discount.'
+                  'New user top-up coupon applied. Total savings include the recharge discount and coupon discount.'
                 )
               : t('Review your payment details')}
           </AlertDialogDescription>

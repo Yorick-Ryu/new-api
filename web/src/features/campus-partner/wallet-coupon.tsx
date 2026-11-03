@@ -21,8 +21,8 @@ import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { submitPaymentForm } from '@/features/wallet/lib'
+import { cn } from '@/lib/utils'
 
 import { useCampus, campusSite, campusPost, useCampusAction } from './api'
 
@@ -47,28 +47,58 @@ export function CampusCouponSection(props: {
       <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
         {t('My coupon')}
       </Label>
-      <div className='space-y-2 rounded-lg border p-3'>
-        <div className='flex flex-wrap items-center gap-3'>
-          <Switch
-            id='campus-coupon'
-            checked={props.selected && coupon === 'available'}
-            onCheckedChange={props.onChange}
-            disabled={coupon !== 'available'}
-          />
-          <Label htmlFor='campus-coupon'>
-            {t('Use my campus top-up coupon')}
-          </Label>
-          <span className='text-muted-foreground text-xs'>
-            {t(`Campus coupon ${coupon}`)}
-          </span>
-        </div>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
-          )}
-        </p>
+      <div
+        className={cn(
+          'bg-card overflow-hidden rounded-xl ring-1 transition-shadow',
+          props.selected && coupon === 'available'
+            ? 'ring-primary ring-2'
+            : 'ring-primary/20'
+        )}
+      >
+        <Button
+          type='button'
+          variant='ghost'
+          aria-label={t('New user top-up coupon')}
+          aria-pressed={props.selected && coupon === 'available'}
+          disabled={coupon !== 'available'}
+          onClick={() => props.onChange(!props.selected)}
+          className='h-auto w-full justify-start gap-0 overflow-hidden rounded-xl p-0 text-left whitespace-normal hover:bg-transparent disabled:opacity-100'
+        >
+          <div className='flex w-full min-w-0 self-stretch'>
+            <div className='bg-primary text-primary-foreground border-primary-foreground/40 flex w-24 shrink-0 flex-col items-center justify-center border-r-2 border-dashed px-2 py-4 sm:w-32'>
+              <span className='font-mono text-4xl leading-none font-bold tracking-wider tabular-nums sm:text-5xl'>
+                {t('Coupon discount value')}
+              </span>
+              <span className='mt-1 text-sm font-semibold'>
+                {t('Coupon discount unit')}
+              </span>
+            </div>
+            <div className='min-w-0 flex-1 space-y-2 p-3 sm:p-4'>
+              <div className='flex flex-wrap items-center justify-between gap-2'>
+                <span className='text-sm font-semibold'>
+                  {t('New user top-up coupon')}
+                </span>
+                <span className='bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium'>
+                  {t('Available: {{quantity}} coupons', {
+                    quantity: coupon === 'available' ? '1' : '0',
+                  })}
+                </span>
+              </div>
+              {coupon === 'reserved' && (
+                <p className='text-muted-foreground text-xs'>
+                  {t('Campus coupon reserved')}
+                </p>
+              )}
+              <p className='text-muted-foreground text-xs leading-relaxed font-normal'>
+                {t(
+                  '5% off one top-up. No expiry, personal use only, not valid for subscriptions. Refunds do not restore a used coupon.'
+                )}
+              </p>
+            </div>
+          </div>
+        </Button>
         {coupon === 'reserved' && (
-          <div className='space-y-2'>
+          <div className='space-y-2 px-3 pb-3 sm:px-4'>
             <p className='text-muted-foreground text-xs'>
               {t(
                 'Payment status is still pending. Continue the original order, or contact support to reconcile a definitively closed unpaid order.'

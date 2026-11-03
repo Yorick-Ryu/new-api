@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
+import { useCouponSelection } from '@/features/campus-partner/use-coupon-selection'
 import { CampusCouponSection } from '@/features/campus-partner/wallet-coupon'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
@@ -61,7 +62,7 @@ interface WalletProps {
 
 export function Wallet(props: WalletProps) {
   const { t } = useTranslation()
-  const [campusCoupon, setCampusCoupon] = useState(false)
+  const [campusCoupon, setCampusCoupon] = useCouponSelection()
   const [user, setUser] = useState<UserWalletData | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [topupAmount, setTopupAmount] = useState(0)

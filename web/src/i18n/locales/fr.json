@@ -5232,7 +5232,7 @@
     "Perplexity": "Perplexity",
     "Persist your data file": "Conserver votre fichier de données",
     "Personal": "Personnel",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "Votre coupon campus personnel de 5 % a été appliqué. Le montant affiché tient compte de cette remise.",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "Coupon de recharge nouvel utilisateur appliqué. Les économies totales incluent la remise de recharge et celle du coupon.",
     "Personal area": "Espace personnel",
     "Personal Center Area": "Espace personnel",
     "Personal info settings": "Paramètres d'informations personnelles",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
     "Tier {{level}} name": "Nom du palier {{level}}",
-    "Tier names must be at most 80 characters": "Le nom du palier ne doit pas dépasser 80 caractères"
+    "Tier names must be at most 80 characters": "Le nom du palier ne doit pas dépasser 80 caractères",
+    "Available: {{quantity}} coupons": "{{quantity}} coupon(s) disponible(s)"
   }
 }

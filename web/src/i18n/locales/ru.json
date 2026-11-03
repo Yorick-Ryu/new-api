@@ -5232,7 +5232,7 @@
     "Perplexity": "Perplexity",
     "Persist your data file": "Сохранить ваш файл данных",
     "Personal": "Личное",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "Применён личный кампусный купон на скидку 5 %. Указанная сумма уже включает скидку.",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "Применён купон нового пользователя. Общая экономия включает скидку на пополнение и скидку по купону.",
     "Personal area": "Личный кабинет",
     "Personal Center Area": "Область личного кабинета",
     "Personal info settings": "Настройки личной информации",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
     "Tier {{level}} name": "Название уровня {{level}}",
-    "Tier names must be at most 80 characters": "Название уровня не должно превышать 80 символов"
+    "Tier names must be at most 80 characters": "Название уровня не должно превышать 80 символов",
+    "Available: {{quantity}} coupons": "Доступно купонов: {{quantity}}"
   }
 }

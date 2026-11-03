@@ -5232,7 +5232,7 @@
     "Perplexity": "Perplexity",
     "Persist your data file": "データファイルを永続化する",
     "Personal": "個人",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "個人用キャンパス 5% 割引クーポンを適用しました。表示金額は割引後の金額です。",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "新規ユーザーチャージクーポンを適用済み。合計割引額にはチャージ割引とクーポン割引が含まれます。",
     "Personal area": "個人エリア",
     "Personal Center Area": "パーソナルセンターエリア",
     "Personal info settings": "個人情報設定",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "Zhipu V 4",
     "Zoom": "ズーム",
     "Tier {{level}} name": "ランク {{level}} の名前",
-    "Tier names must be at most 80 characters": "ランク名は80文字以内で入力してください"
+    "Tier names must be at most 80 characters": "ランク名は80文字以内で入力してください",
+    "Available: {{quantity}} coupons": "利用可能：{{quantity}}枚"
   }
 }

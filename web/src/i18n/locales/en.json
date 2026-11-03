@@ -5232,7 +5232,7 @@
     "Perplexity": "Perplexity",
     "Persist your data file": "Persist your data file",
     "Personal": "Personal",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.",
     "Personal area": "Personal area",
     "Personal Center Area": "Personal Center Area",
     "Personal info settings": "Personal info settings",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
     "Tier {{level}} name": "Tier {{level}} name",
-    "Tier names must be at most 80 characters": "Tier names must be at most 80 characters"
+    "Tier names must be at most 80 characters": "Tier names must be at most 80 characters",
+    "Available: {{quantity}} coupons": "Available: {{quantity}} coupons"
   }
 }

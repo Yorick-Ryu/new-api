@@ -5232,7 +5232,7 @@
     "Perplexity": "Sự bối rối",
     "Persist your data file": "Lưu trữ tệp dữ liệu của bạn",
     "Personal": "Cá nhân",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "Đã áp dụng phiếu giảm 5% dành riêng cho bạn. Số tiền hiển thị đã bao gồm ưu đãi này.",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "Đã áp dụng phiếu nạp tiền cho người dùng mới. Tổng tiết kiệm gồm ưu đãi nạp tiền và giảm giá từ phiếu.",
     "Personal area": "Khu vực cá nhân",
     "Personal Center Area": "Khu vực cá nhân",
     "Personal info settings": "Cài đặt thông tin cá nhân",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
     "Tier {{level}} name": "Tên cấp bậc {{level}}",
-    "Tier names must be at most 80 characters": "Tên cấp bậc không được vượt quá 80 ký tự"
+    "Tier names must be at most 80 characters": "Tên cấp bậc không được vượt quá 80 ký tự",
+    "Available: {{quantity}} coupons": "Có {{quantity}} phiếu khả dụng"
   }
 }

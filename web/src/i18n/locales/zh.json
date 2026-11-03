@@ -5232,7 +5232,7 @@
     "Perplexity": "Perplexity",
     "Persist your data file": "持久化您的数据文件",
     "Personal": "个人",
-    "Personal 5% off campus coupon applied. The displayed payment amount includes this discount.": "已使用个人校园 95 折券，显示的实付金额已包含本次优惠。",
+    "New user top-up coupon applied. Total savings include the recharge discount and coupon discount.": "已使用新人充值优惠券，节省金额包含充值优惠和优惠券抵扣。",
     "Personal area": "个人中心",
     "Personal Center Area": "个人中心区域",
     "Personal info settings": "个人信息设置",
@@ -8245,6 +8245,7 @@
     "Zhipu V4": "智谱 V4",
     "Zoom": "缩放",
     "Tier {{level}} name": "档位 {{level}} 名称",
-    "Tier names must be at most 80 characters": "档位名称不能超过80个字符"
+    "Tier names must be at most 80 characters": "档位名称不能超过80个字符",
+    "Available: {{quantity}} coupons": "可用 {{quantity}} 张"
   }
 }
