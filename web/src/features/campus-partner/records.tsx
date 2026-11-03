@@ -47,6 +47,7 @@ export type CampusRecord = {
   user_id: number
   partner_tier?: { level: number; name?: string; rate_percent: number }
   partner_tier_name?: string
+  total_commission_cents?: number
   performance_cents?: number
   inviter_id?: number
   inviter_username?: string

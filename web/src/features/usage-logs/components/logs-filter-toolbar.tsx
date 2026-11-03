@@ -44,6 +44,7 @@ interface LogsFilterToolbarProps<TData> {
   table: Table<TData>
   primaryFilters: ReactNode
   advancedFilters?: ReactNode
+  inlineActions?: boolean
   compactMobile?: boolean
   mobilePinnedFilters?: ReactNode
   mobileFilters?: ReactNode
@@ -246,10 +247,16 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
     <div
       className={cn(
         'bg-card/50 rounded-lg border p-2.5 sm:p-3',
+        props.inlineActions && 'sm:flex sm:flex-wrap sm:items-center sm:gap-2',
         props.className
       )}
     >
-      <div className='flex flex-wrap items-start gap-2'>
+      <div
+        className={cn(
+          'flex flex-wrap items-start gap-2',
+          props.inlineActions && 'sm:min-w-[30rem] sm:flex-1'
+        )}
+      >
         <div className='grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]'>
           {props.primaryFilters}
         </div>
@@ -266,7 +273,12 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
         </div>
       )}
 
-      <div className='mt-2 flex flex-wrap items-center gap-2'>
+      <div
+        className={cn(
+          'mt-2 flex flex-wrap items-center gap-2',
+          props.inlineActions && 'sm:mt-0'
+        )}
+      >
         {props.stats}
         <div className='ms-auto flex flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
           {props.actionStart}

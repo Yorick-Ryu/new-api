@@ -258,6 +258,7 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 			PartnerTierName string   `json:"partner_tier_name"`
 			PartnerTier     *cp.Tier `json:"partner_tier,omitempty"`
 			Performance     cp.Money `json:"performance_cents"`
+			TotalCommission cp.Money `json:"total_commission_cents"`
 		}
 		withdrawals := *rows.(*[]CampusWithdrawal)
 		ids := make([]int, 0, len(withdrawals))
@@ -288,10 +289,23 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 		for _, member := range members {
 			memberByID[member.UserID] = member
 		}
+		var totals []struct {
+			InviterID int
+			Total     cp.Money
+		}
+		if len(ids) > 0 {
+			if err := DB.Model(&CampusPayment{}).Select("inviter_id, COALESCE(SUM(commission - reversed), 0) AS total").Where("inviter_id IN ?", ids).Group("inviter_id").Scan(&totals).Error; err != nil {
+				return nil, 0, err
+			}
+		}
+		totalByUser := make(map[int]cp.Money, len(totals))
+		for _, total := range totals {
+			totalByUser[total.InviterID] = total.Total
+		}
 		result := make([]withdrawalRecord, 0, len(withdrawals))
 		for _, withdrawal := range withdrawals {
 			user := names[withdrawal.UserID]
-			record := withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName}
+			record := withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName, TotalCommission: totalByUser[withdrawal.UserID]}
 			if member, ok := memberByID[withdrawal.UserID]; ok {
 				tier, err := cp.CurrentTier(member.Performance, config.Tiers)
 				if err != nil {

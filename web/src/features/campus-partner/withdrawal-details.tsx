@@ -56,7 +56,7 @@ export function WithdrawalSummary(props: {
   if (!row) return null
   const fields = [
     [t('ID'), `#${row.id}`],
-    [t('Time'), beijingDate(row.created_at || 0, locale, true)],
+    [t('Withdrawal time'), beijingDate(row.created_at || 0, locale, true)],
     [t('Amount'), cash(row.amount_cents || 0, locale)],
     [
       t('Status'),
@@ -86,7 +86,8 @@ export function WithdrawalSummary(props: {
         [
           t('Friends cumulative top-ups'),
           cash(row.performance_cents || 0, locale),
-        ]
+        ],
+        [t('Total commission'), cash(row.total_commission_cents || 0, locale)]
       )
     }
   }

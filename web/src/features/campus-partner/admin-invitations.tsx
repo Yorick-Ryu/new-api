@@ -183,6 +183,7 @@ export function CampusAdminInvitations() {
   return (
     <div className='min-w-0 space-y-3'>
       <LogsFilterToolbar
+        inlineActions
         table={table}
         primaryFilters={
           <>

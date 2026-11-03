@@ -211,10 +211,11 @@ func TestCampusDatabase(t *testing.T) {
 			encodedRows, err := common.Marshal(adminRows)
 			require.NoError(t, err)
 			var recipients []struct {
-				PartnerTier *cp.Tier `json:"partner_tier"`
-				UserID      int      `json:"user_id"`
-				Username    string   `json:"username"`
-				DisplayName string   `json:"display_name"`
+				TotalCommission cp.Money `json:"total_commission_cents"`
+				PartnerTier     *cp.Tier `json:"partner_tier"`
+				UserID          int      `json:"user_id"`
+				Username        string   `json:"username"`
+				DisplayName     string   `json:"display_name"`
 			}
 			require.NoError(t, common.Unmarshal(encodedRows, &recipients))
 			require.Len(t, recipients, 1)
@@ -234,6 +235,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "alipay@example.test", recipientOverview.WithdrawalAccount)
 			require.Equal(t, "Test", recipientOverview.WithdrawalName)
+			assert.Equal(t, recipientOverview.Net, recipients[0].TotalCommission)
 			otherOverview, err := CampusGetOverview(999)
 			require.NoError(t, err)
 			require.Empty(t, otherOverview.WithdrawalAccount)

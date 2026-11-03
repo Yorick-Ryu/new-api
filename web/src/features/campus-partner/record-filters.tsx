@@ -86,6 +86,7 @@ export function CampusRecordFilters(props: {
       }}
     >
       <CompactDateTimeRangePicker
+        className='w-full sm:w-64'
         start={props.value.start}
         end={props.value.end}
         onChange={(range) => props.onChange({ ...props.value, ...range })}

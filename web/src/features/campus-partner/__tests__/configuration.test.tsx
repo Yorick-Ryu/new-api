@@ -552,6 +552,7 @@ test.each([
             partner_tier: { level: 2, rate_percent: 35 },
             partner_tier_name: 'Campus star',
             performance_cents: 200000,
+            total_commission_cents: 123456,
           },
         ],
         total: 1,
@@ -583,6 +584,9 @@ test.each([
     expect(dialog.getByText('partner-test (#1)')).toBeVisible()
     expect(dialog.getByText('Lv.2 · Campus star')).toBeVisible()
     expect(dialog.getByText('35%')).toBeVisible()
+    expect(dialog.getByText('Total commission')).toBeVisible()
+    expect(dialog.getByText(/1,234.56/)).toBeVisible()
+    expect(dialog.getByText('Withdrawal time')).toBeVisible()
     expect(dialog.getByText('Alipay account')).toBeVisible()
     expect(dialog.getByText('Expected payout')).toBeVisible()
     if (state === 'pending') {
