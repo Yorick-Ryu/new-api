@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Reason (optional)": "Reason (optional)",
+    "Enter approval reason (optional)": "Enter approval reason (optional)",
+    "Enter pause reason (optional)": "Enter pause reason (optional)",
+    "Enter resume reason (optional)": "Enter resume reason (optional)",
+    "Enter rejection reason (optional)": "Enter rejection reason (optional)",
+    "Enter verification notes (optional)": "Enter verification notes (optional)",
+    "Enter transfer failure reason (optional)": "Enter transfer failure reason (optional)",
+    "Enter deferral reason (optional)": "Enter deferral reason (optional)",
+    "Enter transfer notes (optional)": "Enter transfer notes (optional)",
     "Withdrawable": "Доступно к выводу",
     "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "Заявки до {{cutoff}} включительно: выплата после одобрения ожидается {{currentEnd}}. Заявки с {{nextStart}}: выплата ожидается {{nextEnd}}. Даты по пекинскому времени.",
     "Enter a valid Alipay phone number or email address": "Введите действительный номер телефона или адрес электронной почты Alipay",

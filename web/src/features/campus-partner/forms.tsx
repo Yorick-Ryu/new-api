@@ -39,7 +39,14 @@ import { Label } from '@/components/ui/label'
 import { campusGet, campusPost, invitationCode, useCampusAction } from './api'
 
 export function CampusFields(props: {
-  fields: { name: string; label: string; value?: string; type?: string }[]
+  fields: {
+    name: string
+    label: string
+    value?: string
+    type?: string
+    placeholder?: string
+    optional?: boolean
+  }[]
   submit: string
   pending: boolean
   onSubmit: (values: Record<string, string>) => void
@@ -48,9 +55,16 @@ export function CampusFields(props: {
   const form = useForm<Record<string, string>>({
     resolver: zodResolver(
       z
-        .record(z.string(), z.string().trim().min(1).max(2000))
+        .record(z.string(), z.string().trim().max(2000))
         .superRefine((values, context) => {
           for (const field of props.fields) {
+            if (!field.optional && !values[field.name]?.trim()) {
+              context.addIssue({
+                code: 'custom',
+                path: [field.name],
+                message: t('Required'),
+              })
+            }
             if (
               field.label === 'Alipay account' &&
               (values[field.name].length > 128 ||
@@ -88,6 +102,9 @@ export function CampusFields(props: {
                   <Input
                     {...input}
                     type={field.type || 'text'}
+                    placeholder={
+                      field.placeholder ? t(field.placeholder) : undefined
+                    }
                     autoComplete='off'
                   />
                 </FormControl>

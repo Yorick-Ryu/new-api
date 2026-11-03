@@ -142,12 +142,12 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 			}
 			w.State = "approved"
 		case "pause":
-			if reason == "" || w.State == "unknown" {
+			if w.State == "unknown" {
 				return ErrCampusState
 			}
 			w.State = "paused"
 		case "resume":
-			if w.State != "paused" || reason == "" {
+			if w.State != "paused" {
 				return ErrCampusState
 			}
 			w.State = "pending"
@@ -157,9 +157,6 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 			}
 			w.Batch = batch.Format(time.DateOnly)
 		case "reject", "failed":
-			if reason == "" {
-				return ErrCampusState
-			}
 			if action == "reject" && w.State == "unknown" {
 				return ErrCampusState
 			}
@@ -171,12 +168,12 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 				w.State = "failed"
 			}
 		case "unknown":
-			if w.State != "approved" || reason == "" {
+			if w.State != "approved" {
 				return ErrCampusState
 			}
 			w.State = "unknown"
 		case "defer":
-			if reason == "" || w.State == "unknown" {
+			if w.State == "unknown" {
 				return ErrCampusState
 			}
 			batch, err := time.ParseInLocation(time.DateOnly, w.Batch, beijing)

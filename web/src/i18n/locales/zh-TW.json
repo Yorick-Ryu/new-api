@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Reason (optional)": "Reason (optional)",
+    "Enter approval reason (optional)": "Enter approval reason (optional)",
+    "Enter pause reason (optional)": "Enter pause reason (optional)",
+    "Enter resume reason (optional)": "Enter resume reason (optional)",
+    "Enter rejection reason (optional)": "Enter rejection reason (optional)",
+    "Enter verification notes (optional)": "Enter verification notes (optional)",
+    "Enter transfer failure reason (optional)": "Enter transfer failure reason (optional)",
+    "Enter deferral reason (optional)": "Enter deferral reason (optional)",
+    "Enter transfer notes (optional)": "Enter transfer notes (optional)",
     "Withdrawable": "可提現",
     "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "{{cutoff}}（含）前提交，審核通過後預計 {{currentEnd}} 撥款；{{nextStart}} 起提交，預計 {{nextEnd}} 撥款。日期以北京時間為準。",
     "Enter a valid Alipay phone number or email address": "請輸入有效的支付寶手機號碼或電子郵件地址",

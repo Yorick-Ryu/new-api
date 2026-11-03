@@ -49,9 +49,9 @@ import {
   type CampaignConfig,
 } from './api'
 import { CampusTierSettings, CampusPlanSettings } from './commission-settings'
-import { campusWithdrawalStateLabels } from './constants'
 import { CampusFields } from './forms'
 import { CampusRecords, type CampusRecord } from './records'
+import { WithdrawalSummary } from './withdrawal-details'
 
 type Config = Pick<CampaignConfig, 'enabled'>
 type Preview = {
@@ -111,31 +111,26 @@ export function CampusAdmin() {
               <CampusRefundForm />
             </div>
           </TabsContent>
-          {['withdrawals', 'payments', 'refunds', 'invitations'].map(
-            (kind) => (
-              <TabsContent key={kind} value={kind}>
-                {kind === 'invitations' ? (
-                  <CampusAdminInvitations />
-                ) : (
-                  <CampusRecords
-                    kind={kind}
-                    admin
-                    onAction={kind === 'withdrawals' ? setSelected : undefined}
-                  />
-                )}
-              </TabsContent>
-            )
-          )}
+          {['withdrawals', 'payments', 'refunds', 'invitations'].map((kind) => (
+            <TabsContent key={kind} value={kind}>
+              {kind === 'invitations' ? (
+                <CampusAdminInvitations />
+              ) : (
+                <CampusRecords
+                  kind={kind}
+                  admin
+                  onAction={kind === 'withdrawals' ? setSelected : undefined}
+                />
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
         <Dialog
           open={!!selected}
           onOpenChange={(open) => {
             if (!open) setSelected(null)
           }}
-          title={t('Review withdrawal')}
-          description={t(
-            'Approve first, transfer manually at month end, then record the actual transfer. An unknown result must not release reserved funds.'
-          )}
+          title={t('Manage')}
         >
           {selected && (
             <CampusWithdrawalReview
@@ -151,32 +146,48 @@ export function CampusAdmin() {
 }
 function CampusConfiguration(props: { config: Config }) {
   const { t } = useTranslation()
+  const [pending, setPending] = useState<boolean | null>(null)
   const save = useCampusAction(async (config: Config) => {
     const response = await api.put('/api/campus/admin/config', config)
     return requireServerSuccess(response.data)
   })
   return (
-    <SettingsSwitchField
-      className='gap-3 py-0'
-      controlId='campus-enabled'
-      label={t('Enable campaign')}
-      description={t('Campaign status changes are saved automatically.')}
-      checked={props.config.enabled}
-      onCheckedChange={(enabled) =>
-        save.mutate(
-          {
-            enabled,
-          },
-          {
-            onSuccess: () =>
-              toast.success(
-                enabled ? t('Campaign enabled') : t('Campaign disabled')
-              ),
-          }
-        )
-      }
-      disabled={save.isPending}
-    />
+    <>
+      <SettingsSwitchField
+        className='gap-3 py-0'
+        controlId='campus-enabled'
+        label={t('Enable campaign')}
+        description={t(
+          'Campaign status changes take effect after confirmation.'
+        )}
+        checked={props.config.enabled}
+        onCheckedChange={setPending}
+        disabled={save.isPending}
+      />
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !save.isPending) setPending(null)
+        }}
+        title={pending ? t('Enable campaign?') : t('Disable campaign?')}
+        desc={t('Campaign status changes take effect after confirmation.')}
+        isLoading={save.isPending}
+        handleConfirm={() => {
+          if (pending === null || save.isPending) return
+          save.mutate(
+            { enabled: pending },
+            {
+              onSuccess: () => {
+                toast.success(
+                  pending ? t('Campaign enabled') : t('Campaign disabled')
+                )
+                setPending(null)
+              },
+            }
+          )
+        }}
+      />
+    </>
   )
 }
 function CampusRefundForm() {
@@ -262,9 +273,25 @@ function CampusWithdrawalReview(props: {
   row: CampusRecord
   close: () => void
 }) {
-  const { t, i18n } = useTranslation()
-  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
-  const [action, setAction] = useState('approve')
+  const { t } = useTranslation()
+  const actionsByState: Record<string, string[]> = {
+    pending: ['approve', 'pause', 'reject', 'defer'],
+    approved: ['paid', 'pause', 'reject', 'unknown', 'failed', 'defer'],
+    paused: ['resume', 'reject', 'defer'],
+    unknown: ['paid', 'failed'],
+  }
+  const reasonPlaceholders: Record<string, string> = {
+    approve: 'Enter approval reason (optional)',
+    pause: 'Enter pause reason (optional)',
+    resume: 'Enter resume reason (optional)',
+    reject: 'Enter rejection reason (optional)',
+    unknown: 'Enter verification notes (optional)',
+    failed: 'Enter transfer failure reason (optional)',
+    defer: 'Enter deferral reason (optional)',
+    paid: 'Enter transfer notes (optional)',
+  }
+  const availableActions = actionsByState[props.row.state || ''] || []
+  const [action, setAction] = useState(availableActions[0] || '')
   const save = useCampusAction((values: Record<string, string>) =>
     campusPost(`admin/withdrawals/${props.row.id}`, {
       action,
@@ -277,12 +304,7 @@ function CampusWithdrawalReview(props: {
   )
   return (
     <div className='space-y-5'>
-      <p className='text-sm break-all'>
-        {props.row.account} · {props.row.real_name}
-        <br />
-        {cash(props.row.amount_cents ?? 0, locale)} · {props.row.batch} ·{' '}
-        {t(campusWithdrawalStateLabels[props.row.state || ''] || '')}
-      </p>
+      <WithdrawalSummary row={props.row} admin />
       <div className='flex flex-wrap gap-2'>
         {[
           ['approve', 'Approve'],
@@ -293,36 +315,51 @@ function CampusWithdrawalReview(props: {
           ['failed', 'Confirmed transfer failure'],
           ['defer', 'Defer batch'],
           ['paid', 'Record completed transfer'],
-        ].map(([key, label]) => (
-          <Button
-            key={key}
-            size='sm'
-            variant={action === key ? 'default' : 'outline'}
-            onClick={() => setAction(key)}
-          >
-            {t(label)}
-          </Button>
-        ))}
+        ]
+          .filter(([key]) => availableActions.includes(key))
+          .map(([key, label]) => (
+            <Button
+              key={key}
+              size='sm'
+              variant={action === key ? 'default' : 'outline'}
+              onClick={() => setAction(key)}
+            >
+              {t(label)}
+            </Button>
+          ))}
       </div>
-      <CampusFields
-        key={action}
-        fields={[
-          { name: 'reason', label: 'Reason and reconciliation evidence' },
-          ...(action === 'paid'
-            ? [
-                { name: 'receipt', label: 'Transfer receipt' },
-                {
-                  name: 'paid_at',
-                  label: 'Actual transfer time (Beijing)',
-                  type: 'datetime-local',
-                },
-              ]
-            : []),
-        ]}
-        submit='Confirm operation'
-        pending={save.isPending}
-        onSubmit={(values) => save.mutate(values, { onSuccess: props.close })}
-      />
+      {availableActions.includes(action) && (
+        <CampusFields
+          key={action}
+          fields={[
+            ...(action === 'paid'
+              ? [
+                  { name: 'receipt', label: 'Transfer receipt' },
+                  {
+                    name: 'paid_at',
+                    label: 'Actual transfer time (Beijing)',
+                    type: 'datetime-local',
+                    value: new Date(Date.now() + 8 * 60 * 60 * 1000)
+                      .toISOString()
+                      .slice(0, 16),
+                  },
+                ]
+              : []),
+            {
+              name: 'reason',
+              label: 'Reason (optional)',
+              placeholder: reasonPlaceholders[action],
+              optional: true,
+            },
+          ]}
+          submit='Confirm operation'
+          pending={save.isPending}
+          onSubmit={(values) => {
+            if (!availableActions.includes(action)) return
+            save.mutate(values, { onSuccess: props.close })
+          }}
+        />
+      )}
     </div>
   )
 }

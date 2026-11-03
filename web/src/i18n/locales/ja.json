@@ -1,5 +1,14 @@
 {
   "translation": {
+    "Reason (optional)": "Reason (optional)",
+    "Enter approval reason (optional)": "Enter approval reason (optional)",
+    "Enter pause reason (optional)": "Enter pause reason (optional)",
+    "Enter resume reason (optional)": "Enter resume reason (optional)",
+    "Enter rejection reason (optional)": "Enter rejection reason (optional)",
+    "Enter verification notes (optional)": "Enter verification notes (optional)",
+    "Enter transfer failure reason (optional)": "Enter transfer failure reason (optional)",
+    "Enter deferral reason (optional)": "Enter deferral reason (optional)",
+    "Enter transfer notes (optional)": "Enter transfer notes (optional)",
     "Withdrawable": "出金可能",
     "Submit by {{cutoff}} (inclusive) for payout on {{currentEnd}} after approval. Requests from {{nextStart}} are scheduled for {{nextEnd}}. Dates use Beijing time.": "{{cutoff}}まで（当日を含む）の申請は承認後{{currentEnd}}に振込予定です。{{nextStart}}以降の申請は{{nextEnd}}に振込予定です。日付は北京時間です。",
     "Enter a valid Alipay phone number or email address": "有効なAlipayの電話番号またはメールアドレスを入力してください",

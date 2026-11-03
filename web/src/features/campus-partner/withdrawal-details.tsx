@@ -30,6 +30,25 @@ export function WithdrawalDetails(props: {
   admin?: boolean
   onClose: () => void
 }) {
+  const { t } = useTranslation()
+  if (!props.row) return null
+  return (
+    <Dialog
+      open
+      title={t('Withdrawal request')}
+      onOpenChange={(open) => {
+        if (!open) props.onClose()
+      }}
+    >
+      <WithdrawalSummary row={props.row} admin={props.admin} />
+    </Dialog>
+  )
+}
+
+export function WithdrawalSummary(props: {
+  row: CampusRecord
+  admin?: boolean
+}) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const row = props.row
@@ -58,21 +77,13 @@ export function WithdrawalDetails(props: {
     fields.push([t('Processed by'), `#${row.actor_id}`])
   }
   return (
-    <Dialog
-      open
-      title={t('Withdrawal request')}
-      onOpenChange={(open) => {
-        if (!open) props.onClose()
-      }}
-    >
-      <dl className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-        {fields.map(([label, value]) => (
-          <div key={label} className='min-w-0 space-y-1'>
-            <dt className='text-muted-foreground text-sm'>{label}</dt>
-            <dd className='break-all tabular-nums'>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </Dialog>
+    <dl className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+      {fields.map(([label, value]) => (
+        <div key={label} className='min-w-0 space-y-1'>
+          <dt className='text-muted-foreground text-sm'>{label}</dt>
+          <dd className='break-all tabular-nums'>{value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

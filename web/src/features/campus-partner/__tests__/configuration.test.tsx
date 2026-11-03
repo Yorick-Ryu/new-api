@@ -169,11 +169,13 @@ test('top-level tabs separate settings from each record list and retain unsaved 
 })
 
 test.each([false, true])(
-  'changing the campaign from enabled=%s saves immediately without a confirmation dialog',
+  'changing the campaign from enabled=%s requires confirmation before saving',
   async (enabled) => {
     const { user, put } = await renderConfiguration(enabled)
     await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeVisible()
+    expect(put).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() =>
       expect(
         screen.getByRole('switch', { name: 'Enable campaign' })
@@ -186,18 +188,19 @@ test.each([false, true])(
   }
 )
 
-test('a failed activation keeps the previous switch state and allows retry without a dialog', async () => {
+test('a failed activation keeps the previous switch state and allows retry in the dialog', async () => {
   const { user, put } = await renderConfiguration()
   put.mockRejectedValueOnce(new Error('offline'))
   const control = screen.getByRole('switch', { name: 'Enable campaign' })
   await user.click(control)
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
   await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
   await waitFor(() =>
     expect(control).not.toHaveAttribute('aria-disabled', 'true')
   )
   expect(control).not.toBeChecked()
-  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-  await user.click(control)
+  expect(screen.getByRole('alertdialog')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
   await waitFor(() => expect(control).toBeChecked())
 })
 
@@ -212,10 +215,10 @@ test('activation waits for the server and prevents repeated switch saves while p
   )
   const control = screen.getByRole('switch', { name: 'Enable campaign' })
   await user.click(control)
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
   expect(control).toHaveAttribute('aria-disabled', 'true')
   expect(control).not.toBeChecked()
-  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-  await user.click(control)
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
   expect(put).toHaveBeenCalledTimes(1)
   await act(async () => {
     resolve({
@@ -236,6 +239,7 @@ test('changing campaign status preserves unsaved tier edits until the tier save 
   await user.clear(upper)
   await user.type(upper, '1000.50')
   await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
   await waitFor(() =>
     expect(
       screen.getByRole('switch', { name: 'Enable campaign' })
@@ -499,3 +503,110 @@ test('tier names longer than 80 characters show a validation error and cannot sa
   )
   expect(put).not.toHaveBeenCalled()
 })
+
+test.each([false, true])(
+  'cancelling a campaign toggle from %s keeps the saved state',
+  async (enabled) => {
+    const { user, put } = await renderConfiguration(enabled)
+    await user.click(screen.getByRole('switch', { name: 'Enable campaign' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(put).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('switch', { name: 'Enable campaign' })
+    ).toHaveAttribute('aria-checked', String(enabled))
+  }
+)
+
+test.each([
+  ['pending', ['Approve', 'Pause', 'Reject', 'Defer batch']],
+  [
+    'approved',
+    [
+      'Pause',
+      'Reject',
+      'Result unknown',
+      'Confirmed transfer failure',
+      'Defer batch',
+      'Record completed transfer',
+    ],
+  ],
+  ['paused', ['Resume review', 'Reject', 'Defer batch']],
+  ['unknown', ['Confirmed transfer failure', 'Record completed transfer']],
+  ['paid', []],
+  ['rejected', []],
+  ['failed', []],
+  ['cancelled', []],
+] as [string, string[]][])(
+  'withdrawal state %s gates transfer registration on approval',
+  async (state, expectedActions) => {
+    const { user, client } = await renderConfiguration(false, false)
+    await act(async () => {
+      client.setQueryData(['campus', 'records', true, 'withdrawals', 1], {
+        items: [{ id: 91, user_id: 1, state, amount_cents: 10000 }],
+        total: 1,
+      })
+    })
+    await user.click(screen.getByRole('tab', { name: 'Withdrawals' }))
+    await user.click(await screen.findByRole('button', { name: 'Manage' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Manage' }))
+    const actionLabels = [
+      'Approve',
+      'Pause',
+      'Resume review',
+      'Reject',
+      'Result unknown',
+      'Confirmed transfer failure',
+      'Defer batch',
+      'Record completed transfer',
+    ]
+    for (const label of actionLabels) {
+      const button = dialog.queryByRole('button', { name: label })
+      if (expectedActions.includes(label)) expect(button).toBeVisible()
+      else expect(button).toBeNull()
+    }
+    if (expectedActions.length === 0) {
+      expect(
+        dialog.queryByRole('button', { name: 'Confirm operation' })
+      ).toBeNull()
+    }
+    expect(dialog.getByText('Alipay account')).toBeVisible()
+    expect(dialog.getByText('Expected payout')).toBeVisible()
+    if (state === 'pending') {
+      expect(
+        dialog.getByPlaceholderText('Enter approval reason (optional)')
+      ).toBeVisible()
+      await user.click(dialog.getByRole('button', { name: 'Pause' }))
+      expect(
+        dialog.getByPlaceholderText('Enter pause reason (optional)')
+      ).toBeVisible()
+      const post = vi
+        .spyOn(api, 'post')
+        .mockResolvedValue({ data: { success: true } } as AxiosResponse)
+      await user.click(
+        dialog.getByRole('button', { name: 'Confirm operation' })
+      )
+      await waitFor(() =>
+        expect(post).toHaveBeenCalledWith(
+          '/api/campus/admin/withdrawals/91',
+          expect.objectContaining({ action: 'pause', reason: '' })
+        )
+      )
+      return
+    }
+    if (state === 'approved' || state === 'unknown') {
+      expect(
+        dialog.getByRole('button', { name: 'Record completed transfer' })
+      ).toBeVisible()
+      expect(
+        dialog.getByLabelText('Actual transfer time (Beijing)')
+      ).toBeVisible()
+    } else {
+      expect(
+        dialog.queryByRole('button', { name: 'Record completed transfer' })
+      ).toBeNull()
+      expect(
+        dialog.queryByLabelText('Actual transfer time (Beijing)')
+      ).toBeNull()
+    }
+  }
+)

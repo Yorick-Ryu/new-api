@@ -323,6 +323,7 @@ export function CampusRecords(props: {
     )
   }
   if (props.onAction) {
+    columns = columns.filter((column) => column.id !== 'details')
     columns.push({
       id: 'action',
       header: t('Actions'),

@@ -211,12 +211,6 @@ export function CampusAdminInvitations() {
           setPagination((previous) => ({ ...previous, pageIndex: 0 }))
         }}
       />
-      <p className='text-muted-foreground text-xs leading-5'>
-        {t(
-          'Filter by binding time ({{timezone}}). Amounts are lifetime qualifying payments and commission after refunds.',
-          { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
-        )}
-      </p>
       {invalidRange && (
         <Alert variant='destructive'>
           <AlertDescription>
