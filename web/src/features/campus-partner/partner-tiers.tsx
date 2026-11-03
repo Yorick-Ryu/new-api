@@ -87,7 +87,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                       <span className='text-primary font-mono text-base font-semibold tabular-nums sm:text-lg' />
                     ),
                     rate: (
-                      <span className='text-primary font-mono font-semibold tabular-nums' />
+                      <span className='text-primary font-mono text-base font-semibold tabular-nums sm:text-lg' />
                     ),
                   }}
                 />
