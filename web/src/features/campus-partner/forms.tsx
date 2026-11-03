@@ -45,6 +45,7 @@ export function CampusFields(props: {
     value?: string
     type?: string
     placeholder?: string
+    className?: string
     optional?: boolean
   }[]
   submit: string
@@ -102,6 +103,7 @@ export function CampusFields(props: {
                   <Input
                     {...input}
                     type={field.type || 'text'}
+                    className={field.className}
                     placeholder={
                       field.placeholder ? t(field.placeholder) : undefined
                     }

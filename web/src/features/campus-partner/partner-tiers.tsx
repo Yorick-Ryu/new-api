@@ -72,7 +72,6 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
             <span className='text-foreground font-mono text-base font-semibold tabular-nums sm:text-lg'>
               {cash(props.data.member.performance_cents, locale)}
             </span>
-            <span aria-hidden='true'>·</span>
             <span>
               {tier.next_cents && nextTier ? (
                 <Trans

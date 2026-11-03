@@ -52,7 +52,7 @@ import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
 import { useCampusAction, type CampaignConfig } from './api'
-import { campusTierNameKeys } from './constants'
+import { campusAmountTypography, campusTierNameKeys } from './constants'
 
 // Parse decimal cash/percent values into integer hundredths without float rounding.
 function decimalUnits(value: string): number {
@@ -222,6 +222,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                                 <Input
                                   {...field}
                                   inputMode='decimal'
+                                  className={campusAmountTypography}
                                   readOnly={index === 0}
                                   tabIndex={index === 0 ? -1 : undefined}
                                 />
@@ -247,7 +248,11 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                                     })}
                                   </FormLabel>
                                   <FormControl>
-                                    <Input {...field} inputMode='decimal' />
+                                    <Input
+                                      {...field}
+                                      inputMode='decimal'
+                                      className={campusAmountTypography}
+                                    />
                                   </FormControl>
                                   <FormMessage className='whitespace-normal' />
                                 </FormItem>
@@ -274,7 +279,11 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                               })}
                             </FormLabel>
                             <FormControl>
-                              <Input {...field} inputMode='decimal' />
+                              <Input
+                                {...field}
+                                inputMode='decimal'
+                                className={campusAmountTypography}
+                              />
                             </FormControl>
                             <FormMessage className='whitespace-normal' />
                           </FormItem>
@@ -495,7 +504,11 @@ export function CampusPlanSettings(props: { config: CampaignConfig }) {
                           })}
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} inputMode='decimal' />
+                          <Input
+                            {...field}
+                            inputMode='decimal'
+                            className={campusAmountTypography}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

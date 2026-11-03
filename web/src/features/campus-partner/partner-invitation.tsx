@@ -48,7 +48,7 @@ export function PartnerInvitation(props: {
   onJoin: () => void
 }): ReactElement {
   const { t } = useTranslation()
-  const link = `https://beiapi.cn/sign-up?campus=${props.data.member.code}`
+  const link = `https://beiapi.cn/i/${props.data.member.code}`
   const steps = [
     t('Share your link or invitation code'),
     t('Friends bind and receive a 5% off coupon'),
@@ -77,9 +77,9 @@ export function PartnerInvitation(props: {
           </CollapsibleContent>
         </Collapsible>
       )}
-      <div className='grid min-w-0 gap-4 lg:grid-cols-3'>
+      <div className='grid min-w-0 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'>
         <TitledCard
-          className='min-w-0 lg:col-span-2'
+          className='min-w-0'
           title={
             <h2 id='campus-intro-title'>
               {t(
@@ -97,12 +97,12 @@ export function PartnerInvitation(props: {
           contentClassName='space-y-5'
         >
           {props.data.member.joined_at > 0 ? (
-            <>
+            <div className='grid min-w-0 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-6'>
               <div className='space-y-2'>
                 <Label htmlFor='campus-invitation-link'>
                   {t('Invitation link')}
                 </Label>
-                <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
+                <div className='flex w-full min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
                   <Input
                     id='campus-invitation-link'
                     value={link}
@@ -119,43 +119,41 @@ export function PartnerInvitation(props: {
                   </CopyButton>
                 </div>
               </div>
-              <div className='grid min-w-0 gap-4 sm:grid-cols-2 sm:items-center'>
-                <div className='border-primary/40 bg-primary/5 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
-                  <div className='min-w-0 space-y-1'>
-                    <p className={campusCardTypography.caption}>
-                      {t('Exclusive campus partner invitation code')}
-                    </p>
-                    <code className='text-primary font-mono text-2xl font-bold tracking-widest break-all'>
-                      {props.data.member.code}
-                    </code>
-                  </div>
-                  <CopyButton
-                    value={props.data.member.code}
-                    variant='outline'
-                    size='sm'
-                  >
-                    {t('Copy')}
-                  </CopyButton>
+              <div className='border-primary/40 bg-primary/5 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
+                <div className='min-w-0 space-y-1'>
+                  <p className={campusCardTypography.caption}>
+                    {t('Exclusive campus partner invitation code')}
+                  </p>
+                  <code className='text-primary font-mono text-2xl font-bold tracking-widest break-all'>
+                    {props.data.member.code}
+                  </code>
                 </div>
-                <ol className='space-y-2'>
-                  {steps.map((step, index) => (
-                    <li
-                      key={step}
-                      className='text-muted-foreground flex items-center gap-2 text-xs'
-                    >
-                      <IconBadge
-                        size='xs'
-                        tone='primary'
-                        className='font-mono text-[10px] font-semibold'
-                      >
-                        {index + 1}
-                      </IconBadge>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
+                <CopyButton
+                  value={props.data.member.code}
+                  variant='outline'
+                  size='sm'
+                >
+                  {t('Copy')}
+                </CopyButton>
               </div>
-            </>
+              <ol className='space-y-3 md:col-start-2 md:row-span-2 md:row-start-1 md:self-center'>
+                {steps.map((step, index) => (
+                  <li
+                    key={step}
+                    className={`text-muted-foreground flex items-center gap-2 ${campusCardTypography.body}`}
+                  >
+                    <IconBadge
+                      size='xs'
+                      tone='primary'
+                      className='font-mono text-[10px] font-semibold'
+                    >
+                      {index + 1}
+                    </IconBadge>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
           ) : (
             <Button
               disabled={!props.data.enabled || props.pending}

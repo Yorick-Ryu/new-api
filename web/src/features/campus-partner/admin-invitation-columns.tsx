@@ -24,6 +24,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import dayjs from '@/lib/dayjs'
 
 import { cash, type CampusAdminInvitation } from './api'
+import { campusAmountTypography } from './constants'
 import { InvitationAccount } from './invitation-account'
 
 export function useAdminInvitationColumns(): ColumnDef<CampusAdminInvitation>[] {
@@ -95,7 +96,7 @@ export function useAdminInvitationColumns(): ColumnDef<CampusAdminInvitation>[] 
         accessorKey: 'paid_cents',
         header: t('Cumulative top-ups'),
         cell: ({ row }) => (
-          <span className='tabular-nums'>
+          <span className={campusAmountTypography}>
             {cash(row.original.paid_cents, locale)}
           </span>
         ),
@@ -106,7 +107,7 @@ export function useAdminInvitationColumns(): ColumnDef<CampusAdminInvitation>[] 
         accessorKey: 'commission_cents',
         header: t('Commission'),
         cell: ({ row }) => (
-          <span className='text-primary font-semibold tabular-nums'>
+          <span className={`text-primary ${campusAmountTypography}`}>
             {cash(row.original.commission_cents, locale)}
           </span>
         ),

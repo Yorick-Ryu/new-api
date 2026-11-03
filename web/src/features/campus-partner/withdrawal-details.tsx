@@ -21,9 +21,14 @@ import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/dialog'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 import { beijingDate, cash } from './api'
-import { campusTierNameKeys, campusWithdrawalStateLabels } from './constants'
+import {
+  campusAmountTypography,
+  campusTierNameKeys,
+  campusWithdrawalStateLabels,
+} from './constants'
 import type { CampusRecord } from './records'
 
 export function WithdrawalDetails(props: {
@@ -107,7 +112,18 @@ export function WithdrawalSummary(props: {
       {fields.map(([label, value]) => (
         <div key={label} className='min-w-0 space-y-1'>
           <dt className='text-muted-foreground text-sm'>{label}</dt>
-          <dd className='break-all tabular-nums'>{value}</dd>
+          <dd
+            className={cn(
+              'break-all tabular-nums',
+              [
+                t('Amount'),
+                t('Friends cumulative top-ups'),
+                t('Total commission'),
+              ].includes(label) && campusAmountTypography
+            )}
+          >
+            {value}
+          </dd>
         </div>
       ))}
     </dl>

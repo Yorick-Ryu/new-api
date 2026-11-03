@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Withdrawal minimum: <amount>{{amount}}</amount>": "<amount>{{amount}}</amount>から出金可能",
+    "<amount>{{amount}}</amount> remaining": "あと <amount>{{amount}}</amount>",
     "Withdrawal number": "出金番号",
     "Withdrawal time": "Withdrawal time",
     "Total commission": "Total commission",

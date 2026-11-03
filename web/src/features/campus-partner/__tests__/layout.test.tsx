@@ -345,7 +345,11 @@ test.each([9999, 10000])(
     const button = await screen.findByRole('button', {
       name: 'Request withdrawal',
     })
-    const remaining = screen.queryByText(/CN¥0\.01 remaining|¥0\.01 remaining/)
+    const remaining = screen.queryByText(
+      (_content, element) =>
+        element?.tagName === 'P' &&
+        /(?:CN)?¥0\.01 remaining/.test(element.textContent || '')
+    )
     if (available < 10000) {
       expect(button).toBeDisabled()
       expect(remaining).toBeVisible()
@@ -406,7 +410,7 @@ test('existing invitation controls remain available and positive refund recovery
   })
   expect(await screen.findByText('AB12CD')).toBeVisible()
   expect(screen.getByRole('textbox', { name: 'Invitation link' })).toHaveValue(
-    'https://beiapi.cn/sign-up?campus=AB12CD'
+    'https://beiapi.cn/i/AB12CD'
   )
   expect(
     screen.getByRole('button', { name: 'Copy invitation link' })

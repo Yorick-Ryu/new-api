@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Withdrawal minimum: <amount>{{amount}}</amount>": "Retrait à partir de <amount>{{amount}}</amount>",
+    "<amount>{{amount}}</amount> remaining": "Encore <amount>{{amount}}</amount>",
     "Withdrawal number": "Numéro de retrait",
     "Withdrawal time": "Withdrawal time",
     "Total commission": "Total commission",

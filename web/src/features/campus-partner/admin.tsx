@@ -49,6 +49,7 @@ import {
   type CampaignConfig,
 } from './api'
 import { CampusTierSettings, CampusPlanSettings } from './commission-settings'
+import { campusAmountTypography } from './constants'
 import { CampusFields } from './forms'
 import { CampusRecords, type CampusRecord } from './records'
 import { WithdrawalSummary } from './withdrawal-details'
@@ -224,7 +225,11 @@ function CampusRefundForm() {
           fields={[
             { name: 'trade_no', label: 'Original order number' },
             { name: 'reference', label: 'Unique refund reference' },
-            { name: 'amount', label: 'Refund amount (CNY)' },
+            {
+              name: 'amount',
+              label: 'Refund amount (CNY)',
+              className: campusAmountTypography,
+            },
             { name: 'reason', label: 'Reason and reconciliation evidence' },
           ]}
           submit='Preview refund adjustment'
@@ -259,7 +264,9 @@ function CampusRefundForm() {
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className='text-muted-foreground'>{label}</dt>
-                  <dd>{cash(Number(value), locale)}</dd>
+                  <dd className={campusAmountTypography}>
+                    {cash(Number(value), locale)}
+                  </dd>
                 </div>
               ))}
             </dl>

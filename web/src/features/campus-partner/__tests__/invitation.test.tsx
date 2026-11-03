@@ -32,6 +32,7 @@ import viLocale from '@/i18n/locales/vi.json'
 import zhTW from '@/i18n/locales/zh-TW.json'
 import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
+import { resolveLegacyRoute } from '@/lib/legacy-route'
 
 import { InvitationField } from '../forms'
 
@@ -222,3 +223,18 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
     expect(inviter).not.toBe('Invited by Friend*')
   }
 )
+
+test.each(['AB12CD', 'ab12cd'])(
+  'short invitation %s redirects to registration with its code',
+  (code) => {
+    expect(resolveLegacyRoute(`/i/${code}`)).toBe('/sign-up?campus=AB12CD')
+  }
+)
+test('short invitation ignores external redirect parameters and rejects invalid codes', () => {
+  expect(
+    resolveLegacyRoute('/i/AB12CD?redirect=https://example.com&campus=ZZZZZZ')
+  ).toBe('/sign-up?campus=AB12CD')
+  expect(resolveLegacyRoute('/i/AB12CD/extra')).toBeNull()
+  expect(resolveLegacyRoute('/i/short')).toBeNull()
+  expect(resolveLegacyRoute('/sign-up?campus=AB12CD')).toBeNull()
+})

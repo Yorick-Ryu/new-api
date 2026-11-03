@@ -35,6 +35,9 @@ export const campusTierNameKeys = [
   'Lead partner',
 ] as const
 
+export const campusAmountTypography =
+  'font-mono! text-sm font-medium tabular-nums'
+
 export const campusCardTypography = {
   title: 'text-foreground text-base font-semibold tracking-tight sm:text-lg',
   subtitle: 'text-foreground text-sm font-semibold',

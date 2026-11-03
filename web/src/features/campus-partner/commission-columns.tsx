@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 import { beijingDate, cash } from './api'
+import { campusAmountTypography } from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
 import type { CampusRecord } from './records'
@@ -80,7 +81,7 @@ export function commissionColumns(
     {
       id: 'commission',
       header: t('Commission'),
-      cellClassName: 'font-semibold tabular-nums',
+      cellClassName: campusAmountTypography,
       cell: (row) =>
         cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
     },

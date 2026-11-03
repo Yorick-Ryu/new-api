@@ -24,7 +24,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import type { ReactElement } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -64,15 +64,33 @@ export function PartnerSummary(props: {
               aria-label={t('Available commission')}
             />
             <p className='text-muted-foreground text-xs leading-relaxed'>
-              {props.data.available_cents < 10000
-                ? `${t('Withdrawal minimum: {{amount}}', {
-                    amount: cash(10000, locale),
-                  })} · ${t('{{amount}} remaining', {
-                    amount: cash(10000 - props.data.available_cents, locale),
-                  })}`
-                : t('Withdrawal minimum: {{amount}}', {
-                    amount: cash(10000, locale),
-                  })}
+              <Trans
+                t={t}
+                i18nKey='Withdrawal minimum: <amount>{{amount}}</amount>'
+                values={{ amount: cash(10000, locale) }}
+                components={{
+                  amount: (
+                    <span className='font-mono font-medium tabular-nums' />
+                  ),
+                }}
+              />
+              {props.data.available_cents < 10000 && (
+                <>
+                  {' · '}
+                  <Trans
+                    t={t}
+                    i18nKey='<amount>{{amount}}</amount> remaining'
+                    values={{
+                      amount: cash(10000 - props.data.available_cents, locale),
+                    }}
+                    components={{
+                      amount: (
+                        <span className='font-mono font-medium tabular-nums' />
+                      ),
+                    }}
+                  />
+                </>
+              )}
             </p>
             <Button
               disabled={props.data.available_cents < 10000}

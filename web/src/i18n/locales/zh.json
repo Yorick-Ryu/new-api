@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Withdrawal minimum: <amount>{{amount}}</amount>": "满 <amount>{{amount}}</amount> 可提现",
+    "<amount>{{amount}}</amount> remaining": "还差 <amount>{{amount}}</amount>",
     "Withdrawal number": "提现编号",
     "Withdrawal time": "提现时间",
     "Total commission": "累计佣金",

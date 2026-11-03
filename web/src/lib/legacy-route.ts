@@ -72,6 +72,11 @@ export function resolveLegacyRoute(rawHref: string): string | null {
   }
 
   const pathname = normalizeLegacyPath(source.pathname)
+  const invitation = /^\/i\/([a-z0-9]{6})$/i.exec(pathname)
+  if (invitation) {
+    return `/sign-up?campus=${invitation[1].toUpperCase()}`
+  }
+
   if (pathname === '/login') {
     return buildTargetHref('/sign-in', source)
   }

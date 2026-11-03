@@ -81,6 +81,7 @@ test('withdrawal history shows the pending batch and failure reason without call
     </QueryClientProvider>
   )
   expect(await screen.findByText('Payout paused')).toBeVisible()
+  expect(screen.getByText(/100\.00/)).toHaveClass('font-mono!')
   expect(
     screen.getAllByRole('columnheader').map((header) => header.textContent)
   ).toEqual(['Time', 'Amount', 'Status', 'Details'])

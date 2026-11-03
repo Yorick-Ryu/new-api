@@ -35,7 +35,10 @@ import { toIntlLocale } from '@/i18n/languages'
 import { beijingDate, campusGet, cash } from './api'
 import { commissionColumns } from './commission-columns'
 import { CommissionDetails } from './commission-records'
-import { campusWithdrawalStateLabels } from './constants'
+import {
+  campusAmountTypography,
+  campusWithdrawalStateLabels,
+} from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
 import { matchesRecordFilters } from './record-filter-matching'
@@ -156,14 +159,14 @@ export function CampusRecords(props: {
             id: 'paid',
             header: t('Cumulative top-ups'),
             className: 'text-right',
-            cellClassName: 'text-right tabular-nums',
+            cellClassName: `text-right ${campusAmountTypography}`,
             cell: (row) => cash(row.paid_cents || 0, locale),
           },
           {
             id: 'commission',
             header: props.admin ? t('Commission') : t('Commission contributed'),
             className: 'text-right',
-            cellClassName: 'text-primary text-right font-semibold tabular-nums',
+            cellClassName: `text-primary text-right ${campusAmountTypography}`,
             cell: (row) => cash(row.commission_cents || 0, locale),
           },
         ]
@@ -217,7 +220,7 @@ export function CampusRecords(props: {
       id: 'amount',
       header: t('Amount'),
       cell: (row) => (
-        <div className='space-y-1 tabular-nums'>
+        <div className={`space-y-1 ${campusAmountTypography}`}>
           {cash(row.amount_cents ?? row.paid_cents ?? 0, locale)}
           {row.commission_cents !== undefined && (
             <p className='text-muted-foreground text-xs'>

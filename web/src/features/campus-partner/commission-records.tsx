@@ -21,8 +21,10 @@ import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/dialog'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 import { beijingDate, cash } from './api'
+import { campusAmountTypography } from './constants'
 import type { CampusRecord } from './records'
 
 export function CommissionDetails(props: {
@@ -105,13 +107,24 @@ export function CommissionDetails(props: {
         {fields.map(([label, value]) => (
           <div key={label} className='min-w-0 space-y-1'>
             <dt className='text-muted-foreground text-sm'>{label}</dt>
-            <dd className='break-all tabular-nums'>{value}</dd>
+            <dd
+              className={cn(
+                'break-all tabular-nums',
+                [
+                  t('Actual payment (CNY)'),
+                  t('Commission'),
+                  t('Settlement freeze'),
+                ].includes(label) && campusAmountTypography
+              )}
+            >
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
       <div className='mt-6 space-y-2 rounded-lg border p-4'>
         <p className='font-medium'>{t('Commission calculation')}</p>
-        <p className='break-words tabular-nums'>{formula}</p>
+        <p className={`break-words ${campusAmountTypography}`}>{formula}</p>
         <p className='text-muted-foreground text-sm'>
           {t(
             'Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.'
@@ -120,13 +133,18 @@ export function CommissionDetails(props: {
         {(row.refunded_cents || 0) > 0 && (
           <>
             <p>
-              {t('Refund amount')}: {cash(row.refunded_cents || 0, locale)}
+              {t('Refund amount')}:{' '}
+              <span className={campusAmountTypography}>
+                {cash(row.refunded_cents || 0, locale)}
+              </span>
             </p>
             <p>
               {t('Commission reversed')}:{' '}
-              {cash(row.reversed_cents || 0, locale)}
+              <span className={campusAmountTypography}>
+                {cash(row.reversed_cents || 0, locale)}
+              </span>
             </p>
-            <p className='tabular-nums'>
+            <p className={campusAmountTypography}>
               {cash(row.commission_cents || 0, locale)} −{' '}
               {cash(row.reversed_cents || 0, locale)} ={' '}
               {cash(

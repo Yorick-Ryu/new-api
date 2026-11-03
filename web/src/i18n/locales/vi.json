@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Withdrawal minimum: <amount>{{amount}}</amount>": "Rút tiền từ <amount>{{amount}}</amount>",
+    "<amount>{{amount}}</amount> remaining": "Còn thiếu <amount>{{amount}}</amount>",
     "Withdrawal number": "Mã rút tiền",
     "Withdrawal time": "Withdrawal time",
     "Total commission": "Total commission",
