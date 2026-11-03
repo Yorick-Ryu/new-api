@@ -163,7 +163,7 @@ export function CampusTierSettings(props: { config: CampaignConfig }) {
                 data={rows.fields}
                 getRowKey={(row) => row.id}
                 tableProps={{ 'aria-label': t('Top-up commission tiers') }}
-                tableClassName='min-w-[920px] table-fixed [&_tbody>tr]:h-12'
+                tableClassName='[&_tbody>tr]:h-12'
                 columns={[
                   {
                     id: 'tier',

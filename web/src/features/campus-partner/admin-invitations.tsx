@@ -239,7 +239,6 @@ export function CampusAdminInvitations() {
           emptyTitle={t('No records yet')}
           fixedHeight={false}
           paginationInFooter={false}
-          applyHeaderSize
           getColumnClassName={(columnId) =>
             columnId === 'paid_cents' || columnId === 'commission_cents'
               ? 'text-right'
