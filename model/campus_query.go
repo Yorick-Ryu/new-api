@@ -218,6 +218,34 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 	if err := query.Order("id desc").Offset((page - 1) * size).Limit(size).Find(rows).Error; err != nil {
 		return nil, 0, err
 	}
+	if admin && kind == "withdrawals" {
+		type withdrawalRecord struct {
+			CampusWithdrawal
+			Username    string `json:"username"`
+			DisplayName string `json:"display_name"`
+		}
+		withdrawals := *rows.(*[]CampusWithdrawal)
+		ids := make([]int, 0, len(withdrawals))
+		for _, withdrawal := range withdrawals {
+			ids = append(ids, withdrawal.UserID)
+		}
+		var users []User
+		if len(ids) > 0 {
+			if err := DB.Select("id", "username", "display_name").Where("id IN ?", ids).Find(&users).Error; err != nil {
+				return nil, 0, err
+			}
+		}
+		names := make(map[int]User, len(users))
+		for _, user := range users {
+			names[user.Id] = user
+		}
+		result := make([]withdrawalRecord, 0, len(withdrawals))
+		for _, withdrawal := range withdrawals {
+			user := names[withdrawal.UserID]
+			result = append(result, withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName})
+		}
+		return result, count, nil
+	}
 	if !admin && kind == "payments" {
 		type paymentRecord struct {
 			CampusPayment

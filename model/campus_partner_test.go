@@ -168,6 +168,21 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Model(&CampusPayment{}).Where("trade_no = ?", "large").Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
 			w, err := CampusRequestWithdrawal(1, "request-0000000001", "alipay@example.test", "Test", 30000)
 			require.NoError(t, err)
+			adminRows, adminCount, err := CampusList(1, true, "withdrawals", 1, 10)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, adminCount)
+			encodedRows, err := common.Marshal(adminRows)
+			require.NoError(t, err)
+			var recipients []struct {
+				UserID      int    `json:"user_id"`
+				Username    string `json:"username"`
+				DisplayName string `json:"display_name"`
+			}
+			require.NoError(t, common.Unmarshal(encodedRows, &recipients))
+			require.Len(t, recipients, 1)
+			assert.Equal(t, 1, recipients[0].UserID)
+			assert.Equal(t, "campus-1", recipients[0].Username)
+			assert.Equal(t, "Campus", recipients[0].DisplayName)
 			own, ownCount, err := CampusList(1, false, "withdrawals", 1, 10)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, ownCount)

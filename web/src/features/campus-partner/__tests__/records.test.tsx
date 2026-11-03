@@ -161,3 +161,47 @@ test('invitation history shows masked friends, registration dates and net contri
   ).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 })
+
+test.each([false, true])(
+  'withdrawal timestamps include seconds and admin=%s controls the leading user column',
+  async (admin) => {
+    vi.spyOn(api, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          items: [
+            {
+              id: 8,
+              user_id: 42,
+              username: 'partner42',
+              display_name: 'Partner',
+              created_at: Date.UTC(2026, 10, 3, 6, 12, 37) / 1000,
+              amount_cents: 10000,
+              state: 'requested',
+            },
+          ],
+          total: 1,
+        },
+      },
+    } as AxiosResponse)
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <CampusRecords kind='withdrawals' admin={admin} />
+      </QueryClientProvider>
+    )
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText(/14:12:37/)).toBeVisible()
+    expect(within(table).getAllByRole('columnheader')[0]).toHaveTextContent(
+      admin ? 'User' : 'Time'
+    )
+    if (admin) {
+      expect(within(table).getByText('partner42')).toBeVisible()
+      expect(within(table).getByText('#42')).toBeVisible()
+    } else {
+      expect(within(table).queryByText('partner42')).not.toBeInTheDocument()
+    }
+  }
+)

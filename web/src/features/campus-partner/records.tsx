@@ -37,11 +37,14 @@ import { commissionColumns } from './commission-columns'
 import { CommissionDetails } from './commission-records'
 import { campusWithdrawalStateLabels } from './constants'
 import { CampusFriend } from './friend-cell'
+import { InvitationAccount } from './invitation-account'
 import { WithdrawalDetails } from './withdrawal-details'
 
 export type CampusRecord = {
   id: number
   user_id: number
+  username?: string
+  display_name?: string
   masked_name?: string
   registered_at?: number
   payment_id?: number
@@ -132,7 +135,8 @@ export function CampusRecords(props: {
             cell: (row) =>
               beijingDate(
                 row.created_at || row.settled_at || row.bound_at || 0,
-                locale
+                locale,
+                props.kind === 'withdrawals'
               ),
           },
           {
@@ -221,7 +225,8 @@ export function CampusRecords(props: {
           )}
           {row.paid_at ? (
             <p>
-              {t('Actual transfer time')}: {beijingDate(row.paid_at, locale)}
+              {t('Actual transfer time')}:{' '}
+              {beijingDate(row.paid_at, locale, true)}
             </p>
           ) : null}
           {row.receipt && (
@@ -286,6 +291,19 @@ export function CampusRecords(props: {
         >
           {t('Manage')}
         </Button>
+      ),
+    })
+  }
+  if (props.admin && props.kind === 'withdrawals') {
+    columns.unshift({
+      id: 'user',
+      header: t('User'),
+      cell: (row) => (
+        <InvitationAccount
+          id={row.user_id}
+          username={row.username || ''}
+          displayName={row.display_name || ''}
+        />
       ),
     })
   }
