@@ -87,7 +87,6 @@ export function CampusAdmin() {
               ['payments', 'Commission ledger'],
               ['withdrawals', 'Withdrawals'],
               ['refunds', 'Refunds'],
-              ['entries', 'Audit trail'],
             ].map(([key, label]) => (
               <TabsTrigger key={key} value={key}>
                 {t(label)}
@@ -112,7 +111,7 @@ export function CampusAdmin() {
               <CampusRefundForm />
             </div>
           </TabsContent>
-          {['withdrawals', 'payments', 'refunds', 'entries', 'invitations'].map(
+          {['withdrawals', 'payments', 'refunds', 'invitations'].map(
             (kind) => (
               <TabsContent key={kind} value={kind}>
                 {kind === 'invitations' ? (

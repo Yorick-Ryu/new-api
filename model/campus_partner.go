@@ -90,18 +90,6 @@ type CampusPayment struct {
 	PaidOut       cp.Money   `json:"paid_out_cents"`
 	Offset        cp.Money   `json:"offset_cents"`
 }
-type CampusEntry struct {
-	ID           int64    `json:"id" gorm:"primaryKey"`
-	UserID       int      `json:"user_id" gorm:"index"`
-	PaymentID    int64    `json:"payment_id"`
-	WithdrawalID int64    `json:"withdrawal_id"`
-	Kind         string   `json:"kind" gorm:"type:varchar(32)"`
-	Amount       cp.Money `json:"amount_cents"`
-	CreatedAt    int64    `json:"created_at"`
-	ActorID      int      `json:"actor_id"`
-	Reason       string   `json:"reason" gorm:"type:text"`
-	Details      string   `json:"details,omitempty" gorm:"type:text"`
-}
 type CampusRefund struct {
 	ID        int64    `json:"id" gorm:"primaryKey"`
 	Reference string   `json:"reference" gorm:"type:varchar(128);uniqueIndex"`
@@ -146,7 +134,7 @@ func InitializeCampusPartner(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&CampusCampaign{}, &CampusWindow{}, &CampusMember{}, &CampusPayment{}, &CampusEntry{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
+	if err := db.AutoMigrate(&CampusCampaign{}, &CampusWindow{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
 		return err
 	}
 	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion, TiersJSON: string(tiers), PlanRatesJSON: "[]"}).Error; err != nil {
@@ -207,9 +195,6 @@ func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
 		return &member, tx.Create(&member).Error
 	}
 	return nil, ErrCampusState
-}
-func campusEntry(tx *gorm.DB, userID int, paymentID, withdrawalID int64, kind string, amount cp.Money, actor int, reason string) error {
-	return tx.Create(&CampusEntry{UserID: userID, PaymentID: paymentID, WithdrawalID: withdrawalID, Kind: kind, Amount: amount, CreatedAt: time.Now().Unix(), ActorID: actor, Reason: reason}).Error
 }
 
 func (config *CampusCampaign) CommissionTiers() ([]cp.TierRule, error) {
@@ -289,10 +274,6 @@ func CampusConfigurePlanRates(plans []cp.PlanRate, expectedRevision int64, actor
 				return common.NewMessage("Selected subscription plan no longer exists")
 			}
 		}
-		before, err := config.SubscriptionRates()
-		if err != nil {
-			return err
-		}
 		encoded, err := common.Marshal(plans)
 		if err != nil {
 			return err
@@ -302,11 +283,7 @@ func CampusConfigurePlanRates(plans []cp.PlanRate, expectedRevision int64, actor
 		if err := tx.Save(config).Error; err != nil {
 			return err
 		}
-		details, err := common.Marshal(map[string]any{"before": before, "after": plans, "revision": config.PlanRevision})
-		if err != nil {
-			return err
-		}
-		return tx.Create(&CampusEntry{Kind: "plans_configured", ActorID: actor, CreatedAt: time.Now().Unix(), Reason: "Subscription commission settings updated", Details: string(details)}).Error
+		return nil
 	})
 }
 
@@ -322,10 +299,6 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 		if config.TierRevision != expectedRevision {
 			return ErrCampusState
 		}
-		before, err := config.CommissionTiers()
-		if err != nil {
-			return err
-		}
 		encoded, err := common.Marshal(tiers)
 		if err != nil {
 			return err
@@ -335,11 +308,7 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 		if err := tx.Save(config).Error; err != nil {
 			return err
 		}
-		details, err := common.Marshal(map[string]any{"before": before, "after": tiers, "revision": config.TierRevision})
-		if err != nil {
-			return err
-		}
-		return tx.Create(&CampusEntry{Kind: "tiers_configured", ActorID: actor, CreatedAt: time.Now().Unix(), Reason: "Commission tiers updated", Details: string(details)}).Error
+		return nil
 	})
 }
 func CampusConfigure(enabled bool, actor int) error {
@@ -364,7 +333,7 @@ func CampusConfigure(enabled bool, actor int) error {
 		if err := tx.Save(config).Error; err != nil {
 			return err
 		}
-		return campusEntry(tx, 0, 0, 0, "configure", 0, actor, "Campaign configuration updated")
+		return nil
 	})
 }
 func CampusJoin(userID int) (*CampusMember, error) {
@@ -484,5 +453,5 @@ func CampusBindTx(tx *gorm.DB, userID int, code string) error {
 	if err := tx.Save(member).Error; err != nil {
 		return err
 	}
-	return campusEntry(tx, userID, 0, 0, "bound", 0, userID, "Invitation bound; one personal top-up coupon issued")
+	return nil
 }

@@ -553,7 +553,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				j.api(t, partner, "GET", "/api/campus/self/records/withdrawals", nil, true, &history)
 				assert.EqualValues(t, 2, history.Total)
 				for _, row := range history.Items {
-					assert.Equal(t, "***", row.RealName)
+					assert.Equal(t, "T*********", row.RealName)
 					assert.NotContains(t, row.Account, "cash@")
 				}
 				j.api(t, stranger, "GET", fmt.Sprintf("/api/campus/self/records/withdrawals?user_id=%d", partner.id), nil, true, &history)
@@ -599,16 +599,16 @@ func TestCampusHTTPJourney(t *testing.T) {
 				client := j.register(t, "rollback-buyer", member.Code)
 				order := j.checkout(t, client, 100, true)
 				before := j.overview(t, partner).Net
-				const callbackName = "campus_journey_fail_ledger"
-				require.NoError(t, j.db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
-					if tx.Statement.Table == "campus_entries" {
-						tx.AddError(errors.New("injected ledger persistence failure"))
+				const callbackName = "campus_journey_fail_payment"
+				require.NoError(t, j.db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+					if tx.Statement.Table == "campus_payments" {
+						tx.AddError(errors.New("injected payment persistence failure"))
 					}
 				}))
-				t.Cleanup(func() { _ = j.db.Callback().Create().Remove(callbackName) })
+				t.Cleanup(func() { _ = j.db.Callback().Update().Remove(callbackName) })
 				response := j.request(campusClient{}, "POST", "/api/user/epay/notify", j.proof(order.TradeNo, "rollback-retry", "95.00", nil))
 				assert.Equal(t, "fail", response.Body.String())
-				require.NoError(t, j.db.Callback().Create().Remove(callbackName))
+				require.NoError(t, j.db.Callback().Update().Remove(callbackName))
 				assert.Zero(t, j.wallet(t, client))
 				assert.Equal(t, before, j.overview(t, partner).Net)
 				assert.Equal(t, "reserved", j.overview(t, client).Member.CouponState)

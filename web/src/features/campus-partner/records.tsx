@@ -49,7 +49,6 @@ export type CampusRecord = {
   actor_id?: number
   reference?: string
   trade_no?: string
-  kind?: string
   product?: string
   amount_cents?: number
   paid_cents?: number
@@ -141,7 +140,7 @@ export function CampusRecords(props: {
             header: t('Source'),
             cell: (row) => (
               <div className='max-w-64 break-all whitespace-normal'>
-                {row.trade_no || (row.kind ? t(row.kind) : `#${row.user_id}`)}
+                {row.trade_no || `#${row.user_id}`}
                 {row.payment_id ? (
                   <p className='text-xs'>
                     {t('Commission order')} #{row.payment_id}

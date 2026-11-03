@@ -67,7 +67,6 @@ export const STATIC_I18N_KEYS = [
   'Approve first, transfer manually at month end, then record the actual transfer. An unknown result must not release reserved funds.',
   'We will review your request as soon as possible and pay after approval. Expected payout: {{date}}',
   'Approved · month-end payout',
-  'Audit trail',
   'Available',
   'Available commission',
   'Awaiting review',

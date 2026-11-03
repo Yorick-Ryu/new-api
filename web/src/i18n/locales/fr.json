@@ -867,7 +867,6 @@
     "Audit Logs": "Journaux d’audit",
     "Audit metadata is unavailable": "Les informations supplémentaires de cet audit sont indisponibles",
     "Audit records start after this feature was enabled. Earlier records remain in Common Logs.": "Les audits commencent à l’activation de cette fonction. Les anciens événements restent dans les journaux généraux.",
-    "Audit trail": "Journal d’audit",
     "Auth": "Auth",
     "Auth configured": "Authentification configurée",
     "Auth name": "Nom auth",

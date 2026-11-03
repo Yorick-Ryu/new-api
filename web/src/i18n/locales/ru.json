@@ -867,7 +867,6 @@
     "Audit Logs": "Журнал аудита",
     "Audit metadata is unavailable": "Дополнительные сведения аудита недоступны",
     "Audit records start after this feature was enabled. Earlier records remain in Common Logs.": "Аудит ведётся с момента включения этой функции. Более ранние записи остаются в общих журналах.",
-    "Audit trail": "Журнал аудита",
     "Auth": "Аутентификация",
     "Auth configured": "Аутентификация настроена",
     "Auth name": "Имя auth",

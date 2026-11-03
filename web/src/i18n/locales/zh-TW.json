@@ -867,7 +867,6 @@
     "Audit Logs": "稽核日誌",
     "Audit metadata is unavailable": "稽核附加資訊無法使用",
     "Audit records start after this feature was enabled. Earlier records remain in Common Logs.": "僅顯示此功能啟用後的稽核記錄，歷史記錄仍在一般日誌中。",
-    "Audit trail": "操作審計",
     "Auth": "認證",
     "Auth configured": "認證已設定",
     "Auth name": "認證名稱",

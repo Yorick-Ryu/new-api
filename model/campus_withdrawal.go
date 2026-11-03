@@ -80,7 +80,7 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 				return err
 			}
 		}
-		return campusEntry(tx, userID, 0, result.ID, "withdrawal_requested", amount, userID, "Pending review; manual payout at month end")
+		return nil
 	})
 	return &result, err
 }
@@ -230,7 +230,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 		if err := tx.Save(&w).Error; err != nil {
 			return err
 		}
-		return campusEntry(tx, w.UserID, 0, w.ID, "withdrawal_"+action, w.Amount, actor, reason)
+		return nil
 	})
 }
 
@@ -262,9 +262,6 @@ func CampusAdvanceBatches() error {
 			w.Reason = "Month-end batch missed; review or transfer was not completed. Follow-up required."
 			w.UpdatedAt = now.Unix()
 			if err := tx.Save(w).Error; err != nil {
-				return err
-			}
-			if err := campusEntry(tx, w.UserID, 0, w.ID, "withdrawal_deferred", 0, 0, w.Reason); err != nil {
 				return err
 			}
 		}

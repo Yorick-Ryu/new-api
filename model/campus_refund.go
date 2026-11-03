@@ -132,9 +132,6 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 					if err := tx.Save(&w).Error; err != nil {
 						return err
 					}
-					if err := campusEntry(tx, w.UserID, p.ID, w.ID, "refund_withdrawal_adjustment", -take, actor, w.Reason); err != nil {
-						return err
-					}
 				}
 				if left != 0 {
 					return ErrCampusState
@@ -159,9 +156,6 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 				if err := tx.Save(other).Error; err != nil {
 					return err
 				}
-				if err := campusEntry(tx, p.InviterID, other.ID, 0, "offset", -take, actor, "Collected commission after refund"); err != nil {
-					return err
-				}
 			}
 			if left > cp.MaxMoney-member.Debt {
 				return ErrCampusState
@@ -170,9 +164,6 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 			result.Debt = left
 			result.Immediate += funding.RecoverSpent - left
 			if err := tx.Save(member).Error; err != nil {
-				return err
-			}
-			if err := campusEntry(tx, p.InviterID, p.ID, 0, "refund", -refund.CommissionReversal, actor, reason); err != nil {
 				return err
 			}
 		} else {

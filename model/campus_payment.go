@@ -217,19 +217,6 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	if err := tx.Save(&payment).Error; err != nil {
 		return err
 	}
-	if len(proofs) == 1 && proofs[0].ActorID > 0 {
-		if err := campusEntry(tx, userID, payment.ID, 0, "payment_reconciled", payment.Paid, proofs[0].ActorID, proofs[0].Evidence); err != nil {
-			return err
-		}
-	}
-	if payment.Eligibility == string(cp.Eligible) {
-		if err := campusEntry(tx, payment.InviterID, payment.ID, 0, "commission", payment.Commission, 0, "First verified settlement"); err != nil {
-			return err
-		}
-		if payment.Reversed > 0 {
-			return campusEntry(tx, payment.InviterID, payment.ID, 0, "refund", -payment.Reversed, 0, "Refund recorded before settlement")
-		}
-	}
 	return nil
 }
 
@@ -271,11 +258,6 @@ func campusUnlockTx(tx *gorm.DB, member *CampusMember, now int64) error {
 		p.Frozen = 0
 		if err := tx.Save(p).Error; err != nil {
 			return err
-		}
-		if release.OffsetDebt > 0 {
-			if err := campusEntry(tx, member.UserID, p.ID, 0, "offset", -release.OffsetDebt, 0, "Matured commission collected against refund debt"); err != nil {
-				return err
-			}
 		}
 	}
 	return tx.Save(member).Error
@@ -363,7 +345,7 @@ func campusManualEvidenceTx(tx *gorm.DB, trade string, actor int, evidence strin
 	if p.ProviderTrade == nil || len(evidence) < 5 || len(evidence) > 2000 || actor <= 0 {
 		return common.NewMessage("Reconcile the original payment and provide collection evidence before completing this order")
 	}
-	return campusEntry(tx, p.UserID, p.ID, 0, "payment_reconciled", p.Paid, actor, evidence)
+	return nil
 }
 
 // The provider must have definitively closed this unpaid order. Operators
@@ -387,7 +369,7 @@ func CampusConfirmClosedOrder(trade string, actor int, evidence string) error {
 		if err := CampusReleaseCouponTx(tx, trade); err != nil {
 			return err
 		}
-		return campusEntry(tx, order.UserId, 0, 0, "payment_closed", 0, actor, evidence)
+		return nil
 	})
 }
 

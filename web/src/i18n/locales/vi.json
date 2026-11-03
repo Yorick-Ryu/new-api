@@ -867,7 +867,6 @@
     "Audit Logs": "Nhật ký kiểm toán",
     "Audit metadata is unavailable": "Thông tin kiểm toán bổ sung không khả dụng",
     "Audit records start after this feature was enabled. Earlier records remain in Common Logs.": "Bản ghi kiểm toán bắt đầu từ khi tính năng này được bật. Các bản ghi cũ vẫn nằm trong nhật ký chung.",
-    "Audit trail": "Nhật ký kiểm toán",
     "Auth": "Xác thực",
     "Auth configured": "Đã cấu hình xác thực",
     "Auth name": "Tên xác thực",

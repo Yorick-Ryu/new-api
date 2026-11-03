@@ -92,7 +92,7 @@ function renderPage(
     },
     ...overrides,
   })
-  for (const kind of ['invitations', 'payments', 'entries', 'withdrawals']) {
+  for (const kind of ['invitations', 'payments', 'withdrawals']) {
     const items = records[kind] || []
     for (const admin of [false, true]) {
       client.setQueryData(['campus', 'records', admin, kind, 1], {

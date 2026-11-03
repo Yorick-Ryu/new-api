@@ -867,7 +867,6 @@
     "Audit Logs": "監査ログ",
     "Audit metadata is unavailable": "監査の追加情報を取得できません",
     "Audit records start after this feature was enabled. Earlier records remain in Common Logs.": "この機能の有効化以降の監査記録を表示します。それ以前の記録は通常ログに残ります。",
-    "Audit trail": "監査履歴",
     "Auth": "認証",
     "Auth configured": "認証設定済み",
     "Auth name": "認証名",

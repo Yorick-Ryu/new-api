@@ -454,10 +454,9 @@ func TestCampusDatabase(t *testing.T) {
 			assert.Empty(t, finalConfig.PlanRates)
 			assert.EqualValues(t, 3, finalConfig.PlanRevision)
 
-			var audit CampusEntry
-			require.NoError(t, db.Where("kind = ?", "tiers_configured").First(&audit).Error)
-			assert.Equal(t, 1, audit.ActorID)
-			assert.Contains(t, audit.Details, `"rate_bps":3325`)
+			assert.False(t, db.Migrator().HasTable("campus_entries"))
+			_, _, err = CampusList(1, true, "entries", 1, 10)
+			assert.ErrorIs(t, err, ErrCampusState)
 
 			t.Run("invitation history masks names and isolates net contributions with pagination", func(t *testing.T) {
 				for _, user := range []User{

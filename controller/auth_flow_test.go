@@ -1187,9 +1187,6 @@ func TestCampusRegistrationPreservesInvitationAndNeverRebindsOAuthLogin(t *testi
 	existing, _, err := findOrCreateOAuthUser(ctx, provider, identity, &oauth.OAuthToken{}, "", "invalid-new-invitation")
 	require.NoError(t, err)
 	assert.Equal(t, created.Id, existing.Id)
-	var bindingEvents int64
-	require.NoError(t, db.Model(&model.CampusEntry{}).Where("user_id = ? AND kind = ?", created.Id, "bound").Count(&bindingEvents).Error)
-	assert.EqualValues(t, 1, bindingEvents)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "https://novapi.cn/api/oauth/github", nil)
 	_, _, err = findOrCreateOAuthUser(ctx, provider, &oauth.OAuthUser{ProviderUserID: "987654322", Username: "foreign-oauth-new"}, &oauth.OAuthToken{}, "", member.Code)
 	require.Error(t, err)
@@ -1271,7 +1268,4 @@ func TestCampusWeChatRegistrationBindsOnlyNewMainSiteAccounts(t *testing.T) {
 	overview, err := model.CampusGetOverview(created.Id)
 	require.NoError(t, err)
 	assert.Equal(t, inviter.Id, overview.Member.InviterID)
-	var n int64
-	require.NoError(t, db.Model(&model.CampusEntry{}).Where("user_id = ? AND kind = ?", created.Id, "bound").Count(&n).Error)
-	assert.EqualValues(t, 1, n)
 }

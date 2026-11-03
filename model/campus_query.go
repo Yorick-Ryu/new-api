@@ -197,12 +197,6 @@ func CampusList(userID int, admin bool, kind string, page, size int) (any, int64
 			query = query.Where("inviter_id = ? AND eligibility = ?", userID, string(cp.Eligible))
 		}
 		rows = &[]CampusPayment{}
-	case "entries":
-		query = query.Model(&CampusEntry{})
-		if !admin {
-			query = query.Where("user_id = ?", userID)
-		}
-		rows = &[]CampusEntry{}
 	case "withdrawals":
 		query = query.Model(&CampusWithdrawal{})
 		if !admin {

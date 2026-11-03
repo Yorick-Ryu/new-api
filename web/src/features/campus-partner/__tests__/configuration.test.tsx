@@ -130,7 +130,6 @@ test('top-level tabs separate settings from each record list and retain unsaved 
     'Commission ledger',
     'Withdrawals',
     'Refunds',
-    'Audit trail',
   ])
   expect(screen.getByRole('tab', { name: 'Invitations' })).toHaveAttribute(
     'aria-selected',
@@ -147,7 +146,6 @@ test('top-level tabs separate settings from each record list and retain unsaved 
     'Withdrawals',
     'Commission ledger',
     'Refunds',
-    'Audit trail',
     'Invitations',
   ]) {
     await user.click(screen.getByRole('tab', { name }))
