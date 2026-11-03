@@ -215,7 +215,7 @@ export function CampusRecords(props: {
   if (props.kind !== 'invitations' && !commissionView) {
     columns.push({
       id: 'amount',
-      header: props.kind === 'withdrawals' ? t('Amount') : t('Amount (CNY)'),
+      header: t('Amount'),
       cell: (row) => (
         <div className='space-y-1 tabular-nums'>
           {cash(row.amount_cents ?? row.paid_cents ?? 0, locale)}

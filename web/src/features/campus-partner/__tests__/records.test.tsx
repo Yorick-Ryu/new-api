@@ -98,7 +98,7 @@ test('withdrawal history shows the pending batch and failure reason without call
   expect(within(dialog).getByText('person@example.com')).toBeVisible()
   expect(within(dialog).getByText('测试姓名')).toBeVisible()
   expect(within(dialog).getByText('Alipay account')).toBeVisible()
-  expect(within(dialog).getByText('ID')).toBeVisible()
+  expect(within(dialog).getByText('Withdrawal number')).toBeVisible()
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.queryByText('Paid')).not.toBeInTheDocument()

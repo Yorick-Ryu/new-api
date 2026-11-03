@@ -55,7 +55,7 @@ export function WithdrawalSummary(props: {
   const row = props.row
   if (!row) return null
   const fields = [
-    [t('ID'), `#${row.id}`],
+    [t('Withdrawal number'), `#${row.id}`],
     [t('Withdrawal time'), beijingDate(row.created_at || 0, locale, true)],
     [t('Amount'), cash(row.amount_cents || 0, locale)],
     [

@@ -347,7 +347,7 @@ function CampusWithdrawalReview(props: {
               : []),
             {
               name: 'reason',
-              label: 'Reason (optional)',
+              label: 'Reason',
               placeholder: reasonPlaceholders[action],
               optional: true,
             },
