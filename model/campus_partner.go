@@ -41,11 +41,6 @@ type CampusPlanOption struct {
 	PriceAmount float64 `json:"price_amount"`
 	Currency    string  `json:"currency"`
 }
-type CampusWindow struct {
-	ID    int64 `json:"id" gorm:"primaryKey"`
-	Start int64 `json:"start"`
-	Stop  int64 `json:"stop"`
-}
 type CampusMember struct {
 	UserID           int      `json:"user_id" gorm:"primaryKey;autoIncrement:false"`
 	Code             string   `json:"code" gorm:"type:varchar(32);uniqueIndex"`
@@ -133,7 +128,7 @@ func InitializeCampusPartner(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&CampusCampaign{}, &CampusWindow{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
+	if err := db.AutoMigrate(&CampusCampaign{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
 		return err
 	}
 	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion, TiersJSON: string(tiers), PlanRatesJSON: "[]"}).Error; err != nil {
@@ -315,18 +310,6 @@ func CampusConfigure(enabled bool, actor int) error {
 		config, err := campusLock(tx)
 		if err != nil {
 			return err
-		}
-		now := time.Now().Unix()
-		if enabled != config.Enabled {
-			if enabled {
-				if err := tx.Create(&CampusWindow{Start: now}).Error; err != nil {
-					return err
-				}
-			} else {
-				if err := tx.Model(&CampusWindow{}).Where("stop = 0").Update("stop", now).Error; err != nil {
-					return err
-				}
-			}
 		}
 		config.Enabled = enabled
 		if err := tx.Save(config).Error; err != nil {

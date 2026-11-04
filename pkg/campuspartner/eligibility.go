@@ -2,13 +2,6 @@ package campuspartner
 
 import "time"
 
-type ActivityWindow struct {
-	StartedAt time.Time
-	// Zero means this interval is still open; closing and reopening creates
-	// another interval, rather than erasing the historical disabled period.
-	StoppedAt time.Time
-}
-
 // SettlementFacts must come from verified payment and stored order/binding
 // records. In particular MainSite cannot come from a callback Host, client
 // parameter, Origin/Referer, or a shared account's current browser session.
@@ -41,30 +34,14 @@ const (
 // SettlementEligibility is evaluated once, under the same transaction/ordering
 // as first successful payment and invitation binding. Persist even ineligible
 // results; duplicate callbacks must return that snapshot without re-evaluation.
-// No intervals means the activity is disabled by default.
-func SettlementEligibility(facts SettlementFacts, windows []ActivityWindow) (Eligibility, error) {
+// Use the activity switch locked at first settlement; later toggles do not
+// change the persisted eligibility.
+func SettlementEligibility(facts SettlementFacts, enabled bool) (Eligibility, error) {
 	if facts.FirstSettledAt.IsZero() {
 		return "", ErrTime
 	}
 	if !facts.Paid.Valid() || facts.Paid == 0 {
 		return "", ErrAmount
-	}
-	active := false
-	for index, window := range windows {
-		if window.StartedAt.IsZero() ||
-			(!window.StoppedAt.IsZero() && !window.StoppedAt.After(window.StartedAt)) {
-			return "", ErrTime
-		}
-		if index > 0 {
-			previous := windows[index-1]
-			if previous.StoppedAt.IsZero() || window.StartedAt.Before(previous.StoppedAt) {
-				return "", ErrTime
-			}
-		}
-		if !facts.FirstSettledAt.Before(window.StartedAt) &&
-			(window.StoppedAt.IsZero() || facts.FirstSettledAt.Before(window.StoppedAt)) {
-			active = true
-		}
 	}
 	if !facts.MainSite {
 		return OutsideMainSite, nil
@@ -78,7 +55,7 @@ func SettlementEligibility(facts SettlementFacts, windows []ActivityWindow) (Eli
 	if facts.Product != TopUp && facts.Product != Subscription {
 		return UnsupportedProduct, nil
 	}
-	if !active {
+	if !enabled {
 		return OutsideActivity, nil
 	}
 	if facts.InviterID <= 0 || facts.BoundAt.IsZero() || facts.BoundAt.After(facts.FirstSettledAt) {

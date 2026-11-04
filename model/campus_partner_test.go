@@ -76,6 +76,7 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Create(&SubscriptionPlan{Id: 7, Title: "Ultra", Enabled: true}).Error)
 			require.NoError(t, InitializeCampusPartner(db))
 			require.NoError(t, InitializeCampusPartner(db))
+			assert.False(t, db.Migrator().HasTable("campus_windows"), "new installations do not need activity intervals")
 			var preserved TopUp
 			require.NoError(t, db.Where("trade_no = ?", "historical").First(&preserved).Error)
 			assert.Equal(t, 8, preserved.UserId)
@@ -328,6 +329,20 @@ func TestCampusDatabase(t *testing.T) {
 			overview, err = CampusGetOverview(1)
 			require.NoError(t, err)
 			assert.Equal(t, cp.Money(90000), overview.Member.Performance)
+
+			var excluded CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", off.TradeNo).First(&excluded).Error)
+			assert.Equal(t, string(cp.OutsideActivity), excluded.Eligibility)
+			assert.Zero(t, excluded.Commission)
+			require.Positive(t, excluded.SettledAt)
+			var earned CampusPayment
+			require.NoError(t, db.Where("trade_no = ?", "large").First(&earned).Error)
+			require.NoError(t, CampusConfigure(false, 1))
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, earned.TradeNo, earned.UserID) }))
+			var replayed CampusPayment
+			require.NoError(t, db.First(&replayed, earned.ID).Error)
+			assert.Equal(t, earned, replayed, "closing the activity cannot alter a settled commission")
+			require.NoError(t, CampusConfigure(true, 1))
 
 			// Unknown transfers keep reservations until a definitive result exists.
 			uncertain, err := CampusRequestWithdrawal(1, "request-unknown-001", "alipay@example.test", "Test", 27000)

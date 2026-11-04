@@ -162,26 +162,11 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		return err
 	}
 	if payment.Paid > 0 {
-		var rows []CampusWindow
-		if err := lockForUpdate(tx).Order("id").Find(&rows).Error; err != nil {
-			return err
-		}
-		windows := make([]cp.ActivityWindow, 0, len(rows))
-		for _, row := range rows {
-			if row.Stop != 0 && row.Stop == row.Start {
-				continue
-			}
-			window := cp.ActivityWindow{StartedAt: time.Unix(row.Start, 0)}
-			if row.Stop != 0 {
-				window.StoppedAt = time.Unix(row.Stop, 0)
-			}
-			windows = append(windows, window)
-		}
 		var bound time.Time
 		if member.BoundAt != 0 {
 			bound = time.Unix(member.BoundAt, 0)
 		}
-		eligible, err := cp.SettlementEligibility(cp.SettlementFacts{MainSite: payment.MainSite, ExternalPayment: true, Currency: payment.Currency, Product: payment.Product, Paid: payment.Paid, FirstSettledAt: time.Unix(now, 0), InviterID: member.InviterID, BoundAt: bound}, windows)
+		eligible, err := cp.SettlementEligibility(cp.SettlementFacts{MainSite: payment.MainSite, ExternalPayment: true, Currency: payment.Currency, Product: payment.Product, Paid: payment.Paid, FirstSettledAt: time.Unix(now, 0), InviterID: member.InviterID, BoundAt: bound}, config.Enabled)
 		if err != nil {
 			return err
 		}

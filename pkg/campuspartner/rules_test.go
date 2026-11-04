@@ -10,32 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFirstSettlementEligibilityAndActivityRestarts(t *testing.T) {
+func TestFirstSettlementEligibility(t *testing.T) {
 	start := time.Date(2026, 11, 1, 0, 0, 0, 0, beijing)
-	stop := start.Add(24 * time.Hour)
-	restart := stop.Add(24 * time.Hour)
-	windows := []ActivityWindow{{StartedAt: start, StoppedAt: stop}, {StartedAt: restart}}
 	facts := SettlementFacts{
 		MainSite: true, ExternalPayment: true, Currency: "CNY", Product: TopUp,
 		Paid: 19000, InviterID: 123, BoundAt: start.Add(-time.Hour), FirstSettledAt: start,
 	}
-	for _, test := range []struct {
-		at   time.Time
-		want Eligibility
-	}{
-		{start.Add(-time.Nanosecond), OutsideActivity}, {start, Eligible},
-		{stop.Add(-time.Nanosecond), Eligible}, {stop, OutsideActivity},
-		{restart.Add(-time.Nanosecond), OutsideActivity}, {restart, Eligible},
-	} {
-		input := facts
-		input.FirstSettledAt = test.at
-		result, err := SettlementEligibility(input, windows)
+	for _, enabled := range []bool{false, true} {
+		result, err := SettlementEligibility(facts, enabled)
 		require.NoError(t, err)
-		assert.Equal(t, test.want, result)
+		want := OutsideActivity
+		if enabled {
+			want = Eligible
+		}
+		assert.Equal(t, want, result)
 	}
-	result, err := SettlementEligibility(facts, nil)
-	require.NoError(t, err)
-	assert.Equal(t, OutsideActivity, result, "default is disabled")
 	for _, test := range []struct {
 		name   string
 		change func(*SettlementFacts)
@@ -53,18 +42,20 @@ func TestFirstSettlementEligibilityAndActivityRestarts(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := facts
 			test.change(&input)
-			result, err := SettlementEligibility(input, windows)
+			result, err := SettlementEligibility(input, true)
 			require.NoError(t, err)
 			assert.Equal(t, test.want, result)
 		})
 	}
-	for _, invalid := range [][]ActivityWindow{
-		{{}}, {{StartedAt: start, StoppedAt: start}},
-		{{StartedAt: start}, {StartedAt: restart}},
-		{{StartedAt: start, StoppedAt: stop}, {StartedAt: start}},
-	} {
-		_, err := SettlementEligibility(facts, invalid)
-		assert.ErrorIs(t, err, ErrTime)
+	invalid := facts
+	invalid.FirstSettledAt = time.Time{}
+	_, err := SettlementEligibility(invalid, true)
+	assert.ErrorIs(t, err, ErrTime)
+	for _, paid := range []Money{0, -1, MaxMoney + 1} {
+		invalid = facts
+		invalid.Paid = paid
+		_, err := SettlementEligibility(invalid, true)
+		assert.ErrorIs(t, err, ErrAmount)
 	}
 }
 
