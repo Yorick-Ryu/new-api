@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
 import {
   DetailRow,
@@ -102,7 +103,25 @@ export function CommissionDetails(props: {
               : row.masked_name || '***'
           }
         />
-        <DetailRow label={t('Order number')} value={row.trade_no || '—'} mono />
+        <DetailRow
+          label={t('Order number')}
+          value={
+            <span className='inline-flex w-full min-w-0 items-start gap-1'>
+              <span className='min-w-0 flex-1 break-all'>
+                {row.trade_no || '—'}
+              </span>
+              {row.trade_no && (
+                <CopyButton
+                  value={row.trade_no}
+                  aria-label={`${t('Copy')} ${t('Order number')}`}
+                  className='size-6'
+                  iconClassName='size-3.5'
+                />
+              )}
+            </span>
+          }
+          mono
+        />
         <DetailRow
           label={t('Top-up type')}
           value={t(

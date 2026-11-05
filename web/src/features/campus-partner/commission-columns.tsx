@@ -16,43 +16,38 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { ColumnDef } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 
-import type { StaticDataTableColumn } from '@/components/data-table'
-import { Badge } from '@/components/ui/badge'
+import { TruncatedCell } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 
 import { beijingDate, cash } from './api'
 import { campusAmountTypography } from './constants'
 import { CampusFriend } from './friend-cell'
 import { InvitationAccount } from './invitation-account'
+import { CampusCommissionStatus } from './record-status'
 import type { CampusRecord } from './records'
-
-export function commissionStatus(row: CampusRecord): string {
-  if ((row.refunded_cents || 0) > 0) {
-    return (row.refunded_cents || 0) >= (row.paid_cents || 0)
-      ? 'Fully refunded'
-      : 'Partially refunded'
-  }
-  return (row.frozen_cents || 0) > 0 ? 'Pending settlement' : 'Settled'
-}
 
 export function commissionColumns(
   t: TFunction,
   locale: string | undefined,
   onDetails: (row: CampusRecord) => void,
   admin = false
-): StaticDataTableColumn<CampusRecord>[] {
-  const columns: StaticDataTableColumn<CampusRecord>[] = [
+): ColumnDef<CampusRecord>[] {
+  const columns: ColumnDef<CampusRecord>[] = [
     {
       id: 'time',
+      accessorFn: (row) => row.settled_at,
       header: t('Time'),
-      cell: (row) => beijingDate(row.settled_at || 0, locale, true),
+      cell: ({ row: { original: row } }) =>
+        beijingDate(row.settled_at || 0, locale, true),
     },
     {
       id: 'friend',
+      accessorFn: (row) => row.masked_name || row.username || row.display_name,
       header: t(admin ? 'Invitee' : 'Friend'),
-      cell: (row) =>
+      cell: ({ row: { original: row } }) =>
         admin ? (
           <InvitationAccount
             id={row.user_id}
@@ -65,13 +60,19 @@ export function commissionColumns(
     },
     {
       id: 'order',
+      accessorFn: (row) => row.trade_no,
       header: t('Order number'),
-      cell: (row) => row.trade_no || '—',
+      cell: ({ row: { original: row } }) => (
+        <TruncatedCell className='max-w-56 font-mono!'>
+          {row.trade_no || '—'}
+        </TruncatedCell>
+      ),
     },
     {
       id: 'product',
+      accessorFn: (row) => row.product,
       header: t('Top-up type'),
-      cell: (row) =>
+      cell: ({ row: { original: row } }) =>
         t(
           row.product === 'subscription'
             ? 'Subscription purchase'
@@ -80,28 +81,29 @@ export function commissionColumns(
     },
     {
       id: 'commission',
+      accessorFn: (row) =>
+        (row.commission_cents || 0) - (row.reversed_cents || 0),
       header: t('Commission'),
-      cellClassName: campusAmountTypography,
-      cell: (row) =>
-        cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
+      cell: ({ row: { original: row } }) => (
+        <span className={campusAmountTypography}>
+          {cash(
+            (row.commission_cents || 0) - (row.reversed_cents || 0),
+            locale
+          )}
+        </span>
+      ),
     },
     {
       id: 'status',
       header: t('Status'),
-      cell: (row) => (
-        <Badge variant='outline'>
-          {t(
-            admin && row.eligibility && row.eligibility !== 'eligible'
-              ? row.eligibility
-              : commissionStatus(row)
-          )}
-        </Badge>
+      cell: ({ row: { original: row } }) => (
+        <CampusCommissionStatus row={row} admin={admin} />
       ),
     },
     {
-      id: 'details',
+      id: 'actions',
       header: t('Details'),
-      cell: (row) => (
+      cell: ({ row: { original: row } }) => (
         <Button variant='outline' size='sm' onClick={() => onDetails(row)}>
           {t('Details')}
         </Button>
@@ -111,8 +113,9 @@ export function commissionColumns(
   if (admin) {
     columns.unshift({
       id: 'inviter',
+      accessorFn: (row) => row.inviter_username || row.inviter_display_name,
       header: t('Inviter'),
-      cell: (row) =>
+      cell: ({ row: { original: row } }) =>
         row.inviter_id ? (
           <InvitationAccount
             id={row.inviter_id}
@@ -126,5 +129,13 @@ export function commissionColumns(
     const friendIndex = columns.findIndex((column) => column.id === 'friend')
     columns.splice(1, 0, ...columns.splice(friendIndex, 1))
   }
-  return columns
+  return columns.map((column) => ({
+    ...column,
+    meta: {
+      label: typeof column.header === 'string' ? column.header : undefined,
+      mobileTitle: column.id === 'friend',
+      mobileBadge: column.id === 'status',
+    },
+    enableHiding: column.id !== 'actions',
+  }))
 }

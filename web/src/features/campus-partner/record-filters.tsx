@@ -16,20 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { Table } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { CompactDateTimeRangePicker } from '@/features/usage-logs/components/compact-date-time-range-picker'
-import { LogsFilterInput } from '@/features/usage-logs/components/logs-filter-toolbar'
+import {
+  LogsFilterField,
+  LogsFilterInput,
+  LogsFilterToolbar,
+} from '@/features/usage-logs/components/logs-filter-toolbar'
 
 import { campusWithdrawalStateLabels } from './constants'
+import type { CampusRecord } from './records'
 
 export type RecordFilters = {
   start?: Date
@@ -42,6 +49,8 @@ export type RecordFilters = {
 }
 
 export function CampusRecordFilters(props: {
+  table: Table<CampusRecord>
+  appliedValue: RecordFilters
   payments: boolean
   admin?: boolean
   value: RecordFilters
@@ -77,62 +86,105 @@ export function CampusRecordFilters(props: {
     !!props.value.start &&
     !!props.value.end &&
     props.value.start > props.value.end
-  return (
-    <form
-      className='flex flex-wrap items-center gap-2'
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!invalidRange && !props.loading) props.onSearch()
-      }}
-    >
+  const dateFilter = (
+    <LogsFilterField wide>
       <CompactDateTimeRangePicker
-        className='w-full sm:w-64'
         start={props.value.start}
         end={props.value.end}
         onChange={(range) => props.onChange({ ...props.value, ...range })}
       />
+    </LogsFilterField>
+  )
+  const otherFilters = (
+    <>
       {fields.map(([key, label, placeholder]) => (
-        <LogsFilterInput
-          key={key}
-          className='w-56'
-          aria-label={t(label)}
-          placeholder={t(placeholder)}
-          maxLength={100}
-          value={String(props.value[key] || '')}
-          onChange={(event) =>
-            props.onChange({ ...props.value, [key]: event.target.value })
-          }
-        />
+        <LogsFilterField key={key}>
+          <LogsFilterInput
+            aria-label={t(label)}
+            placeholder={t(placeholder)}
+            maxLength={100}
+            value={String(props.value[key] || '')}
+            onChange={(event) =>
+              props.onChange({ ...props.value, [key]: event.target.value })
+            }
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                if (!invalidRange && !props.loading) props.onSearch()
+              }
+            }}
+          />
+        </LogsFilterField>
       ))}
-      <Select
-        items={options}
-        value={props.value.status || 'all'}
-        onValueChange={(value) =>
-          props.onChange({ ...props.value, status: value || 'all' })
+      <LogsFilterField>
+        <Select
+          items={options}
+          value={props.value.status || 'all'}
+          onValueChange={(value) =>
+            props.onChange({ ...props.value, status: value || 'all' })
+          }
+        >
+          <SelectTrigger
+            className='h-8 w-full text-sm'
+            aria-label={t('Status')}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </LogsFilterField>
+    </>
+  )
+  return (
+    <div className='min-w-0 space-y-3'>
+      <LogsFilterToolbar
+        table={props.table}
+        inlineActions
+        primaryFilters={
+          <>
+            {dateFilter}
+            {otherFilters}
+          </>
         }
-      >
-        <SelectTrigger className='w-48' aria-label={t('Status')}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button type='submit' disabled={props.loading || invalidRange}>
-        {t('Search')}
-      </Button>
-      <Button type='button' variant='outline' onClick={props.onReset}>
-        {t('Reset')}
-      </Button>
+        mobilePinnedFilters={dateFilter}
+        mobileFilters={otherFilters}
+        mobileFilterCount={
+          [
+            props.value.inviter,
+            props.value.invitee,
+            props.value.user,
+            props.value.order,
+            props.value.status !== 'all' ? props.value.status : undefined,
+          ].filter(Boolean).length
+        }
+        hasActiveFilters={[props.value, props.appliedValue].some((value) =>
+          Object.values(value).some(
+            (item) => item !== undefined && item !== '' && item !== 'all'
+          )
+        )}
+        searchLoading={props.loading}
+        searchDisabled={invalidRange}
+        mobileFilterDescription={t(
+          'Adjust filters, then search to refresh the records.'
+        )}
+        onSearch={props.onSearch}
+        onReset={props.onReset}
+      />
       {invalidRange && (
-        <p role='alert' className='text-destructive w-full text-sm'>
-          {t('End time must be after start time')}
-        </p>
+        <Alert variant='destructive'>
+          <AlertDescription>
+            {t('End time must be after start time')}
+          </AlertDescription>
+        </Alert>
       )}
-    </form>
+    </div>
   )
 }

@@ -493,6 +493,7 @@
     "Additional verification required": "Vérification supplémentaire requise",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "Les fenêtres supplémentaires se réinitialisent selon des périodes glissantes à partir de la date de début de l’abonnement.",
     "Address format": "Format d’adresse",
+    "Adjust filters, then search to refresh the records.": "Ajustez les filtres, puis lancez la recherche pour actualiser les enregistrements.",
     "Adjust filters, then search to refresh the logs.": "Ajustez les filtres, puis lancez la recherche pour actualiser les journaux.",
     "Adjust Quota": "Ajuster le quota",
     "Adjust quota for user “{{name}}”": "Modifier le quota de « {{name}} »",

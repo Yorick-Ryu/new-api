@@ -493,6 +493,7 @@
     "Additional verification required": "Требуется дополнительная проверка",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "Дополнительные окна сбрасываются по скользящим периодам, отсчитываемым от начала подписки.",
     "Address format": "Формат адреса",
+    "Adjust filters, then search to refresh the records.": "Настройте фильтры, затем выполните поиск, чтобы обновить записи.",
     "Adjust filters, then search to refresh the logs.": "Настройте фильтры, затем выполните поиск, чтобы обновить журналы.",
     "Adjust Quota": "Изменить квоту",
     "Adjust quota for user “{{name}}”": "Изменить квоту пользователя «{{name}}»",

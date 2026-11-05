@@ -17,7 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  within,
+  waitFor,
+  cleanup,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -47,8 +53,10 @@ test('a failed history request can be retried and an empty result disables pagin
   expect(await screen.findByRole('button', { name: 'Retry' })).toBeEnabled()
   await user.click(screen.getByRole('button', { name: 'Retry' }))
   expect(await screen.findByText('No records yet')).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Go to previous page' })
+  ).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled()
 })
 
 test('withdrawal history shows the pending batch and failure reason without calling it paid', async () => {
@@ -88,7 +96,7 @@ test('withdrawal history shows the pending batch and failure reason without call
   expect(
     screen.queryByText('Recipient verification required')
   ).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeEnabled()
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Details' }))
   const dialog = await screen.findByRole('dialog')
@@ -103,7 +111,7 @@ test('withdrawal history shows the pending batch and failure reason without call
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.queryByText('Paid')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeEnabled()
 })
 
 test('invitation history shows masked friends, registration dates and net contributions including zero-earning friends', async () => {
@@ -150,6 +158,7 @@ test('invitation history shows masked friends, registration dates and net contri
     'Cumulative top-ups',
     'Commission contributed',
   ])
+  await within(table).findByText('林**')
   const rows = within(table).getAllByRole('row')
   expect(within(rows[1]).getByText('林**')).toBeVisible()
   expect(within(rows[1]).getByText('Oct 28, 2026, 9:14 PM')).toBeVisible()
@@ -161,7 +170,7 @@ test('invitation history shows masked friends, registration dates and net contri
   expect(
     screen.queryByText('Only friends bound to you are shown; names are masked.')
   ).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled()
 })
 
 test.each([false, true])(
@@ -195,7 +204,7 @@ test.each([false, true])(
       </QueryClientProvider>
     )
     const table = await screen.findByRole('table')
-    expect(within(table).getByText(/14:12:37/)).toBeVisible()
+    expect(await within(table).findByText(/14:12:37/)).toBeVisible()
     expect(within(table).getAllByRole('columnheader')[0]).toHaveTextContent(
       admin ? 'User' : 'Time'
     )
@@ -242,9 +251,9 @@ test('admin refunds show payer, second-precision time and the original order num
       .slice(0, 3)
       .map((header) => header.textContent)
   ).toEqual(['User', 'Time', 'Order number'])
-  expect(within(table).getByText('payer42')).toBeVisible()
+  expect(await within(table).findByText('payer42')).toBeVisible()
   expect(within(table).getByText('original-order-9')).toBeVisible()
-  expect(within(table).getByText(/14:12:37/)).toBeVisible()
+  expect(await within(table).findByText(/14:12:37/)).toBeVisible()
 })
 
 test('withdrawal status filtering includes matches beyond the first server page', async () => {
@@ -269,11 +278,13 @@ test('withdrawal status filtering includes matches beyond the first server page'
   await user.click(screen.getByRole('option', { name: /^Paid$/ }))
   await user.click(screen.getByRole('button', { name: 'Search' }))
   expect(await screen.findByText(/123\.45/)).toBeVisible()
-  expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument()
+  expect(
+    within(screen.getByRole('table')).queryByText('Awaiting review')
+  ).not.toBeInTheDocument()
   expect(get).toHaveBeenCalledWith(
     '/api/campus/admin/records/withdrawals?page=1&size=10&status=paid'
   )
-  await user.click(screen.getByRole('button', { name: 'Next page' }))
+  await user.click(screen.getByRole('button', { name: 'Go to next page' }))
   await waitFor(() =>
     expect(get).toHaveBeenCalledWith(
       '/api/campus/admin/records/withdrawals?page=2&size=10&status=paid'
@@ -329,7 +340,7 @@ test('admin commissions show inviter and invitee before the partner-style column
     'Status',
     'Details',
   ])
-  expect(within(table).getByText('partner7')).toBeVisible()
+  expect(await within(table).findByText('partner7')).toBeVisible()
   expect(within(table).getByText('buyer42')).toBeVisible()
   await userEvent
     .setup()
@@ -409,4 +420,256 @@ test('time filters send inclusive second boundaries to the server', () => {
   expect(params.get('page')).toBe('2')
   expect(params.get('size')).toBe('10')
   expect(params.get('user')).toBe('#42')
+})
+
+test('changing the shared page size returns to page one and keeps the applied withdrawal status', async () => {
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: [{ id: 1, user_id: 1, state: 'paid', amount_cents: 12345 }],
+        total: 41,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='withdrawals' />
+    </QueryClientProvider>
+  )
+  await user.click(await screen.findByRole('combobox', { name: 'Status' }))
+  await user.click(screen.getByRole('option', { name: 'Paid' }))
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith(
+      '/api/campus/self/records/withdrawals?page=1&size=10&status=paid'
+    )
+  )
+  await user.click(screen.getByRole('button', { name: 'Go to next page' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith(
+      '/api/campus/self/records/withdrawals?page=2&size=10&status=paid'
+    )
+  )
+  await user.click(screen.getByRole('combobox', { name: '' }))
+  await user.click(screen.getByRole('option', { name: /^20$/ }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith(
+      '/api/campus/self/records/withdrawals?page=1&size=20&status=paid'
+    )
+  )
+  expect(
+    screen.getByRole('button', { name: 'Go to previous page' })
+  ).toBeDisabled()
+  client.clear()
+})
+
+test('a failed filtered record request preserves its input and retry uses the same server filters', async () => {
+  const get = vi
+    .spyOn(api, 'get')
+    .mockResolvedValueOnce({
+      data: { success: true, data: { items: [], total: 0 } },
+    } as AxiosResponse)
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValue({
+      data: { success: true, data: { items: [], total: 0 } },
+    } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='payments' />
+    </QueryClientProvider>
+  )
+  await screen.findByText('No records yet')
+  await user.type(
+    screen.getByRole('textbox', { name: 'Order number' }),
+    'ORDER-RETRY'
+  )
+  await user.keyboard('{Enter}')
+  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  expect(await screen.findByText('No records yet')).toBeVisible()
+  expect(screen.getByRole('textbox', { name: 'Order number' })).toHaveValue(
+    'ORDER-RETRY'
+  )
+  expect(get).toHaveBeenLastCalledWith(
+    '/api/campus/self/records/payments?page=1&size=10&order=ORDER-RETRY'
+  )
+  client.clear()
+})
+
+test('mobile commission records expose masked friends, full order details and search from the shared drawer', async () => {
+  const pointerCapture = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'setPointerCapture'
+  )
+  Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+    configurable: true,
+    value: () => undefined,
+  })
+  const matchMedia = window.matchMedia.bind(window)
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...matchMedia(query),
+    matches: query === '(max-width: 640px)',
+  }))
+  const order = 'ORDER-'.repeat(50)
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: [
+          {
+            id: 1,
+            user_id: 42,
+            masked_name: '林**',
+            trade_no: order,
+            commission_cents: 700,
+            frozen_cents: 700,
+          },
+        ],
+        total: 1,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  try {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <CampusRecords kind='payments' />
+      </QueryClientProvider>
+    )
+    expect(await screen.findByText('林**')).toBeVisible()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const status = screen
+      .getByText('Pending settlement')
+      .closest('[data-slot=status-badge]')
+    expect(status).toHaveClass('text-warning')
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    const detail = await screen.findByRole('dialog', {
+      name: 'Commission details',
+    })
+    expect(within(detail).getByText(order)).toBeVisible()
+    expect(
+      within(detail).queryByText('Settlement freeze')
+    ).not.toBeInTheDocument()
+    await user.click(within(detail).getByRole('button', { name: 'Close' }))
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    const filter = await screen.findByRole('dialog', { name: 'Filter' })
+    expect(
+      within(filter).getByText(
+        'Adjust filters, then search to refresh the records.'
+      )
+    ).toBeVisible()
+    await user.type(
+      within(filter).getByRole('textbox', { name: 'Order number' }),
+      'ORDER-SEARCH'
+    )
+    await user.click(within(filter).getByRole('button', { name: 'Search' }))
+    await waitFor(() =>
+      expect(get).toHaveBeenLastCalledWith(
+        '/api/campus/self/records/payments?page=1&size=10&order=ORDER-SEARCH'
+      )
+    )
+    expect(
+      screen.queryByRole('dialog', { name: 'Filter' })
+    ).not.toBeInTheDocument()
+  } finally {
+    cleanup()
+    client.clear()
+    if (pointerCapture) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'setPointerCapture',
+        pointerCapture
+      )
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'setPointerCapture')
+    }
+  }
+})
+
+test('column visibility hides an order column while keeping commission details available', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: [
+          { id: 1, user_id: 42, masked_name: '林**', trade_no: 'ORDER-VIEW' },
+        ],
+        total: 1,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='payments' />
+    </QueryClientProvider>
+  )
+  expect(await screen.findByText('ORDER-VIEW')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'View' }))
+  await user.click(
+    screen.getByRole('menuitemcheckbox', { name: 'Order number' })
+  )
+  await user.keyboard('{Escape}')
+  expect(
+    screen.queryByRole('columnheader', { name: 'Order number' })
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Details' }))
+  expect(
+    within(
+      await screen.findByRole('dialog', { name: 'Commission details' })
+    ).getByText('ORDER-VIEW')
+  ).toBeVisible()
+  client.clear()
+})
+
+test('withdrawal status labels retain meaning and use shared semantic colors including unknown states', async () => {
+  const states = [
+    ['paid', 'Paid', 'text-success'],
+    ['failed', 'Transfer failed', 'text-destructive'],
+    ['paused', 'Payout paused', 'text-warning'],
+    ['approved', 'Approved · month-end payout', 'text-info'],
+    ['future-state', 'future-state', 'text-muted-foreground'],
+  ]
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        items: states.map(([state], index) => ({
+          id: index + 1,
+          user_id: 42,
+          state,
+          amount_cents: 10000,
+        })),
+        total: states.length,
+      },
+    },
+  } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='withdrawals' />
+    </QueryClientProvider>
+  )
+  const table = await screen.findByRole('table')
+  for (const [, label, color] of states) {
+    const text = await within(table).findByText(label)
+    expect(text.closest('[data-slot=status-badge]')).toHaveClass(color)
+  }
+  client.clear()
 })

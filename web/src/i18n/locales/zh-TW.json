@@ -493,6 +493,7 @@
     "Additional verification required": "需要進一步驗證",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "額外視窗以訂閱開通時間為起點，按滾動週期重置。",
     "Address format": "位址形式",
+    "Adjust filters, then search to refresh the records.": "調整篩選條件後，點擊搜尋重新整理記錄。",
     "Adjust filters, then search to refresh the logs.": "調整篩選條件，然後搜尋以重新整理日誌。",
     "Adjust Quota": "調整額度",
     "Adjust quota for user “{{name}}”": "調整使用者「{{name}}」的額度",

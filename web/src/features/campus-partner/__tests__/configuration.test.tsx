@@ -74,7 +74,7 @@ async function renderConfiguration(enabled = false, openSettings = true) {
   })
   clients.push(client)
   client.setQueryData(['campus', 'config'], config)
-  client.setQueryData(['campus', 'records', true, 'withdrawals', 1, {}], {
+  client.setQueryData(['campus', 'records', true, 'withdrawals', 1, {}, 10], {
     items: [],
     total: 0,
   })
@@ -541,22 +541,25 @@ test.each([
   async (state, expectedActions) => {
     const { user, client } = await renderConfiguration(false, false)
     await act(async () => {
-      client.setQueryData(['campus', 'records', true, 'withdrawals', 1, {}], {
-        items: [
-          {
-            id: 91,
-            user_id: 1,
-            username: 'partner-test',
-            state,
-            amount_cents: 10000,
-            partner_tier: { level: 2, rate_percent: 35 },
-            partner_tier_name: 'Campus star',
-            performance_cents: 200000,
-            total_commission_cents: 123456,
-          },
-        ],
-        total: 1,
-      })
+      client.setQueryData(
+        ['campus', 'records', true, 'withdrawals', 1, {}, 10],
+        {
+          items: [
+            {
+              id: 91,
+              user_id: 1,
+              username: 'partner-test',
+              state,
+              amount_cents: 10000,
+              partner_tier: { level: 2, rate_percent: 35 },
+              partner_tier_name: 'Campus star',
+              performance_cents: 200000,
+              total_commission_cents: 123456,
+            },
+          ],
+          total: 1,
+        }
+      )
     })
     await user.click(screen.getByRole('tab', { name: 'Withdrawals' }))
     await user.click(await screen.findByRole('button', { name: 'Manage' }))
@@ -593,7 +596,15 @@ test.each([
       expect(
         dialog.getByPlaceholderText('Enter approval reason (optional)')
       ).toBeVisible()
-      await user.click(dialog.getByRole('button', { name: 'Pause' }))
+      const approve = dialog.getByRole('button', { name: 'Approve' })
+      const pause = dialog.getByRole('button', { name: 'Pause' })
+      expect(approve).toHaveAttribute('aria-pressed', 'true')
+      expect(pause).toHaveAttribute('aria-pressed', 'false')
+      approve.focus()
+      await user.keyboard('{ArrowRight} ')
+      expect(pause).toHaveFocus()
+      expect(pause).toHaveAttribute('aria-pressed', 'true')
+      expect(approve).toHaveAttribute('aria-pressed', 'false')
       expect(
         dialog.getByPlaceholderText('Enter pause reason (optional)')
       ).toBeVisible()

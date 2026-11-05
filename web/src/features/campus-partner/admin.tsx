@@ -26,7 +26,6 @@ import { Dialog } from '@/components/dialog'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardHeader,
@@ -35,6 +34,7 @@ import {
   CardContent,
 } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SettingsSwitchField } from '@/features/system-settings/components/settings-form-layout'
 import {
   DetailRow,
@@ -324,29 +324,43 @@ function CampusWithdrawalReview(props: {
   return (
     <div className='space-y-5'>
       <WithdrawalSummary row={props.row} admin />
-      <div className='flex flex-wrap gap-2'>
-        {[
-          ['approve', 'Approve'],
-          ['pause', 'Pause'],
-          ['resume', 'Resume review'],
-          ['reject', 'Reject'],
-          ['unknown', 'Result unknown'],
-          ['failed', 'Confirmed transfer failure'],
-          ['defer', 'Defer batch'],
-          ['paid', 'Record completed transfer'],
-        ]
-          .filter(([key]) => availableActions.includes(key))
-          .map(([key, label]) => (
-            <Button
-              key={key}
-              size='sm'
-              variant={action === key ? 'default' : 'outline'}
-              onClick={() => setAction(key)}
-            >
-              {t(label)}
-            </Button>
-          ))}
-      </div>
+      {availableActions.length > 0 && (
+        <ToggleGroup
+          aria-label={t('Actions')}
+          variant='outline'
+          size='sm'
+          spacing={2}
+          value={[action]}
+          disabled={save.isPending}
+          className='max-w-full flex-wrap'
+          onValueChange={(values) => {
+            if (values[0] && availableActions.includes(values[0])) {
+              setAction(values[0])
+            }
+          }}
+        >
+          {[
+            ['approve', 'Approve'],
+            ['pause', 'Pause'],
+            ['resume', 'Resume review'],
+            ['reject', 'Reject'],
+            ['unknown', 'Result unknown'],
+            ['failed', 'Confirmed transfer failure'],
+            ['defer', 'Defer batch'],
+            ['paid', 'Record completed transfer'],
+          ]
+            .filter(([key]) => availableActions.includes(key))
+            .map(([key, label]) => (
+              <ToggleGroupItem
+                key={key}
+                value={key}
+                className='aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground'
+              >
+                {t(label)}
+              </ToggleGroupItem>
+            ))}
+        </ToggleGroup>
+      )}
       {availableActions.includes(action) && (
         <CampusFields
           key={action}

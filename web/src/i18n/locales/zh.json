@@ -493,6 +493,7 @@
     "Additional verification required": "需要进一步验证",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "附加窗口以订阅开通时间为起点，按滚动周期重置。",
     "Address format": "地址形式",
+    "Adjust filters, then search to refresh the records.": "调整筛选条件后，点击搜索刷新记录。",
     "Adjust filters, then search to refresh the logs.": "调整筛选条件，然后搜索以刷新日志。",
     "Adjust Quota": "调整额度",
     "Adjust quota for user “{{name}}”": "调整用户「{{name}}」的额度",

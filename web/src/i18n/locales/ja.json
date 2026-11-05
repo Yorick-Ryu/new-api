@@ -493,6 +493,7 @@
     "Additional verification required": "追加の確認が必要です",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "追加ウィンドウはサブスクリプション開始時刻を基準とするローリング期間でリセットされます。",
     "Address format": "アドレスの形式",
+    "Adjust filters, then search to refresh the records.": "フィルターを調整して検索すると、記録が更新されます。",
     "Adjust filters, then search to refresh the logs.": "フィルターを調整してから検索し、ログを更新します。",
     "Adjust Quota": "クォータを調整",
     "Adjust quota for user “{{name}}”": "ユーザー「{{name}}」のクォータを調整",

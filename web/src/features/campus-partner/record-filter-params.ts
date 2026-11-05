@@ -2,9 +2,13 @@ import type { RecordFilters } from './record-filters'
 
 export function recordFilterParams(
   page: number,
-  filters: RecordFilters
+  filters: RecordFilters,
+  pageSize = 10
 ): URLSearchParams {
-  const params = new URLSearchParams({ page: String(page), size: '10' })
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(pageSize),
+  })
   if (filters.start) {
     params.set(
       'start_timestamp',

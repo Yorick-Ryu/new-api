@@ -95,7 +95,7 @@ function renderPage(
   for (const kind of ['invitations', 'payments', 'withdrawals']) {
     const items = records[kind] || []
     for (const admin of [false, true]) {
-      client.setQueryData(['campus', 'records', admin, kind, 1, {}], {
+      client.setQueryData(['campus', 'records', admin, kind, 1, {}, 10], {
         items,
         total: items.length,
       })

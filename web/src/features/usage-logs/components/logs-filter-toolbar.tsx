@@ -56,6 +56,8 @@ interface LogsFilterToolbarProps<TData> {
   hasAdvancedActiveFilters?: boolean
   advancedFilterCount?: number
   searchLoading?: boolean
+  searchDisabled?: boolean
+  mobileFilterDescription?: string
   onReset: () => void
   onSearch: () => void
   className?: string
@@ -177,7 +179,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               <Button
                 type='button'
                 onClick={props.onSearch}
-                disabled={props.searchLoading}
+                disabled={props.searchLoading || props.searchDisabled}
                 aria-busy={props.searchLoading}
               >
                 {props.searchLoading && <Loader2 className='animate-spin' />}
@@ -208,7 +210,8 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
             <DrawerHeader className='border-border/70 border-b px-4 py-3 text-left'>
               <DrawerTitle>{t('Filter')}</DrawerTitle>
               <DrawerDescription>
-                {t('Adjust filters, then search to refresh the logs.')}
+                {props.mobileFilterDescription ??
+                  t('Adjust filters, then search to refresh the logs.')}
               </DrawerDescription>
             </DrawerHeader>
             <div className='flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3'>
@@ -231,7 +234,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               <Button
                 type='button'
                 onClick={handleMobileSearch}
-                disabled={props.searchLoading}
+                disabled={props.searchLoading || props.searchDisabled}
               >
                 {props.searchLoading && <Loader2 className='animate-spin' />}
                 {t('Search')}
@@ -293,7 +296,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
           <Button
             type='button'
             onClick={props.onSearch}
-            disabled={props.searchLoading}
+            disabled={props.searchLoading || props.searchDisabled}
           >
             {props.searchLoading && <Loader2 className='animate-spin' />}
             {t('Search')}

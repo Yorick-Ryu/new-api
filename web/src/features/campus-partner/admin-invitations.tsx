@@ -205,6 +205,10 @@ export function CampusAdminInvitations() {
           )
         }
         searchLoading={query.isFetching}
+        searchDisabled={invalidRange}
+        mobileFilterDescription={t(
+          'Adjust filters, then search to refresh the records.'
+        )}
         onSearch={search}
         onReset={() => {
           setDraft({})

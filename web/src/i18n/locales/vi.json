@@ -493,6 +493,7 @@
     "Additional verification required": "Cần xác minh bổ sung",
     "Additional windows reset on rolling periods anchored to the subscription start time.": "Các cửa sổ bổ sung được đặt lại theo chu kỳ luân phiên tính từ thời điểm bắt đầu gói đăng ký.",
     "Address format": "Định dạng địa chỉ",
+    "Adjust filters, then search to refresh the records.": "Điều chỉnh bộ lọc, sau đó tìm kiếm để làm mới các bản ghi.",
     "Adjust filters, then search to refresh the logs.": "Điều chỉnh bộ lọc, sau đó tìm kiếm để làm mới nhật ký.",
     "Adjust Quota": "Điều chỉnh hạn mức",
     "Adjust quota for user “{{name}}”": "Điều chỉnh hạn mức cho người dùng “{{name}}”",

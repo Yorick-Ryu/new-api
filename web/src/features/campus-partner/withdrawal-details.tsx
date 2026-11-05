@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
 import {
   DetailRow,
@@ -31,8 +32,8 @@ import {
   campusDetailAmountTypography,
   campusDetailDialogProps,
   campusTierNameKeys,
-  campusWithdrawalStateLabels,
 } from './constants'
+import { CampusWithdrawalStatus } from './record-status'
 import type { CampusRecord } from './records'
 
 export function WithdrawalDetails(props: {
@@ -89,9 +90,7 @@ export function WithdrawalSummary(props: {
         />
         <DetailRow
           label={t('Status')}
-          value={t(
-            campusWithdrawalStateLabels[row.state || ''] || row.state || '—'
-          )}
+          value={<CampusWithdrawalStatus state={row.state} />}
         />
         <DetailRow
           label={t('Expected payout')}
@@ -131,7 +130,21 @@ export function WithdrawalSummary(props: {
       <DetailSection label={t('Account')}>
         <DetailRow
           label={t('Alipay account')}
-          value={row.account || '—'}
+          value={
+            <span className='inline-flex w-full min-w-0 items-start gap-1'>
+              <span className='min-w-0 flex-1 break-all'>
+                {row.account || '—'}
+              </span>
+              {row.account && (
+                <CopyButton
+                  value={row.account}
+                  aria-label={`${t('Copy')} ${t('Alipay account')}`}
+                  className='size-6'
+                  iconClassName='size-3.5'
+                />
+              )}
+            </span>
+          }
           mono
         />
         <DetailRow label={t('Real name')} value={row.real_name || '—'} />
@@ -154,7 +167,23 @@ export function WithdrawalSummary(props: {
             />
           )}
           {row.receipt && (
-            <DetailRow label={t('Transfer receipt')} value={row.receipt} mono />
+            <DetailRow
+              label={t('Transfer receipt')}
+              value={
+                <span className='inline-flex w-full min-w-0 items-start gap-1'>
+                  <span className='min-w-0 flex-1 break-all'>
+                    {row.receipt}
+                  </span>
+                  <CopyButton
+                    value={row.receipt}
+                    aria-label={`${t('Copy')} ${t('Transfer receipt')}`}
+                    className='size-6'
+                    iconClassName='size-3.5'
+                  />
+                </span>
+              }
+              mono
+            />
           )}
           {props.admin && !!row.actor_id && (
             <DetailRow

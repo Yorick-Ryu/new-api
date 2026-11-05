@@ -18,11 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import { CommissionDetails } from '../commission-records'
 import type { CampusRecord } from '../records'
 import { WithdrawalDetails, WithdrawalSummary } from '../withdrawal-details'
+
+afterEach(() => vi.restoreAllMocks())
 
 test('commission details align long order identifiers beside compact labels and group amounts and calculations', () => {
   const order = 'ORDER-'.repeat(50)
@@ -54,7 +56,7 @@ test('commission details align long order identifiers beside compact labels and 
     'grid-cols-[5.25rem_minmax(0,1fr)]',
     'sm:grid-cols-[7rem_minmax(0,1fr)]'
   )
-  expect(within(dialog).getByText(order)).toHaveClass('break-all', 'font-mono')
+  expect(within(dialog).getByText(order)).toHaveClass('break-all')
   expect(
     within(dialog).getByText('Actual payment (CNY)').parentElement
       ?.parentElement
@@ -93,10 +95,7 @@ test('withdrawal details group the recipient account and wrap long names and rec
     'text-xs',
     'break-all'
   )
-  expect(within(dialog).getByText(receipt)).toHaveClass(
-    'font-mono',
-    'break-all'
-  )
+  expect(within(dialog).getByText(receipt)).toHaveClass('break-all')
   expect(within(dialog).getByText('Paid')).toBeVisible()
   expect(within(dialog).getByText('Actual transfer time')).toBeVisible()
   await userEvent
@@ -142,3 +141,47 @@ test.each(['', '{invalid', '[]'])(
     expect(screen.queryByText('Refund Details')).not.toBeInTheDocument()
   }
 )
+
+test('commission details copy the complete returned order identifier and omit copy when missing', async () => {
+  const user = userEvent.setup()
+  const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+  const order = 'MASKED***-'.repeat(40)
+  const { rerender } = render(
+    <CommissionDetails
+      row={{ id: 1, user_id: 42, trade_no: order }}
+      onClose={vi.fn()}
+    />
+  )
+  await user.click(screen.getByRole('button', { name: 'Copy Order number' }))
+  expect(write).toHaveBeenCalledWith(order)
+  expect(await screen.findByRole('button', { name: 'Copied' })).toBeVisible()
+  rerender(<CommissionDetails row={{ id: 2, user_id: 42 }} onClose={vi.fn()} />)
+  expect(
+    screen.queryByRole('button', { name: 'Copy Order number' })
+  ).not.toBeInTheDocument()
+})
+
+test('withdrawal details copy exactly the returned account and receipt without triggering an operation', async () => {
+  const user = userEvent.setup()
+  const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+  const onClose = vi.fn()
+  render(
+    <WithdrawalDetails
+      row={{
+        id: 1,
+        user_id: 42,
+        account: 'c***@example.test',
+        receipt: 'RECEIPT-LONG-'.repeat(30),
+      }}
+      onClose={onClose}
+    />
+  )
+  await user.click(screen.getByRole('button', { name: 'Copy Alipay account' }))
+  expect(write).toHaveBeenLastCalledWith('c***@example.test')
+  await user.click(
+    screen.getByRole('button', { name: 'Copy Transfer receipt' })
+  )
+  expect(write).toHaveBeenLastCalledWith('RECEIPT-LONG-'.repeat(30))
+  expect(onClose).not.toHaveBeenCalled()
+  expect(screen.getByRole('dialog')).toBeVisible()
+})

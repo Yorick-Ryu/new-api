@@ -186,7 +186,11 @@ it('keeps all quick actions visible without opening a menu', async () => {
   }
 })
 
-function LoadingFixture(props: { loading: boolean; onSearch: () => void }) {
+function LoadingFixture(props: {
+  loading: boolean
+  onSearch: () => void
+  disabled?: boolean
+}) {
   const table = useReactTable({
     data: [],
     columns: [],
@@ -202,6 +206,7 @@ function LoadingFixture(props: { loading: boolean; onSearch: () => void }) {
       onReset={() => {}}
       onSearch={props.onSearch}
       searchLoading={props.loading}
+      searchDisabled={props.disabled}
     />
   )
 }
@@ -345,3 +350,41 @@ it('shows the seconds of the selected range on the trigger', () => {
     })
   ).toBeVisible()
 })
+
+it.each([false, true])(
+  'invalid filters disable Search on desktop and in the mobile drawer when mobile=%s',
+  async (mobile) => {
+    const original = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...original(query),
+      matches: mobile && query === '(max-width: 640px)',
+    }))
+    const user = userEvent.setup()
+    const onSearch = vi.fn()
+    const view = render(
+      <LoadingFixture loading={false} disabled onSearch={onSearch} />
+    )
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
+    if (mobile) {
+      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      const drawer = await screen.findByRole('dialog', { name: 'Filter' })
+      expect(
+        within(drawer).getByRole('button', { name: 'Search' })
+      ).toBeDisabled()
+      await user.click(within(drawer).getByRole('button', { name: 'Search' }))
+      expect(onSearch).not.toHaveBeenCalled()
+      view.rerender(
+        <LoadingFixture loading={false} disabled={false} onSearch={onSearch} />
+      )
+      await user.click(within(drawer).getByRole('button', { name: 'Search' }))
+    } else {
+      await user.click(screen.getByRole('button', { name: 'Search' }))
+      expect(onSearch).not.toHaveBeenCalled()
+      view.rerender(
+        <LoadingFixture loading={false} disabled={false} onSearch={onSearch} />
+      )
+      await user.click(screen.getByRole('button', { name: 'Search' }))
+    }
+    expect(onSearch).toHaveBeenCalledOnce()
+  }
+)
