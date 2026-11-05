@@ -47,7 +47,7 @@ export function recordColumns(
           {
             id: 'friend',
             accessorFn: (row) => row.masked_name,
-            header: t('Friend'),
+            header: t('Invitee'),
             cell: ({ row: { original: row } }) => (
               <CampusFriend
                 userId={row.user_id}

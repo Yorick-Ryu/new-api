@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { TruncatedCell } from '@/components/data-table'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { getUserAvatarStyle } from '@/lib/avatar'
+import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 
 export function CampusFriend(props: {
   userId: number
@@ -26,14 +27,22 @@ export function CampusFriend(props: {
 }) {
   const name = props.name || '***'
   return (
-    <div className='flex items-center gap-3'>
-      <Avatar aria-hidden='true'>
-        <AvatarFallback style={getUserAvatarStyle(String(props.userId))}>
-          {[...name][0]}
+    <div className='flex min-w-0 items-center gap-1.5'>
+      <Avatar
+        aria-hidden='true'
+        className='ring-border/60 size-6 shrink-0 ring-1'
+      >
+        <AvatarFallback
+          className='text-[11px] font-semibold'
+          style={getUserAvatarStyle(name)}
+        >
+          {getUserAvatarFallback(name)}
         </AvatarFallback>
       </Avatar>
       <div className='min-w-0'>
-        <p className='font-medium'>{name}</p>
+        <TruncatedCell className='text-muted-foreground max-w-40 text-sm'>
+          {name}
+        </TruncatedCell>
         {props.admin && (
           <p className='text-muted-foreground text-xs'>#{props.userId}</p>
         )}

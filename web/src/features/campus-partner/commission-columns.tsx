@@ -46,7 +46,7 @@ export function commissionColumns(
     {
       id: 'friend',
       accessorFn: (row) => row.masked_name || row.username || row.display_name,
-      header: t(admin ? 'Invitee' : 'Friend'),
+      header: t('Invitee'),
       cell: ({ row: { original: row } }) =>
         admin ? (
           <InvitationAccount

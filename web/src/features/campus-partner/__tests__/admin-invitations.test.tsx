@@ -92,7 +92,7 @@ test('administrator searches both identities across all pages and resets the res
     .mockResolvedValue(response([]))
   const user = renderHistory()
   const row = await screen.findByRole('row', { name: /buyer-lin/ })
-  for (const value of ['partner-alice', '邀请人甲', '#101', '林同学', '#201']) {
+  for (const value of ['partner-alice', 'buyer-lin']) {
     expect(within(row).getByText(value)).toBeVisible()
   }
   expect(
@@ -229,4 +229,64 @@ test('mobile administrators can search an inviter from the shared filter drawer'
       Reflect.deleteProperty(HTMLElement.prototype, 'setPointerCapture')
     }
   }
+})
+
+test('administrator opens the existing user information dialog from either invitation account and closes it before opening another', async () => {
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/user/201') {
+      return {
+        data: {
+          success: true,
+          data: {
+            id: 201,
+            username: 'buyer-lin',
+            display_name: '林同学',
+            quota: 10000,
+            used_quota: 100,
+            request_count: 3,
+            group: 'default',
+          },
+        },
+      } as AxiosResponse
+    }
+    if (url === '/api/user/101') {
+      return {
+        data: {
+          success: true,
+          data: {
+            id: 101,
+            username: 'partner-alice',
+            display_name: '邀请人甲',
+            quota: 20000,
+            used_quota: 200,
+            request_count: 5,
+            group: 'default',
+          },
+        },
+      } as AxiosResponse
+    }
+    return response([invitation])
+  })
+  const user = renderHistory()
+  const buyer = await screen.findByRole('button', {
+    name: 'User Information: buyer-lin',
+  })
+  buyer.focus()
+  await user.keyboard('{Enter}')
+  const info = await screen.findByRole('dialog', { name: 'User Information' })
+  expect(await within(info).findByText('林同学')).toBeVisible()
+  expect(get).toHaveBeenCalledWith('/api/user/201')
+  await user.click(within(info).getByRole('button', { name: 'Close' }))
+  expect(
+    screen.queryByRole('dialog', { name: 'User Information' })
+  ).not.toBeInTheDocument()
+  await user.click(
+    screen.getByRole('button', { name: 'User Information: partner-alice' })
+  )
+  const inviter = await screen.findByRole('dialog', {
+    name: 'User Information',
+  })
+  expect(await within(inviter).findByText('邀请人甲')).toBeVisible()
+  expect(within(inviter).queryByText('林同学')).not.toBeInTheDocument()
+  expect(get).toHaveBeenCalledWith('/api/user/101')
 })

@@ -277,7 +277,7 @@ test('commission history shows six columns and opens masked order details with t
       .map((cell) => cell.textContent)
   ).toEqual([
     'Time',
-    'Friend',
+    'Invitee',
     'Order number',
     'Top-up type',
     'Commission',

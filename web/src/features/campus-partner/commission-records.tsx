@@ -96,7 +96,7 @@ export function CommissionDetails(props: {
           mono
         />
         <DetailRow
-          label={t(props.admin ? 'Invitee' : 'Friend')}
+          label={t('Invitee')}
           value={
             props.admin
               ? `${row.username || row.display_name || ''} #${row.user_id}`

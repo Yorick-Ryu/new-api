@@ -23,6 +23,7 @@ import {
   within,
   waitFor,
   cleanup,
+  fireEvent,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
@@ -153,7 +154,7 @@ test('invitation history shows masked friends, registration dates and net contri
       .getAllByRole('columnheader')
       .map((header) => header.textContent)
   ).toEqual([
-    'Friend',
+    'Invitee',
     'Registration time',
     'Cumulative top-ups',
     'Commission contributed',
@@ -210,7 +211,11 @@ test.each([false, true])(
     )
     if (admin) {
       expect(within(table).getByText('partner42')).toBeVisible()
-      expect(within(table).getByText('#42')).toBeVisible()
+      expect(
+        within(table).getByRole('button', {
+          name: 'User Information: partner42',
+        })
+      ).toBeVisible()
     } else {
       expect(within(table).queryByText('partner42')).not.toBeInTheDocument()
     }
@@ -671,5 +676,83 @@ test('withdrawal status labels retain meaning and use shared semantic colors inc
     const text = await within(table).findByText(label)
     expect(text.closest('[data-slot=status-badge]')).toHaveClass(color)
   }
+  client.clear()
+})
+
+test('self invitations combine registration time and invitee filters across server pages and reset without showing admin identities', async () => {
+  const get = vi
+    .spyOn(api, 'get')
+    .mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          items: [
+            { user_id: 42, masked_name: '林**', registered_at: 1793509200 },
+          ],
+          total: 21,
+        },
+      },
+    } as AxiosResponse)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={client}>
+      <CampusRecords kind='invitations' />
+    </QueryClientProvider>
+  )
+  expect(await screen.findByText('林**')).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: 'Invitee' })).toBeVisible()
+  expect(
+    screen.queryByRole('combobox', { name: 'Status' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: /User Information:/ })
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Date Range' }))
+  fireEvent.change(screen.getByLabelText('Start Time'), {
+    target: { value: '2026-11-01T00:00:00' },
+  })
+  fireEvent.change(screen.getByLabelText('End Time'), {
+    target: { value: '2026-11-02T23:59:59' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await user.type(screen.getByRole('textbox', { name: 'Invitee' }), '林')
+  await user.keyboard('{Enter}')
+  await waitFor(() =>
+    expect(get.mock.calls.at(-1)?.[0]).toContain('invitee=%E6%9E%97')
+  )
+  const filtered = new URL(get.mock.calls.at(-1)?.[0] ?? '', 'http://localhost')
+    .searchParams
+  expect(filtered.get('start_timestamp')).toBe(
+    String(new Date('2026-11-01T00:00:00').getTime() / 1000)
+  )
+  expect(filtered.get('end_timestamp')).toBe(
+    String(new Date('2026-11-02T23:59:59').getTime() / 1000)
+  )
+  expect(filtered.get('page')).toBe('1')
+  await user.click(screen.getByRole('button', { name: 'Go to next page' }))
+  await waitFor(() =>
+    expect(
+      new URL(
+        get.mock.calls.at(-1)?.[0] ?? '',
+        'http://localhost'
+      ).searchParams.get('page')
+    ).toBe('2')
+  )
+  expect(
+    new URL(
+      get.mock.calls.at(-1)?.[0] ?? '',
+      'http://localhost'
+    ).searchParams.get('invitee')
+  ).toBe('林')
+  await user.click(screen.getByRole('button', { name: 'Reset' }))
+  await waitFor(() =>
+    expect(get).toHaveBeenLastCalledWith(
+      '/api/campus/self/records/invitations?page=1&size=10'
+    )
+  )
+  expect(screen.getByRole('textbox', { name: 'Invitee' })).toHaveValue('')
   client.clear()
 })

@@ -820,6 +820,48 @@ func TestCampusDatabase(t *testing.T) {
 					assert.Zero(t, total)
 				})
 
+				t.Run("self invitation filters use registration time before pagination and keep names masked", func(t *testing.T) {
+					start, end := int64(800), int64(900)
+					for _, test := range []struct {
+						name   string
+						filter CampusRecordFilter
+						ids    []int
+					}{
+						{"registration endpoints are inclusive", CampusRecordFilter{StartTimestamp: &start, EndTimestamp: &end}, []int{201, 202}},
+						{"registration instant narrows the result", CampusRecordFilter{StartTimestamp: &end, EndTimestamp: &end}, []int{202}},
+						{"invitee username is case insensitive", CampusRecordFilter{Invitee: " LIN-PRIVATE "}, []int{201}},
+						{"invitee display name and time combine", CampusRecordFilter{Invitee: "林", StartTimestamp: &start, EndTimestamp: &end}, []int{201}},
+						{"invitee ID matches exactly", CampusRecordFilter{Invitee: "#202"}, []int{202}},
+						{"another partners invitee cannot be retrieved", CampusRecordFilter{Invitee: "#203", Inviter: "102"}, []int{}},
+						{"percent remains literal", CampusRecordFilter{Invitee: "%"}, []int{202}},
+						{"underscore remains literal", CampusRecordFilter{Invitee: "_"}, []int{202}},
+						{"query syntax remains literal", CampusRecordFilter{Invitee: "' OR 1=1 --"}, []int{}},
+						{"deleted identities cannot be searched", CampusRecordFilter{Invitee: "deleted-friend"}, []int{}},
+					} {
+						t.Run(test.name, func(t *testing.T) {
+							result, total, err := CampusList(101, false, "invitations", 1, 10, test.filter)
+							require.NoError(t, err)
+							assert.EqualValues(t, len(test.ids), total)
+							ids := []int{}
+							for _, row := range *result.(*[]CampusInvitation) {
+								ids = append(ids, row.UserID)
+							}
+							assert.Equal(t, test.ids, ids)
+							encoded, err := common.Marshal(result)
+							require.NoError(t, err)
+							assert.NotContains(t, string(encoded), "lin-private")
+							assert.NotContains(t, string(encoded), "林小明")
+						})
+					}
+					result, total, err := CampusList(101, false, "invitations", 2, 1, CampusRecordFilter{StartTimestamp: &start, EndTimestamp: &end})
+					require.NoError(t, err)
+					assert.EqualValues(t, 2, total)
+					require.Len(t, *result.(*[]CampusInvitation), 1)
+					assert.Equal(t, 202, (*result.(*[]CampusInvitation))[0].UserID)
+					_, _, err = CampusList(101, false, "invitations", 1, 10, CampusRecordFilter{StartTimestamp: &end, EndTimestamp: &start})
+					assert.ErrorIs(t, err, ErrCampusState)
+				})
+
 				result, total, err := CampusList(101, false, "invitations", 1, 1, CampusRecordFilter{})
 				require.NoError(t, err)
 				assert.EqualValues(t, 3, total)

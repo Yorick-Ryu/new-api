@@ -45,8 +45,29 @@ type CampusInvitation struct {
 	Commission   cp.Money `json:"commission_cents"`
 }
 
-func campusListInvitations(userID int, page, size int) (any, int64, error) {
-	query := DB.Model(&CampusMember{}).Where("campus_members.inviter_id > 0 AND campus_members.inviter_id = ?", userID)
+func campusListInvitations(userID int, page, size int, filter CampusRecordFilter) (any, int64, error) {
+	if filter.StartTimestamp != nil && filter.EndTimestamp != nil && *filter.StartTimestamp > *filter.EndTimestamp {
+		return nil, 0, ErrCampusState
+	}
+	query := DB.Model(&CampusMember{}).
+		Joins("LEFT JOIN users ON users.id = campus_members.user_id AND users.deleted_at IS NULL").
+		Where("campus_members.inviter_id > 0 AND campus_members.inviter_id = ?", userID)
+	if filter.StartTimestamp != nil {
+		query = query.Where("users.created_at >= ?", *filter.StartTimestamp)
+	}
+	if filter.EndTimestamp != nil {
+		query = query.Where("users.created_at <= ?", *filter.EndTimestamp)
+	}
+	if keyword := strings.TrimSpace(filter.Invitee); keyword != "" {
+		pattern := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(keyword)) + "%"
+		condition := "LOWER(users.username) LIKE ? ESCAPE '!' OR LOWER(users.display_name) LIKE ? ESCAPE '!'"
+		args := []any{pattern, pattern}
+		if id, err := strconv.Atoi(strings.TrimPrefix(keyword, "#")); err == nil && id > 0 {
+			condition += " OR (users.id IS NOT NULL AND campus_members.user_id = ?)"
+			args = append(args, id)
+		}
+		query = query.Where("("+condition+")", args...)
+	}
 	totals := campusInvitationTotals().Where("inviter_id = ?", userID)
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
@@ -54,7 +75,6 @@ func campusListInvitations(userID int, page, size int) (any, int64, error) {
 	}
 	rows := []CampusInvitation{}
 	err := query.Select("campus_members.user_id, campus_members.bound_at, COALESCE(NULLIF(users.display_name, ''), users.username, '') AS masked_name, COALESCE(users.created_at, 0) AS registered_at, COALESCE(totals.paid, 0) AS paid, COALESCE(totals.commission, 0) AS commission").
-		Joins("LEFT JOIN users ON users.id = campus_members.user_id AND users.deleted_at IS NULL").
 		Joins("LEFT JOIN (?) AS totals ON totals.user_id = campus_members.user_id AND totals.inviter_id = campus_members.inviter_id", totals).
 		Order("campus_members.bound_at desc, campus_members.user_id desc").
 		Offset((page - 1) * size).Limit(size).Scan(&rows).Error
@@ -272,7 +292,7 @@ func CampusList(userID int, admin bool, kind string, page, size int, filter Camp
 		if admin {
 			return CampusListAdminInvitations(CampusInvitationFilter{}, page, size)
 		}
-		return campusListInvitations(userID, page, size)
+		return campusListInvitations(userID, page, size, filter)
 	case "payments":
 		query = query.Model(&CampusPayment{}).Where("inviter_id > 0 AND settled_at > 0 AND eligibility = ?", string(cp.Eligible))
 		if !admin {

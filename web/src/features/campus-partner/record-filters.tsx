@@ -52,6 +52,7 @@ export function CampusRecordFilters(props: {
   table: Table<CampusRecord>
   appliedValue: RecordFilters
   payments: boolean
+  invitations?: boolean
   admin?: boolean
   value: RecordFilters
   onChange: (filters: RecordFilters) => void
@@ -73,7 +74,9 @@ export function CampusRecordFilters(props: {
       }))
   const options = [{ value: 'all', label: t('All') }, ...statuses]
   const fields: [keyof RecordFilters, string, string][] = []
-  if (props.admin) {
+  if (props.invitations) {
+    fields.push(['invitee', 'Invitee', 'Invitee: username, display name or ID'])
+  } else if (props.admin) {
     if (props.payments) {
       fields.push(
         ['inviter', 'Inviter', 'Inviter: username, display name or ID'],
@@ -116,31 +119,33 @@ export function CampusRecordFilters(props: {
           />
         </LogsFilterField>
       ))}
-      <LogsFilterField>
-        <Select
-          items={options}
-          value={props.value.status || 'all'}
-          onValueChange={(value) =>
-            props.onChange({ ...props.value, status: value || 'all' })
-          }
-        >
-          <SelectTrigger
-            className='h-8 w-full text-sm'
-            aria-label={t('Status')}
+      {!props.invitations && (
+        <LogsFilterField>
+          <Select
+            items={options}
+            value={props.value.status || 'all'}
+            onValueChange={(value) =>
+              props.onChange({ ...props.value, status: value || 'all' })
+            }
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </LogsFilterField>
+            <SelectTrigger
+              className='h-8 w-full text-sm'
+              aria-label={t('Status')}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </LogsFilterField>
+      )}
     </>
   )
   return (

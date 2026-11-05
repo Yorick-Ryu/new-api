@@ -144,10 +144,13 @@ export function CampusRecords(props: {
   })
   return (
     <div className='min-w-0 space-y-3'>
-      {(commissionView || props.kind === 'withdrawals') && (
+      {(commissionView ||
+        props.kind === 'withdrawals' ||
+        props.kind === 'invitations') && (
         <CampusRecordFilters
           table={table}
           payments={commissionView}
+          invitations={props.kind === 'invitations'}
           admin={props.admin}
           value={draft}
           appliedValue={filters}
