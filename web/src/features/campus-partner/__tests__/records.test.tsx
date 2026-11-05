@@ -680,19 +680,17 @@ test('withdrawal status labels retain meaning and use shared semantic colors inc
 })
 
 test('self invitations combine registration time and invitee filters across server pages and reset without showing admin identities', async () => {
-  const get = vi
-    .spyOn(api, 'get')
-    .mockResolvedValue({
+  const get = vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
       data: {
-        success: true,
-        data: {
-          items: [
-            { user_id: 42, masked_name: '林**', registered_at: 1793509200 },
-          ],
-          total: 21,
-        },
+        items: [
+          { user_id: 42, masked_name: '林**', registered_at: 1793509200 },
+        ],
+        total: 21,
       },
-    } as AxiosResponse)
+    },
+  } as AxiosResponse)
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -756,3 +754,51 @@ test('self invitations combine registration time and invitee filters across serv
   expect(screen.getByRole('textbox', { name: 'Invitee' })).toHaveValue('')
   client.clear()
 })
+
+test.each([
+  { kind: 'payments', admin: false },
+  { kind: 'payments', admin: true },
+  { kind: 'withdrawals', admin: false },
+  { kind: 'withdrawals', admin: true },
+])(
+  'amount and status columns keep a clear gap in headers and rows for $kind admin=$admin',
+  async (scenario) => {
+    vi.spyOn(api, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          items: [
+            scenario.kind === 'payments'
+              ? { id: 1, user_id: 42, commission_cents: 350, frozen_cents: 350 }
+              : { id: 1, user_id: 42, amount_cents: 350, state: 'pending' },
+          ],
+          total: 1,
+        },
+      },
+    } as AxiosResponse)
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <CampusRecords kind={scenario.kind} admin={scenario.admin} />
+      </QueryClientProvider>
+    )
+    const table = await screen.findByRole('table')
+    const amount = await within(table).findByText(/3\.50/)
+    const status = within(table).getByText(
+      scenario.kind === 'payments' ? 'Pending settlement' : 'Awaiting review'
+    )
+    expect(
+      within(table).getByRole('columnheader', {
+        name: scenario.kind === 'payments' ? 'Commission' : 'Amount',
+      })
+    ).toHaveClass('pr-6', 'text-right')
+    expect(
+      within(table).getByRole('columnheader', { name: 'Status' })
+    ).toHaveClass('pl-6')
+    expect(amount.closest('td')).toHaveClass('pr-6', 'text-right')
+    expect(status.closest('td')).toHaveClass('pl-6')
+    client.clear()
+  }
+)

@@ -190,11 +190,20 @@ export function CampusRecords(props: {
           fixedHeight={false}
           compactPagination={isMobile}
           paginationInFooter={false}
-          getColumnClassName={(columnId) =>
-            ['paid', 'commission', 'amount'].includes(columnId)
+          getColumnClassName={(columnId) => {
+            if (
+              (commissionView && columnId === 'commission') ||
+              (props.kind === 'withdrawals' && columnId === 'amount')
+            ) {
+              return 'py-3 pr-6 text-right'
+            }
+            if (columnId === 'status') {
+              return 'py-3 pl-6'
+            }
+            return ['paid', 'commission', 'amount'].includes(columnId)
               ? 'text-right'
               : 'py-3'
-          }
+          }}
         />
       )}
       {props.kind === 'withdrawals' ? (

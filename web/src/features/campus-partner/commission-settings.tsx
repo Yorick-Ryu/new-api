@@ -433,100 +433,124 @@ export function CampusPlanSettings(props: { config: CampaignConfig }) {
             )}
           >
             <fieldset disabled={save.isPending} className='min-w-0 space-y-4'>
-              {rows.fields.length === 0 && (
-                <p className='text-muted-foreground text-sm'>
-                  {t('No subscription plans participate in commission yet.')}
-                </p>
-              )}
-              {rows.fields.map((row, index) => (
-                <div
-                  key={row.id}
-                  className='grid items-start gap-4 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]'
-                >
-                  <FormField
-                    control={form.control}
-                    name={`plans.${index}.plan`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          {t('Subscription plan {{number}}', {
-                            number: index + 1,
-                          })}
-                        </FormLabel>
-                        <Select
-                          items={planOptions}
-                          name={field.name}
-                          value={field.value || null}
-                          onValueChange={field.onChange}
-                          disabled={save.isPending}
-                        >
-                          <FormControl>
-                            <SelectTrigger
-                              ref={field.ref}
-                              onBlur={field.onBlur}
-                              className='w-full'
+              <StaticDataTable
+                data={rows.fields}
+                getRowKey={(row) => row.id}
+                tableProps={{ 'aria-label': t('Subscription commissions') }}
+                tableClassName='min-w-[28rem] table-fixed'
+                emptyContent={t(
+                  'No subscription plans participate in commission yet.'
+                )}
+                columns={[
+                  {
+                    id: 'plan',
+                    header: t('Plan'),
+                    className: 'w-1/2',
+                    cellClassName: 'p-3 align-top',
+                    cell: (_row, index) => (
+                      <FormField
+                        control={form.control}
+                        name={`plans.${index}.plan`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className='sr-only'>
+                              {t('Subscription plan {{number}}', {
+                                number: index + 1,
+                              })}
+                            </FormLabel>
+                            <Select
+                              items={planOptions}
+                              name={field.name}
+                              value={field.value || null}
+                              onValueChange={field.onChange}
+                              disabled={save.isPending}
                             >
-                              <SelectValue
-                                placeholder={t('Select a subscription plan')}
-                              />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent alignItemWithTrigger={false}>
-                            <SelectGroup>
-                              {planOptions.map((plan) => (
-                                <SelectItem
-                                  key={plan.value}
-                                  value={plan.value}
-                                  disabled={values.some(
-                                    (row, rowIndex) =>
-                                      rowIndex !== index &&
-                                      row.plan === plan.value
-                                  )}
+                              <FormControl>
+                                <SelectTrigger
+                                  ref={field.ref}
+                                  onBlur={field.onBlur}
+                                  className='w-full'
                                 >
-                                  {plan.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`plans.${index}.rate`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          {t('Subscription commission {{number}} (%)', {
-                            number: index + 1,
-                          })}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            inputMode='decimal'
-                            className={campusAmountTypography}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    className='sm:mt-6'
-                    type='button'
-                    variant='destructive'
-                    aria-label={t('Remove subscription plan {{number}}', {
-                      number: index + 1,
-                    })}
-                    onClick={() => rows.remove(index)}
-                  >
-                    {t('Delete')}
-                  </Button>
-                </div>
-              ))}
+                                  <SelectValue
+                                    placeholder={t(
+                                      'Select a subscription plan'
+                                    )}
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent alignItemWithTrigger={false}>
+                                <SelectGroup>
+                                  {planOptions.map((plan) => (
+                                    <SelectItem
+                                      key={plan.value}
+                                      value={plan.value}
+                                      disabled={values.some(
+                                        (row, rowIndex) =>
+                                          rowIndex !== index &&
+                                          row.plan === plan.value
+                                      )}
+                                    >
+                                      {plan.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'rate',
+                    header: `${t('Subscription commission rates')} (%)`,
+                    className: 'whitespace-normal',
+                    cellClassName: 'p-3 align-top',
+                    cell: (_row, index) => (
+                      <FormField
+                        control={form.control}
+                        name={`plans.${index}.rate`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className='sr-only'>
+                              {t('Subscription commission {{number}} (%)', {
+                                number: index + 1,
+                              })}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                inputMode='decimal'
+                                className={campusAmountTypography}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'actions',
+                    header: t('Actions'),
+                    className: 'w-20 text-right',
+                    cellClassName: 'p-3 text-right align-top',
+                    cell: (_row, index) => (
+                      <Button
+                        type='button'
+                        variant='destructive'
+                        aria-label={t('Remove subscription plan {{number}}', {
+                          number: index + 1,
+                        })}
+                        onClick={() => rows.remove(index)}
+                      >
+                        {t('Delete')}
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
               <div className='flex flex-wrap gap-2'>
                 <Button
                   type='button'

@@ -387,6 +387,28 @@ test('subscription rules use a plan dropdown and save independent percentages wi
   await user.click(
     screen.getByRole('button', { name: 'Add subscription plan' })
   )
+  const plansTable = screen.getByRole('table', {
+    name: 'Subscription commissions',
+  })
+  expect(within(plansTable).getAllByRole('row')).toHaveLength(3)
+  expect(
+    within(plansTable)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent)
+  ).toEqual(['Plan', 'Subscription commission rates (%)', 'Actions'])
+  for (const number of [1, 2]) {
+    expect(
+      within(plansTable).getByText(`Subscription plan ${number}`)
+    ).toHaveClass('sr-only')
+    expect(
+      within(plansTable).getByText(`Subscription commission ${number} (%)`)
+    ).toHaveClass('sr-only')
+    expect(
+      within(plansTable).getByRole('combobox', {
+        name: `Subscription plan ${number}`,
+      })
+    ).toBeVisible()
+  }
   const planSelect = screen.getByRole('combobox', {
     name: 'Subscription plan 2',
   })
