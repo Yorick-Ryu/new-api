@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MoeForge/moego/ojson"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
@@ -18,7 +19,6 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/hot"
-	"github.com/tidwall/gjson"
 )
 
 const (
@@ -328,12 +328,12 @@ func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAf
 		if len(body) == 0 {
 			return ""
 		}
-		res := gjson.GetBytes(body, src.Path)
+		res := ojson.GetBytes(body, src.Path)
 		if !res.Exists() {
 			return ""
 		}
 		switch res.Type {
-		case gjson.String, gjson.Number, gjson.True, gjson.False:
+		case ojson.String, ojson.Number, ojson.True, ojson.False:
 			return strings.TrimSpace(res.String())
 		default:
 			return strings.TrimSpace(res.Raw)

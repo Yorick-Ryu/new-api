@@ -38,7 +38,6 @@
     "Commission details": "Chi tiết hoa hồng",
     "Commission reversed": "Hoa hồng thu hồi",
     "Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.": "Tính theo số tiền thực trả và tỷ lệ lưu khi quyết toán. Cộng các phần rồi làm tròn đến xu.",
-
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3227,7 +3226,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Với kênh tùy chỉnh nâng cao, thiết lập này chỉ áp dụng cho các route /v1/responses không chuyển đổi giao thức.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
@@ -8249,6 +8248,9 @@
     "Zoom": "Zoom",
     "Tier {{level}} name": "Tên cấp bậc {{level}}",
     "Tier names must be at most 80 characters": "Tên cấp bậc không được vượt quá 80 ký tự",
-    "Available: {{quantity}} coupons": "Có {{quantity}} phiếu khả dụng"
+    "Available: {{quantity}} coupons": "Có {{quantity}} phiếu khả dụng",
+    "Switches Gemini and Imagen requests on this Vertex channel from v1 to v1beta1. Some features require v1beta1; check the Vertex AI documentation.": "Chuyển yêu cầu Gemini và Imagen trên kênh Vertex này từ v1 sang v1beta1. Một số tính năng cần v1beta1; hãy xem tài liệu Vertex AI.",
+    "Use Vertex AI v1beta1 endpoint": "Dùng endpoint Vertex AI v1beta1",
+    "Vertex AI API version must be v1 or v1beta1": "Phiên bản API Vertex AI phải là v1 hoặc v1beta1"
   }
 }

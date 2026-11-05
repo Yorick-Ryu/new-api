@@ -38,7 +38,6 @@
     "Commission details": "報酬詳細",
     "Commission reversed": "取消報酬",
     "Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.": "実支払額と精算時の料率で計算し、各区分の合計をセント単位に四捨五入します。",
-
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3227,7 +3226,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高度なカスタムチャネルでは、プロトコル変換を行わない /v1/responses ルートにのみ適用されます。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
@@ -8249,6 +8248,9 @@
     "Zoom": "ズーム",
     "Tier {{level}} name": "ランク {{level}} の名前",
     "Tier names must be at most 80 characters": "ランク名は80文字以内で入力してください",
-    "Available: {{quantity}} coupons": "利用可能：{{quantity}}枚"
+    "Available: {{quantity}} coupons": "利用可能：{{quantity}}枚",
+    "Switches Gemini and Imagen requests on this Vertex channel from v1 to v1beta1. Some features require v1beta1; check the Vertex AI documentation.": "この Vertex チャネルの Gemini と Imagen のリクエストを v1 から v1beta1 に切り替えます。一部の機能には v1beta1 が必要です。詳しくは Vertex AI のドキュメントを確認してください。",
+    "Use Vertex AI v1beta1 endpoint": "Vertex AI v1beta1 エンドポイントを使用",
+    "Vertex AI API version must be v1 or v1beta1": "Vertex AI の API バージョンは v1 または v1beta1 である必要があります"
   }
 }

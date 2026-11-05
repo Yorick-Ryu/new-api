@@ -38,7 +38,6 @@
     "Commission details": "佣金详情",
     "Commission reversed": "退回佣金",
     "Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.": "按实付金额及结算时保存的比例计算，各分段计算结果相加后四舍五入到分。",
-
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3227,7 +3226,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高级自定义渠道仅对 /v1/responses 且不做协议转换的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "对于私有部署，格式为：https://fastgpt.run/api/openapi",
@@ -8249,6 +8248,9 @@
     "Zoom": "缩放",
     "Tier {{level}} name": "档位 {{level}} 名称",
     "Tier names must be at most 80 characters": "档位名称不能超过80个字符",
-    "Available: {{quantity}} coupons": "可用 {{quantity}} 张"
+    "Available: {{quantity}} coupons": "可用 {{quantity}} 张",
+    "Switches Gemini and Imagen requests on this Vertex channel from v1 to v1beta1. Some features require v1beta1; check the Vertex AI documentation.": "将此 Vertex 渠道的 Gemini 和 Imagen 请求从 v1 改为 v1beta1。部分功能需要 v1beta1，请以 Vertex AI 文档为准。",
+    "Use Vertex AI v1beta1 endpoint": "使用 Vertex AI v1beta1 端点",
+    "Vertex AI API version must be v1 or v1beta1": "Vertex AI API 版本只能是 v1 或 v1beta1"
   }
 }

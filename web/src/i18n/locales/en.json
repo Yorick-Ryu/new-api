@@ -38,7 +38,6 @@
     "Commission details": "Commission details",
     "Commission reversed": "Commission reversed",
     "Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.": "Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.",
-
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3227,7 +3226,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For private deployments, format: https://fastgpt.run/api/openapi": "For private deployments, format: https://fastgpt.run/api/openapi",
@@ -8249,6 +8248,9 @@
     "Zoom": "Zoom",
     "Tier {{level}} name": "Tier {{level}} name",
     "Tier names must be at most 80 characters": "Tier names must be at most 80 characters",
-    "Available: {{quantity}} coupons": "Available: {{quantity}} coupons"
+    "Available: {{quantity}} coupons": "Available: {{quantity}} coupons",
+    "Switches Gemini and Imagen requests on this Vertex channel from v1 to v1beta1. Some features require v1beta1; check the Vertex AI documentation.": "Switches Gemini and Imagen requests on this Vertex channel from v1 to v1beta1. Some features require v1beta1; check the Vertex AI documentation.",
+    "Use Vertex AI v1beta1 endpoint": "Use Vertex AI v1beta1 endpoint",
+    "Vertex AI API version must be v1 or v1beta1": "Vertex AI API version must be v1 or v1beta1"
   }
 }
