@@ -620,6 +620,140 @@ func TestCampusDatabase(t *testing.T) {
 			_, _, err = CampusList(1, true, "entries", 1, 10, CampusRecordFilter{})
 			assert.ErrorIs(t, err, ErrCampusState)
 
+			t.Run("account locks permit independent settlements and preserve financial races", func(t *testing.T) {
+				require.NoError(t, CampusConfigureTiers(cp.DefaultTiers(), finalConfig.TierRevision, 1))
+				for _, id := range []int{301, 302, 303, 304, 305, 306} {
+					require.NoError(t, db.Create(&User{Id: id, Username: fmt.Sprintf("lock-%d", id), AffCode: fmt.Sprintf("lock-%d", id), Status: common.UserStatusEnabled}).Error)
+					_, err := CampusJoin(id)
+					require.NoError(t, err)
+				}
+				var first, other CampusMember
+				require.NoError(t, db.First(&first, "user_id = ?", 301).Error)
+				require.NoError(t, db.First(&other, "user_id = ?", 303).Error)
+				require.NoError(t, CampusBind(302, first.Code))
+				require.NoError(t, CampusBind(304, other.Code))
+				for _, order := range []TopUp{
+					{UserId: 302, TradeNo: "lock-first", Money: 1000},
+					{UserId: 304, TradeNo: "lock-other", Money: 1000},
+					{UserId: 305, TradeNo: "lock-binding", Money: 100},
+				} {
+					require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
+				}
+				if dialect != "sqlite" {
+					t.Run("unrelated user completes while first settlement holds its locks", func(t *testing.T) {
+						held := db.Begin()
+						require.NoError(t, held.Error)
+						defer held.Rollback()
+						require.NoError(t, CampusSettleTx(held, "lock-first", 302))
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						// This times out under the previous exclusive campaign lock.
+						require.NoError(t, db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+							return CampusSettleTx(tx, "lock-other", 304)
+						}))
+						require.NoError(t, held.Commit().Error)
+					})
+				} else {
+					require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "lock-first", 302) }))
+					require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return CampusSettleTx(tx, "lock-other", 304) }))
+				}
+				require.NoError(t, db.Model(&CampusPayment{}).Where("trade_no = ?", "lock-first").Update("settled_at", time.Now().Add(-169*time.Hour).Unix()).Error)
+				start := make(chan struct{})
+				results := make(chan error, 2)
+				go func() {
+					<-start
+					_, err := CampusRequestWithdrawal(301, "lock-withdrawal-request", "locks@example.test", "Test", 10000)
+					results <- err
+				}()
+				go func() {
+					<-start
+					_, err := CampusRegisterRefund("lock-first", "lock-refund", "verified refund", 25000, 1, false)
+					results <- err
+				}()
+				close(start)
+				for range 2 {
+					require.NoError(t, <-results)
+				}
+				overview, err := CampusGetOverview(301)
+				require.NoError(t, err)
+				assert.EqualValues(t, 75000, overview.Member.Performance)
+				assert.EqualValues(t, 22500, overview.Net)
+				assert.EqualValues(t, 12500, overview.Available)
+				assert.EqualValues(t, 10000, overview.Processing)
+
+				if dialect != "sqlite" {
+					t.Run("binding and configuration exclude settlement despite an earlier snapshot", func(t *testing.T) {
+						settlement := db.Begin()
+						require.NoError(t, settlement.Error)
+						defer settlement.Rollback()
+						var stale CampusMember
+						require.NoError(t, settlement.First(&stale, "user_id = ?", 305).Error)
+						assert.Zero(t, stale.InviterID)
+						require.NoError(t, CampusBind(305, first.Code))
+						require.NoError(t, CampusConfigure(false, 1))
+						require.NoError(t, CampusSettleTx(settlement, "lock-binding", 305))
+						require.NoError(t, settlement.Commit().Error)
+						var payment CampusPayment
+						require.NoError(t, db.Where("trade_no = ?", "lock-binding").First(&payment).Error)
+						assert.Equal(t, 301, payment.InviterID)
+						assert.Equal(t, string(cp.OutsideActivity), payment.Eligibility)
+						require.NoError(t, CampusConfigure(true, 1))
+					})
+				}
+				t.Run("simultaneous creation returns one member", func(t *testing.T) {
+					start := make(chan struct{})
+					results := make(chan error, 2)
+					for range 2 {
+						go func() {
+							<-start
+							_, err := CampusJoin(307)
+							results <- err
+						}()
+					}
+					close(start)
+					for range 2 {
+						require.NoError(t, <-results)
+					}
+					var count int64
+					require.NoError(t, db.Model(&CampusMember{}).Where("user_id = ?", 307).Count(&count).Error)
+					assert.EqualValues(t, 1, count)
+				})
+				t.Run("one transfer receipt cannot pay two users concurrently", func(t *testing.T) {
+					now := time.Now().In(time.FixedZone("Asia/Shanghai", 28800))
+					paidAt := time.Date(now.Year(), now.Month()-1, 26, 12, 0, 0, 0, now.Location())
+					batch := time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, now.Location()).Format(time.DateOnly)
+					var requests []CampusWithdrawal
+					for _, id := range []int{303, 306} {
+						payment := CampusPayment{TradeNo: fmt.Sprintf("receipt-%d", id), InviterID: id, Commission: 10000, Reserved: 10000}
+						require.NoError(t, db.Create(&payment).Error)
+						w := CampusWithdrawal{UserID: id, RequestID: "receipt-test-request", Amount: 10000, OriginalAmount: 10000, State: "approved", Batch: batch, CreatedAt: paidAt.Add(-time.Hour).Unix()}
+						require.NoError(t, db.Create(&w).Error)
+						require.NoError(t, db.Create(&CampusAllocation{WithdrawalID: w.ID, PaymentID: payment.ID, Amount: 10000}).Error)
+						requests = append(requests, w)
+					}
+					start := make(chan struct{})
+					results := make(chan error, 2)
+					for _, w := range requests {
+						go func() {
+							<-start
+							results <- CampusActWithdrawal(w.ID, 1, "paid", "verified transfer", "same-bank-receipt", paidAt.Unix())
+						}()
+					}
+					close(start)
+					successes := 0
+					for range 2 {
+						if <-results == nil {
+							successes++
+						}
+					}
+					assert.Equal(t, 1, successes)
+					var totals struct{ Reserved, PaidOut int64 }
+					require.NoError(t, db.Model(&CampusPayment{}).Select("SUM(reserved) AS reserved, SUM(paid_out) AS paid_out").Where("trade_no IN ?", []string{"receipt-303", "receipt-306"}).Scan(&totals).Error)
+					assert.EqualValues(t, 10000, totals.Reserved)
+					assert.EqualValues(t, 10000, totals.PaidOut)
+				})
+			})
+
 			t.Run("invitation history masks names and isolates net contributions with pagination", func(t *testing.T) {
 				for _, user := range []User{
 					{Id: 101, Username: "partner-alice", DisplayName: "邀请人甲", CreatedAt: 700},

@@ -23,11 +23,15 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 		return nil, common.NewMessage("Enter a valid Alipay phone number or email address")
 	}
 	var result CampusWithdrawal
-	err := DB.Transaction(func(tx *gorm.DB) error {
-		if _, err := campusLock(tx); err != nil {
+	err := campusTransaction(DB, func(tx *gorm.DB) error {
+		if _, err := campusReadConfig(tx); err != nil {
 			return err
 		}
-		err := lockForUpdate(tx).Where("user_id = ? AND request_id = ?", userID, requestID).First(&result).Error
+		member, err := campusMember(tx, userID)
+		if err != nil {
+			return err
+		}
+		err = lockForUpdate(tx).Where("user_id = ? AND request_id = ?", userID, requestID).First(&result).Error
 		if err == nil {
 			if result.OriginalAmount != amount || result.Account != account || result.RealName != name {
 				return ErrCampusState
@@ -35,10 +39,6 @@ func CampusRequestWithdrawal(userID int, requestID, account, name string, amount
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		member, err := campusMember(tx, userID)
-		if err != nil {
 			return err
 		}
 		now := time.Now()
@@ -117,8 +117,15 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 	if len(reason) > 2000 || len(receipt) > 255 {
 		return ErrCampusState
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
-		if _, err := campusLock(tx); err != nil {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
+		if _, err := campusReadConfig(tx); err != nil {
+			return err
+		}
+		var identity CampusWithdrawal
+		if err := tx.Select("user_id").First(&identity, id).Error; err != nil {
+			return err
+		}
+		if _, err := campusMember(tx, identity.UserID); err != nil {
 			return err
 		}
 		var w CampusWithdrawal
@@ -128,7 +135,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 		now := time.Now()
 		beijing := time.FixedZone("Asia/Shanghai", 28800)
 		if w.State == "paid" {
-			if action == "paid" && receipt == w.Receipt && paidAt == w.PaidAt {
+			if action == "paid" && w.Receipt != nil && receipt == *w.Receipt && paidAt == w.PaidAt {
 				return nil
 			}
 			return ErrCampusState
@@ -212,13 +219,6 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 			if actual.Day() < 26 || actual.Before(windowStart) {
 				return common.NewMessage("Record the actual transfer date from the 26th through month end, no earlier than the scheduled payout month, and receipt")
 			}
-			var count int64
-			if err := tx.Model(&CampusWithdrawal{}).Where("receipt = ? AND state = ?", receipt, "paid").Count(&count).Error; err != nil {
-				return err
-			}
-			if count > 0 {
-				return ErrCampusState
-			}
 			var allocations []CampusAllocation
 			if err := lockForUpdate(tx).Where("withdrawal_id = ? AND amount > 0", w.ID).Find(&allocations).Error; err != nil {
 				return err
@@ -237,7 +237,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 					return err
 				}
 			}
-			w.State, w.Receipt, w.PaidAt = "paid", receipt, paidAt
+			w.State, w.Receipt, w.PaidAt = "paid", &receipt, paidAt
 		default:
 			return ErrCampusState
 		}
@@ -267,34 +267,36 @@ func CampusAdvanceBatches(ctx context.Context) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		if err := DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if _, err := campusLock(tx); err != nil {
+		for _, id := range ids {
+			if err := campusTransaction(DB.WithContext(ctx), func(tx *gorm.DB) error {
+				if _, err := campusReadConfig(tx); err != nil {
+					return err
+				}
+				var rows []CampusWithdrawal
+				if err := lockForUpdate(tx).Where("id = ? AND batch < ? AND state IN ?", id, now.Format(time.DateOnly), []string{"pending", "paused"}).Find(&rows).Error; err != nil {
+					return err
+				}
+				for i := range rows {
+					w := &rows[i]
+					batch, err := time.ParseInLocation(time.DateOnly, w.Batch, zone)
+					if err != nil {
+						return err
+					}
+					next, err := cp.DeferredBatch(batch, now)
+					if err != nil {
+						return err
+					}
+					w.Batch = next.Format(time.DateOnly)
+					w.Reason = "Month-end batch missed; review or transfer was not completed. Follow-up required."
+					w.UpdatedAt = now.Unix()
+					if err := tx.Save(w).Error; err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
 				return err
 			}
-			var rows []CampusWithdrawal
-			if err := lockForUpdate(tx).Where("id IN ? AND batch < ? AND state IN ?", ids, now.Format(time.DateOnly), []string{"pending", "paused"}).Find(&rows).Error; err != nil {
-				return err
-			}
-			for i := range rows {
-				w := &rows[i]
-				batch, err := time.ParseInLocation(time.DateOnly, w.Batch, zone)
-				if err != nil {
-					return err
-				}
-				next, err := cp.DeferredBatch(batch, now)
-				if err != nil {
-					return err
-				}
-				w.Batch = next.Format(time.DateOnly)
-				w.Reason = "Month-end batch missed; review or transfer was not completed. Follow-up required."
-				w.UpdatedAt = now.Unix()
-				if err := tx.Save(w).Error; err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			return err
 		}
 	}
 }

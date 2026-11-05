@@ -19,7 +19,7 @@ func InsertCampusTopUp(order *TopUp, mainSite bool, currency string, coupon bool
 		}
 		return order.Insert()
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		payment := CampusPayment{TradeNo: order.TradeNo, UserID: order.UserId, MainSite: mainSite, Currency: currency, Product: cp.TopUp, Coupon: coupon}
 		paid, err := cp.ParseMoney(strconv.FormatFloat(order.Money, 'f', 2, 64))
 		if err != nil {
@@ -37,7 +37,7 @@ func InsertCampusSubscription(order *SubscriptionOrder, mainSite bool, currency 
 	if !DB.Migrator().HasTable(&CampusCampaign{}) {
 		return order.Insert()
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		payment := CampusPayment{TradeNo: order.TradeNo, UserID: order.UserId, MainSite: mainSite, Currency: currency, PlanID: order.PlanId}
 		paid, err := cp.ParseMoney(strconv.FormatFloat(order.Money, 'f', 2, 64))
 		if err != nil {
@@ -51,7 +51,7 @@ func InsertCampusSubscription(order *SubscriptionOrder, mainSite bool, currency 
 	})
 }
 func campusCheckoutTx(tx *gorm.DB, payment *CampusPayment) error {
-	config, err := campusLock(tx)
+	config, err := campusReadConfig(tx)
 	if err != nil {
 		return err
 	}
@@ -96,9 +96,20 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 	if !tx.Migrator().HasTable(&CampusCampaign{}) {
 		return nil
 	} // Older schemas have no campaign to settle.
-	config, err := campusLock(tx)
+	config, err := campusReadConfig(tx)
 	if err != nil {
 		return err
+	}
+	member, err := campusMember(tx, userID)
+	if err != nil {
+		return err
+	}
+	var inviter *CampusMember
+	if member.InviterID != 0 {
+		inviter, err = campusMember(tx, member.InviterID)
+		if err != nil {
+			return err
+		}
 	}
 	var payment CampusPayment
 	err = lockForUpdate(tx).Where("trade_no = ?", trade).First(&payment).Error
@@ -109,10 +120,6 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		return nil
 	}
 	now := time.Now().Unix()
-	member, err := campusMember(tx, userID)
-	if err != nil {
-		return err
-	}
 	if payment.ID == 0 {
 		// Older orders have no trusted site/currency snapshot and cannot
 		// become campaign sales retroactively after invitation binding.
@@ -172,10 +179,6 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 		}
 		payment.Eligibility = string(eligible)
 		if eligible == cp.Eligible {
-			inviter, err := campusMember(tx, member.InviterID)
-			if err != nil {
-				return err
-			}
 			tiers, err := config.CommissionTiers()
 			if err != nil {
 				return err
@@ -217,14 +220,20 @@ func CampusReleaseCouponTx(tx *gorm.DB, trade string) error {
 	if !tx.Migrator().HasTable(&CampusCampaign{}) {
 		return nil
 	}
-	if _, err := campusLock(tx); err != nil {
+	if _, err := campusReadConfig(tx); err != nil {
 		return err
 	}
 	var payment CampusPayment
-	if err := lockForUpdate(tx).Where("trade_no = ?", trade).First(&payment).Error; err != nil {
+	if err := tx.Where("trade_no = ?", trade).First(&payment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
+		return err
+	}
+	if _, err := campusMember(tx, payment.UserID); err != nil {
+		return err
+	}
+	if err := lockForUpdate(tx).First(&payment, payment.ID).Error; err != nil {
 		return err
 	}
 	if !payment.Coupon || payment.SettledAt != 0 {
@@ -255,7 +264,7 @@ func campusUnlockTx(tx *gorm.DB, member *CampusMember, now int64) error {
 }
 
 func FailCampusCheckout(trade string) error {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		var order TopUp
 		if err := lockForUpdate(tx).Where("trade_no = ?", trade).First(&order).Error; err != nil {
 			return err
@@ -345,7 +354,7 @@ func CampusConfirmClosedOrder(trade string, actor int, evidence string) error {
 	if actor <= 0 || len(evidence) < 5 || len(evidence) > 2000 {
 		return ErrCampusState
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		var order TopUp
 		if err := lockForUpdate(tx).Where("trade_no = ?", trade).First(&order).Error; err != nil {
 			return err

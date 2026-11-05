@@ -2,6 +2,7 @@ package model
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,12 +15,11 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// The singleton serializes invitation graph changes and settlement ordering
-// across processes. UPDATE also obtains a write lock on SQLite. Existing user,
-// order and subscription locks must be acquired before this lock, never after.
-// Campaign row reads also use FOR UPDATE: MySQL REPEATABLE READ may already
-// have a snapshot from fulfillment, so the singleton lock alone is not enough
-// to observe another transaction's just-committed cumulative performance.
+// Configuration changes and invitation binding take the exclusive campaign
+// lock. Rule-dependent activity writes take its shared lock before member locks.
+// Settlement/refund lock the buyer, then their inviter, then accounting rows.
+// Invitations are immutable and acyclic, so that member order cannot cycle.
+// Existing fulfillment locks must precede these locks, never follow them.
 type CampusCampaign struct {
 	ID            int                `json:"id" gorm:"primaryKey"`
 	Enabled       bool               `json:"enabled"`
@@ -107,7 +107,7 @@ type CampusWithdrawal struct {
 	CreatedAt      int64    `json:"created_at"`
 	UpdatedAt      int64    `json:"updated_at"`
 	PaidAt         int64    `json:"paid_at"`
-	Receipt        string   `json:"receipt" gorm:"type:varchar(255)"`
+	Receipt        *string  `json:"receipt,omitempty" gorm:"type:varchar(255);uniqueIndex"`
 	Reason         string   `json:"reason" gorm:"type:text"`
 	ActorID        int      `json:"actor_id"`
 }
@@ -136,12 +136,43 @@ func InitializeCampusPartner(db *gorm.DB) error {
 	}
 	return nil
 }
+
+// Standalone activity writes use READ COMMITTED so indexed range reads do not
+// take MySQL gap locks across unrelated accounts. Member locks protect balances;
+// config locks protect rule/binding changes. Fulfillment keeps its outer
+// transaction and uses current locking reads in CampusSettleTx.
+func campusTransaction(db *gorm.DB, fn func(*gorm.DB) error) error {
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		return db.Transaction(fn)
+	}
+	return db.Transaction(fn, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+}
+
 func campusLock(tx *gorm.DB) (*CampusCampaign, error) {
 	if err := tx.Model(&CampusCampaign{}).Where("id = ?", 1).UpdateColumn("revision", gorm.Expr("revision + 1")).Error; err != nil {
 		return nil, err
 	}
 	var config CampusCampaign
 	if err := lockForUpdate(tx).First(&config, 1).Error; err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// Shared configuration reads are current reads even inside a MySQL transaction
+// whose fulfillment queries have already established a repeatable-read snapshot.
+func campusReadConfig(tx *gorm.DB) (*CampusCampaign, error) {
+	query := tx
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		// SQLite has one writer; acquire it before reading to avoid lock upgrades.
+		if err := tx.Model(&CampusCampaign{}).Where("id = ?", 1).UpdateColumn("revision", gorm.Expr("revision")).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		query = tx.Clauses(clause.Locking{Strength: "SHARE"})
+	}
+	var config CampusCampaign
+	if err := query.First(&config, 1).Error; err != nil {
 		return nil, err
 	}
 	return &config, nil
@@ -162,13 +193,22 @@ func validCampusInvitationCode(code string) bool {
 }
 
 func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		if err := tx.Model(&CampusMember{}).Where("user_id = ?", userID).UpdateColumn("user_id", userID).Error; err != nil {
+			return nil, err
+		}
+	}
 	var member CampusMember
-	err := lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	// Do not lock a missing MySQL key: concurrent inserts would both hold gap
+	// locks. Uniqueness handles simultaneous creation and random code collisions.
+	err := tx.First(&member, "user_id = ?", userID).Error
+	if err == nil {
+		err = lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
 		return &member, err
 	}
-	// Callers hold the campaign lock, so checking before insertion also avoids
-	// aborting a PostgreSQL transaction when a short code is already allocated.
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 	for range 10 {
 		var code [6]byte
 		for i := range code {
@@ -178,15 +218,14 @@ func campusMember(tx *gorm.DB, userID int) (*CampusMember, error) {
 			}
 			code[i] = campusInvitationAlphabet[n.Int64()]
 		}
-		var count int64
-		if err := tx.Model(&CampusMember{}).Where("code = ?", string(code[:])).Count(&count).Error; err != nil {
+		member = CampusMember{UserID: userID, Code: string(code[:])}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&member).Error; err != nil {
 			return nil, err
 		}
-		if count > 0 {
-			continue
+		err := lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return &member, err
 		}
-		member = CampusMember{UserID: userID, Code: string(code[:])}
-		return &member, tx.Create(&member).Error
 	}
 	return nil, ErrCampusState
 }
@@ -247,7 +286,7 @@ func CampusConfigurePlanRates(plans []cp.PlanRate, expectedRevision int64, actor
 	if err := cp.ValidatePlanRates(plans); err != nil {
 		return common.NewMessage("Invalid subscription commission settings")
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		config, err := campusLock(tx)
 		if err != nil {
 			return err
@@ -285,7 +324,7 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 	if err := cp.ValidateTiers(tiers); err != nil {
 		return common.NewMessage("Invalid commission tiers")
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		config, err := campusLock(tx)
 		if err != nil {
 			return err
@@ -306,7 +345,7 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 	})
 }
 func CampusConfigure(enabled bool, actor int) error {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return campusTransaction(DB, func(tx *gorm.DB) error {
 		config, err := campusLock(tx)
 		if err != nil {
 			return err
@@ -320,8 +359,8 @@ func CampusConfigure(enabled bool, actor int) error {
 }
 func CampusJoin(userID int) (*CampusMember, error) {
 	var result *CampusMember
-	err := DB.Transaction(func(tx *gorm.DB) error {
-		config, err := campusLock(tx)
+	err := campusTransaction(DB, func(tx *gorm.DB) error {
+		config, err := campusReadConfig(tx)
 		if err != nil {
 			return err
 		}
@@ -367,7 +406,7 @@ func CampusValidateCode(code string) (string, error) {
 	return string(name[:1]) + "***", nil
 }
 func CampusBind(userID int, code string) error {
-	return DB.Transaction(func(tx *gorm.DB) error { return CampusBindTx(tx, userID, code) })
+	return campusTransaction(DB, func(tx *gorm.DB) error { return CampusBindTx(tx, userID, code) })
 }
 
 // Used inside registration transactions as well as the authenticated late-bind

@@ -1,10 +1,12 @@
 package model
 
 import (
+	"database/sql"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	cp "github.com/QuantumNous/new-api/pkg/campuspartner"
 	"gorm.io/gorm"
 )
@@ -72,11 +74,28 @@ func campusListInvitations(userID int, page, size int) (any, int64, error) {
 
 func CampusGetOverview(userID int) (CampusOverview, error) {
 	var result CampusOverview
-	err := DB.Transaction(func(tx *gorm.DB) error {
-		config, err := campusLock(tx)
+	err := campusTransaction(DB, func(tx *gorm.DB) error {
+		member, err := campusMember(tx, userID)
 		if err != nil {
 			return err
 		}
+		return campusUnlockTx(tx, member, time.Now().Unix())
+	})
+	if err != nil {
+		return result, err
+	}
+	// A separate repeatable-read transaction gives a consistent display snapshot
+	// without holding the member write lock while executing all page queries.
+	options := &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		options = nil
+	}
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var config CampusCampaign
+		if err := tx.First(&config, 1).Error; err != nil {
+			return err
+		}
+		var err error
 		result.Enabled, result.Version = config.Enabled, config.Version
 		result.Tiers, err = config.CommissionTiers()
 		if err != nil {
@@ -90,11 +109,8 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 			return err
 		}
 
-		member, err := campusMember(tx, userID)
-		if err != nil {
-			return err
-		}
-		if err := campusUnlockTx(tx, member, time.Now().Unix()); err != nil {
+		var member CampusMember
+		if err := tx.First(&member, "user_id = ?", userID).Error; err != nil {
 			return err
 		}
 		var recipient CampusWithdrawal
@@ -112,7 +128,7 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 		result.WithdrawalMonthEnd = date(month+1, 0)
 		result.WithdrawalNextMonthEnd = date(month+2, 0)
 
-		result.Member = member
+		result.Member = &member
 		result.CanBind = config.Enabled && member.InviterID == 0
 		var totals struct{ Frozen, Available, Processing, Net cp.Money }
 		if err := tx.Model(&CampusPayment{}).Select("COALESCE(SUM(frozen),0) AS frozen, COALESCE(SUM(available),0) AS available, COALESCE(SUM(reserved),0) AS processing, COALESCE(SUM(commission - reversed),0) AS net").Where("inviter_id = ?", userID).Scan(&totals).Error; err != nil {
@@ -137,13 +153,13 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 		result.ExpectedBatch = batch.Format(time.DateOnly)
 		result.Tier, err = cp.CurrentTier(member.Performance, result.Tiers)
 		return err
-	})
+	}, options)
 	return result, err
 }
 func CampusReminder(userID int) (bool, error) {
 	show := false
-	err := DB.Transaction(func(tx *gorm.DB) error {
-		config, err := campusLock(tx)
+	err := campusTransaction(DB, func(tx *gorm.DB) error {
+		config, err := campusReadConfig(tx)
 		if err != nil {
 			return err
 		}

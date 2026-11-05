@@ -25,12 +25,27 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 	if trade == "" || len(reference) < 1 || len(reference) > 128 || strings.TrimSpace(reason) == "" || len(reason) > 2000 || !amount.Valid() || amount == 0 {
 		return result, ErrCampusState
 	}
-	err := DB.Transaction(func(tx *gorm.DB) error {
-		if _, err := campusLock(tx); err != nil {
+	err := campusTransaction(DB, func(tx *gorm.DB) error {
+		if _, err := campusReadConfig(tx); err != nil {
 			return err
 		}
+		var identity CampusPayment
+		if err := tx.Select("user_id").Where("trade_no = ?", trade).First(&identity).Error; err != nil {
+			return err
+		}
+		buyer, err := campusMember(tx, identity.UserID)
+		if err != nil {
+			return err
+		}
+		var member *CampusMember
+		if buyer.InviterID != 0 {
+			member, err = campusMember(tx, buyer.InviterID)
+			if err != nil {
+				return err
+			}
+		}
 		var old CampusRefund
-		err := lockForUpdate(tx).Where("reference = ?", reference).First(&old).Error
+		err = lockForUpdate(tx).Where("reference = ?", reference).First(&old).Error
 		if err == nil {
 			if old.TradeNo != trade || old.Amount != amount {
 				return ErrCampusState
@@ -60,9 +75,8 @@ func CampusRegisterRefund(trade, reference, reason string, amount cp.Money, acto
 		p.Refunded += amount
 		p.Reversed = refund.CumulativeReversal
 		if p.Eligibility == string(cp.Eligible) {
-			member, err := campusMember(tx, p.InviterID)
-			if err != nil {
-				return err
+			if member == nil || member.UserID != p.InviterID {
+				return ErrCampusState
 			}
 			if err := campusUnlockTx(tx, member, time.Now().Unix()); err != nil {
 				return err
