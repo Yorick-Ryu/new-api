@@ -526,7 +526,7 @@ test('eligible users can add their missing invitation above both cards', async (
     name: 'Add invitation code',
   })
   expect(
-    within(dialog).getByLabelText('Campus invitation code (optional)')
+    within(dialog).getByLabelText('Campus invitation code', { exact: true })
   ).toBeVisible()
   expect(
     within(dialog).getByRole('button', { name: 'Bind invitation' })

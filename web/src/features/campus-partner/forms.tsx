@@ -158,13 +158,11 @@ export function InvitationField(props: { registration?: boolean }) {
     }
   }
   return (
-    <div
-      className={
-        props.registration ? 'space-y-2' : 'space-y-3 rounded-xl border p-4'
-      }
-    >
+    <div className={props.registration ? 'space-y-2' : 'space-y-3'}>
       <Label htmlFor='campus-invitation'>
-        {t('Campus invitation code (optional)')}
+        {props.registration
+          ? t('Campus invitation code (optional)')
+          : t('Campus invitation code')}
       </Label>
       <Input
         id='campus-invitation'

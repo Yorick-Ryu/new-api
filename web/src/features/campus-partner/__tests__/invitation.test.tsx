@@ -52,6 +52,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+test('late binding labels the code without optional wording and has no inner bordered container', () => {
+  renderInvitation()
+  const code = screen.getByRole('textbox', {
+    name: 'Campus invitation code',
+  })
+  expect(code).toBeVisible()
+  expect(code.parentElement).toHaveClass('space-y-3')
+  expect(code.parentElement).not.toHaveClass('border')
+  expect(code.parentElement).not.toHaveClass('rounded-xl')
+  expect(code.parentElement).not.toHaveClass('p-4')
+})
+
 test('changing a valid invitation never shows the previous inviter or enables binding while verification is pending', async () => {
   const first = 'ABC012'
   const next = 'Z9Y8X7'
@@ -69,7 +81,7 @@ test('changing a valid invitation never shows the previous inviter or enables bi
   const user = userEvent.setup()
   renderInvitation()
   const code = screen.getByRole('textbox', {
-    name: 'Campus invitation code (optional)',
+    name: 'Campus invitation code',
   })
   expect(code).toHaveAttribute('maxlength', '6')
   await user.type(code, first.toLowerCase())
@@ -155,7 +167,9 @@ test('the registration invitation renders Chinese from the actual locale resourc
   expect(
     screen.getByRole('textbox', { name: '校园合伙人邀请码（选填）' })
   ).toBeVisible()
-  expect(screen.getByText('绑定邀请后，可获得一张 95 折充值优惠券')).toBeVisible()
+  expect(
+    screen.getByText('绑定邀请后，可获得一张 95 折充值优惠券')
+  ).toBeVisible()
   expect(screen.getByPlaceholderText('请输入邀请码')).toHaveValue('')
   await act(async () => {
     await instance.changeLanguage('zhTW')
@@ -182,6 +196,7 @@ test.each(Object.entries({ zhCN, zhTW, fr, ru, ja, vi: viLocale }))(
       resources: { [language]: resource },
     })
     for (const key of [
+      'Campus invitation code',
       'Campus invitation code (optional)',
       'Bind an invitation to receive a 5% off top-up coupon.',
       'Checking invitation...',
