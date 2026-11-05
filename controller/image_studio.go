@@ -149,6 +149,22 @@ func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 		}
 		result = append(result, capability)
 	}
+	order := model.GetModelDisplayOrder()
+	ranks := make(map[string]int, len(order))
+	for i, name := range order {
+		ranks[name] = i
+	}
+	slices.SortStableFunc(result, func(a, b imageStudioCapability) int {
+		left, ok := ranks[a.Model]
+		if !ok {
+			left = len(order)
+		}
+		right, ok := ranks[b.Model]
+		if !ok {
+			right = len(order)
+		}
+		return left - right
+	})
 	return result, nil
 }
 

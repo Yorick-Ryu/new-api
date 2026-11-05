@@ -1265,6 +1265,61 @@ func TestImageStudioGeminiDatabaseMatrix(t *testing.T) {
 	}
 }
 
+func TestImageStudioOptionsFollowDisplayOrderAndTokenPermissions(t *testing.T) {
+	db := modelManagementDB(t, "sqlite", "")
+	require.NoError(t, db.AutoMigrate(&model.ImageStudioToken{}, &model.Token{}))
+	previousAuto := setting.AutoGroups2JsonString()
+	previousGroups := ratio_setting.GroupRatio2JSONString()
+	permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousPermissions := permissions.ReadAll()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups))
+		permissions.Clear()
+		permissions.AddAll(previousPermissions)
+	})
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","antigravity"]`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"antigravity":1}`))
+	permissions.Set("default", map[string]string{"+:auto": "Automatic", "+:antigravity": "Gemini"})
+	owner := model.User{Id: 782, Username: "image-order-owner", Status: common.UserStatusEnabled, Group: "default"}
+	require.NoError(t, db.Create(&owner).Error)
+	order := []string{"gpt-image-2.6", "gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "gpt-image-2.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "gpt-image-2", imageStudioGeminiModel}
+	encoded, err := common.Marshal(append([]string{"private-image"}, order...))
+	require.NoError(t, err)
+	common.OptionMap[model.ModelDisplayOrderOptionKey] = string(encoded)
+	for _, channel := range []model.Channel{
+		{Id: 985, Type: constant.ChannelTypeOpenAI, Name: "GPT image order fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-2,gpt-image-2.5-sunburst,gpt-image-2.6-flare,gpt-image-2.5,gpt-image-2.6-sunburst,gpt-image-2.5-flare,gpt-image-2.6,text-only", Group: "default"},
+		{Id: 986, Type: constant.ChannelTypeOpenAI, Name: "Nano fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: imageStudioGeminiModel, Group: "antigravity"},
+	} {
+		require.NoError(t, db.Create(&channel).Error)
+		require.NoError(t, channel.AddAbilities(db))
+	}
+	model.InvalidatePricingCache()
+	caps, err := imageStudioCapabilities(owner.Id)
+	require.NoError(t, err)
+	names := make([]string, len(caps))
+	for i, capability := range caps {
+		names[i] = capability.Model
+	}
+	assert.Equal(t, order, names, "the dropdown must use the saved series order rather than database row order")
+	require.Len(t, caps, len(order))
+	assert.Equal(t, "antigravity", caps[len(caps)-1].Group, "display order must preserve routing")
+
+	token := model.Token{UserId: owner.Id, Name: "Image Studio", Key: strings.Repeat("o", 48), Status: common.TokenStatusEnabled, Group: "auto", ExpiredTime: -1, UnlimitedQuota: true, ModelLimitsEnabled: true, ModelLimits: "gemini-3.1-flash-image,gpt-image-2,gpt-image-2.5"}
+	require.NoError(t, db.Create(&token).Error)
+	require.NoError(t, db.Create(&model.ImageStudioToken{UserID: owner.Id, TokenID: token.Id}).Error)
+	caps, err = imageStudioCapabilities(owner.Id)
+	require.NoError(t, err)
+	names = names[:0]
+	for _, capability := range caps {
+		names = append(names, capability.Model)
+	}
+	assert.Equal(t, []string{"gpt-image-2.5", "gpt-image-2", imageStudioGeminiModel}, names, "sorting must not bypass existing key restrictions")
+	var unchanged model.Token
+	require.NoError(t, db.First(&unchanged, token.Id).Error)
+	assert.Equal(t, token.ModelLimits, unchanged.ModelLimits, "reading options must never expand key permissions")
+}
+
 func imageStudioAutoTokenUpgradeContract(t *testing.T, db *gorm.DB, owner *model.User) {
 	t.Helper()
 	legacy := model.Token{UserId: owner.Id, Key: strings.Repeat("i", 48), Name: "Image Studio", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, ModelLimitsEnabled: true, ModelLimits: "gpt-image-1", Group: "default"}
