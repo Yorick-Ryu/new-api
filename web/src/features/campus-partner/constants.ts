@@ -45,3 +45,12 @@ export const campusCardTypography = {
   caption: 'text-muted-foreground text-xs font-normal leading-5',
   metric: 'font-mono text-2xl font-bold tracking-tight tabular-nums',
 } as const
+
+export const campusDetailAmountTypography =
+  'font-mono! font-medium tabular-nums'
+
+export const campusDetailDialogProps = {
+  contentClassName: 'min-w-0 overflow-hidden sm:max-w-lg',
+  titleClassName: 'text-base',
+  bodyClassName: 'flex min-w-0 flex-col gap-3 py-1',
+} as const

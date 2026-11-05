@@ -19,13 +19,17 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import {
+  DetailRow,
+  DetailSection,
+} from '@/features/usage-logs/components/dialogs/log-detail-layout'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 import { payoutWindow, beijingDate, cash } from './api'
 import {
-  campusAmountTypography,
+  campusDetailAmountTypography,
+  campusDetailDialogProps,
   campusTierNameKeys,
   campusWithdrawalStateLabels,
 } from './constants'
@@ -40,6 +44,7 @@ export function WithdrawalDetails(props: {
   if (!props.row) return null
   return (
     <Dialog
+      {...campusDetailDialogProps}
       open
       title={t('Withdrawal request')}
       onOpenChange={(open) => {
@@ -59,73 +64,107 @@ export function WithdrawalSummary(props: {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const row = props.row
   if (!row) return null
-  const fields = [
-    [t('Withdrawal number'), `#${row.id}`],
-    [t('Withdrawal time'), beijingDate(row.created_at || 0, locale, true)],
-    [t('Amount'), cash(row.amount_cents || 0, locale)],
-    [
-      t('Status'),
-      t(campusWithdrawalStateLabels[row.state || ''] || row.state || '—'),
-    ],
-    [t('Expected payout'), payoutWindow(row.batch)],
-    [t('Alipay account'), row.account || '—'],
-    [t('Real name'), row.real_name || '—'],
-  ]
-  if (props.admin) {
-    fields.unshift([
-      t('User'),
-      `${row.username || row.display_name || '—'} (#${row.user_id})`,
-    ])
-    if (row.partner_tier) {
-      fields.splice(
-        1,
-        0,
-        [
-          t('Partner level'),
-          `Lv.${row.partner_tier.level} · ${row.partner_tier_name || t(campusTierNameKeys[row.partner_tier.level - 1] || 'Partner level')}`,
-        ],
-        [
-          t('Top-up commission rate'),
-          `${formatNumber(row.partner_tier.rate_percent, locale)}%`,
-        ],
-        [
-          t('Friends cumulative top-ups'),
-          cash(row.performance_cents || 0, locale),
-        ],
-        [t('Total commission'), cash(row.total_commission_cents || 0, locale)]
-      )
-    }
-  }
-  if (row.reason) fields.push([t('Reason'), t(row.reason)])
-  if (row.paid_at) {
-    fields.push([
-      t('Actual transfer time'),
-      beijingDate(row.paid_at, locale, true),
-    ])
-  }
-  if (row.receipt) fields.push([t('Transfer receipt'), row.receipt])
-  if (props.admin && row.actor_id) {
-    fields.push([t('Processed by'), `#${row.actor_id}`])
-  }
   return (
-    <dl className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-      {fields.map(([label, value]) => (
-        <div key={label} className='min-w-0 space-y-1'>
-          <dt className='text-muted-foreground text-sm'>{label}</dt>
-          <dd
-            className={cn(
-              'break-all tabular-nums',
-              [
-                t('Amount'),
-                t('Friends cumulative top-ups'),
-                t('Total commission'),
-              ].includes(label) && campusAmountTypography
-            )}
-          >
-            {value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className='flex min-w-0 flex-col gap-3'>
+      <div className='flex min-w-0 flex-col gap-1'>
+        {props.admin && (
+          <DetailRow
+            label={t('User')}
+            value={`${row.username || row.display_name || '—'} (#${row.user_id})`}
+          />
+        )}
+        <DetailRow label={t('Withdrawal number')} value={`#${row.id}`} mono />
+        <DetailRow
+          label={t('Withdrawal time')}
+          value={beijingDate(row.created_at || 0, locale, true)}
+          mono
+        />
+        <DetailRow
+          label={t('Amount')}
+          value={
+            <span className={campusDetailAmountTypography}>
+              {cash(row.amount_cents || 0, locale)}
+            </span>
+          }
+        />
+        <DetailRow
+          label={t('Status')}
+          value={t(
+            campusWithdrawalStateLabels[row.state || ''] || row.state || '—'
+          )}
+        />
+        <DetailRow
+          label={t('Expected payout')}
+          value={payoutWindow(row.batch)}
+          mono
+        />
+      </div>
+      {props.admin && row.partner_tier && (
+        <DetailSection label={t('Campus Partner')}>
+          <DetailRow
+            label={t('Partner level')}
+            value={`Lv.${row.partner_tier.level} · ${row.partner_tier_name || t(campusTierNameKeys[row.partner_tier.level - 1] || 'Partner level')}`}
+          />
+          <DetailRow
+            label={t('Top-up commission rate')}
+            value={`${formatNumber(row.partner_tier.rate_percent, locale)}%`}
+            mono
+          />
+          <DetailRow
+            label={t('Friends cumulative top-ups')}
+            value={
+              <span className={campusDetailAmountTypography}>
+                {cash(row.performance_cents || 0, locale)}
+              </span>
+            }
+          />
+          <DetailRow
+            label={t('Total commission')}
+            value={
+              <span className={campusDetailAmountTypography}>
+                {cash(row.total_commission_cents || 0, locale)}
+              </span>
+            }
+          />
+        </DetailSection>
+      )}
+      <DetailSection label={t('Account')}>
+        <DetailRow
+          label={t('Alipay account')}
+          value={row.account || '—'}
+          mono
+        />
+        <DetailRow label={t('Real name')} value={row.real_name || '—'} />
+      </DetailSection>
+      {!!(
+        row.reason ||
+        row.paid_at ||
+        row.receipt ||
+        (props.admin && row.actor_id)
+      ) && (
+        <DetailSection label={t('Details')}>
+          {row.reason && (
+            <DetailRow label={t('Reason')} value={t(row.reason)} />
+          )}
+          {!!row.paid_at && (
+            <DetailRow
+              label={t('Actual transfer time')}
+              value={beijingDate(row.paid_at, locale, true)}
+              mono
+            />
+          )}
+          {row.receipt && (
+            <DetailRow label={t('Transfer receipt')} value={row.receipt} mono />
+          )}
+          {props.admin && !!row.actor_id && (
+            <DetailRow
+              label={t('Processed by')}
+              value={`#${row.actor_id}`}
+              mono
+            />
+          )}
+        </DetailSection>
+      )}
+    </div>
   )
 }

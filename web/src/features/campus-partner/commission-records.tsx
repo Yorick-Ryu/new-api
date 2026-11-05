@@ -19,12 +19,18 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import {
+  DetailRow,
+  DetailSection,
+} from '@/features/usage-logs/components/dialogs/log-detail-layout'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 import { beijingDate, cash } from './api'
-import { campusAmountTypography } from './constants'
+import {
+  campusDetailAmountTypography,
+  campusDetailDialogProps,
+} from './constants'
 import type { CampusRecord } from './records'
 
 export function CommissionDetails(props: {
@@ -36,38 +42,6 @@ export function CommissionDetails(props: {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const row = props.row
   if (!row) return null
-  const fields = [
-    [t('Time'), beijingDate(row.settled_at || 0, locale, true)],
-    [
-      t(props.admin ? 'Invitee' : 'Friend'),
-      props.admin
-        ? `${row.username || row.display_name || ''} #${row.user_id}`
-        : row.masked_name || '***',
-    ],
-    [t('Order number'), row.trade_no || '—'],
-    [
-      t('Top-up type'),
-      t(
-        row.product === 'subscription'
-          ? 'Subscription purchase'
-          : 'Balance top-up'
-      ),
-    ],
-    [t('Actual payment (CNY)'), cash(row.paid_cents || 0, locale)],
-    [
-      t('Commission'),
-      cash((row.commission_cents || 0) - (row.reversed_cents || 0), locale),
-    ],
-    [t('Settlement freeze'), cash(row.frozen_cents || 0, locale)],
-  ]
-  if (props.admin) {
-    fields.unshift([
-      t('Inviter'),
-      row.inviter_id
-        ? `${row.inviter_username || row.inviter_display_name || ''} #${row.inviter_id}`
-        : '—',
-    ])
-  }
   let formula = t('Calculation unavailable')
   try {
     const segments: unknown = JSON.parse(row.segments || 'null')
@@ -97,64 +71,106 @@ export function CommissionDetails(props: {
   }
   return (
     <Dialog
+      {...campusDetailDialogProps}
       open
       onOpenChange={(open) => {
         if (!open) props.onClose()
       }}
       title={t('Commission details')}
     >
-      <dl className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-        {fields.map(([label, value]) => (
-          <div key={label} className='min-w-0 space-y-1'>
-            <dt className='text-muted-foreground text-sm'>{label}</dt>
-            <dd
-              className={cn(
-                'break-all tabular-nums',
-                [
-                  t('Actual payment (CNY)'),
-                  t('Commission'),
-                  t('Settlement freeze'),
-                ].includes(label) && campusAmountTypography
-              )}
-            >
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <div className='mt-6 space-y-2 rounded-lg border p-4'>
-        <p className='font-medium'>{t('Commission calculation')}</p>
-        <p className={`break-words ${campusAmountTypography}`}>{formula}</p>
-        <p className='text-muted-foreground text-sm'>
-          {t(
-            'Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.'
+      <div className='flex min-w-0 flex-col gap-1'>
+        {props.admin && (
+          <DetailRow
+            label={t('Inviter')}
+            value={
+              row.inviter_id
+                ? `${row.inviter_username || row.inviter_display_name || ''} #${row.inviter_id}`
+                : '—'
+            }
+          />
+        )}
+        <DetailRow
+          label={t('Time')}
+          value={beijingDate(row.settled_at || 0, locale, true)}
+          mono
+        />
+        <DetailRow
+          label={t(props.admin ? 'Invitee' : 'Friend')}
+          value={
+            props.admin
+              ? `${row.username || row.display_name || ''} #${row.user_id}`
+              : row.masked_name || '***'
+          }
+        />
+        <DetailRow label={t('Order number')} value={row.trade_no || '—'} mono />
+        <DetailRow
+          label={t('Top-up type')}
+          value={t(
+            row.product === 'subscription'
+              ? 'Subscription purchase'
+              : 'Balance top-up'
           )}
-        </p>
-        {(row.refunded_cents || 0) > 0 && (
-          <>
-            <p>
-              {t('Refund amount')}:{' '}
-              <span className={campusAmountTypography}>
-                {cash(row.refunded_cents || 0, locale)}
-              </span>
-            </p>
-            <p>
-              {t('Commission reversed')}:{' '}
-              <span className={campusAmountTypography}>
-                {cash(row.reversed_cents || 0, locale)}
-              </span>
-            </p>
-            <p className={campusAmountTypography}>
-              {cash(row.commission_cents || 0, locale)} −{' '}
-              {cash(row.reversed_cents || 0, locale)} ={' '}
+        />
+      </div>
+      <DetailSection label={t('Commission')}>
+        <DetailRow
+          label={t('Actual payment (CNY)')}
+          value={
+            <span className={campusDetailAmountTypography}>
+              {cash(row.paid_cents || 0, locale)}
+            </span>
+          }
+        />
+        <DetailRow
+          label={t('Commission')}
+          value={
+            <span className={campusDetailAmountTypography}>
               {cash(
                 (row.commission_cents || 0) - (row.reversed_cents || 0),
                 locale
               )}
-            </p>
-          </>
-        )}
-      </div>
+            </span>
+          }
+        />
+      </DetailSection>
+      <DetailSection label={t('Commission calculation')}>
+        <p className='font-mono! text-xs break-all tabular-nums sm:wrap-break-word'>
+          {formula}
+        </p>
+        <p className='text-muted-foreground text-xs leading-relaxed'>
+          {t(
+            'Commission uses the actual payment and the rates saved at settlement. Segment results are added before rounding to cents.'
+          )}
+        </p>
+      </DetailSection>
+      {(row.refunded_cents || 0) > 0 && (
+        <DetailSection label={t('Refund Details')}>
+          <DetailRow
+            label={t('Refund amount')}
+            value={
+              <span className={campusDetailAmountTypography}>
+                {cash(row.refunded_cents || 0, locale)}
+              </span>
+            }
+          />
+          <DetailRow
+            label={t('Commission reversed')}
+            value={
+              <span className={campusDetailAmountTypography}>
+                {cash(row.reversed_cents || 0, locale)}
+              </span>
+            }
+          />
+          <p className='font-mono! text-xs break-all tabular-nums sm:wrap-break-word'>
+            {cash(row.commission_cents || 0, locale)} −{' '}
+            {cash(row.reversed_cents || 0, locale)} ={' '}
+            {cash(
+              (row.commission_cents || 0) - (row.reversed_cents || 0),
+              locale
+            )}
+          </p>
+        </DetailSection>
+      )}
     </Dialog>
   )
 }

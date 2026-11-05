@@ -628,3 +628,46 @@ test.each([
     }
   }
 )
+
+test('refund preview groups compact adjustment rows and cancelling does not record the refund', async () => {
+  const { user } = await renderConfiguration()
+  const post = vi.spyOn(api, 'post').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        refund_cents: 1000,
+        reversal_cents: 350,
+        immediate_cents: 200,
+        debt_cents: 150,
+        performance_cents: 190000,
+        expected_refunded_cents: 0,
+      },
+    },
+  } as AxiosResponse)
+  for (const [label, value] of [
+    ['Original order number', 'ORDER-1'],
+    ['Unique refund reference', 'REFUND-1'],
+    ['Refund amount (CNY)', '10.00'],
+    ['Reason and reconciliation evidence', 'Refund receipt checked'],
+  ]) {
+    await user.type(screen.getByRole('textbox', { name: label }), value)
+  }
+  await user.click(
+    screen.getByRole('button', { name: 'Preview refund adjustment' })
+  )
+  const dialog = await screen.findByRole('alertdialog', {
+    name: 'Confirm refund adjustment',
+  })
+  const label = within(dialog).getByText('Commission reversal')
+  expect(label).toHaveClass('text-xs')
+  expect(label.parentElement?.parentElement).toHaveClass('border', 'rounded-md')
+  expect(within(dialog).getByText(/3\.50/)).toHaveClass('font-mono!')
+  expect(within(dialog).getByText(/1,900\.00/)).toBeVisible()
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  expect(post).toHaveBeenCalledTimes(1)
+  expect(post).toHaveBeenCalledWith(
+    '/api/campus/admin/refund',
+    expect.objectContaining({ preview: true })
+  )
+})

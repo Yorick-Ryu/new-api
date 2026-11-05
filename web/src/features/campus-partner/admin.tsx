@@ -36,6 +36,10 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SettingsSwitchField } from '@/features/system-settings/components/settings-form-layout'
+import {
+  DetailRow,
+  DetailSection,
+} from '@/features/usage-logs/components/dialogs/log-detail-layout'
 import { toIntlLocale } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -49,7 +53,11 @@ import {
   type CampaignConfig,
 } from './api'
 import { CampusTierSettings, CampusPlanSettings } from './commission-settings'
-import { campusAmountTypography } from './constants'
+import {
+  campusAmountTypography,
+  campusDetailAmountTypography,
+  campusDetailDialogProps,
+} from './constants'
 import { CampusFields } from './forms'
 import { CampusRecords, type CampusRecord } from './records'
 import { WithdrawalSummary } from './withdrawal-details'
@@ -127,6 +135,7 @@ export function CampusAdmin() {
           ))}
         </Tabs>
         <Dialog
+          {...campusDetailDialogProps}
           open={!!selected}
           onOpenChange={(open) => {
             if (!open) setSelected(null)
@@ -252,7 +261,7 @@ function CampusRefundForm() {
           }
         >
           {pending && (
-            <dl className='grid grid-cols-2 gap-3 text-sm'>
+            <DetailSection label={t('Refund Details')}>
               {[
                 [t('Commission reversal'), pending.preview.reversal_cents],
                 [t('Immediate deduction'), pending.preview.immediate_cents],
@@ -262,14 +271,17 @@ function CampusRefundForm() {
                   pending.preview.performance_cents,
                 ],
               ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className='text-muted-foreground'>{label}</dt>
-                  <dd className={campusAmountTypography}>
-                    {cash(Number(value), locale)}
-                  </dd>
-                </div>
+                <DetailRow
+                  key={label}
+                  label={label}
+                  value={
+                    <span className={campusDetailAmountTypography}>
+                      {cash(Number(value), locale)}
+                    </span>
+                  }
+                />
               ))}
-            </dl>
+            </DetailSection>
           )}
         </ConfirmDialog>
       </CardContent>
