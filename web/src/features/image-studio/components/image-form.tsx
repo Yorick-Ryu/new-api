@@ -217,7 +217,7 @@ export function ImageForm(props: ImageFormProps) {
   useEffect(() => {
     if (!form.getValues('model') && props.options.models[0]) {
       const defaultModel = props.options.models.find(
-        (item) => item.model === 'gpt-image-2.5'
+        (item) => item.model === 'gpt-image-2.6'
       )
       form.setValue(
         'model',

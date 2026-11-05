@@ -185,6 +185,79 @@ afterEach(() => {
 })
 
 describe('Image workbench', () => {
+  it.each([
+    {
+      name: 'prefers standard 2.6 even when variants and 2.5 appear first',
+      models: ['gpt-image-2.6-sunburst', 'gpt-image-2.5', 'gpt-image-2.6'],
+      expected: 'gpt-image-2.6',
+    },
+    {
+      name: 'falls back to the first permitted model when standard 2.6 is unavailable',
+      models: ['gpt-image-2.5-flare', 'gpt-image-2.5'],
+      expected: 'gpt-image-2.5-flare',
+    },
+  ])('selects the image default: $name', async (test) => {
+    render(
+      <ImageForm
+        options={{
+          available: true,
+          models: test.models.map((model) => ({ ...options.models[0], model })),
+        }}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: test.expected })
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('keeps the reused model when the 2.6 default becomes available', async () => {
+    const reused = {
+      input: { ...job.input, model: 'gpt-image-2.5' },
+      version: 1,
+    }
+    const props = {
+      reuse: reused,
+      reference: null,
+      onCreated: vi.fn(),
+    }
+    const view = render(
+      <ImageForm
+        {...props}
+        options={{
+          available: true,
+          models: [{ ...options.models[0], model: 'gpt-image-2.5' }],
+        }}
+      />,
+      { wrapper }
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: 'gpt-image-2.5' })
+      ).toBeInTheDocument()
+    })
+    view.rerender(
+      <ImageForm
+        {...props}
+        options={{
+          available: true,
+          models: ['gpt-image-2.6', 'gpt-image-2.5'].map((model) => ({
+            ...options.models[0],
+            model,
+          })),
+        }}
+      />
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'gpt-image-2.5' })
+    ).toBeInTheDocument()
+  })
+
   it('translates the resolution control and updates its label when the language changes', async () => {
     const translations = i18next.createInstance()
     await translations.init({
