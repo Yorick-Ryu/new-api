@@ -54,7 +54,9 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
               className={cn(
                 '@container/content',
                 'h-[calc(100svh-var(--app-header-height,0px))]',
-                'min-h-0 overflow-hidden',
+                // Hash navigation must only scroll the page's content area.
+                // Unlike hidden, clip prevents this outer frame from scrolling.
+                'min-h-0 overflow-clip',
                 'peer-data-[variant=inset]:h-[calc(100svh-var(--app-header-height,0px)-(var(--spacing)*4))]'
               )}
             >

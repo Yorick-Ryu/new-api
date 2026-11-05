@@ -28,6 +28,8 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, expect, test } from 'vitest'
 
+import { AuthenticatedLayout } from '@/components/layout'
+import { DirectionProvider } from '@/context/direction-provider'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CampusPartner } from '..'
@@ -39,6 +41,7 @@ const clients: QueryClient[] = []
 afterEach(() => {
   cleanup()
   clients.splice(0).forEach((client) => client.clear())
+  useAuthStore.getState().auth.reset()
 })
 
 function renderPage(
@@ -50,6 +53,7 @@ function renderPage(
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   })
   clients.push(client)
+  client.setQueryData(['status'], { announcements_enabled: false })
   client.setQueryData(['campus', 'config'], {
     enabled: false,
 
@@ -192,6 +196,24 @@ test('partner page merges the introduction into the invitation card before benef
   )
   expect(intro.closest('[data-slot="card"]')).toContainElement(invitation)
   expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
+})
+
+test('partner rules stay inside a non-scrolling app frame while page content remains scrollable', async () => {
+  useAuthStore.getState().auth.setUser({ id: 1, username: 'partner', role: 1 })
+  renderPage(
+    <DirectionProvider>
+      <AuthenticatedLayout>
+        <CampusPartner />
+      </AuthenticatedLayout>
+    </DirectionProvider>
+  )
+  const rulesLink = await screen.findByRole('link', { name: 'Rules' })
+  const rules = document.querySelector('#campus-rules')
+  const appFrame = rules?.closest('[data-slot="sidebar-inset"]')
+  expect(appFrame).toHaveClass('overflow-clip')
+  expect(appFrame).not.toHaveClass('overflow-hidden')
+  expect(rules?.parentElement?.parentElement).toHaveClass('overflow-auto')
+  expect(rulesLink).toHaveAttribute('href', '#campus-rules')
 })
 
 test('partner records open on invitations and expose commission and withdrawal history through three tabs', async () => {
