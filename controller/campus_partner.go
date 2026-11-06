@@ -36,6 +36,16 @@ func CampusSiteGuard(c *gin.Context) {
 	}
 	c.Next()
 }
+
+// CampusStatus exposes only campaign availability to unauthenticated registration.
+func CampusStatus(c *gin.Context) {
+	config, err := model.CampusGetConfig()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"enabled": config.Enabled})
+}
 func CampusInvite(c *gin.Context) {
 	name, err := model.CampusValidateCode(strings.TrimSpace(c.Param("code")))
 	if err != nil {

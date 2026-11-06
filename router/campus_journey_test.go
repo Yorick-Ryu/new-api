@@ -720,3 +720,25 @@ func TestCampusHTTPJourney(t *testing.T) {
 		})
 	}
 }
+
+func TestCampusPublicStatus(t *testing.T) {
+	j := newCampusJourney(t, "sqlite")
+	for _, enabled := range []bool{true, false} {
+		require.NoError(t, model.CampusConfigure(enabled, j.admin.id))
+		req := httptest.NewRequest(http.MethodGet, "https://www.beiapi.cn/api/campus/status", nil)
+		recorder := httptest.NewRecorder()
+		j.engine.ServeHTTP(recorder, req)
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var response struct {
+			Success bool           `json:"success"`
+			Data    map[string]any `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+		assert.True(t, response.Success)
+		assert.Equal(t, map[string]any{"enabled": enabled}, response.Data)
+	}
+	req := httptest.NewRequest(http.MethodGet, "https://novapi.cn/api/campus/status", nil)
+	recorder := httptest.NewRecorder()
+	j.engine.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}

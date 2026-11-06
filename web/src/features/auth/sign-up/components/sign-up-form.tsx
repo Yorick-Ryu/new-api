@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
@@ -49,7 +50,7 @@ import {
   getAffiliateCode,
   saveAffiliateCode,
 } from '@/features/auth/lib/storage'
-import { campusSite } from '@/features/campus-partner/api'
+import { campusGet } from '@/features/campus-partner/api'
 import { InvitationField } from '@/features/campus-partner/forms'
 import { useStatus } from '@/hooks/use-status'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -72,6 +73,13 @@ export function SignUpForm({
   const [isLegalPromptOpen, setIsLegalPromptOpen] = useState(false)
 
   const { status } = useStatus()
+  const campaign = useQuery({
+    queryKey: ['campus', 'status'],
+    queryFn: () => campusGet<{ enabled: boolean }>('status'),
+    retry: false,
+    refetchOnWindowFocus: true,
+    meta: { errorToast: false },
+  })
   const {
     isTurnstileEnabled,
     turnstileSiteKey,
@@ -309,8 +317,6 @@ export function SignUpForm({
           )}
         />
 
-        {campusSite() && <InvitationField registration />}
-
         {/* Email Verification Section */}
         {emailVerificationRequired && (
           <>
@@ -360,6 +366,10 @@ export function SignUpForm({
               </Button>
             </div>
           </>
+        )}
+
+        {campaign.isSuccess && campaign.data.enabled === true && (
+          <InvitationField registration />
         )}
 
         {/* Turnstile */}
