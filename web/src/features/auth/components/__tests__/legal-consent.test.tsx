@@ -53,6 +53,9 @@ const clients: QueryClient[] = []
 beforeEach(() => {
   localStorage.clear()
   vi.stubGlobal('PublicKeyCredential', class {})
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { enabled: true, inviter: 'Partner' } },
+  })
 })
 afterEach(() => {
   clients.forEach((client) => client.clear())
@@ -61,12 +64,18 @@ afterEach(() => {
   localStorage.clear()
 })
 
-async function renderForm(mode: 'sign-in' | 'sign-up') {
+async function renderForm(
+  mode: 'sign-in' | 'sign-up',
+  emailVerification = false
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   clients.push(client)
-  client.setQueryData(STATUS_QUERY_KEY, status)
+  client.setQueryData(STATUS_QUERY_KEY, {
+    ...status,
+    email_verification: emailVerification,
+  })
   const root = createRootRoute({
     component: mode === 'sign-in' ? UserAuthForm : SignUpForm,
   })
@@ -154,11 +163,18 @@ it.each([
   }
 )
 
-it('places the optional invitation after password confirmation and before registration submission', async () => {
+it('places the optional invitation after email verification and before registration submission', async () => {
   sessionStorage.removeItem('campus-invitation')
-  await renderForm('sign-up')
+  await renderForm('sign-up', true)
   const password = screen.getByLabelText('Confirm password', { exact: true })
-  const invitation = screen.getByLabelText('Campus invitation code (optional)')
+  const invitation = await screen.findByLabelText(
+    'Campus invitation code (optional)'
+  )
+  const verification = screen.getByPlaceholderText('Verification code')
+  expect(
+    verification.compareDocumentPosition(invitation) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
   const submit = screen.getByRole('button', { name: 'Create account' })
   expect(
     password.compareDocumentPosition(invitation) &
@@ -177,12 +193,12 @@ it('prefills the invitation from the URL and includes it in registration storage
   const originalUrl = window.location.href
   window.history.replaceState(null, '', '/?campus=k7mn2r')
   vi.spyOn(api, 'get').mockResolvedValue({
-    data: { success: true, data: { inviter: 'Partner' } },
+    data: { success: true, data: { enabled: true, inviter: 'Partner' } },
   })
   try {
     await renderForm('sign-up')
     expect(
-      screen.getByLabelText('Campus invitation code (optional)')
+      await screen.findByLabelText('Campus invitation code (optional)')
     ).toHaveValue('K7MN2R')
     await waitFor(() =>
       expect(sessionStorage.getItem('campus-invitation')).toBe('K7MN2R')
@@ -217,4 +233,40 @@ it('translates consent and both footer variants when switching to Chinese', asyn
   expect(view.container.textContent).not.toMatch(/[A-Za-z]/)
   expect(view.container.textContent).toContain('点击登录，即表示您同意')
   expect(view.container.textContent).toContain('创建账号，即表示您同意')
+})
+
+it.each([false, undefined])(
+  'hides the invitation and coupon hint when campaign enabled is %s',
+  async (enabled) => {
+    vi.spyOn(api, 'get').mockResolvedValue({
+      data: { success: true, data: { enabled } },
+    })
+    await renderForm('sign-up')
+    await waitFor(() =>
+      expect(clients.at(-1)?.getQueryState(['campus', 'status'])?.status).toBe(
+        'success'
+      )
+    )
+    expect(
+      screen.queryByLabelText('Campus invitation code (optional)')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        'Bind an invitation to receive a 5% off top-up coupon.'
+      )
+    ).not.toBeInTheDocument()
+  }
+)
+
+it('hides the invitation when campaign status cannot be loaded', async () => {
+  vi.spyOn(api, 'get').mockRejectedValue(new Error('Unavailable'))
+  await renderForm('sign-up')
+  await waitFor(() =>
+    expect(clients.at(-1)?.getQueryState(['campus', 'status'])?.status).toBe(
+      'error'
+    )
+  )
+  expect(
+    screen.queryByLabelText('Campus invitation code (optional)')
+  ).not.toBeInTheDocument()
 })

@@ -10,6 +10,7 @@ import (
 )
 
 func registerCampusRoutes(api *gin.RouterGroup) {
+	api.GET("/campus/status", middleware.DisableCache(), controller.CampusStatus)
 	campus := api.Group("/campus", controller.CampusSiteGuard, middleware.DisableCache(), middleware.AnonymousRequestBodyLimit())
 	campus.GET("/invite/:code", middleware.CriticalRateLimit(), controller.CampusInvite)
 	user := campus.Group("/self", middleware.UserAuth(), middleware.SessionCookieOriginGuard())
