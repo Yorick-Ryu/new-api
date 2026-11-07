@@ -526,6 +526,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	if affiliateCode != "" {
 		inviterId, _ = model.GetUserIdByAffCode(affiliateCode)
 	}
+	user.InviterId = inviterId
 
 	if len(campusCodes) > 0 && campusCodes[0] != "" {
 		if !CampusMainSite(c) {
