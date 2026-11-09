@@ -11,6 +11,7 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it } from 'vitest'
 
+import type { NavItem } from '@/components/layout/types'
 import { useSidebarView } from '@/hooks/use-sidebar-view'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -29,7 +30,7 @@ function Navigation() {
     <nav>
       {view.navGroups
         .flatMap((group) => group.items)
-        .flatMap((item) => item.items ?? [item])
+        .flatMap<NavItem>((item) => item.items ?? [item])
         .map((item) =>
           'url' in item && item.url ? (
             <a key={item.url} href={item.url}>
