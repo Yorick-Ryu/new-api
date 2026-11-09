@@ -427,6 +427,10 @@ it('partner management opens on the right with a scrollable body and a separate 
   ).toBeVisible()
   expect(info).not.toContainElement(select)
   expect(adjustment).toContainElement(select)
+  expect(
+    within(adjustment).queryByText('Partner level')
+  ).not.toBeInTheDocument()
+  expect(select).toHaveAccessibleName('Partner level')
   const separator = within(form).getByRole('separator')
   expect(separator.previousElementSibling).toBe(info)
   expect(separator.nextElementSibling).toBe(adjustment)

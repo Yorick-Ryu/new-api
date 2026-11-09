@@ -38,7 +38,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import {
@@ -253,7 +252,6 @@ function PartnerTierForm(
               name='level'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Partner level')}</FormLabel>
                   <Select
                     items={options}
                     value={field.value}
@@ -264,6 +262,7 @@ function PartnerTierForm(
                   >
                     <FormControl>
                       <SelectTrigger
+                        aria-label={t('Partner level')}
                         ref={field.ref}
                         onBlur={field.onBlur}
                         className='w-full'
