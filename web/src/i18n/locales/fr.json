@@ -8315,6 +8315,9 @@
     "Confirm partner activation": "Confirmer l’activation du partenaire",
     "Partner activated": "Partenaire activé",
     "Select a level and confirm to activate this user as a partner.": "Choisissez un niveau et confirmez pour activer cet utilisateur comme partenaire.",
-    "Current partner commission rate": "Taux de commission actuel du partenaire"
+    "Current partner commission rate": "Taux de commission actuel du partenaire",
+    "Minimum partner level": "Niveau minimum du partenaire",
+    "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Votre niveau minimum est garanti. Vos performances réelles permettent de passer automatiquement aux niveaux supérieurs.",
+    "Restore automatic levels before removing a minimum partner level": "Rétablissez les niveaux automatiques avant de supprimer un niveau minimum de partenaire"
   }
 }

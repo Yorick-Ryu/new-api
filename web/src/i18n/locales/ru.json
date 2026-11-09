@@ -8315,6 +8315,9 @@
     "Confirm partner activation": "Подтвердить активацию партнёра",
     "Partner activated": "Партнёр активирован",
     "Select a level and confirm to activate this user as a partner.": "Выберите уровень и подтвердите активацию пользователя как партнёра.",
-    "Current partner commission rate": "Текущая комиссия партнёра"
+    "Current partner commission rate": "Текущая комиссия партнёра",
+    "Minimum partner level": "Минимальный уровень партнёра",
+    "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Минимальный уровень гарантирован. Реальные результаты позволяют автоматически повышать уровень.",
+    "Restore automatic levels before removing a minimum partner level": "Верните автоматические уровни перед удалением минимального уровня партнёра"
   }
 }

@@ -163,7 +163,7 @@ function PartnerTierForm(
     defaultValues: { level: props.data.override },
   })
   const level = form.watch('level')
-  const selected = level === 0 ? props.data.automatic.level : level
+  const selected = Math.max(level, props.data.automatic.level)
   const label = (value: number, includeRate = true) => {
     if (value === 0) return t('Not joined')
     const rule = props.data.tiers[value - 1]
@@ -247,7 +247,7 @@ function PartnerTierForm(
               name='level'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Partner level')}</FormLabel>
+                  <FormLabel>{t('Minimum partner level')}</FormLabel>
                   <Select
                     items={options}
                     value={field.value}
@@ -294,7 +294,7 @@ function PartnerTierForm(
                           })}{' '}
                       → {t('Lv.{{level}}', { level: change.level })}{' '}
                       {change.override
-                        ? t('Assigned level')
+                        ? `${t('Minimum partner level')}: ${t('Lv.{{level}}', { level: change.override })}`
                         : t('Automatic level')}
                     </p>
                     <p className='text-muted-foreground'>
@@ -339,7 +339,7 @@ function PartnerTierForm(
             ? 'Confirm partner level change'
             : 'Confirm partner activation'
         )}
-        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0, false)} → ${label(selected)} (${level === 0 ? t('Automatic level') : t('Assigned level')})`}
+        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0, false)} → ${label(selected)} (${level === 0 ? t('Automatic level') : `${t('Minimum partner level')}: ${label(level)}`})`}
         confirmText={t('Confirm')}
         isLoading={save.isPending}
         handleConfirm={() => {

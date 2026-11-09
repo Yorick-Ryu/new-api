@@ -105,20 +105,26 @@ func CurrentTier(performance Money, tiers []TierRule) (Tier, error) {
 	return tier, nil
 }
 
-// EffectiveTier returns a fixed administrator-selected level when assigned.
-// A fixed level has no automatic upgrade target; performance remains real.
+// EffectiveTier uses the higher of the earned level and the administrator's
+// minimum. Upgrade targets still use actual performance, never invented credit.
 func EffectiveTier(performance Money, override int, tiers []TierRule) (Tier, error) {
-	if override == 0 {
-		return CurrentTier(performance, tiers)
-	}
-	if err := ValidateTiers(tiers); err != nil {
+	earned, err := CurrentTier(performance, tiers)
+	if err != nil {
 		return Tier{}, err
 	}
-	if !performance.Valid() || override < 1 || override > len(tiers) {
+	if override < 0 || override > len(tiers) {
 		return Tier{}, ErrTiers
 	}
+	if override <= earned.Level {
+		return earned, nil
+	}
 	rule := tiers[override-1]
-	return Tier{Level: override, RatePercent: float64(rule.RateBPS) / 100, Floor: rule.Floor}, nil
+	tier := Tier{Level: override, RatePercent: float64(rule.RateBPS) / 100, Floor: rule.Floor}
+	if override < len(tiers) {
+		tier.Next = tiers[override].Floor
+		tier.Remaining = tier.Next - performance
+	}
+	return tier, nil
 }
 
 // CalculateCommission uses the inviter's locked net performance immediately

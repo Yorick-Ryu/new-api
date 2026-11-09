@@ -8315,6 +8315,9 @@
     "Confirm partner activation": "确认开通合伙人",
     "Partner activated": "合伙人已开通",
     "Select a level and confirm to activate this user as a partner.": "选择等级并确认，即可为该用户开通合伙人。",
-    "Current partner commission rate": "当前返佣比例"
+    "Current partner commission rate": "当前返佣比例",
+    "Minimum partner level": "保底等级",
+    "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "保底等级有保障，真实业绩达标后仍可自动升级。",
+    "Restore automatic levels before removing a minimum partner level": "该等级仍被设为保底等级，请先恢复相关用户的自动等级再删除"
   }
 }
