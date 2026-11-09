@@ -48,7 +48,7 @@ type CampusMember struct {
 	InviterID        int      `json:"inviter_id" gorm:"index"`
 	BoundAt          int64    `json:"bound_at"`
 	Performance      cp.Money `json:"performance_cents"`
-	TierOverride     int      `json:"tier_override" gorm:"not null;default:0"`
+	TierOverride     int      `json:"tier_override" gorm:"not null;default:0"` // Minimum level; zero follows earned performance.
 	TierRevision     int64    `json:"tier_revision" gorm:"not null;default:0"`
 	Debt             cp.Money `json:"debt_cents"`
 	CouponState      string   `json:"coupon_state" gorm:"type:varchar(16)"`
@@ -339,7 +339,7 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 			return err
 		}
 		if assigned > 0 {
-			return common.NewMessage("Restore automatic levels before removing an assigned partner level")
+			return common.NewMessage("Restore automatic levels before removing a minimum partner level")
 		}
 		encoded, err := common.Marshal(tiers)
 		if err != nil {

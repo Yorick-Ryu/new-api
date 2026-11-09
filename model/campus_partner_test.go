@@ -212,31 +212,34 @@ func TestCampusDatabase(t *testing.T) {
 					assert.ErrorIs(t, CampusSetMemberTier(910, 4, 0, 0, "stale member", 1, false), ErrCampusState)
 					assert.Error(t, CampusConfigureTiers(cp.DefaultTiers()[:2], 0, 1))
 					for _, order := range []TopUp{
-						{UserId: 911, TradeNo: "tier-fixed-large", Money: 100000, Status: common.TopUpStatusPending},
-						{UserId: 911, TradeNo: "tier-fixed-after-threshold", Money: 100, Status: common.TopUpStatusPending},
+						{UserId: 911, TradeNo: "tier-minimum-large", Money: 100000, Status: common.TopUpStatusPending},
+						{UserId: 911, TradeNo: "tier-minimum-after-threshold", Money: 100, Status: common.TopUpStatusPending},
 					} {
 						require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
 						require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, order.TradeNo, 911) }))
 					}
 					var payment CampusPayment
-					require.NoError(t, tx.Where("trade_no = ?", "tier-fixed-large").First(&payment).Error)
-					assert.EqualValues(t, 4000000, payment.Commission)
-					assert.Equal(t, `[{"base_cents":10000000,"rate_percent":40}]`, payment.Segments)
-					fixedSnapshot := payment
+					require.NoError(t, tx.Where("trade_no = ?", "tier-minimum-large").First(&payment).Error)
+					assert.EqualValues(t, 4450000, payment.Commission)
+					assert.Equal(t, `[{"base_cents":3000000,"rate_percent":40},{"base_cents":5000000,"rate_percent":45},{"base_cents":2000000,"rate_percent":50}]`, payment.Segments)
+					minimumSnapshot := payment
 					var afterThreshold CampusPayment
-					require.NoError(t, tx.Where("trade_no = ?", "tier-fixed-after-threshold").First(&afterThreshold).Error)
-					assert.EqualValues(t, 4000, afterThreshold.Commission)
+					require.NoError(t, tx.Where("trade_no = ?", "tier-minimum-after-threshold").First(&afterThreshold).Error)
+					assert.EqualValues(t, 5000, afterThreshold.Commission)
 
 					detail, err = CampusGetMemberTier(910)
 					require.NoError(t, err)
 					assert.EqualValues(t, 10010000, detail.Performance)
 					assert.Equal(t, 5, detail.Automatic.Level)
-					assert.Equal(t, 3, detail.Effective.Level)
+					assert.Equal(t, 5, detail.Effective.Level)
 					assert.Zero(t, detail.Effective.Next)
 					overview, err := CampusGetOverview(910)
 					require.NoError(t, err)
 					assert.Equal(t, detail.Effective, overview.Tier)
-					require.NoError(t, CampusSetMemberTier(910, 1, 1, 0, "fixed lower level", 1, false))
+					require.NoError(t, CampusSetMemberTier(910, 1, 1, 0, "lower minimum preserves earned level", 1, false))
+					detail, err = CampusGetMemberTier(910)
+					require.NoError(t, err)
+					assert.Equal(t, 5, detail.Effective.Level)
 					subscription := SubscriptionOrder{UserId: 911, PlanId: 6, TradeNo: "tier-subscription", Money: 100, Status: common.TopUpStatusPending}
 					require.NoError(t, InsertCampusSubscription(&subscription, true, "CNY"))
 					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, subscription.TradeNo, 911) }))
@@ -246,10 +249,10 @@ func TestCampusDatabase(t *testing.T) {
 					require.NoError(t, CampusSetMemberTier(910, 0, 2, 0, "restore automatic", 1, false))
 					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, payment.TradeNo, 911) }))
 					require.NoError(t, tx.First(&payment, payment.ID).Error)
-					assert.Equal(t, fixedSnapshot, payment)
+					assert.Equal(t, minimumSnapshot, payment)
 					refund, err := CampusRegisterRefund(payment.TradeNo, "tier-refund", "original snapshot", 10000, 1, false)
 					require.NoError(t, err)
-					assert.EqualValues(t, 4000, refund.Reversal)
+					assert.EqualValues(t, 4450, refund.Reversal)
 					detail, err = CampusGetMemberTier(910)
 					require.NoError(t, err)
 					assert.Equal(t, 5, detail.Effective.Level)

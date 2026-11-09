@@ -8323,6 +8323,9 @@
     "Confirm partner activation": "Xác nhận kích hoạt đối tác",
     "Partner activated": "Đã kích hoạt đối tác",
     "Select a level and confirm to activate this user as a partner.": "Chọn cấp và xác nhận để kích hoạt người dùng này làm đối tác.",
-    "Current partner commission rate": "Tỷ lệ hoa hồng đối tác hiện tại"
+    "Current partner commission rate": "Tỷ lệ hoa hồng đối tác hiện tại",
+    "Minimum partner level": "Cấp đối tác tối thiểu",
+    "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Cấp tối thiểu được đảm bảo. Thành tích thực tế vẫn giúp tự động nâng lên cấp cao hơn.",
+    "Restore automatic levels before removing a minimum partner level": "Khôi phục cấp tự động trước khi xóa cấp đối tác tối thiểu"
   }
 }

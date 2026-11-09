@@ -189,8 +189,10 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 					if _, err := cp.EffectiveTier(inviter.Performance, inviter.TierOverride, tiers); err != nil {
 						return err
 					}
-					// One unbounded rate preserves actual performance while disabling tier crossing.
-					tiers = []cp.TierRule{{Floor: 0, RateBPS: tiers[inviter.TierOverride-1].RateBPS}}
+					// Start at the guaranteed level while retaining every higher threshold.
+					// The shared calculator splits cross-tier payments using real performance.
+					tiers = append([]cp.TierRule(nil), tiers[inviter.TierOverride-1:]...)
+					tiers[0].Floor = 0
 				}
 				commission, err = cp.CalculateCommission(inviter.Performance, payment.Paid, payment.Product, tiers)
 			} else {

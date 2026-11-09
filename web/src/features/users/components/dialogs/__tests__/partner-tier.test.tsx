@@ -99,7 +99,7 @@ afterEach(() => {
   useAuthStore.getState().auth.reset()
 })
 
-it('user row action opens the selected account and assigns a fixed level with confirmation and no reason field', async () => {
+it('user row action opens the selected account and assigns a minimum level with confirmation and no reason field', async () => {
   useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 100 })
   const put = vi
     .spyOn(api, 'put')
@@ -110,7 +110,9 @@ it('user row action opens the selected account and assigns a fixed level with co
   await user.click(
     await screen.findByRole('menuitem', { name: 'Manage partner' })
   )
-  const select = await screen.findByRole('combobox', { name: 'Partner level' })
+  const select = await screen.findByRole('combobox', {
+    name: 'Minimum partner level',
+  })
   expect(get).toHaveBeenCalledWith('/api/campus/admin/members/42/tier')
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
   await user.click(select)
@@ -148,13 +150,13 @@ it('restoring automatic previews the earned level and submits zero', async () =>
   renderDialog({ override: 3, effective: { level: 3, rate_percent: 40 } })
   const user = userEvent.setup()
   await user.click(
-    await screen.findByRole('combobox', { name: 'Partner level' })
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
   )
   await user.click(
     await screen.findByRole('option', { name: /^Automatic level/ })
   )
   expect(
-    screen.getByRole('combobox', { name: 'Partner level' })
+    screen.getByRole('combobox', { name: 'Minimum partner level' })
   ).toHaveTextContent('Lv.1')
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await user.click(
@@ -179,7 +181,7 @@ it.each([0, 3])(
     const { close } = renderDialog({ joined: false, revision: 0 })
     const user = userEvent.setup()
     const select = await screen.findByRole('combobox', {
-      name: 'Partner level',
+      name: 'Minimum partner level',
     })
     await user.click(select)
     await user.click(
@@ -220,7 +222,7 @@ it('a rejected save preserves the form and does not report success or close', as
   const { close } = renderDialog()
   const user = userEvent.setup()
   await user.click(
-    await screen.findByRole('combobox', { name: 'Partner level' })
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
   )
   await user.click(await screen.findByRole('option', { name: /^Lv\.3/ }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -233,7 +235,7 @@ it('a rejected save preserves the form and does not report success or close', as
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   )
   expect(
-    screen.getByRole('combobox', { name: 'Partner level' })
+    screen.getByRole('combobox', { name: 'Minimum partner level' })
   ).toHaveTextContent('Lv.3')
   expect(close).not.toHaveBeenCalled()
 })
@@ -261,7 +263,7 @@ it('a failed load shows retry and no editor until the retry succeeds', async () 
   get.mockResolvedValue({ data: { success: true, data } })
   await userEvent.click(retry)
   expect(
-    await screen.findByRole('combobox', { name: 'Partner level' })
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
   ).toBeVisible()
 })
 
@@ -277,7 +279,7 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
   const { close } = renderDialog()
   const user = userEvent.setup()
   await user.click(
-    await screen.findByRole('combobox', { name: 'Partner level' })
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
   )
   await user.click(await screen.findByRole('option', { name: /^Lv\.2/ }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -298,10 +300,10 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
 })
 
 it.each([
-  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级', true, '开通合伙人'],
-  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級', true, '開通合夥人'],
-  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级', false, '开通合伙人'],
-  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級', false, '開通合夥人'],
+  ['zhCN', zhCN, '管理合伙人', '保底等级', '自动等级', true, '开通合伙人'],
+  ['zhTW', zhTW, '管理合夥人', '保底等級', '自動等級', true, '開通合夥人'],
+  ['zhCN', zhCN, '管理合伙人', '保底等级', '自动等级', false, '开通合伙人'],
+  ['zhTW', zhTW, '管理合夥人', '保底等級', '自動等級', false, '開通合夥人'],
 ] as const)(
   'the %s user menu and level editor use the real Chinese translation resources',
   async (language, resource, title, field, automatic, joined, activate) => {
@@ -356,7 +358,9 @@ it.each([
 
 it('the compact editor keeps level and commission, without explanatory copy or dot separators', async () => {
   renderDialog({ joined: false })
-  const select = await screen.findByRole('combobox', { name: 'Partner level' })
+  const select = await screen.findByRole('combobox', {
+    name: 'Minimum partner level',
+  })
   const dialog = screen.getByRole('dialog', { name: 'Manage partner' })
   expect(dialog).not.toHaveTextContent('·')
   expect(screen.getAllByText(/Not joined/)).toHaveLength(1)
@@ -392,7 +396,9 @@ it('partner management opens on the right with a scrollable body and a separate 
       },
     ],
   })
-  const select = await screen.findByRole('combobox', { name: 'Partner level' })
+  const select = await screen.findByRole('combobox', {
+    name: 'Minimum partner level',
+  })
   const drawer = screen.getByRole('dialog', { name: 'Manage partner' })
   expect(drawer).toHaveAttribute('data-slot', 'sheet-content')
   expect(drawer).toHaveAttribute('data-side', 'right')
@@ -415,7 +421,7 @@ it.each([false, true])(
       override: 3,
       effective: { level: 3, rate_percent: 40 },
     })
-    await screen.findByRole('combobox', { name: 'Partner level' })
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
     const currentLevel = screen.getByText(
       'Current partner level'
     ).nextElementSibling
@@ -465,7 +471,7 @@ it('closing partner management plays the shared exit animation before removal an
       await screen.findByRole('menuitem', { name: 'Manage partner' })
     )
     const select = await screen.findByRole('combobox', {
-      name: 'Partner level',
+      name: 'Minimum partner level',
     })
     const drawer = screen.getByRole('dialog', { name: 'Manage partner' })
     await user.click(select)
@@ -483,7 +489,7 @@ it('closing partner management plays the shared exit animation before removal an
       await screen.findByRole('menuitem', { name: 'Manage partner' })
     )
     expect(
-      await screen.findByRole('combobox', { name: 'Partner level' })
+      await screen.findByRole('combobox', { name: 'Minimum partner level' })
     ).toHaveTextContent('Automatic level')
   } finally {
     finish()
@@ -493,4 +499,30 @@ it('closing partner management plays the shared exit animation before removal an
       Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations')
     }
   }
+})
+
+it('setting a minimum below earned performance previews the higher effective level', async () => {
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  renderDialog({
+    automatic: { level: 3, rate_percent: 40 },
+    effective: { level: 3, rate_percent: 40 },
+  })
+  const user = userEvent.setup()
+  await user.click(
+    await screen.findByRole('combobox', { name: 'Minimum partner level' })
+  )
+  await user.click(await screen.findByRole('option', { name: /^Lv\.2/ }))
+  await user.click(screen.getByRole('button', { name: 'Save changes' }))
+  const confirm = await screen.findByRole('alertdialog')
+  expect(confirm).toHaveTextContent(/→ Lv\.3/)
+  expect(confirm).toHaveTextContent(/Minimum partner level: Lv\.2/)
+  await user.click(within(confirm).getByRole('button', { name: 'Confirm' }))
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ level: 2 })
+    )
+  )
 })

@@ -8323,6 +8323,9 @@
     "Confirm partner activation": "パートナーの有効化を確認",
     "Partner activated": "パートナーを有効化しました",
     "Select a level and confirm to activate this user as a partner.": "レベルを選択し、確認するとこのユーザーをパートナーとして有効化できます。",
-    "Current partner commission rate": "現在のパートナー報酬率"
+    "Current partner commission rate": "現在のパートナー報酬率",
+    "Minimum partner level": "パートナーの最低保証レベル",
+    "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "最低レベルは保証されます。実績に応じて自動的に上位レベルへ昇格できます。",
+    "Restore automatic levels before removing a minimum partner level": "最低保証レベルを削除する前に自動レベルへ戻してください"
   }
 }

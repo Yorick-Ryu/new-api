@@ -571,7 +571,7 @@ test.each([
   }
 )
 
-test('assigned partner levels highlight the active tier without suggesting automatic progress or highest tier', async () => {
+test('a minimum partner level preserves the next earned upgrade target without inventing completed performance', async () => {
   renderPage(<CampusPartner />, {
     member: {
       code: 'ABC123',
@@ -592,18 +592,22 @@ test('assigned partner levels highlight the active tier without suggesting autom
       level: 2,
       rate_percent: 35,
       floor_cents: 200000,
-      next_cents: 0,
-      remaining_cents: 0,
+      next_cents: 1000000,
+      remaining_cents: 1000000,
     },
   })
   const tiers = await screen.findByRole('region', {
     name: 'Top-up commission levels',
   })
-  expect(within(tiers).getByText('Assigned level')).toBeVisible()
+  expect(within(tiers).getByText('Minimum partner level')).toBeVisible()
   expect(within(tiers).getByText('Current')).toBeVisible()
   expect(
     within(tiers).queryByText('Highest partner tier reached')
   ).not.toBeInTheDocument()
   expect(within(tiers).queryByText('Completed')).not.toBeInTheDocument()
-  expect(within(tiers).queryByRole('progressbar')).not.toBeInTheDocument()
+  expect(within(tiers).getAllByRole('progressbar')).toHaveLength(3)
+  expect(
+    within(tiers).getByRole('progressbar', { name: 'Lv.2' })
+  ).toHaveAttribute('aria-valuenow', '0')
+  expect(within(tiers).getByText(/10,000\.00/)).toBeVisible()
 })
