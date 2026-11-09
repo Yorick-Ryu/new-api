@@ -33,7 +33,6 @@ import {
 } from '@/components/drawer-layout'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -61,7 +60,6 @@ import {
 import {
   beijingDate,
   campusGet,
-  cash,
   type Overview,
   type TierRule,
 } from '@/features/campus-partner/api'
@@ -160,14 +158,14 @@ function PartnerTierForm(
     defaultValues: { level: props.data.override },
   })
   const level = form.watch('level')
-  const modeLabel = props.data.override
-    ? t('Assigned level')
-    : t('Automatic level')
   const selected = level === 0 ? props.data.automatic.level : level
-  const label = (value: number) => {
+  const label = (value: number, includeRate = true) => {
     if (value === 0) return t('Not joined')
     const rule = props.data.tiers[value - 1]
-    return `${t('Lv.{{level}}', { level: value })} ${rule?.name || t(campusTierNameKeys[value - 1] || 'Lv.{{level}}', { level: value })} ${formatNumber((rule?.rate_bps || 0) / 100, locale)}%`
+    const name = `${t('Lv.{{level}}', { level: value })} ${rule?.name || t(campusTierNameKeys[value - 1] || 'Lv.{{level}}', { level: value })}`
+    return includeRate
+      ? `${name} ${formatNumber((rule?.rate_bps || 0) / 100, locale)}%`
+      : name
   }
   const options = [
     {
@@ -220,22 +218,22 @@ function PartnerTierForm(
                   {t('Current partner level')}
                 </dt>
                 <dd className='mt-1 text-sm'>
-                  {label(props.data.joined ? props.data.effective.level : 0)}
+                  {label(
+                    props.data.joined ? props.data.effective.level : 0,
+                    false
+                  )}
                 </dd>
-                {props.data.joined && (
-                  <dd className='mt-2'>
-                    <Badge variant='secondary'>{modeLabel}</Badge>
+              </div>
+              {props.data.joined && (
+                <div>
+                  <dt className='text-muted-foreground text-xs'>
+                    {t('Current partner commission rate')}
+                  </dt>
+                  <dd className='mt-1 text-sm tabular-nums'>
+                    {formatNumber(props.data.effective.rate_percent, locale)}%
                   </dd>
-                )}
-              </div>
-              <div>
-                <dt className='text-muted-foreground text-xs'>
-                  {t('Friends cumulative top-ups')}
-                </dt>
-                <dd className='mt-1 text-sm tabular-nums'>
-                  {cash(props.data.performance_cents, locale)}
-                </dd>
-              </div>
+                </div>
+              )}
             </dl>
           </SideDrawerSection>
           <SideDrawerSection>
@@ -336,7 +334,7 @@ function PartnerTierForm(
             ? 'Confirm partner level change'
             : 'Confirm partner activation'
         )}
-        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0)} → ${label(selected)} (${level === 0 ? t('Automatic level') : t('Assigned level')})`}
+        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0, false)} → ${label(selected)} (${level === 0 ? t('Automatic level') : t('Assigned level')})`}
         confirmText={t('Confirm')}
         isLoading={save.isPending}
         handleConfirm={() => {

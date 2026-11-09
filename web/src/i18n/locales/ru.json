@@ -8314,6 +8314,7 @@
     "Activate partner": "Активировать партнёра",
     "Confirm partner activation": "Подтвердить активацию партнёра",
     "Partner activated": "Партнёр активирован",
-    "Select a level and confirm to activate this user as a partner.": "Выберите уровень и подтвердите активацию пользователя как партнёра."
+    "Select a level and confirm to activate this user as a partner.": "Выберите уровень и подтвердите активацию пользователя как партнёра.",
+    "Current partner commission rate": "Текущая комиссия партнёра"
   }
 }

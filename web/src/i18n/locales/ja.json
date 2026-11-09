@@ -8314,6 +8314,7 @@
     "Activate partner": "パートナーを有効化",
     "Confirm partner activation": "パートナーの有効化を確認",
     "Partner activated": "パートナーを有効化しました",
-    "Select a level and confirm to activate this user as a partner.": "レベルを選択し、確認するとこのユーザーをパートナーとして有効化できます。"
+    "Select a level and confirm to activate this user as a partner.": "レベルを選択し、確認するとこのユーザーをパートナーとして有効化できます。",
+    "Current partner commission rate": "現在のパートナー報酬率"
   }
 }

@@ -8314,6 +8314,7 @@
     "Activate partner": "开通合伙人",
     "Confirm partner activation": "确认开通合伙人",
     "Partner activated": "合伙人已开通",
-    "Select a level and confirm to activate this user as a partner.": "选择等级并确认，即可为该用户开通合伙人。"
+    "Select a level and confirm to activate this user as a partner.": "选择等级并确认，即可为该用户开通合伙人。",
+    "Current partner commission rate": "当前返佣比例"
   }
 }

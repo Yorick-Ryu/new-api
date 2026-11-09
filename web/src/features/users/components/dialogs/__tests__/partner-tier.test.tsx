@@ -406,3 +406,32 @@ it('partner management opens on the right with a scrollable body and a separate 
   expect(save).toHaveAttribute('form', form.id)
   expect(save.closest('[data-slot="sheet-footer"]')).toBeInTheDocument()
 })
+
+it.each([false, true])(
+  'the current partner summary only shows an active commission rate when joined=%s',
+  async (joined) => {
+    renderDialog({
+      joined,
+      override: 3,
+      effective: { level: 3, rate_percent: 40 },
+    })
+    await screen.findByRole('combobox', { name: 'Partner level' })
+    const currentLevel = screen.getByText(
+      'Current partner level'
+    ).nextElementSibling
+    expect(currentLevel).toHaveTextContent(joined ? 'Lv.3' : 'Not joined')
+    expect(currentLevel).not.toHaveTextContent('%')
+    expect(
+      screen.queryByText('Friends cumulative top-ups')
+    ).not.toBeInTheDocument()
+    if (joined) {
+      expect(
+        screen.getByText('Current partner commission rate').nextElementSibling
+      ).toHaveTextContent('40%')
+    } else {
+      expect(
+        screen.queryByText('Current partner commission rate')
+      ).not.toBeInTheDocument()
+    }
+  }
+)
