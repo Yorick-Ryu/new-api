@@ -223,10 +223,10 @@ it('confirms the entire selection and uses one verification for one batch reques
   )
   expect(
     screen.getByRole('list', { name: 'Selected users' })
-  ).toHaveTextContent('#2 · managed-user')
+  ).toHaveTextContent('#2 managed-user')
   expect(
     screen.getByRole('list', { name: 'Selected users' })
-  ).toHaveTextContent('#3 · second-user')
+  ).toHaveTextContent('#3 second-user')
   expect(post).not.toHaveBeenCalled()
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await screen.findByLabelText('Authenticator code or backup code')

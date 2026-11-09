@@ -1,6 +1,6 @@
 {
   "translation": {
-    "Disable selected users": "批量禁用",
+    "Disable users": "禁用用户",
     "Selected users": "所选用户",
     "Verify to disable selected users": "验证以批量禁用用户",
     "Verify once to disable all {{count}} selected users.": "验证一次即可禁用所选的全部 {{count}} 个用户。",

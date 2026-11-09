@@ -1,6 +1,6 @@
 {
   "translation": {
-    "Disable selected users": "Disable selected users",
+    "Disable users": "Disable users",
     "Selected users": "Selected users",
     "Verify to disable selected users": "Verify to disable selected users",
     "Verify once to disable all {{count}} selected users.": "Verify once to disable all {{count}} selected users.",

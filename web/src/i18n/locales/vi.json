@@ -1,6 +1,6 @@
 {
   "translation": {
-    "Disable selected users": "Vô hiệu hóa người dùng đã chọn",
+    "Disable users": "Vô hiệu hóa người dùng",
     "Selected users": "Người dùng đã chọn",
     "Verify to disable selected users": "Xác minh để vô hiệu hóa người dùng đã chọn",
     "Verify once to disable all {{count}} selected users.": "Xác minh một lần để vô hiệu hóa tất cả {{count}} người dùng đã chọn.",
