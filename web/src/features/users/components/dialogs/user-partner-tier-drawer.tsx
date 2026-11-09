@@ -57,7 +57,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import {
-  beijingDate,
   campusGet,
   type Overview,
   type TierRule,
@@ -83,15 +82,6 @@ type MemberTier = {
   automatic: Overview['tier']
   effective: Overview['tier']
   tiers: TierRule[]
-  changes: {
-    id: number
-    actor_id: number
-    previous_level: number
-    level: number
-    override: number
-    reason: string
-    created_at: number
-  }[]
 }
 
 type Props = {
@@ -273,35 +263,6 @@ function PartnerTierForm(
               </FormItem>
             )}
           />
-          {props.data.changes.length > 0 && (
-            <section className='space-y-3'>
-              <h3 className='text-sm font-medium'>
-                {t('Recent level changes')}
-              </h3>
-              <ul className='space-y-3 text-sm'>
-                {props.data.changes.map((change) => (
-                  <li key={change.id} className='space-y-1 break-words'>
-                    <p>
-                      {change.previous_level === 0
-                        ? t('Not joined')
-                        : t('Lv.{{level}}', {
-                            level: change.previous_level,
-                          })}{' '}
-                      → {t('Lv.{{level}}', { level: change.level })}{' '}
-                      {change.override
-                        ? `${t('Partner level')}: ${t('Lv.{{level}}', { level: change.override })}`
-                        : t('Automatic level')}
-                    </p>
-                    <p className='text-muted-foreground'>
-                      {beijingDate(change.created_at, locale)} {t('Operator')} #
-                      {change.actor_id}
-                    </p>
-                    {change.reason && <p>{change.reason}</p>}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </form>
       </Form>
       <SheetFooter className={sideDrawerFooterClassName()}>

@@ -298,9 +298,9 @@ func TestCampusHTTPJourney(t *testing.T) {
 				assert.Equal(t, 403, j.request(buyer, "PUT", path, body).Code)
 				assert.Equal(t, 404, j.request(j.admin, "PUT", "https://novapi.cn"+path, body).Code)
 				for _, invalid := range []gin.H{
-					{"revision": 0, "config_revision": 0, "reason": "missing level"},
-					{"level": 3, "revision": 0, "reason": "missing config"},
-					{"level": 3, "config_revision": 0, "reason": "missing revision"},
+					{"revision": 0, "config_revision": 0},
+					{"level": 3, "revision": 0},
+					{"level": 3, "config_revision": 0},
 				} {
 					j.api(t, j.admin, "PUT", path, invalid, false, nil)
 				}
@@ -310,7 +310,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				j.api(t, j.admin, "PUT", path, body, true, nil)
 				assert.Equal(t, 3, j.overview(t, partner).Tier.Level)
 				j.api(t, j.admin, "PUT", path, body, false, nil)
-				j.api(t, j.admin, "PUT", path, gin.H{"level": 0, "revision": 1, "config_revision": 0, "reason": "restore automatic"}, true, nil)
+				j.api(t, j.admin, "PUT", path, gin.H{"level": 0, "revision": 1, "config_revision": 0}, true, nil)
 				assert.Equal(t, 1, j.overview(t, partner).Tier.Level)
 				j.api(t, j.admin, "PUT", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), body, false, nil)
 				j.api(t, j.admin, "GET", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), nil, true, &detail)
@@ -327,8 +327,9 @@ func TestCampusHTTPJourney(t *testing.T) {
 				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
 				assert.True(t, detail.Joined)
 				assert.Equal(t, 3, detail.Effective.Level)
-				require.Len(t, detail.Changes, 1)
-				assert.Zero(t, detail.Changes[0].PreviousLevel)
+				var payload map[string]any
+				j.api(t, j.admin, "GET", newPath, nil, true, &payload)
+				assert.NotContains(t, payload, "changes")
 				enrolledOverview := j.overview(t, newPartner)
 				assert.Positive(t, enrolledOverview.Member.JoinedAt)
 				assert.Len(t, enrolledOverview.Member.Code, 6)

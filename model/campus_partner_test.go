@@ -105,6 +105,7 @@ func TestCampusDatabase(t *testing.T) {
 			assert.True(t, db.Migrator().HasIndex(&CampusMember{}, "idx_campus_members_code"))
 			require.NoError(t, db.Delete(&upgraded).Error)
 			assert.False(t, db.Migrator().HasTable("campus_windows"), "new installations do not need activity intervals")
+			assert.False(t, db.Migrator().HasTable("campus_tier_changes"), "partner levels do not create adjustment history")
 			var preserved TopUp
 			require.NoError(t, db.Where("trade_no = ?", "historical").First(&preserved).Error)
 			assert.Equal(t, 8, preserved.UserId)
@@ -159,7 +160,7 @@ func TestCampusDatabase(t *testing.T) {
 					require.NoError(t, err)
 					assert.True(t, detail.Joined)
 					assert.Equal(t, 1, detail.Effective.Level)
-					assert.Error(t, CampusSetMemberTier(912, 3, 0, 0, "not enrolled", 1, false))
+					assert.Error(t, CampusSetMemberTier(912, 3, 0, 0, false))
 					unjoined, err := CampusGetMemberTier(913)
 					require.NoError(t, err)
 					assert.False(t, unjoined.Joined)
@@ -167,17 +168,13 @@ func TestCampusDatabase(t *testing.T) {
 					var count int64
 					require.NoError(t, tx.Model(&CampusMember{}).Where("user_id IN ?", []int{912, 913}).Count(&count).Error)
 					assert.Zero(t, count, "reads and rejected edits must not create memberships")
-					require.NoError(t, CampusSetMemberTier(913, 3, 0, 0, "", 1, true))
+					require.NoError(t, CampusSetMemberTier(913, 3, 0, 0, true))
 					unjoined, err = CampusGetMemberTier(913)
 					require.NoError(t, err)
 					assert.True(t, unjoined.Joined)
 					assert.Equal(t, 3, unjoined.Effective.Level)
 					assert.Zero(t, unjoined.Performance)
-					require.Len(t, unjoined.Changes, 1)
-					assert.Zero(t, unjoined.Changes[0].PreviousLevel)
-					assert.Empty(t, unjoined.Changes[0].Reason)
-					assert.Equal(t, 1, unjoined.Changes[0].ActorID)
-					assert.ErrorIs(t, CampusSetMemberTier(913, 3, 0, 0, "replayed enrollment", 1, true), ErrCampusState)
+					assert.ErrorIs(t, CampusSetMemberTier(913, 3, 0, 0, true), ErrCampusState)
 					var enrolled CampusMember
 					require.NoError(t, tx.First(&enrolled, "user_id = ?", 913).Error)
 					assert.True(t, validCampusInvitationCode(enrolled.Code))
@@ -187,7 +184,7 @@ func TestCampusDatabase(t *testing.T) {
 					var bound CampusMember
 					require.NoError(t, tx.First(&bound, "user_id = ?", 912).Error)
 					require.NoError(t, CampusConfigure(false, 1))
-					require.NoError(t, CampusSetMemberTier(912, 0, 0, 0, "open with automatic level", 1, true))
+					require.NoError(t, CampusSetMemberTier(912, 0, 0, 0, true))
 					var opened CampusMember
 					require.NoError(t, tx.First(&opened, "user_id = ?", 912).Error)
 					assert.Positive(t, opened.JoinedAt)
@@ -201,15 +198,14 @@ func TestCampusDatabase(t *testing.T) {
 					assert.False(t, campaign.Enabled, "admin enrollment does not enable the campaign")
 					require.NoError(t, CampusConfigure(true, 1))
 
-					assert.Error(t, CampusSetMemberTier(999999, 3, 0, 0, "missing user", 1, false))
+					assert.Error(t, CampusSetMemberTier(999999, 3, 0, 0, false))
 					for _, level := range []int{-1, 6} {
-						assert.Error(t, CampusSetMemberTier(910, level, 0, 0, "invalid", 1, false))
+						assert.Error(t, CampusSetMemberTier(910, level, 0, 0, false))
 					}
-					require.NoError(t, CampusSetMemberTier(910, 0, 0, 0, " ", 1, false))
-					assert.Error(t, CampusSetMemberTier(910, 3, 0, 0, strings.Repeat("x", 501), 1, false))
-					assert.ErrorIs(t, CampusSetMemberTier(910, 3, 0, 1, "stale config", 1, false), ErrCampusState)
-					require.NoError(t, CampusSetMemberTier(910, 3, 0, 0, "", 1, false))
-					assert.ErrorIs(t, CampusSetMemberTier(910, 4, 0, 0, "stale member", 1, false), ErrCampusState)
+					require.NoError(t, CampusSetMemberTier(910, 0, 0, 0, false))
+					assert.ErrorIs(t, CampusSetMemberTier(910, 3, 0, 1, false), ErrCampusState)
+					require.NoError(t, CampusSetMemberTier(910, 3, 0, 0, false))
+					assert.ErrorIs(t, CampusSetMemberTier(910, 4, 0, 0, false), ErrCampusState)
 					assert.Error(t, CampusConfigureTiers(cp.DefaultTiers()[:2], 0, 1))
 					for _, order := range []TopUp{
 						{UserId: 911, TradeNo: "tier-minimum-large", Money: 100000, Status: common.TopUpStatusPending},
@@ -236,7 +232,7 @@ func TestCampusDatabase(t *testing.T) {
 					overview, err := CampusGetOverview(910)
 					require.NoError(t, err)
 					assert.Equal(t, detail.Effective, overview.Tier)
-					require.NoError(t, CampusSetMemberTier(910, 1, 1, 0, "lower minimum preserves earned level", 1, false))
+					require.NoError(t, CampusSetMemberTier(910, 1, 1, 0, false))
 					detail, err = CampusGetMemberTier(910)
 					require.NoError(t, err)
 					assert.Equal(t, 5, detail.Effective.Level)
@@ -246,7 +242,7 @@ func TestCampusDatabase(t *testing.T) {
 					var subPayment CampusPayment
 					require.NoError(t, tx.Where("trade_no = ?", subscription.TradeNo).First(&subPayment).Error)
 					assert.EqualValues(t, 500, subPayment.Commission)
-					require.NoError(t, CampusSetMemberTier(910, 0, 2, 0, "restore automatic", 1, false))
+					require.NoError(t, CampusSetMemberTier(910, 0, 2, 0, false))
 					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, payment.TradeNo, 911) }))
 					require.NoError(t, tx.First(&payment, payment.ID).Error)
 					assert.Equal(t, minimumSnapshot, payment)
@@ -257,11 +253,6 @@ func TestCampusDatabase(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, 5, detail.Effective.Level)
 					assert.EqualValues(t, 10010000, detail.Performance)
-					require.Len(t, detail.Changes, 3)
-					assert.Equal(t, "restore automatic", detail.Changes[0].Reason)
-					assert.Equal(t, 1, detail.Changes[0].ActorID)
-					assert.Equal(t, 1, detail.Changes[0].PreviousOverride)
-					assert.Zero(t, detail.Changes[0].Override)
 					order := TopUp{UserId: 911, TradeNo: "tier-restored", Money: 100, Status: common.TopUpStatusPending}
 					require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
 					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, order.TradeNo, 911) }))

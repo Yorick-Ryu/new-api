@@ -130,7 +130,7 @@ func InitializeCampusPartner(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&CampusCampaign{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}, &CampusTierChange{}); err != nil {
+	if err := db.AutoMigrate(&CampusCampaign{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
 		return err
 	}
 	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion, TiersJSON: string(tiers), PlanRatesJSON: "[]"}).Error; err != nil {

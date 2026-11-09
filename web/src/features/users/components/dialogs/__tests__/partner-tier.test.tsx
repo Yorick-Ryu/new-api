@@ -66,7 +66,6 @@ const data = {
     { floor_cents: 200000, rate_bps: 3500 },
     { floor_cents: 1000000, rate_bps: 4000 },
   ],
-  changes: [],
 }
 const clients: QueryClient[] = []
 function renderDialog(overrides = {}, rowMenu = false, loadFailure = false) {
@@ -411,7 +410,10 @@ it('partner management opens on the right with a scrollable body and a separate 
   expect(
     select.closest('[data-slot="form-item"]')?.previousElementSibling?.tagName
   ).toBe('DL')
-  expect(within(form).getByText('Recent level changes')).toBeVisible()
+  expect(
+    within(form).queryByText('Recent level changes')
+  ).not.toBeInTheDocument()
+  expect(within(form).queryByText(/Operator/)).not.toBeInTheDocument()
   const save = screen.getByRole('button', { name: 'Save changes' })
   expect(form).not.toContainElement(save)
   expect(save).toHaveAttribute('form', form.id)
