@@ -40,7 +40,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { User } from '../../../types'
 import { DataTableRowActions } from '../../data-table-row-actions'
 import { UsersProvider } from '../../users-provider'
-import { UserPartnerTierDialog } from '../user-partner-tier-dialog'
+import { UserPartnerTierDrawer } from '../user-partner-tier-drawer'
 
 const target: User = {
   id: 42,
@@ -86,7 +86,7 @@ function renderDialog(overrides = {}, rowMenu = false, loadFailure = false) {
           <DataTableRowActions row={{ original: target } as Row<User>} />
         </UsersProvider>
       ) : (
-        <UserPartnerTierDialog user={target} onClose={close} />
+        <UserPartnerTierDrawer user={target} onClose={close} />
       )}
     </QueryClientProvider>
   )
@@ -376,4 +376,33 @@ it('the compact editor keeps level and commission, without explanatory copy or d
   await user.click(option)
   expect(select).toHaveTextContent('Lv.3')
   expect(select).toHaveTextContent('40%')
+})
+
+it('partner management opens on the right with a scrollable body and a separate footer like other user drawers', async () => {
+  renderDialog({
+    changes: [
+      {
+        id: 1,
+        actor_id: 1,
+        previous_level: 1,
+        level: 2,
+        override: 2,
+        reason: '',
+        created_at: 1794230000,
+      },
+    ],
+  })
+  const select = await screen.findByRole('combobox', { name: 'Partner level' })
+  const drawer = screen.getByRole('dialog', { name: 'Manage partner' })
+  expect(drawer).toHaveAttribute('data-slot', 'sheet-content')
+  expect(drawer).toHaveAttribute('data-side', 'right')
+  expect(drawer).toHaveClass('h-dvh', 'w-full')
+  const form = select.closest('form')
+  if (!form) throw new Error('Partner selector must belong to a form')
+  expect(form).toHaveClass('flex-1', 'overflow-y-auto')
+  expect(within(form).getByText('Recent level changes')).toBeVisible()
+  const save = screen.getByRole('button', { name: 'Save changes' })
+  expect(form).not.toContainElement(save)
+  expect(save).toHaveAttribute('form', form.id)
+  expect(save.closest('[data-slot="sheet-footer"]')).toBeInTheDocument()
 })
