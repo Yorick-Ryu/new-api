@@ -23,9 +23,11 @@ import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { useDataTable } from '@/components/data-table'
 import { api } from '@/lib/api'
 
 import type { User } from '../../types'
+import { DataTableBulkActions } from '../data-table-bulk-actions'
 import { DataTableRowActions } from '../data-table-row-actions'
 import { UsersDeleteDialog } from '../users-delete-dialog'
 import { UsersProvider, useUsers } from '../users-provider'
@@ -196,5 +198,119 @@ it('disabling a user from the row menu binds the proof to the user and action', 
       context: { user_id: 2, action: 'disable' },
     }),
     expect.anything()
+  )
+})
+
+function BatchSelection() {
+  const { table } = useDataTable<User>({
+    data: [target, { ...target, id: 3, username: 'second-user' }],
+    columns: [],
+    getRowId: (user) => String(user.id),
+    initialRowSelection: { '2': true, '3': true },
+  })
+  return <DataTableBulkActions table={table} />
+}
+
+it('confirms the entire selection and uses one verification for one batch request', async () => {
+  const proof = mockVerification('admin.user.batch_disable', 'batch-proof')
+  const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
+    if (url === '/api/verify') return proof
+    return { data: { success: true } }
+  })
+  renderInProvider(<BatchSelection />)
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Disable' })
+  )
+  expect(
+    screen.getByRole('list', { name: 'Selected users' })
+  ).toHaveTextContent('#2 managed-user')
+  expect(
+    screen.getByRole('list', { name: 'Selected users' })
+  ).toHaveTextContent('#3 second-user')
+  expect(post).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  await screen.findByLabelText('Authenticator code or backup code')
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  expect(post).not.toHaveBeenCalled()
+  await completeTwoFactorVerification()
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/api/user/batch-disable',
+      { user_ids: [2, 3] },
+      {
+        headers: { 'X-Security-Proof': 'batch-proof' },
+        singleUseAuthorization: true,
+      }
+    )
+  )
+  expect(post.mock.calls.filter(([url]) => url === '/api/verify')).toHaveLength(
+    1
+  )
+  expect(
+    post.mock.calls.filter(([url]) => url === '/api/user/batch-disable')
+  ).toHaveLength(1)
+  expect(
+    post.mock.calls.find(([url]) => url === '/api/verify')?.[1]
+  ).toMatchObject({
+    scope: 'admin.user.batch_disable',
+    context: { user_ids: [2, 3] },
+  })
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Disable' })
+    ).not.toBeInTheDocument()
+  )
+})
+
+it('does not disable any selected user when batch verification is cancelled', async () => {
+  mockVerification('admin.user.batch_disable', 'unused-proof')
+  const post = vi.spyOn(api, 'post')
+  renderInProvider(<BatchSelection />)
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Disable' })
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  await screen.findByLabelText('Authenticator code or backup code')
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await screen.findByRole('alertdialog')
+  expect(post).not.toHaveBeenCalled()
+  expect(
+    screen.getByRole('list', { name: 'Selected users' })
+  ).toHaveTextContent('second-user')
+})
+
+it('keeps the reviewed selection after a rejected batch and obtains a fresh proof on retry', async () => {
+  const proof = mockVerification('admin.user.batch_disable', 'batch-proof')
+  const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
+    if (url === '/api/verify') return proof
+    return { data: { success: false, message: 'Batch rejected' } }
+  })
+  renderInProvider(<BatchSelection />)
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Disable' })
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  await completeTwoFactorVerification()
+  await waitFor(() =>
+    expect(
+      post.mock.calls.filter(([url]) => url === '/api/user/batch-disable')
+    ).toHaveLength(1)
+  )
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  )
+  expect(
+    screen.getByRole('list', { name: 'Selected users' })
+  ).toHaveTextContent('second-user')
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  await screen.findByLabelText('Authenticator code or backup code')
+  expect(
+    post.mock.calls.filter(([url]) => url === '/api/user/batch-disable')
+  ).toHaveLength(1)
+  await completeTwoFactorVerification()
+  await waitFor(() =>
+    expect(
+      post.mock.calls.filter(([url]) => url === '/api/verify')
+    ).toHaveLength(2)
   )
 })

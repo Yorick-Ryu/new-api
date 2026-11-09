@@ -126,6 +126,7 @@ func newCampusJourney(t *testing.T, dialect string) *campusJourney {
 	require.Empty(t, tables, "refuse to test against a nonempty database")
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.AuthFlow{}, &model.ExternalIdentityClaim{}, &model.Log{}, &model.AuditLog{}, &model.Option{}, &model.TwoFA{}, &model.PasskeyCredential{}, &model.TopUp{}, &model.SubscriptionPlan{}, &model.SubscriptionOrder{}, &model.UserSubscription{}, &model.UserSubscriptionQuotaWindow{}, &model.CasbinRule{}, &model.AuthzRole{}))
 	require.NoError(t, model.InitializeCampusPartner(db))
+	require.NoError(t, model.InitializeCampusPartner(db))
 	require.NoError(t, authz.Init(db))
 	versionSQL := "SELECT VERSION()"
 	if dialect == "sqlite" {
@@ -289,6 +290,56 @@ func TestCampusHTTPJourney(t *testing.T) {
 				j.api(t, stranger, "GET", fmt.Sprintf("/api/campus/self/records/invitations?user_id=%d", partner.id), nil, true, &list)
 				assert.Zero(t, list.Total)
 			}))
+
+			t.Run("only authorized administrators can manage and enroll partners", func(t *testing.T) {
+				path := fmt.Sprintf("/api/campus/admin/members/%d/tier", partner.id)
+				body := gin.H{"level": 3, "revision": 0, "config_revision": 0}
+				assert.Equal(t, 401, j.request(campusClient{}, "GET", path, nil).Code)
+				assert.Equal(t, 403, j.request(buyer, "PUT", path, body).Code)
+				assert.Equal(t, 404, j.request(j.admin, "PUT", "https://novapi.cn"+path, body).Code)
+				for _, invalid := range []gin.H{
+					{"revision": 0, "config_revision": 0},
+					{"level": 3, "revision": 0},
+					{"level": 3, "config_revision": 0},
+				} {
+					j.api(t, j.admin, "PUT", path, invalid, false, nil)
+				}
+				var detail model.CampusMemberTier
+				j.api(t, j.admin, "GET", path, nil, true, &detail)
+				assert.True(t, detail.Joined)
+				j.api(t, j.admin, "PUT", path, body, true, nil)
+				assert.Equal(t, 3, j.overview(t, partner).Tier.Level)
+				j.api(t, j.admin, "PUT", path, body, false, nil)
+				j.api(t, j.admin, "PUT", path, gin.H{"level": 0, "revision": 1, "config_revision": 0}, true, nil)
+				assert.Equal(t, 1, j.overview(t, partner).Tier.Level)
+				j.api(t, j.admin, "PUT", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), body, false, nil)
+				j.api(t, j.admin, "GET", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), nil, true, &detail)
+				assert.False(t, detail.Joined)
+				newPartner := j.register(t, "admin-enrolled", "")
+				newPath := fmt.Sprintf("/api/campus/admin/members/%d/tier", newPartner.id)
+				enroll := gin.H{"level": 3, "revision": 0, "config_revision": 0, "enroll": true}
+				assert.Equal(t, 403, j.request(buyer, "PUT", newPath, enroll).Code)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.False(t, detail.Joined)
+				assert.Equal(t, 1, detail.Automatic.Level)
+				j.api(t, j.admin, "PUT", newPath, enroll, true, nil)
+				j.api(t, j.admin, "PUT", newPath, enroll, false, nil)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.True(t, detail.Joined)
+				assert.Equal(t, 3, detail.Effective.Level)
+				var payload map[string]any
+				j.api(t, j.admin, "GET", newPath, nil, true, &payload)
+				assert.NotContains(t, payload, "changes")
+				enrolledOverview := j.overview(t, newPartner)
+				assert.Positive(t, enrolledOverview.Member.JoinedAt)
+				assert.Len(t, enrolledOverview.Member.Code, 6)
+				// The newly enrolled account supports normal follow-up level changes.
+				j.api(t, j.admin, "PUT", newPath, gin.H{"level": 0, "revision": 1, "config_revision": 0}, true, nil)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.True(t, detail.Joined)
+				assert.Zero(t, detail.Override)
+
+			})
 
 			require.True(t, t.Run("coupon_reservation_resume_and_duplicate_checkout", func(t *testing.T) {
 				couponOrder = j.checkout(t, buyer, 2000, true)
@@ -669,6 +720,9 @@ func TestCampusHTTPJourney(t *testing.T) {
 				require.NoError(t, j.db.Model(&model.User{}).Where("id = ?", staff.id).Update("role", common.RoleAdminUser).Error)
 				require.NoError(t, authz.SetUserPermissions(staff.id, authz.PermissionsMap{authz.CampusRead.Resource: {"read": true, "write": false}}))
 				j.api(t, staff, "GET", "/api/campus/admin/config", nil, true, nil)
+				path := fmt.Sprintf("/api/campus/admin/members/%d/tier", partner.id)
+				j.api(t, staff, "GET", path, nil, true, nil)
+				assert.Equal(t, 403, j.request(staff, "PUT", path, gin.H{"level": 3, "revision": 2, "config_revision": 0, "reason": "not allowed"}).Code)
 				j.api(t, staff, "GET", "/api/campus/admin/records/invitations", nil, true, nil)
 				assert.Equal(t, 403, j.request(staff, "PUT", "/api/campus/admin/config", gin.H{"enabled": false}).Code)
 				req := httptest.NewRequest("POST", "https://beiapi.cn/api/campus/self/join", strings.NewReader("{}"))

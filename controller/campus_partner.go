@@ -350,3 +350,35 @@ func CampusResumeCoupon(c *gin.Context) {
 	}
 	common.ApiSuccess(c, gin.H{"url": uri, "params": params})
 }
+
+func CampusMemberTier(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if c.Request.Method == http.MethodPut {
+		var req struct {
+			Level          *int   `json:"level"`
+			Revision       *int64 `json:"revision"`
+			ConfigRevision *int64 `json:"config_revision"`
+			Enroll         bool   `json:"enroll"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.Level == nil || req.Revision == nil || req.ConfigRevision == nil {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		if err := model.CampusSetMemberTier(id, *req.Level, *req.Revision, *req.ConfigRevision, req.Enroll); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		common.ApiSuccess(c, nil)
+		return
+	}
+	result, err := model.CampusGetMemberTier(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}

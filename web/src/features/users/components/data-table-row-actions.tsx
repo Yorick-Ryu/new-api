@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   Link2,
   CreditCard,
+  GraduationCap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -47,9 +48,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { AdminUserManageAction } from '@/features/auth/secure-verification'
+import { campusSite } from '@/features/campus-partner/storage'
 import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
+import { hasPermission } from '@/lib/admin-permissions'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
@@ -61,6 +65,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import type { User } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserPartnerTierDrawer } from './dialogs/user-partner-tier-drawer'
 import { useUsers } from './users-provider'
 
 const MANAGE_ACTION_TITLES: Record<AdminUserManageAction, string> = {
@@ -77,6 +82,12 @@ interface DataTableRowActionsProps {
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { t } = useTranslation()
   const user = row.original
+  const viewer = useAuthStore((state) => state.auth.user)
+  const canSetPartnerTier =
+    campusSite() &&
+    hasPermission(viewer, 'campus_partner', 'read') &&
+    hasPermission(viewer, 'campus_partner', 'write')
+  const [partnerTierOpen, setPartnerTierOpen] = useState(false)
   const {
     setOpen,
     setCurrentRow,
@@ -275,6 +286,15 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </DropdownMenuShortcut>
         </DropdownMenuItem>
 
+        {canSetPartnerTier && (
+          <DropdownMenuItem onClick={() => setPartnerTierOpen(true)}>
+            {t('Manage partner')}
+            <DropdownMenuShortcut>
+              <GraduationCap size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        )}
+
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
@@ -340,6 +360,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         confirmText={t('Reset 2FA')}
         handleConfirm={handleResetTwoFA}
       />
+
+      {canSetPartnerTier && (
+        <UserPartnerTierDrawer
+          open={partnerTierOpen}
+          user={user}
+          onClose={() => setPartnerTierOpen(false)}
+        />
+      )}
 
       <UserBindingDialog
         open={bindingDialogOpen}

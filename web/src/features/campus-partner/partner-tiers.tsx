@@ -41,29 +41,24 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })
+  const minimumLevel = props.data.member.tier_override || 0
   const tier = props.data.tier
   const nextTier = props.data.tiers[tier.level]
-  const progress =
-    tier.next_cents > tier.floor_cents
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            ((props.data.member.performance_cents - tier.floor_cents) /
-              (tier.next_cents - tier.floor_cents)) *
-              100
-          )
-        )
-      : 100
   return (
     <section aria-label={t('Top-up commission levels')}>
       <TitledCard
         title={<h3>{t('Top-up commission levels')}</h3>}
         titleClassName={campusCardTypography.title}
         descriptionClassName={campusCardTypography.body}
-        description={t(
-          'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
-        )}
+        description={
+          minimumLevel
+            ? t(
+                'Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.'
+              )
+            : t(
+                'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
+              )
+        }
         icon={<TrendingUp />}
         iconTone='primary'
         action={
@@ -103,9 +98,20 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
             {props.data.tiers.map((rule, index) => {
               const active = tier.level === index + 1
               const next = props.data.tiers[index + 1]
-              let value = 0
-              if (index + 1 < tier.level) value = 100
-              else if (active) value = progress
+              const performance = props.data.member.performance_cents
+              const completed = next && performance >= next.floor_cents
+              let value = performance >= rule.floor_cents ? 100 : 0
+              if (next) {
+                value = Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    ((performance - rule.floor_cents) /
+                      (next.floor_cents - rule.floor_cents)) *
+                      100
+                  )
+                )
+              }
               return (
                 <div
                   key={rule.floor_cents}
@@ -129,7 +135,12 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                         {t('Lv.{{level}}', { level: index + 1 })}
                       </span>
                       {active && <Badge>{t('Current')}</Badge>}
-                      {index + 1 < tier.level && (
+                      {index + 1 === minimumLevel && (
+                        <Badge variant='secondary'>
+                          {t('Minimum partner level')}
+                        </Badge>
+                      )}
+                      {completed && (
                         <Badge variant='secondary'>{t('Completed')}</Badge>
                       )}
                     </CardHeader>

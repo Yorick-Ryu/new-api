@@ -42,6 +42,7 @@ const (
 	VerificationScopeAdminUserUpdate       = "admin.user.update"
 	VerificationScopeAdminUserDelete       = "admin.user.delete"
 	VerificationScopeAdminUserManage       = "admin.user.manage"
+	VerificationScopeAdminUserBatchDisable = "admin.user.batch_disable"
 	VerificationScopeAdminUserPasskeyReset = "admin.user.passkey.reset"
 	VerificationScopeAdminUserTwoFADisable = "admin.user.2fa.disable"
 	VerificationScopeAdminUserBindingClear = "admin.user.binding.clear"
@@ -84,6 +85,27 @@ type AccountUnbindingContext struct {
 
 type AdminUserContext struct {
 	UserID int `json:"user_id"`
+}
+
+const MaxBatchDisableUsers = 100
+
+type AdminUserBatchDisableContext struct {
+	UserIDs []int `json:"user_ids"`
+}
+
+// NormalizeBatchDisableUsers binds a bounded, unique set of positive IDs.
+func NormalizeBatchDisableUsers(ids []int) ([]int, error) {
+	if len(ids) == 0 || len(ids) > MaxBatchDisableUsers {
+		return nil, ErrVerificationContextInvalid
+	}
+	ids = slices.Clone(ids)
+	slices.Sort(ids)
+	for i, id := range ids {
+		if id <= 0 || (i > 0 && ids[i-1] == id) {
+			return nil, ErrVerificationContextInvalid
+		}
+	}
+	return ids, nil
 }
 
 type AdminUserManageContext struct {
@@ -203,6 +225,17 @@ func BindVerificationOperation(operation VerificationOperation) (VerificationBin
 		if len(fields) != 1 || common.Unmarshal(fields["user_id"], &context.UserID) != nil || context.UserID <= 0 {
 			return VerificationBinding{}, ErrVerificationContextInvalid
 		}
+		normalized = context
+	case VerificationScopeAdminUserBatchDisable:
+		var context AdminUserBatchDisableContext
+		if len(fields) != 1 || common.Unmarshal(operation.Context, &context) != nil {
+			return VerificationBinding{}, ErrVerificationContextInvalid
+		}
+		ids, err := NormalizeBatchDisableUsers(context.UserIDs)
+		if err != nil {
+			return VerificationBinding{}, err
+		}
+		context.UserIDs = ids
 		normalized = context
 	case VerificationScopeAdminUserManage:
 		var context AdminUserManageContext
@@ -329,7 +362,7 @@ func securityVerificationPolicy(scope string, state model.UserVerificationState)
 		VerificationScopeAccountBind, VerificationScopeAccountUnbind,
 		VerificationScopePasswordSet, VerificationScopePasswordChange, VerificationScopeAccountDelete,
 		VerificationScopeAdminUserCreate, VerificationScopeAdminUserUpdate, VerificationScopeAdminUserDelete,
-		VerificationScopeAdminUserManage, VerificationScopeAdminUserPasskeyReset,
+		VerificationScopeAdminUserManage, VerificationScopeAdminUserBatchDisable, VerificationScopeAdminUserPasskeyReset,
 		VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear:
 		if scope == VerificationScopeAccountDelete && state.Role == common.RoleRootUser {
 			return nil, ErrVerificationForbidden
@@ -394,7 +427,7 @@ func GetVerificationRequirements(identity AuthIdentity, scope string) (*Verifica
 			switch scope {
 			case VerificationScopeAccountBind, VerificationScopeAccountUnbind, VerificationScopePasswordSet, VerificationScopePasswordChange, VerificationScopeAccountDelete,
 				VerificationScopeAdminUserCreate, VerificationScopeAdminUserUpdate, VerificationScopeAdminUserDelete,
-				VerificationScopeAdminUserManage, VerificationScopeAdminUserPasskeyReset,
+				VerificationScopeAdminUserManage, VerificationScopeAdminUserBatchDisable, VerificationScopeAdminUserPasskeyReset,
 				VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear:
 				methods[i].Available, methods[i].Reason = false, "Password authentication is disabled."
 			}

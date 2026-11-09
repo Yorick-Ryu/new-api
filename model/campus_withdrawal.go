@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"errors"
 	"regexp"
 	"strings"
@@ -148,7 +147,7 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 			if w.State != "pending" {
 				return ErrCampusState
 			}
-			// Approval may arrive before the hourly maintenance pass.
+			// Assign an overdue request to the next available payout batch on manual approval.
 			if w.Batch < now.In(beijing).Format(time.DateOnly) {
 				batch, err := time.ParseInLocation(time.DateOnly, w.Batch, beijing)
 				if err != nil {
@@ -247,56 +246,4 @@ func CampusActWithdrawal(id int64, actor int, action, reason, receipt string, pa
 		}
 		return nil
 	})
-}
-
-// Only unfinished reviews roll forward automatically. An approved request may
-// already have been transferred at month end and recorded later; preserve its
-// original batch until the operator reconciles the actual outcome.
-func CampusAdvanceBatches(ctx context.Context) error {
-	zone := time.FixedZone("Asia/Shanghai", 28800)
-	now := time.Now().In(zone)
-	for {
-		// Check without the accounting lock, then recheck inside a bounded transaction.
-		// Idle runs never contend with payment settlement or withdrawal reservations.
-		var ids []int64
-		if err := DB.WithContext(ctx).Model(&CampusWithdrawal{}).
-			Where("batch < ? AND state IN ?", now.Format(time.DateOnly), []string{"pending", "paused"}).
-			Order("id").Limit(100).Pluck("id", &ids).Error; err != nil {
-			return err
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		for _, id := range ids {
-			if err := campusTransaction(DB.WithContext(ctx), func(tx *gorm.DB) error {
-				if _, err := campusReadConfig(tx); err != nil {
-					return err
-				}
-				var rows []CampusWithdrawal
-				if err := lockForUpdate(tx).Where("id = ? AND batch < ? AND state IN ?", id, now.Format(time.DateOnly), []string{"pending", "paused"}).Find(&rows).Error; err != nil {
-					return err
-				}
-				for i := range rows {
-					w := &rows[i]
-					batch, err := time.ParseInLocation(time.DateOnly, w.Batch, zone)
-					if err != nil {
-						return err
-					}
-					next, err := cp.DeferredBatch(batch, now)
-					if err != nil {
-						return err
-					}
-					w.Batch = next.Format(time.DateOnly)
-					w.Reason = "Month-end batch missed; review or transfer was not completed. Follow-up required."
-					w.UpdatedAt = now.Unix()
-					if err := tx.Save(w).Error; err != nil {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-	}
 }

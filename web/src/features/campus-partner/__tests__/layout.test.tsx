@@ -517,9 +517,10 @@ test('commission composition shows four amounts and identifies each proportional
   expect(segment).toHaveStyle({ width: '40%' })
   expect(segment).not.toHaveAccessibleName(/%/)
   await user.hover(segment)
-  expect(await screen.findByText(/Withdrawable.*400\.00/)).toHaveTextContent(
-    /Withdrawable.*400\.00/
-  )
+  const tooltipLabel = await screen.findByText('Withdrawable', {
+    selector: '[data-slot="tooltip-content"] span',
+  })
+  expect(tooltipLabel.parentElement).toHaveTextContent(/Withdrawable.*400\.00/)
 })
 
 test('zero commission retains all four legend amounts without creating invalid segments', async () => {
@@ -580,3 +581,44 @@ test.each([
     expect(screen.getByText(reason)).toBeVisible()
   }
 )
+
+test('a minimum partner level preserves the next earned upgrade target without inventing completed performance', async () => {
+  renderPage(<CampusPartner />, {
+    member: {
+      code: 'ABC123',
+      joined_at: 1,
+      inviter_id: 0,
+      performance_cents: 0,
+      debt_cents: 0,
+      coupon_state: '',
+      coupon_trade: '',
+      tier_override: 2,
+    },
+    tiers: [
+      { floor_cents: 0, rate_bps: 3000 },
+      { floor_cents: 200000, rate_bps: 3500 },
+      { floor_cents: 1000000, rate_bps: 4000 },
+    ],
+    tier: {
+      level: 2,
+      rate_percent: 35,
+      floor_cents: 200000,
+      next_cents: 1000000,
+      remaining_cents: 1000000,
+    },
+  })
+  const tiers = await screen.findByRole('region', {
+    name: 'Top-up commission levels',
+  })
+  expect(within(tiers).getByText('Minimum partner level')).toBeVisible()
+  expect(within(tiers).getByText('Current')).toBeVisible()
+  expect(
+    within(tiers).queryByText('Highest partner tier reached')
+  ).not.toBeInTheDocument()
+  expect(within(tiers).queryByText('Completed')).not.toBeInTheDocument()
+  expect(within(tiers).getAllByRole('progressbar')).toHaveLength(3)
+  expect(
+    within(tiers).getByRole('progressbar', { name: 'Lv.2' })
+  ).toHaveAttribute('aria-valuenow', '0')
+  expect(within(tiers).getByText(/10,000\.00/)).toBeVisible()
+})

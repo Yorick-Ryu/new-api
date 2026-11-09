@@ -107,7 +107,7 @@ export function PartnerInvitation(props: {
           }
         >
           {props.data.member.joined_at > 0 ? (
-            <div className='grid min-w-0 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-6'>
+            <div className='grid min-w-0 gap-3 md:grid-cols-2 md:gap-x-6'>
               <div className='space-y-2 md:col-span-2'>
                 <Label htmlFor='campus-invitation-link'>
                   {t('Invitation link')}

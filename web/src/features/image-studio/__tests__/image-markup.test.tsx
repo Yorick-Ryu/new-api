@@ -22,6 +22,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -122,57 +123,74 @@ describe('Image markup', () => {
     }
     expect(context.drawImage).toHaveBeenCalledTimes(1)
   })
-  it('draws on the correctly scaled source coordinates with pointer input', async () => {
-    render(
-      <ImageMarkup
-        reference={reference}
-        value={null}
-        disabled={false}
-        onBusyChange={vi.fn()}
-        onApply={vi.fn()}
-        onClear={vi.fn()}
-      />
-    )
-    const canvas = await openCanvas()
-    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-      x: 0,
-      y: 0,
-      left: 0,
-      top: 0,
-      right: 200,
-      bottom: 150,
-      width: 200,
-      height: 150,
-      toJSON: () => ({}),
-    })
-    canvas.setPointerCapture = vi.fn()
-    fireEvent.pointerDown(canvas, {
-      pointerId: 1,
-      button: 0,
-      clientX: 20,
-      clientY: 30,
-    })
-    fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 80, clientY: 90 })
-    fireEvent.pointerUp(canvas, { pointerId: 1 })
-    expect(screen.getByRole('button', { name: 'Apply markup' })).toBeEnabled()
-    expect(context.ellipse).toHaveBeenLastCalledWith(
-      100,
-      120,
-      60,
-      60,
-      0,
-      0,
-      Math.PI * 2
-    )
-  })
+  it.each(['Brush', 'Circle'])(
+    'defaults to the first brush tool and draws scaled coordinates with %s',
+    async (tool) => {
+      render(
+        <ImageMarkup
+          reference={reference}
+          value={null}
+          disabled={false}
+          onBusyChange={vi.fn()}
+          onApply={vi.fn()}
+          onClear={vi.fn()}
+        />
+      )
+      const canvas = await openCanvas()
+      const tools = within(
+        screen.getByRole('group', { name: 'Drawing tool' })
+      ).getAllByRole('button')
+      expect(tools.map((button) => button.textContent)).toEqual([
+        'Brush',
+        'Circle',
+      ])
+      expect(tools[0]).toHaveAttribute('aria-pressed', 'true')
+      expect(tools[1]).toHaveAttribute('aria-pressed', 'false')
+      if (tool === 'Circle') fireEvent.click(tools[1])
+      vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 200,
+        bottom: 150,
+        width: 200,
+        height: 150,
+        toJSON: () => ({}),
+      })
+      canvas.setPointerCapture = vi.fn()
+      fireEvent.pointerDown(canvas, {
+        pointerId: 1,
+        button: 0,
+        clientX: 20,
+        clientY: 30,
+      })
+      fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 80, clientY: 90 })
+      fireEvent.pointerUp(canvas, { pointerId: 1 })
+      expect(screen.getByRole('button', { name: 'Apply markup' })).toBeEnabled()
+      if (tool === 'Circle') {
+        expect(context.ellipse).toHaveBeenLastCalledWith(
+          100,
+          120,
+          60,
+          60,
+          0,
+          0,
+          Math.PI * 2
+        )
+      } else {
+        expect(context.ellipse).not.toHaveBeenCalled()
+        expect(context.moveTo).toHaveBeenLastCalledWith(40, 60)
+        expect(context.lineTo).toHaveBeenLastCalledWith(160, 180)
+      }
+    }
+  )
 
   it('keeps the original selection and editor when upload fails', async () => {
     const apply = vi.fn()
-    const post = vi
-      .spyOn(api, 'post')
-      .mockResolvedValue({
-        data: { success: false, message: 'Upload unavailable' },
-      })
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: { success: false, message: 'Upload unavailable' },
+    })
     render(
       <ImageMarkup
         reference={reference}

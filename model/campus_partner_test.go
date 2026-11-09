@@ -22,6 +22,21 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Member schema from the deployed revision, before manual level assignment.
+type legacyCampusTierMember struct {
+	UserID           int      `json:"user_id" gorm:"primaryKey;autoIncrement:false"`
+	Code             string   `json:"code" gorm:"type:varchar(32);uniqueIndex"`
+	JoinedAt         int64    `json:"joined_at"`
+	InviterID        int      `json:"inviter_id" gorm:"index"`
+	BoundAt          int64    `json:"bound_at"`
+	Performance      cp.Money `json:"performance_cents"`
+	Debt             cp.Money `json:"debt_cents"`
+	CouponState      string   `json:"coupon_state" gorm:"type:varchar(16)"`
+	CouponTrade      string   `json:"coupon_trade" gorm:"type:varchar(255)"`
+	ReminderDay      string   `json:"-" gorm:"type:varchar(10)"`
+	ReminderAccepted string   `json:"-" gorm:"type:varchar(64)"`
+}
+
 func TestCampusDatabase(t *testing.T) {
 	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
 		t.Run(dialect, func(t *testing.T) {
@@ -74,9 +89,23 @@ func TestCampusDatabase(t *testing.T) {
 			require.NoError(t, db.Create(&TopUp{UserId: 8, TradeNo: "historical", Status: common.TopUpStatusSuccess, Money: 10}).Error)
 			require.NoError(t, db.Create(&SubscriptionPlan{Id: 6, Title: "Plus", Enabled: true}).Error)
 			require.NoError(t, db.Create(&SubscriptionPlan{Id: 7, Title: "Ultra", Enabled: true}).Error)
+			// Exercise upgrade from the previous member schema and preserve existing rows.
+			require.NoError(t, db.Table("campus_members").AutoMigrate(&legacyCampusTierMember{}))
+			legacy := legacyCampusTierMember{UserID: 9999, Code: "OLD999", JoinedAt: 123, Performance: 12345}
+			require.NoError(t, db.Table("campus_members").Create(&legacy).Error)
 			require.NoError(t, InitializeCampusPartner(db))
 			require.NoError(t, InitializeCampusPartner(db))
+			var upgraded CampusMember
+			require.NoError(t, db.First(&upgraded, "user_id = ?", legacy.UserID).Error)
+			assert.Equal(t, legacy.Code, upgraded.Code)
+			assert.Equal(t, legacy.Performance, upgraded.Performance)
+			assert.Equal(t, legacy.JoinedAt, upgraded.JoinedAt)
+			assert.Zero(t, upgraded.TierOverride)
+			assert.Zero(t, upgraded.TierRevision)
+			assert.True(t, db.Migrator().HasIndex(&CampusMember{}, "idx_campus_members_code"))
+			require.NoError(t, db.Delete(&upgraded).Error)
 			assert.False(t, db.Migrator().HasTable("campus_windows"), "new installations do not need activity intervals")
+			assert.False(t, db.Migrator().HasTable("campus_tier_changes"), "partner levels do not create adjustment history")
 			var preserved TopUp
 			require.NoError(t, db.Where("trade_no = ?", "historical").First(&preserved).Error)
 			assert.Equal(t, 8, preserved.UserId)
@@ -115,6 +144,125 @@ func TestCampusDatabase(t *testing.T) {
 					assert.ErrorIs(t, err, ErrCampusBinding)
 					assert.ErrorIs(t, CampusBind(3, invalid), ErrCampusBinding)
 				}
+			})
+			t.Run("manual levels preserve performance and historical settlement snapshots", func(t *testing.T) {
+				err := db.Transaction(func(tx *gorm.DB) error {
+					previous := DB
+					DB = tx
+					defer func() { DB = previous }()
+					for _, id := range []int{910, 911, 912, 913} {
+						require.NoError(t, tx.Create(&User{Id: id, Username: fmt.Sprintf("tier-%d", id), AffCode: fmt.Sprintf("tier-%d", id), Status: common.UserStatusEnabled}).Error)
+					}
+					partner, err := CampusJoin(910)
+					require.NoError(t, err)
+					require.NoError(t, CampusBind(911, partner.Code))
+					detail, err := CampusGetMemberTier(910)
+					require.NoError(t, err)
+					assert.True(t, detail.Joined)
+					assert.Equal(t, 1, detail.Effective.Level)
+					assert.Error(t, CampusSetMemberTier(912, 3, 0, 0, false))
+					unjoined, err := CampusGetMemberTier(913)
+					require.NoError(t, err)
+					assert.False(t, unjoined.Joined)
+					assert.Equal(t, 1, unjoined.Automatic.Level)
+					var count int64
+					require.NoError(t, tx.Model(&CampusMember{}).Where("user_id IN ?", []int{912, 913}).Count(&count).Error)
+					assert.Zero(t, count, "reads and rejected edits must not create memberships")
+					require.NoError(t, CampusSetMemberTier(913, 3, 0, 0, true))
+					unjoined, err = CampusGetMemberTier(913)
+					require.NoError(t, err)
+					assert.True(t, unjoined.Joined)
+					assert.Equal(t, 3, unjoined.Effective.Level)
+					assert.Zero(t, unjoined.Performance)
+					assert.ErrorIs(t, CampusSetMemberTier(913, 3, 0, 0, true), ErrCampusState)
+					var enrolled CampusMember
+					require.NoError(t, tx.First(&enrolled, "user_id = ?", 913).Error)
+					assert.True(t, validCampusInvitationCode(enrolled.Code))
+					assert.Empty(t, enrolled.ReminderAccepted)
+					// Bound buyers may already have a member row; retain their invitation and coupon.
+					require.NoError(t, CampusBind(912, partner.Code))
+					var bound CampusMember
+					require.NoError(t, tx.First(&bound, "user_id = ?", 912).Error)
+					require.NoError(t, CampusConfigure(false, 1))
+					require.NoError(t, CampusSetMemberTier(912, 0, 0, 0, true))
+					var opened CampusMember
+					require.NoError(t, tx.First(&opened, "user_id = ?", 912).Error)
+					assert.Positive(t, opened.JoinedAt)
+					assert.Equal(t, bound.Code, opened.Code)
+					assert.Equal(t, bound.InviterID, opened.InviterID)
+					assert.Equal(t, bound.BoundAt, opened.BoundAt)
+					assert.Equal(t, bound.CouponState, opened.CouponState)
+					assert.Zero(t, opened.TierOverride)
+					campaign, err := CampusGetConfig()
+					require.NoError(t, err)
+					assert.False(t, campaign.Enabled, "admin enrollment does not enable the campaign")
+					require.NoError(t, CampusConfigure(true, 1))
+
+					assert.Error(t, CampusSetMemberTier(999999, 3, 0, 0, false))
+					for _, level := range []int{-1, 6} {
+						assert.Error(t, CampusSetMemberTier(910, level, 0, 0, false))
+					}
+					require.NoError(t, CampusSetMemberTier(910, 0, 0, 0, false))
+					assert.ErrorIs(t, CampusSetMemberTier(910, 3, 0, 1, false), ErrCampusState)
+					require.NoError(t, CampusSetMemberTier(910, 3, 0, 0, false))
+					assert.ErrorIs(t, CampusSetMemberTier(910, 4, 0, 0, false), ErrCampusState)
+					assert.Error(t, CampusConfigureTiers(cp.DefaultTiers()[:2], 0, 1))
+					for _, order := range []TopUp{
+						{UserId: 911, TradeNo: "tier-minimum-large", Money: 100000, Status: common.TopUpStatusPending},
+						{UserId: 911, TradeNo: "tier-minimum-after-threshold", Money: 100, Status: common.TopUpStatusPending},
+					} {
+						require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
+						require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, order.TradeNo, 911) }))
+					}
+					var payment CampusPayment
+					require.NoError(t, tx.Where("trade_no = ?", "tier-minimum-large").First(&payment).Error)
+					assert.EqualValues(t, 4450000, payment.Commission)
+					assert.Equal(t, `[{"base_cents":3000000,"rate_percent":40},{"base_cents":5000000,"rate_percent":45},{"base_cents":2000000,"rate_percent":50}]`, payment.Segments)
+					minimumSnapshot := payment
+					var afterThreshold CampusPayment
+					require.NoError(t, tx.Where("trade_no = ?", "tier-minimum-after-threshold").First(&afterThreshold).Error)
+					assert.EqualValues(t, 5000, afterThreshold.Commission)
+
+					detail, err = CampusGetMemberTier(910)
+					require.NoError(t, err)
+					assert.EqualValues(t, 10010000, detail.Performance)
+					assert.Equal(t, 5, detail.Automatic.Level)
+					assert.Equal(t, 5, detail.Effective.Level)
+					assert.Zero(t, detail.Effective.Next)
+					overview, err := CampusGetOverview(910)
+					require.NoError(t, err)
+					assert.Equal(t, detail.Effective, overview.Tier)
+					require.NoError(t, CampusSetMemberTier(910, 1, 1, 0, false))
+					detail, err = CampusGetMemberTier(910)
+					require.NoError(t, err)
+					assert.Equal(t, 5, detail.Effective.Level)
+					subscription := SubscriptionOrder{UserId: 911, PlanId: 6, TradeNo: "tier-subscription", Money: 100, Status: common.TopUpStatusPending}
+					require.NoError(t, InsertCampusSubscription(&subscription, true, "CNY"))
+					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, subscription.TradeNo, 911) }))
+					var subPayment CampusPayment
+					require.NoError(t, tx.Where("trade_no = ?", subscription.TradeNo).First(&subPayment).Error)
+					assert.EqualValues(t, 500, subPayment.Commission)
+					require.NoError(t, CampusSetMemberTier(910, 0, 2, 0, false))
+					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, payment.TradeNo, 911) }))
+					require.NoError(t, tx.First(&payment, payment.ID).Error)
+					assert.Equal(t, minimumSnapshot, payment)
+					refund, err := CampusRegisterRefund(payment.TradeNo, "tier-refund", "original snapshot", 10000, 1, false)
+					require.NoError(t, err)
+					assert.EqualValues(t, 4450, refund.Reversal)
+					detail, err = CampusGetMemberTier(910)
+					require.NoError(t, err)
+					assert.Equal(t, 5, detail.Effective.Level)
+					assert.EqualValues(t, 10010000, detail.Performance)
+					order := TopUp{UserId: 911, TradeNo: "tier-restored", Money: 100, Status: common.TopUpStatusPending}
+					require.NoError(t, InsertCampusTopUp(&order, true, "CNY", false))
+					require.NoError(t, tx.Transaction(func(inner *gorm.DB) error { return CampusSettleTx(inner, order.TradeNo, 911) }))
+					var restored CampusPayment
+					require.NoError(t, tx.Where("trade_no = ?", order.TradeNo).First(&restored).Error)
+					assert.EqualValues(t, 5000, restored.Commission)
+
+					return errCampusPreview
+				})
+				require.ErrorIs(t, err, errCampusPreview)
 			})
 			t.Run("uninvited payment bypasses commission and stays out of ledger", func(t *testing.T) {
 				order := TopUp{UserId: 8, TradeNo: "uninvited-checkout", Money: 10, Status: common.TopUpStatusPending}
@@ -360,19 +508,6 @@ func TestCampusDatabase(t *testing.T) {
 			clock := time.Now().In(zone)
 			lastMonthEnd := time.Date(clock.Year(), clock.Month(), 0, 12, 0, 0, 0, zone)
 			require.NoError(t, db.Model(paid).Updates(map[string]any{"batch": lastMonthEnd.Format(time.DateOnly), "created_at": lastMonthEnd.Add(-24 * time.Hour).Unix()}).Error)
-			batchFixtures := make([]CampusWithdrawal, 101)
-			for i := range batchFixtures {
-				batchFixtures[i] = CampusWithdrawal{UserID: 888, RequestID: fmt.Sprintf("batch-fixture-%d", i), State: "pending", Batch: lastMonthEnd.Format(time.DateOnly)}
-			}
-			require.NoError(t, db.Create(&batchFixtures).Error)
-			require.NoError(t, CampusAdvanceBatches(context.Background()))
-			require.NoError(t, CampusAdvanceBatches(context.Background()))
-			var overdue int64
-			require.NoError(t, db.Model(&CampusWithdrawal{}).Where("user_id = ? AND batch <= ?", 888, lastMonthEnd.Format(time.DateOnly)).Count(&overdue).Error)
-			assert.Zero(t, overdue)
-
-			require.NoError(t, db.First(paid, paid.ID).Error)
-			assert.Equal(t, lastMonthEnd.Format(time.DateOnly), paid.Batch, "approved transfers retain the batch when recorded after month end")
 			t.Run("payout window begins on the 26th and preserves batch and approval guards", func(t *testing.T) {
 				for _, month := range []time.Month{time.February, time.April, time.December} {
 					batch := time.Date(2024, month+1, 0, 0, 0, 0, 0, zone)

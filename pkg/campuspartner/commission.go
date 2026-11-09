@@ -105,6 +105,28 @@ func CurrentTier(performance Money, tiers []TierRule) (Tier, error) {
 	return tier, nil
 }
 
+// EffectiveTier uses the higher of the earned level and the administrator's
+// minimum. Upgrade targets still use actual performance, never invented credit.
+func EffectiveTier(performance Money, override int, tiers []TierRule) (Tier, error) {
+	earned, err := CurrentTier(performance, tiers)
+	if err != nil {
+		return Tier{}, err
+	}
+	if override < 0 || override > len(tiers) {
+		return Tier{}, ErrTiers
+	}
+	if override <= earned.Level {
+		return earned, nil
+	}
+	rule := tiers[override-1]
+	tier := Tier{Level: override, RatePercent: float64(rule.RateBPS) / 100, Floor: rule.Floor}
+	if override < len(tiers) {
+		tier.Next = tiers[override].Floor
+		tier.Remaining = tier.Next - performance
+	}
+	return tier, nil
+}
+
 // CalculateCommission uses the inviter's locked net performance immediately
 // before this transaction. Round only after adding all exact segment products.
 // The returned snapshot must be stored, not recomputed at refund time.

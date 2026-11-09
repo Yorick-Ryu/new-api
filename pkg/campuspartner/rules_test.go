@@ -369,3 +369,33 @@ func TestSubscriptionCommissionConfiguredRate(t *testing.T) {
 	assert.Error(t, ValidatePlanRates(nil))
 	assert.Error(t, ValidatePlanRates([]PlanRate{{PlanID: 1}, {PlanID: 1}}))
 }
+
+func TestEffectiveTierUsesMinimumAndEarnedLevel(t *testing.T) {
+	for _, test := range []struct {
+		name            string
+		performance     Money
+		minimum, level  int
+		rate            float64
+		next, remaining Money
+	}{
+		{"manual minimum above earned", 0, 3, 3, 40, 3000000, 3000000},
+		{"below upgrade threshold", 2999999, 3, 3, 40, 3000000, 1},
+		{"earned upgrade at threshold", 3000000, 3, 4, 45, 8000000, 5000000},
+		{"lower minimum cannot demote earned", 3000000, 1, 4, 45, 8000000, 5000000},
+		{"automatic mode", 200000, 0, 2, 35, 1000000, 800000},
+		{"highest minimum", 0, 5, 5, 50, 0, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			tier, err := EffectiveTier(test.performance, test.minimum, DefaultTiers())
+			require.NoError(t, err)
+			assert.Equal(t, test.level, tier.Level)
+			assert.Equal(t, test.rate, tier.RatePercent)
+			assert.Equal(t, test.next, tier.Next)
+			assert.Equal(t, test.remaining, tier.Remaining)
+		})
+	}
+	for _, minimum := range []int{-1, 6} {
+		_, err := EffectiveTier(0, minimum, DefaultTiers())
+		assert.ErrorIs(t, err, ErrTiers)
+	}
+}

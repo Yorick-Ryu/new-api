@@ -34,6 +34,7 @@ import {
   createServerError,
   requireServerSuccess,
 } from '@/lib/server-error-message'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getGroups, getUsers, searchUsers } from '../api'
 import {
@@ -182,10 +183,15 @@ export function UsersTable() {
 
   const users = data?.items || []
 
+  const operator = useAuthStore((state) => state.auth.user)
   const { table } = useDataTable({
     data: users,
     columns,
-    enableRowSelection: true,
+    getRowId: (user) => String(user.id),
+    enableRowSelection: (row) =>
+      !isUserDeleted(row.original) &&
+      row.original.id !== operator?.id &&
+      row.original.role < (operator?.role ?? 0),
     columnFilters,
     globalFilter,
     pagination,

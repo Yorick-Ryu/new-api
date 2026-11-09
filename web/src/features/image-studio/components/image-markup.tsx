@@ -49,7 +49,7 @@ export function ImageMarkup(props: {
   const [url, setURL] = useState(props.reference.url)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [strokes, setStrokes] = useState<Stroke[]>([])
-  const [tool, setTool] = useState('circle')
+  const [tool, setTool] = useState('pen')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const imageRef = useRef<HTMLImageElement>(null)
@@ -204,8 +204,8 @@ export function ImageMarkup(props: {
               if (value[0]) setTool(value[0])
             }}
           >
-            <ToggleGroupItem value='circle'>{t('Circle')}</ToggleGroupItem>
             <ToggleGroupItem value='pen'>{t('Brush')}</ToggleGroupItem>
+            <ToggleGroupItem value='circle'>{t('Circle')}</ToggleGroupItem>
           </ToggleGroup>
           <Button
             type='button'
@@ -379,10 +379,7 @@ export function ImageMarkup(props: {
             />
           )}
         </div>
-        <p
-          id='image-markup-keyboard'
-          className='text-muted-foreground pt-3 text-xs'
-        >
+        <p id='image-markup-keyboard' className='sr-only'>
           {t(
             'Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.'
           )}
