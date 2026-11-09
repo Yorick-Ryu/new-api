@@ -65,7 +65,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import type { User } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
-import { UserPartnerTierDialog } from './dialogs/user-partner-tier-dialog'
+import { UserPartnerTierDrawer } from './dialogs/user-partner-tier-drawer'
 import { useUsers } from './users-provider'
 
 const MANAGE_ACTION_TITLES: Record<AdminUserManageAction, string> = {
@@ -362,7 +362,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       />
 
       {partnerTierOpen && canSetPartnerTier && (
-        <UserPartnerTierDialog
+        <UserPartnerTierDrawer
           user={user}
           onClose={() => setPartnerTierOpen(false)}
         />

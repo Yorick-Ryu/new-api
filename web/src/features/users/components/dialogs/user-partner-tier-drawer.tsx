@@ -18,13 +18,19 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Dialog } from '@/components/dialog'
+import {
+  SideDrawerSection,
+  sideDrawerContentClassName,
+  sideDrawerFooterClassName,
+  sideDrawerFormClassName,
+  sideDrawerHeaderClassName,
+} from '@/components/drawer-layout'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +50,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   beijingDate,
   campusGet,
@@ -85,7 +99,7 @@ type MemberTier = {
 
 type Props = { user: { id: number; username: string }; onClose: () => void }
 
-export function UserPartnerTierDialog(props: Props) {
+export function UserPartnerTierDrawer(props: Props) {
   const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
   const query = useQuery({
@@ -94,26 +108,42 @@ export function UserPartnerTierDialog(props: Props) {
     meta: { errorToast: false },
   })
   return (
-    <Dialog
+    <Sheet
       open
       onOpenChange={(open) => {
         if (!open && !saving) props.onClose()
       }}
-      title={t('Manage partner')}
-      description={`${props.user.username} (#${props.user.id})`}
-      contentClassName='sm:max-w-lg'
     >
-      {query.isPending && <LoadingState />}
-      {query.isError && <ErrorState onRetry={() => void query.refetch()} />}
-      {query.isSuccess && (
-        <PartnerTierForm
-          key={`${props.user.id}-${query.data.revision}-${query.data.config_revision}`}
-          {...props}
-          onSavingChange={setSaving}
-          data={query.data}
-        />
-      )}
-    </Dialog>
+      <SheetContent
+        side='right'
+        className={sideDrawerContentClassName('sm:max-w-[600px]')}
+      >
+        <SheetHeader className={sideDrawerHeaderClassName()}>
+          <SheetTitle>{t('Manage partner')}</SheetTitle>
+          <SheetDescription className='break-words'>
+            {props.user.username} (#{props.user.id})
+          </SheetDescription>
+        </SheetHeader>
+        {query.isPending && (
+          <div className={sideDrawerFormClassName()}>
+            <LoadingState />
+          </div>
+        )}
+        {query.isError && (
+          <div className={sideDrawerFormClassName()}>
+            <ErrorState onRetry={() => void query.refetch()} />
+          </div>
+        )}
+        {query.isSuccess && (
+          <PartnerTierForm
+            key={`${props.user.id}-${query.data.revision}-${query.data.config_revision}`}
+            {...props}
+            onSavingChange={setSaving}
+            data={query.data}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -123,6 +153,7 @@ function PartnerTierForm(
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const client = useQueryClient()
+  const formId = useId()
   const [pending, setPending] = useState<PartnerTierValues | null>(null)
   const form = useForm<PartnerTierValues>({
     resolver: zodResolver(partnerTierSchema),
@@ -177,99 +208,124 @@ function PartnerTierForm(
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(setPending)} className='space-y-4'>
-          <div className='space-y-2 text-sm'>
-            <p>
-              {t('Current partner level')}:{' '}
-              {label(props.data.joined ? props.data.effective.level : 0)}
-            </p>
-            {props.data.joined && (
-              <Badge variant='secondary'>{modeLabel}</Badge>
-            )}
-            <p>
-              {t('Friends cumulative top-ups')}:{' '}
-              {cash(props.data.performance_cents, locale)}
-            </p>
-          </div>
-          <FormField
-            control={form.control}
-            name='level'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Partner level')}</FormLabel>
-                <Select
-                  items={options}
-                  value={field.value}
-                  onValueChange={(value) =>
-                    value !== null && field.onChange(value)
-                  }
-                  disabled={save.isPending}
-                >
-                  <FormControl>
-                    <SelectTrigger
-                      ref={field.ref}
-                      onBlur={field.onBlur}
-                      className='w-full'
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent alignItemWithTrigger={false}>
-                    {options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className='flex justify-end gap-2'>
-            <Button
-              type='button'
-              variant='outline'
-              disabled={save.isPending}
-              onClick={props.onClose}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              type='submit'
-              disabled={
-                save.isPending ||
-                (props.data.joined && level === props.data.override)
-              }
-            >
-              {t(props.data.joined ? 'Save changes' : 'Activate partner')}
-            </Button>
-          </div>
+        <form
+          id={formId}
+          onSubmit={form.handleSubmit(setPending)}
+          className={sideDrawerFormClassName()}
+        >
+          <SideDrawerSection>
+            <dl className='grid gap-4 sm:grid-cols-2'>
+              <div>
+                <dt className='text-muted-foreground text-xs'>
+                  {t('Current partner level')}
+                </dt>
+                <dd className='mt-1 text-sm'>
+                  {label(props.data.joined ? props.data.effective.level : 0)}
+                </dd>
+                {props.data.joined && (
+                  <dd className='mt-2'>
+                    <Badge variant='secondary'>{modeLabel}</Badge>
+                  </dd>
+                )}
+              </div>
+              <div>
+                <dt className='text-muted-foreground text-xs'>
+                  {t('Friends cumulative top-ups')}
+                </dt>
+                <dd className='mt-1 text-sm tabular-nums'>
+                  {cash(props.data.performance_cents, locale)}
+                </dd>
+              </div>
+            </dl>
+          </SideDrawerSection>
+          <SideDrawerSection>
+            <FormField
+              control={form.control}
+              name='level'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Partner level')}</FormLabel>
+                  <Select
+                    items={options}
+                    value={field.value}
+                    onValueChange={(value) =>
+                      value !== null && field.onChange(value)
+                    }
+                    disabled={save.isPending}
+                  >
+                    <FormControl>
+                      <SelectTrigger
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        className='w-full'
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent alignItemWithTrigger={false}>
+                      {options.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </SideDrawerSection>
+          {props.data.changes.length > 0 && (
+            <SideDrawerSection>
+              <h3 className='text-sm font-medium'>
+                {t('Recent level changes')}
+              </h3>
+              <ul className='space-y-3 text-sm'>
+                {props.data.changes.map((change) => (
+                  <li key={change.id} className='space-y-1 break-words'>
+                    <p>
+                      {change.previous_level === 0
+                        ? t('Not joined')
+                        : t('Lv.{{level}}', {
+                            level: change.previous_level,
+                          })}{' '}
+                      → {t('Lv.{{level}}', { level: change.level })}{' '}
+                      {change.override
+                        ? t('Assigned level')
+                        : t('Automatic level')}
+                    </p>
+                    <p className='text-muted-foreground'>
+                      {beijingDate(change.created_at, locale)} {t('Operator')} #
+                      {change.actor_id}
+                    </p>
+                    {change.reason && <p>{change.reason}</p>}
+                  </li>
+                ))}
+              </ul>
+            </SideDrawerSection>
+          )}
         </form>
       </Form>
-      {props.data.changes.length > 0 && (
-        <section className='mt-4 text-sm'>
-          <h3 className='font-medium'>{t('Recent level changes')}</h3>
-          <ul className='mt-2 space-y-3'>
-            {props.data.changes.map((change) => (
-              <li key={change.id} className='space-y-1 break-words'>
-                <p>
-                  {change.previous_level === 0
-                    ? t('Not joined')
-                    : t('Lv.{{level}}', { level: change.previous_level })}{' '}
-                  → {t('Lv.{{level}}', { level: change.level })}{' '}
-                  {change.override ? t('Assigned level') : t('Automatic level')}
-                </p>
-                <p className='text-muted-foreground'>
-                  {beijingDate(change.created_at, locale)} {t('Operator')} #
-                  {change.actor_id}
-                </p>
-                {change.reason && <p>{change.reason}</p>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <SheetFooter className={sideDrawerFooterClassName()}>
+        <Button
+          type='button'
+          variant='outline'
+          disabled={save.isPending}
+          onClick={props.onClose}
+        >
+          {t('Cancel')}
+        </Button>
+        <Button
+          type='submit'
+          form={formId}
+          disabled={
+            save.isPending ||
+            (props.data.joined && level === props.data.override)
+          }
+        >
+          {t(props.data.joined ? 'Save changes' : 'Activate partner')}
+        </Button>
+      </SheetFooter>
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => {
