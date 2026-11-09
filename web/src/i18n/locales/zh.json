@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "批量禁用",
+    "Selected users": "所选用户",
+    "Verify to disable selected users": "验证以批量禁用用户",
+    "Verify once to disable all {{count}} selected users.": "验证一次即可禁用所选的全部 {{count}} 个用户。",
+    "Selected users disabled": "所选用户已禁用",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "确定禁用这 {{count}} 个用户？他们的活跃会话将被撤销，已禁用的用户保持禁用。",
+    "Selected users include missing, deleted or unauthorized accounts": "所选用户包含不存在、已删除或无权操作的账号",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "账号已禁用，但会话或缓存清理失败。请刷新后对相同名单重试",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "拖动图片或使用左右方向键调整顺序。圈选作用于第一张图片。",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "满 <amount>{{amount}}</amount> 可提现",
     "<amount>{{amount}}</amount> remaining": "还差 <amount>{{amount}}</amount>",

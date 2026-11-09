@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Vô hiệu hóa người dùng đã chọn",
+    "Selected users": "Người dùng đã chọn",
+    "Verify to disable selected users": "Xác minh để vô hiệu hóa người dùng đã chọn",
+    "Verify once to disable all {{count}} selected users.": "Xác minh một lần để vô hiệu hóa tất cả {{count}} người dùng đã chọn.",
+    "Selected users disabled": "Đã vô hiệu hóa người dùng đã chọn",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Vô hiệu hóa {{count}} người dùng này? Các phiên hoạt động của họ sẽ bị thu hồi. Người dùng đã bị vô hiệu hóa sẽ giữ nguyên trạng thái.",
+    "Selected users include missing, deleted or unauthorized accounts": "Danh sách chứa tài khoản không tồn tại, đã xóa hoặc không có quyền quản lý",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Đã vô hiệu hóa tài khoản nhưng không thể dọn phiên hoặc bộ nhớ đệm. Hãy làm mới và thử lại cùng danh sách",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Kéo ảnh hoặc dùng phím mũi tên trái và phải để đổi thứ tự. Vùng đánh dấu áp dụng cho ảnh đầu tiên.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Rút tiền từ <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "Còn thiếu <amount>{{amount}}</amount>",

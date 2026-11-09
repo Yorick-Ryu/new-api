@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "批次停用",
+    "Selected users": "所選使用者",
+    "Verify to disable selected users": "驗證以批次停用使用者",
+    "Verify once to disable all {{count}} selected users.": "驗證一次即可停用所選的全部 {{count}} 個使用者。",
+    "Selected users disabled": "所選使用者已停用",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "確定停用這 {{count}} 個使用者？他們的有效工作階段將被撤銷，已停用的使用者保持停用。",
+    "Selected users include missing, deleted or unauthorized accounts": "所選使用者包含不存在、已刪除或無權操作的帳號",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "帳號已停用，但工作階段或快取清理失敗。請重新整理後對相同名單重試",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "拖動圖片或使用左右方向鍵調整順序。圈選作用於第一張圖片。",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "滿 <amount>{{amount}}</amount> 可提領",
     "<amount>{{amount}}</amount> remaining": "還差 <amount>{{amount}}</amount>",

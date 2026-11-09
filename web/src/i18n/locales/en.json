@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Disable selected users",
+    "Selected users": "Selected users",
+    "Verify to disable selected users": "Verify to disable selected users",
+    "Verify once to disable all {{count}} selected users.": "Verify once to disable all {{count}} selected users.",
+    "Selected users disabled": "Selected users disabled",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.",
+    "Selected users include missing, deleted or unauthorized accounts": "Selected users include missing, deleted or unauthorized accounts",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Withdrawal minimum: <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "<amount>{{amount}}</amount> remaining",

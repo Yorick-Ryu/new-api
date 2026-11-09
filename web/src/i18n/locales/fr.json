@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Désactiver la sélection",
+    "Selected users": "Utilisateurs sélectionnés",
+    "Verify to disable selected users": "Vérifier pour désactiver la sélection",
+    "Verify once to disable all {{count}} selected users.": "Vérifiez une fois pour désactiver les {{count}} utilisateurs sélectionnés.",
+    "Selected users disabled": "Utilisateurs sélectionnés désactivés",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Désactiver ces {{count}} utilisateurs ? Leurs sessions actives seront révoquées. Les utilisateurs déjà désactivés le resteront.",
+    "Selected users include missing, deleted or unauthorized accounts": "La sélection contient des comptes introuvables, supprimés ou non autorisés",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Les comptes ont été désactivés, mais le nettoyage des sessions ou du cache a échoué. Actualisez et réessayez avec la même sélection",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Faites glisser les images ou utilisez les flèches gauche et droite pour les réorganiser. Le marquage s’applique à la première image.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Retrait à partir de <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "Encore <amount>{{amount}}</amount>",

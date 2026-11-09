@@ -69,6 +69,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
         cell: ({ row }) => (
           <Checkbox
             checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label={t('Select row')}
             className='translate-y-[2px]'

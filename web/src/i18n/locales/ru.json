@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Отключить выбранных пользователей",
+    "Selected users": "Выбранные пользователи",
+    "Verify to disable selected users": "Подтвердите отключение выбранных пользователей",
+    "Verify once to disable all {{count}} selected users.": "Подтвердите один раз, чтобы отключить всех выбранных пользователей: {{count}}.",
+    "Selected users disabled": "Выбранные пользователи отключены",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Отключить выбранных пользователей ({{count}})? Их активные сеансы будут отозваны. Уже отключённые пользователи останутся отключёнными.",
+    "Selected users include missing, deleted or unauthorized accounts": "Выбраны отсутствующие, удалённые или недоступные для управления аккаунты",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Аккаунты отключены, но очистка сеансов или кеша не удалась. Обновите страницу и повторите для тех же пользователей",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Перетаскивайте изображения или используйте стрелки влево и вправо для изменения порядка. Разметка применяется к первому изображению.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Минимум для вывода: <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "Осталось <amount>{{amount}}</amount>",

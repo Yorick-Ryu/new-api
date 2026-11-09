@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "選択したユーザーを無効化",
+    "Selected users": "選択したユーザー",
+    "Verify to disable selected users": "認証して選択したユーザーを無効化",
+    "Verify once to disable all {{count}} selected users.": "一度の認証で、選択した {{count}} 人全員を無効化します。",
+    "Selected users disabled": "選択したユーザーを無効化しました",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "この {{count}} 人を無効化しますか？有効なセッションは失効します。すでに無効なユーザーはそのままです。",
+    "Selected users include missing, deleted or unauthorized accounts": "存在しない、削除済み、または操作権限のないアカウントが含まれています",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "アカウントは無効化されましたが、セッションまたはキャッシュの処理に失敗しました。更新して同じ選択で再試行してください",
     "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "画像をドラッグするか、左右の矢印キーで並べ替えます。マークアップは最初の画像に適用されます。",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "<amount>{{amount}}</amount>から出金可能",
     "<amount>{{amount}}</amount> remaining": "あと <amount>{{amount}}</amount>",
