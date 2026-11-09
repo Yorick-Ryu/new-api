@@ -8303,7 +8303,7 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Annotez la première image, puis décrivez les changements dans votre prompt. L’image originale reste intacte.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Faites glisser pour marquer une zone. Clavier : les flèches déplacent depuis le centre ; Espace ajoute un cercle.",
     "Choose image complexity": "Choisir la complexité de l’image",
-    "Set partner level": "Définir le niveau du partenaire",
+    "Manage partner": "Gérer le partenaire",
     "Current partner level": "Niveau actuel du partenaire",
     "Assigned level": "Niveau attribué",
     "Automatic level": "Niveau automatique",

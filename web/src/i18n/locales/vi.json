@@ -8303,7 +8303,7 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Đánh dấu ảnh tham chiếu đầu tiên rồi mô tả thay đổi trong lời nhắc. Ảnh gốc được giữ nguyên.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Kéo để đánh dấu vùng. Bàn phím: phím mũi tên di chuyển từ tâm; phím cách thêm vòng tròn.",
     "Choose image complexity": "Chọn độ phức tạp của ảnh",
-    "Set partner level": "Đặt cấp đối tác",
+    "Manage partner": "Quản lý đối tác",
     "Current partner level": "Cấp đối tác hiện tại",
     "Assigned level": "Cấp được chỉ định",
     "Automatic level": "Cấp tự động",

@@ -8303,7 +8303,7 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "在第一張參考圖上圈選，再於提示詞中描述要修改的內容。原圖會完整保留。",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "拖曳以圈畫區域。鍵盤操作：方向鍵從中心移動，空白鍵新增圓圈。",
     "Choose image complexity": "選擇圖片複雜度",
-    "Set partner level": "設定合夥人等級",
+    "Manage partner": "管理合夥人",
     "Current partner level": "目前合夥人等級",
     "Assigned level": "人工指定",
     "Automatic level": "自動等級",

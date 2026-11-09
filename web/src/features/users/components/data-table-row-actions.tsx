@@ -288,7 +288,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
         {canSetPartnerTier && (
           <DropdownMenuItem onClick={() => setPartnerTierOpen(true)}>
-            {t('Set partner level')}
+            {t('Manage partner')}
             <DropdownMenuShortcut>
               <GraduationCap size={16} />
             </DropdownMenuShortcut>

@@ -8303,7 +8303,7 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "最初の参照画像にマークし、プロンプトで変更内容を説明してください。元の画像はそのまま保持されます。",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "ドラッグして領域をマーク。キーボード：矢印キーで中央から移動、スペースで円を追加。",
     "Choose image complexity": "画像の複雑さを選択",
-    "Set partner level": "パートナーレベルを設定",
+    "Manage partner": "パートナーを管理",
     "Current partner level": "現在のパートナーレベル",
     "Assigned level": "指定レベル",
     "Automatic level": "自動レベル",

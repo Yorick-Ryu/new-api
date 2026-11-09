@@ -8303,7 +8303,7 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Отметьте области на первом изображении и опишите изменения в запросе. Исходное изображение сохраняется целиком.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Перетащите для разметки. Клавиатура: стрелки перемещают от центра, пробел добавляет круг.",
     "Choose image complexity": "Выбрать сложность изображения",
-    "Set partner level": "Назначить уровень партнёра",
+    "Manage partner": "Управление партнёром",
     "Current partner level": "Текущий уровень партнёра",
     "Assigned level": "Назначенный уровень",
     "Automatic level": "Автоматический уровень",
