@@ -8325,6 +8325,8 @@
     "Current partner commission rate": "当前返佣比例",
     "Minimum partner level": "保底等级",
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "保底等级有保障，真实业绩达标后仍可自动升级。",
-    "Restore automatic levels before removing a minimum partner level": "该等级仍被设为保底等级，请先恢复相关用户的自动等级再删除"
+    "Restore automatic levels before removing a minimum partner level": "该等级仍被设为保底等级，请先恢复相关用户的自动等级再删除",
+    "Partner information": "合伙人信息",
+    "Level adjustment": "等级调整"
   }
 }

@@ -8325,6 +8325,8 @@
     "Current partner commission rate": "目前返佣比例",
     "Minimum partner level": "保底等級",
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "保底等級有保障，真實業績達標後仍可自動升級。",
-    "Restore automatic levels before removing a minimum partner level": "該等級仍被設為保底等級，請先恢復相關使用者的自動等級再刪除"
+    "Restore automatic levels before removing a minimum partner level": "該等級仍被設為保底等級，請先恢復相關使用者的自動等級再刪除",
+    "Partner information": "合夥人資訊",
+    "Level adjustment": "等級調整"
   }
 }

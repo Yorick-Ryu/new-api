@@ -340,6 +340,16 @@ it.each([
     await userEvent.click(await screen.findByRole('menuitem', { name: title }))
     expect(await screen.findByRole('dialog', { name: title })).toBeVisible()
     expect(await screen.findByRole('combobox', { name: field })).toBeVisible()
+    expect(
+      screen.getByRole('heading', {
+        name: language === 'zhCN' ? '合伙人信息' : '合夥人資訊',
+      })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('heading', {
+        name: language === 'zhCN' ? '等级调整' : '等級調整',
+      })
+    ).toBeVisible()
     expect(screen.getByRole('combobox', { name: field })).toHaveTextContent(
       automatic
     )
@@ -407,9 +417,22 @@ it('partner management opens on the right with a scrollable body and a separate 
   const form = select.closest('form')
   if (!form) throw new Error('Partner selector must belong to a form')
   expect(form).toHaveClass('flex-1', 'overflow-y-auto', 'gap-4')
+  const info = within(form).getByRole('region', { name: 'Partner information' })
+  const adjustment = within(form).getByRole('region', {
+    name: 'Level adjustment',
+  })
+  expect(within(info).getByText('Current partner level')).toBeVisible()
   expect(
-    select.closest('[data-slot="form-item"]')?.previousElementSibling?.tagName
-  ).toBe('DL')
+    within(info).getByText('Current partner commission rate')
+  ).toBeVisible()
+  expect(info).not.toContainElement(select)
+  expect(adjustment).toContainElement(select)
+  const separator = within(form).getByRole('separator')
+  expect(separator.previousElementSibling).toBe(info)
+  expect(separator.nextElementSibling).toBe(adjustment)
+  expect(
+    within(adjustment).queryByText('Current partner level')
+  ).not.toBeInTheDocument()
   expect(
     within(form).queryByText('Recent level changes')
   ).not.toBeInTheDocument()
