@@ -25,7 +25,6 @@ import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
-  SideDrawerSection,
   sideDrawerContentClassName,
   sideDrawerFooterClassName,
   sideDrawerFormClassName,
@@ -214,72 +213,68 @@ function PartnerTierForm(
         <form
           id={formId}
           onSubmit={form.handleSubmit(setPending)}
-          className={sideDrawerFormClassName()}
+          className={sideDrawerFormClassName('gap-4 py-4 sm:py-4')}
         >
-          <SideDrawerSection>
-            <dl className='grid gap-4 sm:grid-cols-2'>
+          <dl className='grid gap-4 sm:grid-cols-2'>
+            <div>
+              <dt className='text-muted-foreground text-xs'>
+                {t('Current partner level')}
+              </dt>
+              <dd className='mt-1 text-sm'>
+                {label(
+                  props.data.joined ? props.data.effective.level : 0,
+                  false
+                )}
+              </dd>
+            </div>
+            {props.data.joined && (
               <div>
                 <dt className='text-muted-foreground text-xs'>
-                  {t('Current partner level')}
+                  {t('Current partner commission rate')}
                 </dt>
-                <dd className='mt-1 text-sm'>
-                  {label(
-                    props.data.joined ? props.data.effective.level : 0,
-                    false
-                  )}
+                <dd className='mt-1 text-sm tabular-nums'>
+                  {formatNumber(props.data.effective.rate_percent, locale)}%
                 </dd>
               </div>
-              {props.data.joined && (
-                <div>
-                  <dt className='text-muted-foreground text-xs'>
-                    {t('Current partner commission rate')}
-                  </dt>
-                  <dd className='mt-1 text-sm tabular-nums'>
-                    {formatNumber(props.data.effective.rate_percent, locale)}%
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </SideDrawerSection>
-          <SideDrawerSection>
-            <FormField
-              control={form.control}
-              name='level'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Minimum partner level')}</FormLabel>
-                  <Select
-                    items={options}
-                    value={field.value}
-                    onValueChange={(value) =>
-                      value !== null && field.onChange(value)
-                    }
-                    disabled={save.isPending}
-                  >
-                    <FormControl>
-                      <SelectTrigger
-                        ref={field.ref}
-                        onBlur={field.onBlur}
-                        className='w-full'
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent alignItemWithTrigger={false}>
-                      {options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </SideDrawerSection>
+            )}
+          </dl>
+          <FormField
+            control={form.control}
+            name='level'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Partner level')}</FormLabel>
+                <Select
+                  items={options}
+                  value={field.value}
+                  onValueChange={(value) =>
+                    value !== null && field.onChange(value)
+                  }
+                  disabled={save.isPending}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      className='w-full'
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {props.data.changes.length > 0 && (
-            <SideDrawerSection>
+            <section className='space-y-3'>
               <h3 className='text-sm font-medium'>
                 {t('Recent level changes')}
               </h3>
@@ -294,7 +289,7 @@ function PartnerTierForm(
                           })}{' '}
                       → {t('Lv.{{level}}', { level: change.level })}{' '}
                       {change.override
-                        ? `${t('Minimum partner level')}: ${t('Lv.{{level}}', { level: change.override })}`
+                        ? `${t('Partner level')}: ${t('Lv.{{level}}', { level: change.override })}`
                         : t('Automatic level')}
                     </p>
                     <p className='text-muted-foreground'>
@@ -305,7 +300,7 @@ function PartnerTierForm(
                   </li>
                 ))}
               </ul>
-            </SideDrawerSection>
+            </section>
           )}
         </form>
       </Form>
@@ -339,7 +334,7 @@ function PartnerTierForm(
             ? 'Confirm partner level change'
             : 'Confirm partner activation'
         )}
-        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0, false)} → ${label(selected)} (${level === 0 ? t('Automatic level') : `${t('Minimum partner level')}: ${label(level)}`})`}
+        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0, false)} → ${label(selected, false)}`}
         confirmText={t('Confirm')}
         isLoading={save.isPending}
         handleConfirm={() => {
