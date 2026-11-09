@@ -185,6 +185,79 @@ afterEach(() => {
 })
 
 describe('Image workbench', () => {
+  it.each([
+    {
+      name: 'prefers standard 2.6 even when variants and 2.5 appear first',
+      models: ['gpt-image-2.6-sunburst', 'gpt-image-2.5', 'gpt-image-2.6'],
+      expected: 'gpt-image-2.6',
+    },
+    {
+      name: 'falls back to the first permitted model when standard 2.6 is unavailable',
+      models: ['gpt-image-2.5-flare', 'gpt-image-2.5'],
+      expected: 'gpt-image-2.5-flare',
+    },
+  ])('selects the image default: $name', async (test) => {
+    render(
+      <ImageForm
+        options={{
+          available: true,
+          models: test.models.map((model) => ({ ...options.models[0], model })),
+        }}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: test.expected })
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('keeps the reused model when the 2.6 default becomes available', async () => {
+    const reused = {
+      input: { ...job.input, model: 'gpt-image-2.5' },
+      version: 1,
+    }
+    const props = {
+      reuse: reused,
+      reference: null,
+      onCreated: vi.fn(),
+    }
+    const view = render(
+      <ImageForm
+        {...props}
+        options={{
+          available: true,
+          models: [{ ...options.models[0], model: 'gpt-image-2.5' }],
+        }}
+      />,
+      { wrapper }
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: 'gpt-image-2.5' })
+      ).toBeInTheDocument()
+    })
+    view.rerender(
+      <ImageForm
+        {...props}
+        options={{
+          available: true,
+          models: ['gpt-image-2.6', 'gpt-image-2.5'].map((model) => ({
+            ...options.models[0],
+            model,
+          })),
+        }}
+      />
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'gpt-image-2.5' })
+    ).toBeInTheDocument()
+  })
+
   it('translates the resolution control and updates its label when the language changes', async () => {
     const translations = i18next.createInstance()
     await translations.init({
@@ -2370,4 +2443,163 @@ it('shows no charge for balance rejection while preserving unknown costs', async
   expect(
     within(dialog).getAllByText('Result unconfirmed').length
   ).toBeGreaterThan(0)
+})
+
+describe('Image complexity and markup capabilities', () => {
+  const capableOptions: ImageOptions = {
+    available: true,
+    models: [
+      {
+        ...options.models[0],
+        model: 'gpt-image-2.6',
+        complexities: ['', 'low', 'medium', 'high'],
+        markup: true,
+      },
+      options.models[0],
+    ],
+  }
+  it('submits complexity and clears unsupported parameters when switching models', async () => {
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'complexity-task' })
+    render(
+      <ImageForm
+        options={capableOptions}
+        reuse={null}
+        reference={null}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    await screen.findByRole('group', { name: 'Image complexity' })
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Image complexity' })).getByRole(
+        'button',
+        { name: 'Low' }
+      )
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'A small house' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ complexity: 'low' }),
+        expect.any(String),
+        false
+      )
+    )
+    fireEvent.click(screen.getByRole('combobox', { name: 'gpt-image-2.6' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'gpt-image-1' }))
+    expect(
+      screen.queryByRole('group', { name: 'Image complexity' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(create).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          model: 'gpt-image-1',
+          complexity: undefined,
+        }),
+        expect.any(String),
+        false
+      )
+    )
+  })
+  it('submits an applied overlay with its normalized first reference and clears it when that reference is removed', async () => {
+    const context = {
+      clearRect: vi.fn(),
+      beginPath: vi.fn(),
+      ellipse: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      drawImage: vi.fn(),
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as CanvasRenderingContext2D
+    )
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
+      (callback) => callback(new Blob(['png'], { type: 'image/png' }))
+    )
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:normalized')
+    const create = vi
+      .spyOn(imageAPI, 'createImageJob')
+      .mockResolvedValue({ id: 'marked-task' })
+    vi.spyOn(api, 'post')
+      .mockResolvedValueOnce({
+        data: { success: true, data: { id: 'normalized' } },
+      })
+      .mockResolvedValueOnce({
+        data: { success: true, data: { id: 'overlay' } },
+      })
+    render(
+      <ImageForm
+        options={capableOptions}
+        reuse={null}
+        reference={{ id: 'first', name: 'Original', url: 'blob:source' }}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Mark areas to edit' })
+    )
+    const image = within(screen.getByRole('dialog')).getByRole('img', {
+      name: 'Original',
+    })
+    Object.defineProperties(image, {
+      naturalWidth: { value: 400 },
+      naturalHeight: { value: 300 },
+    })
+    fireEvent.load(image)
+    fireEvent.keyDown(
+      screen.getByRole('img', { name: 'Image markup canvas' }),
+      { key: ' ' }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Apply markup' }))
+    await screen.findByRole('button', { name: 'Edit markup' })
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Make the marked area blue' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          markup_id: 'overlay',
+          reference_ids: ['normalized'],
+        }),
+        expect.any(String),
+        false
+      )
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove reference image: Original' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2))
+    expect(create.mock.calls[1][0].markup_id).toBeUndefined()
+    expect(create.mock.calls[1][0].reference_ids).toEqual([])
+  })
+
+  it('removes the markup editor when its first reference is removed', async () => {
+    render(
+      <ImageForm
+        options={capableOptions}
+        reuse={null}
+        reference={{ id: 'first', name: 'Original', url: 'blob:source' }}
+        onCreated={vi.fn()}
+      />,
+      { wrapper }
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Mark areas to edit' })
+    ).toBeEnabled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove reference image: Original' })
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Mark areas to edit' })
+    ).not.toBeInTheDocument()
+  })
 })

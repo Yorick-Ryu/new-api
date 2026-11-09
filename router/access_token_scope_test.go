@@ -55,7 +55,8 @@ var accessTokenExemptRoutes = []string{
 	"POST /api/user/auth/refresh",
 	"POST /api/user/auth/logout",
 
-	// Campus invitation validation is public and rate limited.
+	// Campus availability and invitation validation are public.
+	"GET /api/campus/status",
 	"GET /api/campus/invite/:code",
 
 	// Payment callbacks.

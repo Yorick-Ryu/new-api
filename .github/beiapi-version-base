@@ -1,3 +1,3 @@
-upstream_version=v1.0.0-rc.47
-upstream_commit=e835b1bfc43b565d625537830dbfb19328925134
-integration_commit=0545209d952904bec884052a45d75f75b8211729
+upstream_version=v1.0.0-rc.49
+upstream_commit=48a6c87f9e7757fdc58e5be9bcb4f8281ad0dfd0
+integration_commit=b7ccb57aaef143ac3a4ef679e233e2a8088b599f

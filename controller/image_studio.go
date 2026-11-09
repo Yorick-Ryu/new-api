@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -33,6 +34,8 @@ type imageStudioInput struct {
 	Model        string   `json:"model"`
 	Prompt       string   `json:"prompt"`
 	Size         string   `json:"size,omitempty"`
+	Complexity   string   `json:"complexity,omitempty"`
+	MarkupID     string   `json:"markup_id,omitempty"`
 	Quality      string   `json:"quality,omitempty"`
 	AspectRatio  string   `json:"aspect_ratio,omitempty"`
 	Resolution   string   `json:"resolution,omitempty"`
@@ -45,6 +48,8 @@ type imageStudioCapability struct {
 	Model         string   `json:"model"`
 	Group         string   `json:"group"`
 	Sizes         []string `json:"sizes"`
+	Complexities  []string `json:"complexities,omitempty"`
+	Markup        bool     `json:"markup"`
 	Qualities     []string `json:"qualities"`
 	AspectRatios  []string `json:"aspect_ratios,omitempty"`
 	Resolutions   []string `json:"resolutions,omitempty"`
@@ -141,6 +146,10 @@ func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 				capability.CustomSize = true
 			}
 			capability.Qualities = []string{"", "low", "medium", "high"}
+			if name == "gpt-image-2.6" || strings.HasPrefix(name, "gpt-image-2.6-") {
+				capability.Complexities = []string{"", "low", "medium", "high"}
+				capability.Markup = true
+			}
 			capability.MaxCount = 4
 			capability.Editing = true
 		case name == "dall-e-3":
@@ -149,6 +158,22 @@ func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 		}
 		result = append(result, capability)
 	}
+	order := model.GetModelDisplayOrder()
+	ranks := make(map[string]int, len(order))
+	for i, name := range order {
+		ranks[name] = i
+	}
+	slices.SortStableFunc(result, func(a, b imageStudioCapability) int {
+		left, ok := ranks[a.Model]
+		if !ok {
+			left = len(order)
+		}
+		right, ok := ranks[b.Model]
+		if !ok {
+			right = len(order)
+		}
+		return left - right
+	})
 	return result, nil
 }
 
@@ -176,6 +201,17 @@ func validateImageStudioInput(input imageStudioInput, capabilities []imageStudio
 		}
 		if input.N > capability.MaxCount || !slices.Contains(capability.Qualities, input.Quality) {
 			return errors.New("Unsupported image parameters")
+		}
+		if input.Complexity != "" && !slices.Contains(capability.Complexities, input.Complexity) {
+			return errors.New("Unsupported image parameters")
+		}
+		if input.MarkupID != "" {
+			if !capability.Markup || len(references) == 0 || slices.Contains(references, input.MarkupID) {
+				return errors.New("Unsupported image parameters")
+			}
+			if _, err := uuid.Parse(input.MarkupID); err != nil {
+				return errors.New("Invalid image parameters")
+			}
 		}
 		if input.AspectRatio != "" && !slices.Contains(capability.AspectRatios, input.AspectRatio) ||
 			input.Resolution != "" && !slices.Contains(capability.Resolutions, input.Resolution) {
@@ -242,7 +278,8 @@ func CreateImageStudioJob(c *gin.Context) {
 		c.JSON(http.StatusUnsupportedMediaType, gin.H{"success": false, "message": "Use application/json for image requests"})
 		return
 	}
-	if _, err := service.NewImageStudioStore(); err != nil {
+	store, err := service.NewImageStudioStore()
+	if err != nil {
 		c.JSON(503, gin.H{"success": false, "message": "Image storage is unavailable"})
 		return
 	}
@@ -265,6 +302,12 @@ func CreateImageStudioJob(c *gin.Context) {
 	if err = validateImageStudioInput(input, capabilities); err != nil {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
+	}
+	if input.MarkupID != "" {
+		if _, err := loadImageStudioMarkup(c.Request.Context(), c.GetInt("id"), input, store); err != nil {
+			c.JSON(400, gin.H{"success": false, "message": err.Error()})
+			return
+		}
 	}
 	imageModels := make([]string, 0, len(capabilities))
 	legacyModels := make([]string, 0, len(capabilities))
@@ -653,4 +696,56 @@ func ImageStudioAssetContent(c *gin.Context) {
 		c.Header("Content-Disposition", `attachment; filename="image.`+extension+`"`)
 	}
 	c.Data(http.StatusOK, asset.Mime, data)
+}
+
+// Markup is a separate transparent PNG, never a flattened copy or an edit mask.
+func validateImageStudioMarkup(markup, original []byte) error {
+	invalid := errors.New("Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels")
+	config, format, err := image.DecodeConfig(bytes.NewReader(markup))
+	if err != nil || format != "png" || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > 16_777_216 {
+		return invalid
+	}
+	base, _, err := image.DecodeConfig(bytes.NewReader(original))
+	if err != nil || config.Width != base.Width || config.Height != base.Height {
+		return invalid
+	}
+	decoded, _, err := image.Decode(bytes.NewReader(markup))
+	if err != nil {
+		return invalid
+	}
+	transparent, marked := false, false
+	for y := range config.Height {
+		for x := range config.Width {
+			_, _, _, alpha := decoded.At(x, y).RGBA()
+			transparent = transparent || alpha < 65535
+			marked = marked || alpha > 0
+			if transparent && marked {
+				return nil
+			}
+		}
+	}
+	return invalid
+}
+
+func loadImageStudioMarkup(ctx context.Context, userID int, input imageStudioInput, store *service.ImageStudioStore) ([]byte, error) {
+	references, err := imageStudioReferences(input)
+	if err != nil || len(references) == 0 {
+		return nil, errors.New("Unsupported image parameters")
+	}
+	var images [][]byte
+	for _, id := range []string{input.MarkupID, references[0]} {
+		asset, err := model.GetImageStudioAsset(userID, id)
+		if err != nil || asset.Kind != "reference" {
+			return nil, errors.New("Reference image is unavailable")
+		}
+		data, err := store.Get(ctx, asset.ObjectKey)
+		if err != nil || len(data) > service.ImageStudioMaxReferenceBytes {
+			return nil, errors.New("Reference image is unavailable")
+		}
+		images = append(images, data)
+	}
+	if err := validateImageStudioMarkup(images[0], images[1]); err != nil {
+		return nil, err
+	}
+	return images[0], nil
 }

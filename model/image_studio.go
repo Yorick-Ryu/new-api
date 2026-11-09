@@ -205,6 +205,22 @@ func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string, confirmDup
 	if err := ValidateImageStudioReferenceIDs(referenceIDs); err != nil {
 		return nil, err
 	}
+	// Keep the overlay in the same ownership, retention and child-job lifecycle
+	// as references, without consuming one of the four source-image slots.
+	var markup struct {
+		MarkupID string `json:"markup_id"`
+	}
+	if job.Request != "" {
+		if err := common.Unmarshal([]byte(job.Request), &markup); err != nil {
+			return nil, err
+		}
+	}
+	if markup.MarkupID != "" {
+		if len(referenceIDs) == 0 || ValidateImageStudioReferenceIDs([]string{markup.MarkupID}) != nil || slices.Contains(referenceIDs, markup.MarkupID) {
+			return nil, ErrImageStudioReferences
+		}
+		referenceIDs = append(slices.Clone(referenceIDs), markup.MarkupID)
+	}
 	var result ImageStudioJob
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User

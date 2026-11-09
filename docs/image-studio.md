@@ -29,6 +29,17 @@ Although 14 references and a two-image single response were verified on this
 channel, the workbench intentionally limits reference input to 4. Output counts
 requested in the prompt are not guaranteed by the model.
 
+GPT Image 2.6 models expose optional `complexity` (`low`, `medium`, `high`;
+omitting it retains the upstream default) and a separate transparent PNG
+`markup` layer on the first reference. The editor normalizes image orientation
+before uploading the source and overlay, with matching dimensions and at most
+16,777,216 pixels. The overlay shares reference ownership, expiry and child-job
+retention, without consuming any of the four source-image slots. Switching
+models or removing the first reference clears its markup. Output formats and
+pricing remain unchanged. Drain jobs using these fields before reverting to an
+older binary, which otherwise ignores them. No schema migration is needed.
+See [OpenAI's image-generation guide](https://developers.openai.com/api/docs/guides/image-generation).
+
 All workbench requests use wallet funding, including accounts configured for
 subscription-only API use. Fixed request prices and group ratios come from
 current pricing configuration; no price is embedded in the workbench. Unknown
