@@ -108,7 +108,7 @@ it('user row action opens the selected account and requires reason and confirmat
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
   await user.click(
-    await screen.findByRole('menuitem', { name: 'Set partner level' })
+    await screen.findByRole('menuitem', { name: 'Manage partner' })
   )
   const select = await screen.findByRole('combobox', { name: 'Partner level' })
   expect(get).toHaveBeenCalledWith('/api/campus/admin/members/42/tier')
@@ -139,7 +139,7 @@ it('user row action opens the selected account and requires reason and confirmat
   )
   await waitFor(() =>
     expect(
-      screen.queryByRole('dialog', { name: 'Set partner level' })
+      screen.queryByRole('dialog', { name: 'Manage partner' })
     ).not.toBeInTheDocument()
   )
 })
@@ -222,7 +222,7 @@ it('administrators without campus write permission do not see the assignment act
   renderDialog({}, true)
   await userEvent.click(screen.getByRole('button', { name: 'Open menu' }))
   expect(
-    screen.queryByRole('menuitem', { name: 'Set partner level' })
+    screen.queryByRole('menuitem', { name: 'Manage partner' })
   ).not.toBeInTheDocument()
 })
 
@@ -271,8 +271,8 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
 })
 
 it.each([
-  ['zhCN', zhCN, '设置合伙人等级', '合伙人等级', '自动等级'],
-  ['zhTW', zhTW, '設定合夥人等級', '合夥人等級', '自動等級'],
+  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级'],
+  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級'],
 ] as const)(
   'the %s user menu and level editor use the real Chinese translation resources',
   async (language, resource, title, field, automatic) => {

@@ -95,7 +95,7 @@ export function UserPartnerTierDialog(props: Props) {
       onOpenChange={(open) => {
         if (!open && !saving) props.onClose()
       }}
-      title={t('Set partner level')}
+      title={t('Manage partner')}
       description={`${props.user.username} · #${props.user.id}`}
       contentClassName='sm:max-w-lg'
     >
