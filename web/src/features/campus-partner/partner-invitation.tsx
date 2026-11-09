@@ -100,7 +100,11 @@ export function PartnerInvitation(props: {
           descriptionClassName={campusCardTypography.body}
           icon={<GraduationCap />}
           iconTone='primary'
-          contentClassName='space-y-5'
+          contentClassName={
+            props.data.member.joined_at > 0
+              ? 'space-y-5'
+              : 'flex flex-1 items-center justify-center'
+          }
         >
           {props.data.member.joined_at > 0 ? (
             <div className='grid min-w-0 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-6'>

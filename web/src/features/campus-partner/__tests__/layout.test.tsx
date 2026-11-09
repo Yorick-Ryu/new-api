@@ -195,6 +195,12 @@ test('partner page merges the introduction into the invitation card before benef
     '#campus-rules'
   )
   expect(intro.closest('[data-slot="card"]')).toContainElement(invitation)
+  expect(invitation.closest('[data-slot="card-content"]')).toHaveClass(
+    'flex',
+    'flex-1',
+    'items-center',
+    'justify-center'
+  )
   expect(screen.queryByText('Refund recovery due')).not.toBeInTheDocument()
 })
 
@@ -431,6 +437,11 @@ test('existing invitation controls remain available and positive refund recovery
     },
   })
   expect(await screen.findByText('AB12CD')).toBeVisible()
+  expect(
+    screen
+      .getByRole('textbox', { name: 'Invitation link' })
+      .closest('[data-slot="card-content"]')
+  ).toHaveClass('space-y-5')
   expect(screen.getByRole('textbox', { name: 'Invitation link' })).toHaveValue(
     'https://beiapi.cn/i/AB12CD'
   )
