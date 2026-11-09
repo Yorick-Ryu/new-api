@@ -8322,6 +8322,7 @@
     "Activate partner": "開通合夥人",
     "Confirm partner activation": "確認開通合夥人",
     "Partner activated": "合夥人已開通",
-    "Select a level and confirm to activate this user as a partner.": "選擇等級並確認，即可為該使用者開通合夥人。"
+    "Select a level and confirm to activate this user as a partner.": "選擇等級並確認，即可為該使用者開通合夥人。",
+    "Current partner commission rate": "目前返佣比例"
   }
 }

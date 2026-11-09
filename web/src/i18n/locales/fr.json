@@ -8322,6 +8322,7 @@
     "Activate partner": "Activer le partenaire",
     "Confirm partner activation": "Confirmer l’activation du partenaire",
     "Partner activated": "Partenaire activé",
-    "Select a level and confirm to activate this user as a partner.": "Choisissez un niveau et confirmez pour activer cet utilisateur comme partenaire."
+    "Select a level and confirm to activate this user as a partner.": "Choisissez un niveau et confirmez pour activer cet utilisateur comme partenaire.",
+    "Current partner commission rate": "Taux de commission actuel du partenaire"
   }
 }

@@ -8322,6 +8322,7 @@
     "Activate partner": "Kích hoạt đối tác",
     "Confirm partner activation": "Xác nhận kích hoạt đối tác",
     "Partner activated": "Đã kích hoạt đối tác",
-    "Select a level and confirm to activate this user as a partner.": "Chọn cấp và xác nhận để kích hoạt người dùng này làm đối tác."
+    "Select a level and confirm to activate this user as a partner.": "Chọn cấp và xác nhận để kích hoạt người dùng này làm đối tác.",
+    "Current partner commission rate": "Tỷ lệ hoa hồng đối tác hiện tại"
   }
 }
