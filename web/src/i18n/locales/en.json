@@ -8317,6 +8317,8 @@
     "Current partner commission rate": "Current partner commission rate",
     "Minimum partner level": "Minimum partner level",
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.",
-    "Restore automatic levels before removing a minimum partner level": "Restore automatic levels before removing a minimum partner level"
+    "Restore automatic levels before removing a minimum partner level": "Restore automatic levels before removing a minimum partner level",
+    "Partner information": "Partner information",
+    "Level adjustment": "Level adjustment"
   }
 }

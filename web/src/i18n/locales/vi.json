@@ -8317,6 +8317,8 @@
     "Current partner commission rate": "Tỷ lệ hoa hồng đối tác hiện tại",
     "Minimum partner level": "Cấp đối tác tối thiểu",
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Cấp tối thiểu được đảm bảo. Thành tích thực tế vẫn giúp tự động nâng lên cấp cao hơn.",
-    "Restore automatic levels before removing a minimum partner level": "Khôi phục cấp tự động trước khi xóa cấp đối tác tối thiểu"
+    "Restore automatic levels before removing a minimum partner level": "Khôi phục cấp tự động trước khi xóa cấp đối tác tối thiểu",
+    "Partner information": "Thông tin đối tác",
+    "Level adjustment": "Điều chỉnh cấp độ"
   }
 }

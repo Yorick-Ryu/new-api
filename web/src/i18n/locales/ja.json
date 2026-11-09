@@ -8317,6 +8317,8 @@
     "Current partner commission rate": "現在のパートナー報酬率",
     "Minimum partner level": "パートナーの最低保証レベル",
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "最低レベルは保証されます。実績に応じて自動的に上位レベルへ昇格できます。",
-    "Restore automatic levels before removing a minimum partner level": "最低保証レベルを削除する前に自動レベルへ戻してください"
+    "Restore automatic levels before removing a minimum partner level": "最低保証レベルを削除する前に自動レベルへ戻してください",
+    "Partner information": "パートナー情報",
+    "Level adjustment": "レベル変更"
   }
 }

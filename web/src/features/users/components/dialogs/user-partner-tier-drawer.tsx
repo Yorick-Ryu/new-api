@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
@@ -205,64 +206,84 @@ function PartnerTierForm(
           onSubmit={form.handleSubmit(setPending)}
           className={sideDrawerFormClassName('gap-4 py-4 sm:py-4')}
         >
-          <dl className='grid gap-4 sm:grid-cols-2'>
-            <div>
-              <dt className='text-muted-foreground text-xs'>
-                {t('Current partner level')}
-              </dt>
-              <dd className='mt-1 text-sm'>
-                {label(
-                  props.data.joined ? props.data.effective.level : 0,
-                  false
-                )}
-              </dd>
-            </div>
-            {props.data.joined && (
+          <section
+            className='space-y-3'
+            aria-labelledby={`${formId}-info-title`}
+          >
+            <h3 id={`${formId}-info-title`} className='text-sm font-medium'>
+              {t('Partner information')}
+            </h3>
+            <dl className='grid gap-4 sm:grid-cols-2'>
               <div>
                 <dt className='text-muted-foreground text-xs'>
-                  {t('Current partner commission rate')}
+                  {t('Current partner level')}
                 </dt>
-                <dd className='mt-1 text-sm tabular-nums'>
-                  {formatNumber(props.data.effective.rate_percent, locale)}%
+                <dd className='mt-1 text-sm'>
+                  {label(
+                    props.data.joined ? props.data.effective.level : 0,
+                    false
+                  )}
                 </dd>
               </div>
-            )}
-          </dl>
-          <FormField
-            control={form.control}
-            name='level'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Partner level')}</FormLabel>
-                <Select
-                  items={options}
-                  value={field.value}
-                  onValueChange={(value) =>
-                    value !== null && field.onChange(value)
-                  }
-                  disabled={save.isPending}
-                >
-                  <FormControl>
-                    <SelectTrigger
-                      ref={field.ref}
-                      onBlur={field.onBlur}
-                      className='w-full'
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent alignItemWithTrigger={false}>
-                    {options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              {props.data.joined && (
+                <div>
+                  <dt className='text-muted-foreground text-xs'>
+                    {t('Current partner commission rate')}
+                  </dt>
+                  <dd className='mt-1 text-sm tabular-nums'>
+                    {formatNumber(props.data.effective.rate_percent, locale)}%
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+          <Separator />
+          <section
+            className='space-y-3'
+            aria-labelledby={`${formId}-adjustment-title`}
+          >
+            <h3
+              id={`${formId}-adjustment-title`}
+              className='text-sm font-medium'
+            >
+              {t('Level adjustment')}
+            </h3>
+            <FormField
+              control={form.control}
+              name='level'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Partner level')}</FormLabel>
+                  <Select
+                    items={options}
+                    value={field.value}
+                    onValueChange={(value) =>
+                      value !== null && field.onChange(value)
+                    }
+                    disabled={save.isPending}
+                  >
+                    <FormControl>
+                      <SelectTrigger
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        className='w-full'
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent alignItemWithTrigger={false}>
+                      {options.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </section>
         </form>
       </Form>
       <SheetFooter className={sideDrawerFooterClassName()}>
