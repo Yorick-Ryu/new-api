@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
 import { ImagePlus, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -33,6 +33,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { markServerErrorHandled } from '@/lib/handle-server-error'
 import { getServerErrorMessage } from '@/lib/server-error-message'
+import { cn } from '@/lib/utils'
 
 import { uploadReference } from '../api'
 
@@ -163,6 +164,7 @@ export function ImageReferencePreview(props: {
   reference: ImageReference
   disabled: boolean
   onRemove: () => void
+  previewButtonProps?: ComponentProps<typeof Button>
 }) {
   const { t } = useTranslation()
   const [url, setURL] = useState(props.reference.url)
@@ -183,12 +185,17 @@ export function ImageReferencePreview(props: {
           <Button
             type='button'
             variant='outline'
-            className='size-14 overflow-hidden p-0'
+            {...props.previewButtonProps}
+            className={cn(
+              'size-14 overflow-hidden p-0',
+              props.previewButtonProps?.className
+            )}
             aria-label={`${t('Image Preview')}: ${props.reference.name}`}
           >
             {url ? (
               <img
                 src={url}
+                draggable={false}
                 alt={props.reference.name}
                 className='size-full object-cover'
               />

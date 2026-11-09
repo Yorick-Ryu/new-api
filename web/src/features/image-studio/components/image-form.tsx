@@ -69,11 +69,8 @@ import { formatAspectRatio } from '../lib/aspect-ratio'
 import { imageModelDisplayName } from '../lib/model-name'
 import { ImageCostEstimate } from './image-cost-estimate'
 import { ImageMarkup, type ImageMarkupValue } from './image-markup'
-import {
-  ImageReferences,
-  ImageReferencePreview,
-  type ImageReference,
-} from './image-references'
+import { ImageReferenceOrder } from './image-reference-order'
+import { ImageReferences, type ImageReference } from './image-references'
 import { ImageSizePicker } from './image-size-picker'
 
 const schema = z.object({
@@ -359,34 +356,22 @@ export function ImageForm(props: ImageFormProps) {
               )}
             </Field>
             {references.length > 0 && (
-              <div
-                className='flex flex-wrap gap-3'
-                role='group'
-                aria-label={t('Reference images')}
-              >
-                {references.map((reference) => (
-                  <ImageReferencePreview
-                    key={reference.id}
-                    reference={reference}
-                    disabled={busy}
-                    onRemove={() => {
-                      const next = references.filter(
-                        (item) => item.id !== reference.id
-                      )
-                      if (reference.id === references[0]?.id) {
-                        setMarkup(null)
-                        form.setValue('markup_id', undefined)
-                      }
-                      setReferences(next)
-                      form.setValue('reference_id', undefined)
-                      form.setValue(
-                        'reference_ids',
-                        next.map((item) => item.id)
-                      )
-                    }}
-                  />
-                ))}
-              </div>
+              <ImageReferenceOrder
+                value={references}
+                disabled={busy}
+                onChange={(next) => {
+                  if (next[0]?.id !== references[0]?.id) {
+                    setMarkup(null)
+                    form.setValue('markup_id', undefined)
+                  }
+                  setReferences(next)
+                  form.setValue('reference_id', undefined)
+                  form.setValue(
+                    'reference_ids',
+                    next.map((item) => item.id)
+                  )
+                }}
+              />
             )}
             {capability?.markup && references[0] && (
               <div className='flex flex-wrap gap-2'>

@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "画像をドラッグするか、左右の矢印キーで並べ替えます。マークアップは最初の画像に適用されます。",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "<amount>{{amount}}</amount>から出金可能",
     "<amount>{{amount}}</amount> remaining": "あと <amount>{{amount}}</amount>",
     "Withdrawal number": "出金番号",
