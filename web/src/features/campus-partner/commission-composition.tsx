@@ -27,6 +27,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { cn } from '@/lib/utils'
 
 import { cash, type Overview } from './api'
+import { campusDetailAmountTypography } from './constants'
 
 export function CommissionComposition(props: { data: Overview }) {
   const { t, i18n } = useTranslation()
@@ -65,7 +66,8 @@ export function CommissionComposition(props: { data: Overview }) {
           .filter((part) => part.amount > 0)
           .map((part) => {
             const percent = (part.amount / total) * 100
-            const description = `${t(part.label)} · ${cash(part.amount, locale)}`
+            const amount = cash(part.amount, locale)
+            const description = `${t(part.label)} ${amount}`
             return (
               <Tooltip key={part.label}>
                 <TooltipTrigger
@@ -78,7 +80,10 @@ export function CommissionComposition(props: { data: Overview }) {
                   )}
                   style={{ width: `${percent}%` }}
                 />
-                <TooltipContent>{description}</TooltipContent>
+                <TooltipContent>
+                  <span>{t(part.label)}</span>
+                  <span className={campusDetailAmountTypography}>{amount}</span>
+                </TooltipContent>
               </Tooltip>
             )
           })}

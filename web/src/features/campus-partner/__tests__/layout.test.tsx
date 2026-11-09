@@ -506,9 +506,10 @@ test('commission composition shows four amounts and identifies each proportional
   expect(segment).toHaveStyle({ width: '40%' })
   expect(segment).not.toHaveAccessibleName(/%/)
   await user.hover(segment)
-  expect(await screen.findByText(/Withdrawable.*400\.00/)).toHaveTextContent(
-    /Withdrawable.*400\.00/
-  )
+  const tooltipLabel = await screen.findByText('Withdrawable', {
+    selector: '[data-slot="tooltip-content"] span',
+  })
+  expect(tooltipLabel.parentElement).toHaveTextContent(/Withdrawable.*400\.00/)
 })
 
 test('zero commission retains all four legend amounts without creating invalid segments', async () => {
