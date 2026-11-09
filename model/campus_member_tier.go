@@ -3,42 +3,26 @@ package model
 import (
 	"database/sql"
 	"errors"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	cp "github.com/QuantumNous/new-api/pkg/campuspartner"
 	"gorm.io/gorm"
 )
 
-// Stored atomically with the member change, including restoration to automatic.
-type CampusTierChange struct {
-	ID               int64  `json:"id" gorm:"primaryKey"`
-	UserID           int    `json:"user_id" gorm:"index"`
-	ActorID          int    `json:"actor_id"`
-	PreviousOverride int    `json:"previous_override"`
-	Override         int    `json:"override"`
-	PreviousLevel    int    `json:"previous_level"`
-	Level            int    `json:"level"`
-	Reason           string `json:"reason" gorm:"type:text"`
-	CreatedAt        int64  `json:"created_at"`
-}
-
 type CampusMemberTier struct {
-	Joined         bool               `json:"joined"`
-	Override       int                `json:"override"`
-	Revision       int64              `json:"revision"`
-	ConfigRevision int64              `json:"config_revision"`
-	Performance    cp.Money           `json:"performance_cents"`
-	Automatic      cp.Tier            `json:"automatic"`
-	Effective      cp.Tier            `json:"effective"`
-	Tiers          []cp.TierRule      `json:"tiers"`
-	Changes        []CampusTierChange `json:"changes"`
+	Joined         bool          `json:"joined"`
+	Override       int           `json:"override"`
+	Revision       int64         `json:"revision"`
+	ConfigRevision int64         `json:"config_revision"`
+	Performance    cp.Money      `json:"performance_cents"`
+	Automatic      cp.Tier       `json:"automatic"`
+	Effective      cp.Tier       `json:"effective"`
+	Tiers          []cp.TierRule `json:"tiers"`
 }
 
 func CampusGetMemberTier(userID int) (CampusMemberTier, error) {
-	result := CampusMemberTier{Changes: []CampusTierChange{}}
+	var result CampusMemberTier
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
 		if err := tx.Select("id").First(&user, userID).Error; err != nil {
@@ -69,14 +53,13 @@ func CampusGetMemberTier(userID int) (CampusMemberTier, error) {
 		if err != nil {
 			return err
 		}
-		return tx.Where("user_id = ?", userID).Order("id desc").Limit(20).Find(&result.Changes).Error
+		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	return result, err
 }
 
-func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int64, reason string, actor int, enroll bool) error {
-	reason = strings.TrimSpace(reason)
-	if userID <= 0 || actor <= 0 || level < 0 || expectedRevision < 0 || configRevision < 0 || !utf8.ValidString(reason) || utf8.RuneCountInString(reason) > 500 {
+func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int64, enroll bool) error {
+	if userID <= 0 || level < 0 || expectedRevision < 0 || configRevision < 0 {
 		return common.NewMessage("Invalid parameters")
 	}
 	return campusTransaction(DB, func(tx *gorm.DB) error {
@@ -115,25 +98,11 @@ func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int
 		if !joining && member.TierOverride == level {
 			return nil
 		}
-		before, err := cp.EffectiveTier(member.Performance, member.TierOverride, tiers)
-		if err != nil {
-			return err
-		}
-		after, err := cp.EffectiveTier(member.Performance, level, tiers)
-		if err != nil {
-			return err
-		}
-		now := time.Now().Unix()
 		if joining {
-			before.Level = 0 // Enrollment starts from no partner level.
-			member.JoinedAt = now
+			member.JoinedAt = time.Now().Unix()
 			// Do not record reminder acceptance on behalf of the user.
 		}
-		change := CampusTierChange{UserID: userID, ActorID: actor, PreviousOverride: member.TierOverride, Override: level, PreviousLevel: before.Level, Level: after.Level, Reason: reason, CreatedAt: now}
 		member.TierOverride, member.TierRevision = level, member.TierRevision+1
-		if err := tx.Save(member).Error; err != nil {
-			return err
-		}
-		return tx.Create(&change).Error
+		return tx.Save(member).Error
 	})
 }
