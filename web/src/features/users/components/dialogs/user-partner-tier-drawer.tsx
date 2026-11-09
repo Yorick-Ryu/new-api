@@ -95,7 +95,11 @@ type MemberTier = {
   }[]
 }
 
-type Props = { user: { id: number; username: string }; onClose: () => void }
+type Props = {
+  open: boolean
+  user: { id: number; username: string }
+  onClose: () => void
+}
 
 export function UserPartnerTierDrawer(props: Props) {
   const { t } = useTranslation()
@@ -104,10 +108,11 @@ export function UserPartnerTierDrawer(props: Props) {
     queryKey: ['campus', 'member-tier', props.user.id],
     queryFn: () => campusGet<MemberTier>(`admin/members/${props.user.id}/tier`),
     meta: { errorToast: false },
+    enabled: props.open,
   })
   return (
     <Sheet
-      open
+      open={props.open}
       onOpenChange={(open) => {
         if (!open && !saving) props.onClose()
       }}

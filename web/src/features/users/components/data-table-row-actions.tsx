@@ -361,8 +361,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         handleConfirm={handleResetTwoFA}
       />
 
-      {partnerTierOpen && canSetPartnerTier && (
+      {canSetPartnerTier && (
         <UserPartnerTierDrawer
+          open={partnerTierOpen}
           user={user}
           onClose={() => setPartnerTierOpen(false)}
         />
