@@ -89,7 +89,7 @@ export function DataTableBulkActions(props: DataTableBulkActionsProps) {
             setTargets(selected.map((row) => ({ ...row.original })))
           }
         >
-          {t('Disable selected users')}
+          {t('Disable')}
         </Button>
       </BulkActionsToolbar>
       <ConfirmDialog

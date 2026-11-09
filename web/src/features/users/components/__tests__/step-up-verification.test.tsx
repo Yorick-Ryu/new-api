@@ -219,7 +219,7 @@ it('confirms the entire selection and uses one verification for one batch reques
   })
   renderInProvider(<BatchSelection />)
   await userEvent.click(
-    screen.getByRole('button', { name: 'Disable selected users' })
+    screen.getByRole('button', { name: 'Disable' })
   )
   expect(
     screen.getByRole('list', { name: 'Selected users' })
@@ -257,7 +257,7 @@ it('confirms the entire selection and uses one verification for one batch reques
   })
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Disable selected users' })
+      screen.queryByRole('button', { name: 'Disable' })
     ).not.toBeInTheDocument()
   )
 })
@@ -267,7 +267,7 @@ it('does not disable any selected user when batch verification is cancelled', as
   const post = vi.spyOn(api, 'post')
   renderInProvider(<BatchSelection />)
   await userEvent.click(
-    screen.getByRole('button', { name: 'Disable selected users' })
+    screen.getByRole('button', { name: 'Disable' })
   )
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await screen.findByLabelText('Authenticator code or backup code')
@@ -287,7 +287,7 @@ it('keeps the reviewed selection after a rejected batch and obtains a fresh proo
   })
   renderInProvider(<BatchSelection />)
   await userEvent.click(
-    screen.getByRole('button', { name: 'Disable selected users' })
+    screen.getByRole('button', { name: 'Disable' })
   )
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await completeTwoFactorVerification()
