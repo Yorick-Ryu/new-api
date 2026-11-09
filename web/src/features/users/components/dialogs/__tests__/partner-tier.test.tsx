@@ -27,8 +27,13 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createInstance } from 'i18next'
+import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import en from '@/i18n/locales/en.json'
+import zhTW from '@/i18n/locales/zh-TW.json'
+import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -264,3 +269,48 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
   })
   await waitFor(() => expect(close).toHaveBeenCalledTimes(1))
 })
+
+it.each([
+  ['zhCN', zhCN, '设置合伙人等级', '合伙人等级', '自动等级'],
+  ['zhTW', zhTW, '設定合夥人等級', '合夥人等級', '自動等級'],
+] as const)(
+  'the %s user menu and level editor use the real Chinese translation resources',
+  async (language, resource, title, field, automatic) => {
+    const translations = createInstance()
+    await translations.init({
+      lng: language,
+      fallbackLng: false,
+      nsSeparator: false,
+      resources: { [language]: resource, en },
+    })
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'admin', role: 100 })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    clients.push(client)
+    vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data } })
+    render(
+      <I18nextProvider i18n={translations}>
+        <QueryClientProvider client={client}>
+          <UsersProvider>
+            <DataTableRowActions row={{ original: target } as Row<User>} />
+          </UsersProvider>
+        </QueryClientProvider>
+      </I18nextProvider>
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: translations.t('Open menu') })
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: title }))
+    expect(await screen.findByRole('dialog', { name: title })).toBeVisible()
+    expect(await screen.findByRole('combobox', { name: field })).toBeVisible()
+    expect(screen.getByRole('option', { name: automatic })).toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        'Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.'
+      )
+    ).not.toBeInTheDocument()
+  }
+)
