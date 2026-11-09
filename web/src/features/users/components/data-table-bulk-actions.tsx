@@ -16,20 +16,108 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type Table } from '@tanstack/react-table'
+import type { Table } from '@tanstack/react-table'
+import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
+import { Button } from '@/components/ui/button'
+import { handleServerError } from '@/lib/handle-server-error'
+import { AuthOperationError } from '@/lib/secure-verification'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
-import { type User } from '../types'
+import { batchDisableUsers } from '../api'
+import type { User } from '../types'
+import { useUsers } from './users-provider'
 
 interface DataTableBulkActionsProps {
   table: Table<User>
 }
 
-export function DataTableBulkActions({ table }: DataTableBulkActionsProps) {
+export function DataTableBulkActions(props: DataTableBulkActionsProps) {
+  const { t } = useTranslation()
+  const users = useUsers()
+  const [targets, setTargets] = useState<User[]>([])
+  const [pending, setPending] = useState(false)
+  const inFlight = useRef(false)
+  const selected = props.table.getFilteredSelectedRowModel().rows
+
+  const handleDisable = async () => {
+    if (inFlight.current || targets.length === 0) return
+    inFlight.current = true
+    setPending(true)
+    // Snapshot the exact reviewed set before verification; table changes cannot expand it.
+    const ids = targets.map((user) => user.id).sort((a, b) => a - b)
+    try {
+      const proof = await users.requestVerification({
+        scope: 'admin.user.batch_disable',
+        context: { user_ids: ids },
+        title: t('Verify to disable selected users'),
+        description: t('Verify once to disable all {{count}} selected users.', {
+          count: ids.length,
+        }),
+      })
+      if (!proof) return
+      requireServerSuccess(await batchDisableUsers(ids, proof.proof_token))
+      toast.success(t('Selected users disabled'))
+      props.table.resetRowSelection()
+      setTargets([])
+    } catch (error) {
+      handleServerError(AuthOperationError.from(error))
+    } finally {
+      users.triggerRefresh()
+      inFlight.current = false
+      setPending(false)
+    }
+  }
+
   return (
-    <BulkActionsToolbar table={table} entityName='user'>
-      <></>
-    </BulkActionsToolbar>
+    <>
+      <BulkActionsToolbar table={props.table} entityName='user'>
+        <Button
+          variant='destructive'
+          size='sm'
+          disabled={
+            pending ||
+            users.verificationActive ||
+            selected.length === 0 ||
+            selected.length > 100
+          }
+          onClick={() =>
+            setTargets(selected.map((row) => ({ ...row.original })))
+          }
+        >
+          {t('Disable selected users')}
+        </Button>
+      </BulkActionsToolbar>
+      <ConfirmDialog
+        open={targets.length > 0 && !users.verificationActive}
+        onOpenChange={(open) => {
+          if (!open && !inFlight.current) setTargets([])
+        }}
+        title={t('Disable selected users')}
+        desc={t(
+          'Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.',
+          { count: targets.length }
+        )}
+        confirmText={t('Continue')}
+        destructive
+        isLoading={pending}
+        handleConfirm={handleDisable}
+      >
+        <ul
+          className='max-h-60 overflow-y-auto text-sm break-all'
+          aria-label={t('Selected users')}
+        >
+          {targets.map((user) => (
+            <li key={user.id}>
+              #{user.id} · {user.username}
+            </li>
+          ))}
+        </ul>
+      </ConfirmDialog>
+    </>
   )
 }

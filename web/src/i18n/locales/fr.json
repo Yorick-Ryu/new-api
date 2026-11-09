@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Désactiver la sélection",
+    "Selected users": "Utilisateurs sélectionnés",
+    "Verify to disable selected users": "Vérifier pour désactiver la sélection",
+    "Verify once to disable all {{count}} selected users.": "Vérifiez une fois pour désactiver les {{count}} utilisateurs sélectionnés.",
+    "Selected users disabled": "Utilisateurs sélectionnés désactivés",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Désactiver ces {{count}} utilisateurs ? Leurs sessions actives seront révoquées. Les utilisateurs déjà désactivés le resteront.",
+    "Selected users include missing, deleted or unauthorized accounts": "La sélection contient des comptes introuvables, supprimés ou non autorisés",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Les comptes ont été désactivés, mais le nettoyage des sessions ou du cache a échoué. Actualisez et réessayez avec la même sélection",
     "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"": "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"",
     "#1 App": "#1 App",
     "#1 Model": "#1 Modèle",

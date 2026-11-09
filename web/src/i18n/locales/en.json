@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Disable selected users",
+    "Selected users": "Selected users",
+    "Verify to disable selected users": "Verify to disable selected users",
+    "Verify once to disable all {{count}} selected users.": "Verify once to disable all {{count}} selected users.",
+    "Selected users disabled": "Selected users disabled",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.",
+    "Selected users include missing, deleted or unauthorized accounts": "Selected users include missing, deleted or unauthorized accounts",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection",
     "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"": "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"",
     "#1 App": "#1 App",
     "#1 Model": "#1 Model",

@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "Отключить выбранных пользователей",
+    "Selected users": "Выбранные пользователи",
+    "Verify to disable selected users": "Подтвердите отключение выбранных пользователей",
+    "Verify once to disable all {{count}} selected users.": "Подтвердите один раз, чтобы отключить всех выбранных пользователей: {{count}}.",
+    "Selected users disabled": "Выбранные пользователи отключены",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "Отключить выбранных пользователей ({{count}})? Их активные сеансы будут отозваны. Уже отключённые пользователи останутся отключёнными.",
+    "Selected users include missing, deleted or unauthorized accounts": "Выбраны отсутствующие, удалённые или недоступные для управления аккаунты",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "Аккаунты отключены, но очистка сеансов или кеша не удалась. Обновите страницу и повторите для тех же пользователей",
     "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"": "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"",
     "#1 App": "#1 Приложение",
     "#1 Model": "#1 Модель",

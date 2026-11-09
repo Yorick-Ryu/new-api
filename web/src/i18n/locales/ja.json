@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Disable selected users": "選択したユーザーを無効化",
+    "Selected users": "選択したユーザー",
+    "Verify to disable selected users": "認証して選択したユーザーを無効化",
+    "Verify once to disable all {{count}} selected users.": "一度の認証で、選択した {{count}} 人全員を無効化します。",
+    "Selected users disabled": "選択したユーザーを無効化しました",
+    "Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.": "この {{count}} 人を無効化しますか？有効なセッションは失効します。すでに無効なユーザーはそのままです。",
+    "Selected users include missing, deleted or unauthorized accounts": "存在しない、削除済み、または操作権限のないアカウントが含まれています",
+    "Accounts were disabled, but session or cache cleanup failed. Refresh and retry the same selection": "アカウントは無効化されましたが、セッションまたはキャッシュの処理に失敗しました。更新して同じ選択で再試行してください",
     "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"": "\"default \":\" us - central 1 \", \"claude -3 -5 - sonnet -20240620 \":\" europe - west 1 \"",
     "#1 App": "#1 アプリ",
     "#1 Model": "#1 モデル",

@@ -725,3 +725,122 @@ func TestUpdateUserSettingKeepsWhatTheRequestLeavesOut(t *testing.T) {
 		})
 	}
 }
+
+func TestBatchDisableUsers(t *testing.T) {
+	for _, scenario := range []string{"success", "missing proof", "changed set", "expired proof", "missing target", "deleted target", "root target", "same role", "self", "rollback", "already disabled"} {
+		t.Run(scenario, func(t *testing.T) {
+			db := setupManageUserTestDB(t)
+			targets := []model.User{
+				{Username: "batch-one", AffCode: "batch-aff-one", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1, Group: "default", Quota: 123},
+				{Username: "batch-two", AffCode: "batch-aff-two", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1, Group: "default", Quota: 456},
+			}
+			require.NoError(t, db.Create(&targets).Error)
+			now := time.Now().Unix()
+			for _, u := range targets {
+				require.NoError(t, db.Create(&model.UserSession{SID: fmt.Sprintf("batch-session-%d", u.Id), UserID: u.Id, Version: 1, UserAuthVersion: 1, Status: model.UserSessionStatusActive, RefreshHash: fmt.Sprintf("hash-%d", u.Id), ExpiresAt: now + 3600}).Error)
+			}
+			ids := []int{targets[0].Id, targets[1].Id}
+			if scenario == "missing target" {
+				ids[1] = 999999
+			}
+			if scenario == "deleted target" {
+				require.NoError(t, db.Delete(&targets[1]).Error)
+			}
+			if scenario == "root target" {
+				require.NoError(t, db.Model(&targets[1]).Update("role", common.RoleRootUser).Error)
+			}
+			if scenario == "same role" {
+				require.NoError(t, db.Model(&targets[1]).Update("role", common.RoleAdminUser).Error)
+			}
+			if scenario == "already disabled" {
+				require.NoError(t, db.Model(&targets[1]).Update("status", common.UserStatusDisabled).Error)
+			}
+			context, err := common.Marshal(service.AdminUserBatchDisableContext{UserIDs: ids})
+			require.NoError(t, err)
+			identity, proof := manageUserProof(t, db, service.VerificationOperation{Scope: service.VerificationScopeAdminUserBatchDisable, Context: context})
+			role := common.RoleRootUser
+			if scenario == "same role" {
+				role = common.RoleAdminUser
+			}
+			if scenario == "self" {
+				ids[1] = identity.UserID
+				context, err = common.Marshal(service.AdminUserBatchDisableContext{UserIDs: ids})
+				require.NoError(t, err)
+				binding, err := service.BindVerificationOperation(service.VerificationOperation{Scope: service.VerificationScopeAdminUserBatchDisable, Context: context})
+				require.NoError(t, err)
+				proof, _, err = service.IssueSecurityProof(identity, service.VerificationMethodPassword, binding)
+				require.NoError(t, err)
+			}
+			if scenario == "missing proof" {
+				proof = ""
+			}
+			if scenario == "expired proof" {
+				require.NoError(t, db.Model(&model.AuthFlow{}).Where("user_id = ?", identity.UserID).Update("expires_at", time.Now().Add(-time.Minute)).Error)
+			}
+			if scenario == "changed set" {
+				ids = ids[:1]
+			}
+			if scenario == "rollback" {
+				updates := 0
+				require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:batch_rollback", func(tx *gorm.DB) {
+					if tx.Statement.Table == "users" {
+						updates++
+						if updates == 3 {
+							tx.AddError(errors.New("injected batch failure"))
+						}
+					}
+				}))
+				defer db.Callback().Update().Remove("test:batch_rollback")
+			}
+			// Order is not significant, but adding/removing any ID invalidates the proof.
+			sort.Sort(sort.Reverse(sort.IntSlice(ids)))
+			body, err := common.Marshal(service.AdminUserBatchDisableContext{UserIDs: ids})
+			require.NoError(t, err)
+			response := adminUserRequest(http.MethodPost, "/api/user/batch-disable", string(body), proof, identity, role, nil, BatchDisableUsers)
+			success := scenario == "success" || scenario == "already disabled"
+			if success {
+				assert.Contains(t, response.Body.String(), `"success":true`)
+			} else {
+				assert.Contains(t, response.Body.String(), `"success":false`)
+			}
+			for i, u := range targets {
+				var stored model.User
+				require.NoError(t, db.Unscoped().First(&stored, u.Id).Error)
+				expectedStatus, expectedVersion := common.UserStatusEnabled, int64(1)
+				if success {
+					expectedStatus = common.UserStatusDisabled
+					expectedVersion = 2
+				}
+				if scenario == "already disabled" && i == 1 {
+					expectedVersion = 1
+				}
+				assert.Equal(t, expectedStatus, stored.Status)
+				assert.Equal(t, expectedVersion, stored.AuthVersion)
+				assert.Equal(t, u.Quota, stored.Quota)
+				var session model.UserSession
+				require.NoError(t, db.Where("user_id = ?", u.Id).First(&session).Error)
+				if success {
+					assert.Equal(t, model.UserSessionStatusRevoked, session.Status)
+				} else {
+					assert.Equal(t, model.UserSessionStatusActive, session.Status)
+				}
+			}
+			if success {
+				replay := adminUserRequest(http.MethodPost, "/api/user/batch-disable", string(body), proof, identity, role, nil, BatchDisableUsers)
+				assert.Contains(t, replay.Body.String(), `"success":false`)
+				var count int64
+				require.NoError(t, model.LOG_DB.Model(&model.AuditLog{}).Where("action = ?", "user.manage").Count(&count).Error)
+				assert.EqualValues(t, 2, count)
+			}
+		})
+	}
+}
+
+func TestBatchDisableUserSetValidation(t *testing.T) {
+	for _, ids := range [][]int{nil, {}, {0}, {-1}, {1, 1}, make([]int, 101)} {
+		context, err := common.Marshal(service.AdminUserBatchDisableContext{UserIDs: ids})
+		require.NoError(t, err)
+		_, err = service.BindVerificationOperation(service.VerificationOperation{Scope: service.VerificationScopeAdminUserBatchDisable, Context: context})
+		require.Error(t, err)
+	}
+}

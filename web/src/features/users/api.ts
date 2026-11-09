@@ -274,3 +274,15 @@ export async function adminUnbindCustomOAuth(
   )
   return res.data
 }
+
+export async function batchDisableUsers(
+  userIds: number[],
+  proofToken: string
+): Promise<ApiResponse> {
+  const res = await api.post(
+    '/api/user/batch-disable',
+    { user_ids: userIds },
+    securityProofConfig(proofToken)
+  )
+  return res.data
+}
