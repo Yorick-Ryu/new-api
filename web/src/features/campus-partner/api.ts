@@ -63,6 +63,7 @@ export interface Overview {
     code: string
     joined_at: number
     inviter_id: number
+    tier_override?: number
     performance_cents: number
     debt_cents: number
     coupon_state: string

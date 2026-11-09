@@ -41,6 +41,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })
+  const assigned = !!props.data.member.tier_override
   const tier = props.data.tier
   const nextTier = props.data.tiers[tier.level]
   const progress =
@@ -61,9 +62,15 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
         title={<h3>{t('Top-up commission levels')}</h3>}
         titleClassName={campusCardTypography.title}
         descriptionClassName={campusCardTypography.body}
-        description={t(
-          'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
-        )}
+        description={
+          assigned
+            ? t(
+                'Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.'
+              )
+            : t(
+                'Level up automatically with cumulative friend top-ups. New top-ups after an upgrade earn commission at the new rate.'
+              )
+        }
         icon={<TrendingUp />}
         iconTone='primary'
         action={
@@ -91,7 +98,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   }}
                 />
               ) : (
-                t('Highest partner tier reached')
+                t(assigned ? 'Assigned level' : 'Highest partner tier reached')
               )}
             </span>
           </div>
@@ -111,11 +118,13 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                   key={rule.floor_cents}
                   className='flex min-w-0 flex-col gap-3'
                 >
-                  <Progress
-                    className='[&_[data-slot=progress-track]]:h-2'
-                    value={value}
-                    aria-label={t('Lv.{{level}}', { level: index + 1 })}
-                  />
+                  {!assigned && (
+                    <Progress
+                      className='[&_[data-slot=progress-track]]:h-2'
+                      value={value}
+                      aria-label={t('Lv.{{level}}', { level: index + 1 })}
+                    />
+                  )}
                   <Card
                     size='sm'
                     aria-current={active ? 'step' : undefined}
@@ -129,7 +138,7 @@ export function PartnerTiers(props: { data: Overview }): ReactElement {
                         {t('Lv.{{level}}', { level: index + 1 })}
                       </span>
                       {active && <Badge>{t('Current')}</Badge>}
-                      {index + 1 < tier.level && (
+                      {!assigned && index + 1 < tier.level && (
                         <Badge variant='secondary'>{t('Completed')}</Badge>
                       )}
                     </CardHeader>

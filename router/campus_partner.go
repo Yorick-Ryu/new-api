@@ -24,6 +24,8 @@ func registerCampusRoutes(api *gin.RouterGroup) {
 	admin := campus.Group("/admin", middleware.AdminAuth(), middleware.SessionCookieOriginGuard())
 	handlePermissionRoute(admin, http.MethodGet, "/config", authz.CampusRead, controller.CampusConfig)
 	handlePermissionRoute(admin, http.MethodPut, "/config", authz.CampusWrite, controller.CampusConfig)
+	handlePermissionRoute(admin, http.MethodGet, "/members/:id/tier", authz.CampusRead, controller.CampusMemberTier)
+	handlePermissionRoute(admin, http.MethodPut, "/members/:id/tier", authz.CampusWrite, controller.CampusMemberTier)
 	handlePermissionRoute(admin, http.MethodPut, "/tiers", authz.CampusWrite, controller.CampusConfigureTiers)
 	handlePermissionRoute(admin, http.MethodPut, "/plan-rates", authz.CampusWrite, controller.CampusConfigurePlanRates)
 	handlePermissionRoute(admin, http.MethodGet, "/records/:kind", authz.CampusRead, controller.CampusAdminList)

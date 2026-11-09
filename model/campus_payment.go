@@ -185,6 +185,13 @@ func CampusSettleTx(tx *gorm.DB, trade string, userID int, proofs ...CampusPayme
 			}
 			var commission cp.Commission
 			if payment.Product == cp.TopUp {
+				if inviter.TierOverride != 0 {
+					if _, err := cp.EffectiveTier(inviter.Performance, inviter.TierOverride, tiers); err != nil {
+						return err
+					}
+					// One unbounded rate preserves actual performance while disabling tier crossing.
+					tiers = []cp.TierRule{{Floor: 0, RateBPS: tiers[inviter.TierOverride-1].RateBPS}}
+				}
 				commission, err = cp.CalculateCommission(inviter.Performance, payment.Paid, payment.Product, tiers)
 			} else {
 				commission, err = cp.CalculateSubscriptionCommission(inviter.Performance, payment.Paid, subscriptionRate)

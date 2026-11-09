@@ -8303,5 +8303,21 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Đánh dấu ảnh tham chiếu đầu tiên rồi mô tả thay đổi trong lời nhắc. Ảnh gốc được giữ nguyên.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Kéo để đánh dấu vùng. Bàn phím: phím mũi tên di chuyển từ tâm; phím cách thêm vòng tròn.",
     "Choose image complexity": "Chọn độ phức tạp của ảnh"
-  }
+  },
+  "Set partner level": "Đặt cấp đối tác",
+  "Partner level": "Cấp đối tác",
+  "Current partner level": "Cấp đối tác hiện tại",
+  "Assigned level": "Cấp được chỉ định",
+  "Automatic level": "Cấp tự động",
+  "Effective after saving": "Cấp sau khi lưu",
+  "Recent level changes": "Thay đổi cấp gần đây",
+  "Confirm partner level change": "Xác nhận thay đổi cấp đối tác",
+  "Partner level updated": "Đã cập nhật cấp đối tác",
+  "This user has not joined the partner program": "Người dùng này chưa tham gia chương trình đối tác",
+  "Enter a reason": "Nhập lý do",
+  "Reason must be at most 500 characters": "Lý do không được quá 500 ký tự",
+  "Choose a valid partner level and enter a reason of 1 to 500 characters": "Chọn cấp hợp lệ và nhập lý do từ 1 đến 500 ký tự",
+  "Restore automatic levels before removing an assigned partner level": "Khôi phục cấp tự động trước khi xóa cấp đang được chỉ định",
+  "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "Cấp được chỉ định áp dụng cho quyết toán nạp tiền mới. Doanh số thực tế tiếp tục tích lũy.",
+  "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Cấp được chỉ định được giữ cố định cho đến khi thay đổi hoặc khôi phục tự động. Chỉ ảnh hưởng đến quyết toán sau này; doanh số thực tế, hoa hồng cũ và tỷ lệ gói đăng ký không đổi."
 }

@@ -570,3 +570,40 @@ test.each([
     expect(screen.getByText(reason)).toBeVisible()
   }
 )
+
+test('assigned partner levels highlight the active tier without suggesting automatic progress or highest tier', async () => {
+  renderPage(<CampusPartner />, {
+    member: {
+      code: 'ABC123',
+      joined_at: 1,
+      inviter_id: 0,
+      performance_cents: 0,
+      debt_cents: 0,
+      coupon_state: '',
+      coupon_trade: '',
+      tier_override: 2,
+    },
+    tiers: [
+      { floor_cents: 0, rate_bps: 3000 },
+      { floor_cents: 200000, rate_bps: 3500 },
+      { floor_cents: 1000000, rate_bps: 4000 },
+    ],
+    tier: {
+      level: 2,
+      rate_percent: 35,
+      floor_cents: 200000,
+      next_cents: 0,
+      remaining_cents: 0,
+    },
+  })
+  const tiers = await screen.findByRole('region', {
+    name: 'Top-up commission levels',
+  })
+  expect(within(tiers).getByText('Assigned level')).toBeVisible()
+  expect(within(tiers).getByText('Current')).toBeVisible()
+  expect(
+    within(tiers).queryByText('Highest partner tier reached')
+  ).not.toBeInTheDocument()
+  expect(within(tiers).queryByText('Completed')).not.toBeInTheDocument()
+  expect(within(tiers).queryByRole('progressbar')).not.toBeInTheDocument()
+})

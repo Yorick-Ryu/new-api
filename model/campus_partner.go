@@ -48,6 +48,8 @@ type CampusMember struct {
 	InviterID        int      `json:"inviter_id" gorm:"index"`
 	BoundAt          int64    `json:"bound_at"`
 	Performance      cp.Money `json:"performance_cents"`
+	TierOverride     int      `json:"tier_override" gorm:"not null;default:0"`
+	TierRevision     int64    `json:"tier_revision" gorm:"not null;default:0"`
 	Debt             cp.Money `json:"debt_cents"`
 	CouponState      string   `json:"coupon_state" gorm:"type:varchar(16)"`
 	CouponTrade      string   `json:"coupon_trade" gorm:"type:varchar(255)"`
@@ -128,7 +130,7 @@ func InitializeCampusPartner(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&CampusCampaign{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}); err != nil {
+	if err := db.AutoMigrate(&CampusCampaign{}, &CampusMember{}, &CampusPayment{}, &CampusRefund{}, &CampusWithdrawal{}, &CampusAllocation{}, &CampusTierChange{}); err != nil {
 		return err
 	}
 	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&CampusCampaign{ID: 1, Version: cp.RuleVersion, TiersJSON: string(tiers), PlanRatesJSON: "[]"}).Error; err != nil {
@@ -331,6 +333,13 @@ func CampusConfigureTiers(tiers []cp.TierRule, expectedRevision int64, actor int
 		}
 		if config.TierRevision != expectedRevision {
 			return ErrCampusState
+		}
+		var assigned int64
+		if err := tx.Model(&CampusMember{}).Where("tier_override > ?", len(tiers)).Count(&assigned).Error; err != nil {
+			return err
+		}
+		if assigned > 0 {
+			return common.NewMessage("Restore automatic levels before removing an assigned partner level")
 		}
 		encoded, err := common.Marshal(tiers)
 		if err != nil {
