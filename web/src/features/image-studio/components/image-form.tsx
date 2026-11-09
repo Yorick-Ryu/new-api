@@ -179,6 +179,7 @@ export function ImageForm(props: ImageFormProps) {
   const [sizeOpen, setSizeOpen] = useState(false)
   const [outputSettingOpen, setOutputSettingOpen] = useState(false)
   const [countOpen, setCountOpen] = useState(false)
+  const [complexityOpen, setComplexityOpen] = useState(false)
   const maxReferences = capability?.max_references ?? 4
   const [references, setReferences] = useState<ImageReference[]>([])
   const [uploading, setUploading] = useState(false)
@@ -668,32 +669,64 @@ export function ImageForm(props: ImageFormProps) {
                 </Field>
               )}
               {!!capability?.complexities?.length && (
-                <Field className='w-auto shrink-0'>
+                <Field className='w-auto min-w-20 shrink-0'>
                   <FieldLabel>{t('Image complexity')}</FieldLabel>
-                  <ToggleGroup
-                    aria-label={t('Image complexity')}
-                    variant='outline'
-                    value={[complexity || 'auto']}
-                    disabled={busy}
-                    onValueChange={(values) => {
-                      const value = values[0] === 'auto' ? '' : values[0]
-                      if (
-                        value !== undefined &&
-                        capability.complexities?.includes(value)
-                      ) {
-                        form.setValue('complexity', value)
-                      }
-                    }}
+                  <Popover
+                    open={complexityOpen}
+                    onOpenChange={setComplexityOpen}
                   >
-                    {capability.complexities.map((value) => (
-                      <ToggleGroupItem
-                        key={value || 'auto'}
-                        value={value || 'auto'}
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type='button'
+                          variant='outline'
+                          disabled={busy}
+                          className='justify-start'
+                          aria-label={t('Choose image complexity')}
+                        />
+                      }
+                    >
+                      <SlidersHorizontal className='size-4' />
+                      <span className='truncate'>
+                        {qualityLabels[complexity] || t('Auto')}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align='start'
+                      aria-label={t('Image complexity')}
+                      className='w-auto max-w-[calc(100vw-2rem)]'
+                    >
+                      <FieldTitle>{t('Image complexity')}</FieldTitle>
+                      <ToggleGroup
+                        aria-label={t('Image complexity')}
+                        variant='outline'
+                        spacing={2}
+                        value={[complexity || 'auto']}
+                        disabled={busy}
+                        className='flex-wrap justify-start'
+                        onValueChange={(values) => {
+                          const value = values[0] === 'auto' ? '' : values[0]
+                          if (
+                            value !== undefined &&
+                            capability.complexities?.includes(value)
+                          ) {
+                            form.setValue('complexity', value)
+                            setComplexityOpen(false)
+                          }
+                        }}
                       >
-                        {qualityLabels[value] || t('Auto')}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
+                        {capability.complexities.map((value) => (
+                          <ToggleGroupItem
+                            key={value || 'auto'}
+                            value={value || 'auto'}
+                            className='aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground h-[30px] px-2.5'
+                          >
+                            {qualityLabels[value] || t('Auto')}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    </PopoverContent>
+                  </Popover>
                 </Field>
               )}
               {(capability?.max_count ?? 1) > 1 && (
