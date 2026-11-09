@@ -8295,5 +8295,21 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Отметьте области на первом изображении и опишите изменения в запросе. Исходное изображение сохраняется целиком.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Перетащите для разметки. Клавиатура: стрелки перемещают от центра, пробел добавляет круг.",
     "Choose image complexity": "Выбрать сложность изображения"
-  }
+  },
+  "Set partner level": "Назначить уровень партнёра",
+  "Partner level": "Уровень партнёра",
+  "Current partner level": "Текущий уровень партнёра",
+  "Assigned level": "Назначенный уровень",
+  "Automatic level": "Автоматический уровень",
+  "Effective after saving": "Уровень после сохранения",
+  "Recent level changes": "Последние изменения уровня",
+  "Confirm partner level change": "Подтвердить изменение уровня",
+  "Partner level updated": "Уровень партнёра обновлён",
+  "This user has not joined the partner program": "Пользователь ещё не участвует в партнёрской программе",
+  "Enter a reason": "Укажите причину",
+  "Reason must be at most 500 characters": "Причина не должна превышать 500 символов",
+  "Choose a valid partner level and enter a reason of 1 to 500 characters": "Выберите допустимый уровень и укажите причину длиной от 1 до 500 символов",
+  "Restore automatic levels before removing an assigned partner level": "Перед удалением назначенного уровня восстановите автоматические уровни",
+  "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "Назначенный уровень применяется к новым расчётам пополнений. Реальные показатели продолжают накапливаться.",
+  "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Назначенный уровень фиксируется до изменения или возврата в автоматический режим. Изменятся только будущие расчёты; реальные показатели, прошлые комиссии и ставки подписок сохраняются."
 }

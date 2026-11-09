@@ -171,7 +171,7 @@ func CampusGetOverview(userID int) (CampusOverview, error) {
 			return err
 		}
 		result.ExpectedBatch = batch.Format(time.DateOnly)
-		result.Tier, err = cp.CurrentTier(member.Performance, result.Tiers)
+		result.Tier, err = cp.EffectiveTier(member.Performance, member.TierOverride, result.Tiers)
 		return err
 	}, options)
 	return result, err
@@ -387,7 +387,7 @@ func CampusList(userID int, admin bool, kind string, page, size int, filter Camp
 		}
 		var members []CampusMember
 		if len(ids) > 0 {
-			if err := DB.Select("user_id", "performance").Where("user_id IN ?", ids).Find(&members).Error; err != nil {
+			if err := DB.Select("user_id", "performance", "tier_override").Where("user_id IN ?", ids).Find(&members).Error; err != nil {
 				return nil, 0, err
 			}
 		}
@@ -417,7 +417,7 @@ func CampusList(userID int, admin bool, kind string, page, size int, filter Camp
 			user := names[withdrawal.UserID]
 			record := withdrawalRecord{CampusWithdrawal: withdrawal, Username: user.Username, DisplayName: user.DisplayName, TotalCommission: totalByUser[withdrawal.UserID]}
 			if member, ok := memberByID[withdrawal.UserID]; ok {
-				tier, err := cp.CurrentTier(member.Performance, config.Tiers)
+				tier, err := cp.EffectiveTier(member.Performance, member.TierOverride, config.Tiers)
 				if err != nil {
 					return nil, 0, err
 				}

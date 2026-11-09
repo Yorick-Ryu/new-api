@@ -8295,5 +8295,21 @@
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Annotez la première image, puis décrivez les changements dans votre prompt. L’image originale reste intacte.",
     "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Faites glisser pour marquer une zone. Clavier : les flèches déplacent depuis le centre ; Espace ajoute un cercle.",
     "Choose image complexity": "Choisir la complexité de l’image"
-  }
+  },
+  "Set partner level": "Définir le niveau du partenaire",
+  "Partner level": "Niveau du partenaire",
+  "Current partner level": "Niveau actuel du partenaire",
+  "Assigned level": "Niveau attribué",
+  "Automatic level": "Niveau automatique",
+  "Effective after saving": "Niveau après enregistrement",
+  "Recent level changes": "Modifications récentes du niveau",
+  "Confirm partner level change": "Confirmer le changement de niveau",
+  "Partner level updated": "Niveau du partenaire mis à jour",
+  "This user has not joined the partner program": "Cet utilisateur n’a pas rejoint le programme partenaire",
+  "Enter a reason": "Indiquez un motif",
+  "Reason must be at most 500 characters": "Le motif ne doit pas dépasser 500 caractères",
+  "Choose a valid partner level and enter a reason of 1 to 500 characters": "Choisissez un niveau valide et indiquez un motif de 1 à 500 caractères",
+  "Restore automatic levels before removing an assigned partner level": "Rétablissez les niveaux automatiques avant de supprimer un niveau attribué",
+  "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "Votre niveau attribué s’applique aux nouveaux règlements de recharges. Les performances réelles continuent de s’accumuler.",
+  "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Le niveau attribué reste fixe jusqu’à sa modification ou au retour en mode automatique. Seuls les futurs règlements sont affectés ; les performances réelles, commissions passées et taux des abonnements restent inchangés."
 }

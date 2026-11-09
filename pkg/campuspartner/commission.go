@@ -105,6 +105,22 @@ func CurrentTier(performance Money, tiers []TierRule) (Tier, error) {
 	return tier, nil
 }
 
+// EffectiveTier returns a fixed administrator-selected level when assigned.
+// A fixed level has no automatic upgrade target; performance remains real.
+func EffectiveTier(performance Money, override int, tiers []TierRule) (Tier, error) {
+	if override == 0 {
+		return CurrentTier(performance, tiers)
+	}
+	if err := ValidateTiers(tiers); err != nil {
+		return Tier{}, err
+	}
+	if !performance.Valid() || override < 1 || override > len(tiers) {
+		return Tier{}, ErrTiers
+	}
+	rule := tiers[override-1]
+	return Tier{Level: override, RatePercent: float64(rule.RateBPS) / 100, Floor: rule.Floor}, nil
+}
+
 // CalculateCommission uses the inviter's locked net performance immediately
 // before this transaction. Round only after adding all exact segment products.
 // The returned snapshot must be stored, not recomputed at refund time.
