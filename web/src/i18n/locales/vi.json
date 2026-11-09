@@ -8309,6 +8309,11 @@
     "Choose a valid partner level and enter a reason of 1 to 500 characters": "Chọn cấp hợp lệ và nhập lý do từ 1 đến 500 ký tự",
     "Restore automatic levels before removing an assigned partner level": "Khôi phục cấp tự động trước khi xóa cấp đang được chỉ định",
     "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "Cấp được chỉ định áp dụng cho quyết toán nạp tiền mới. Doanh số thực tế tiếp tục tích lũy.",
-    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Cấp được chỉ định được giữ cố định cho đến khi thay đổi hoặc khôi phục tự động. Chỉ ảnh hưởng đến quyết toán sau này; doanh số thực tế, hoa hồng cũ và tỷ lệ gói đăng ký không đổi."
+    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Cấp được chỉ định được giữ cố định cho đến khi thay đổi hoặc khôi phục tự động. Chỉ ảnh hưởng đến quyết toán sau này; doanh số thực tế, hoa hồng cũ và tỷ lệ gói đăng ký không đổi.",
+    "Not joined": "Chưa tham gia",
+    "Activate partner": "Kích hoạt đối tác",
+    "Confirm partner activation": "Xác nhận kích hoạt đối tác",
+    "Partner activated": "Đã kích hoạt đối tác",
+    "Select a level and confirm to activate this user as a partner.": "Chọn cấp và xác nhận để kích hoạt người dùng này làm đối tác."
   }
 }

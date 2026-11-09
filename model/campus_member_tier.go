@@ -56,10 +56,7 @@ func CampusGetMemberTier(userID int) (CampusMemberTier, error) {
 		result.ConfigRevision = config.TierRevision
 		var member CampusMember
 		err = tx.First(&member, "user_id = ?", userID).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 		result.Joined = member.JoinedAt > 0
@@ -77,7 +74,7 @@ func CampusGetMemberTier(userID int) (CampusMemberTier, error) {
 	return result, err
 }
 
-func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int64, reason string, actor int) error {
+func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int64, reason string, actor int, enroll bool) error {
 	reason = strings.TrimSpace(reason)
 	if userID <= 0 || actor <= 0 || level < 0 || expectedRevision < 0 || configRevision < 0 || reason == "" || !utf8.ValidString(reason) || utf8.RuneCountInString(reason) > 500 {
 		return common.NewMessage("Choose a valid partner level and enter a reason of 1 to 500 characters")
@@ -101,18 +98,21 @@ func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int
 		if err := tx.Select("id").First(&user, userID).Error; err != nil {
 			return err
 		}
-		var member CampusMember
-		err = lockForUpdate(tx).First(&member, "user_id = ?", userID).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && member.JoinedAt == 0) {
-			return common.NewMessage("This user has not joined the partner program")
-		}
+		member, err := campusMember(tx, userID)
 		if err != nil {
 			return err
+		}
+		joining := member.JoinedAt == 0
+		if joining && !enroll {
+			return common.NewMessage("This user has not joined the partner program")
+		}
+		if !joining && enroll {
+			return ErrCampusState
 		}
 		if member.TierRevision != expectedRevision {
 			return ErrCampusState
 		}
-		if member.TierOverride == level {
+		if !joining && member.TierOverride == level {
 			return nil
 		}
 		before, err := cp.EffectiveTier(member.Performance, member.TierOverride, tiers)
@@ -123,9 +123,15 @@ func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int
 		if err != nil {
 			return err
 		}
-		change := CampusTierChange{UserID: userID, ActorID: actor, PreviousOverride: member.TierOverride, Override: level, PreviousLevel: before.Level, Level: after.Level, Reason: reason, CreatedAt: time.Now().Unix()}
+		now := time.Now().Unix()
+		if joining {
+			before.Level = 0 // Enrollment starts from no partner level.
+			member.JoinedAt = now
+			// Do not record reminder acceptance on behalf of the user.
+		}
+		change := CampusTierChange{UserID: userID, ActorID: actor, PreviousOverride: member.TierOverride, Override: level, PreviousLevel: before.Level, Level: after.Level, Reason: reason, CreatedAt: now}
 		member.TierOverride, member.TierRevision = level, member.TierRevision+1
-		if err := tx.Save(&member).Error; err != nil {
+		if err := tx.Save(member).Error; err != nil {
 			return err
 		}
 		return tx.Create(&change).Error
