@@ -86,7 +86,7 @@ function renderDialog(overrides = {}, rowMenu = false, loadFailure = false) {
           <DataTableRowActions row={{ original: target } as Row<User>} />
         </UsersProvider>
       ) : (
-        <UserPartnerTierDrawer user={target} onClose={close} />
+        <UserPartnerTierDrawer open user={target} onClose={close} />
       )}
     </QueryClientProvider>
   )
@@ -435,3 +435,62 @@ it.each([false, true])(
     }
   }
 )
+
+it('closing partner management plays the shared exit animation before removal and reopening resets the selection', async () => {
+  let finish!: () => void
+  const animation = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const original = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'getAnimations'
+  )
+  Object.defineProperty(HTMLElement.prototype, 'getAnimations', {
+    configurable: true,
+    value(this: HTMLElement) {
+      return this.hasAttribute('data-ending-style')
+        ? [{ finished: animation }]
+        : []
+    },
+  })
+  try {
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'admin', role: 100 })
+    const { get } = renderDialog({}, true)
+    expect(get).not.toHaveBeenCalled()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Manage partner' })
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Partner level',
+    })
+    const drawer = screen.getByRole('dialog', { name: 'Manage partner' })
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: /^Lv\.3/ }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(drawer).toHaveAttribute('data-ending-style'))
+    expect(drawer).toBeInTheDocument()
+    expect(drawer).toHaveAttribute('data-side', 'right')
+    await act(async () => {
+      finish()
+    })
+    await waitFor(() => expect(drawer).not.toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Manage partner' })
+    )
+    expect(
+      await screen.findByRole('combobox', { name: 'Partner level' })
+    ).toHaveTextContent('Automatic level')
+  } finally {
+    finish()
+    if (original) {
+      Object.defineProperty(HTMLElement.prototype, 'getAnimations', original)
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations')
+    }
+  }
+})
