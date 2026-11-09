@@ -1371,3 +1371,203 @@ func imageStudioAutoTokenUpgradeContract(t *testing.T, db *gorm.DB, owner *model
 	require.Len(t, audits, 1)
 	assert.NotContains(t, audits[0].Content, legacy.Key)
 }
+
+func TestImageStudioMarkupValidation(t *testing.T) {
+	base := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+	var original bytes.Buffer
+	require.NoError(t, png.Encode(&original, base))
+	caps := []imageStudioCapability{{Model: "gpt-image-2.6", Sizes: []string{""}, Qualities: []string{""}, MaxCount: 4, Editing: true, MaxReferences: 4, Markup: true, Complexities: []string{"", "low", "medium", "high"}}}
+	input := imageStudioInput{Model: caps[0].Model, Prompt: "change the circled area", N: 1, ReferenceIDs: []string{uuid.NewString()}, MarkupID: uuid.NewString(), Complexity: "low"}
+	require.NoError(t, validateImageStudioInput(input, caps))
+	for _, change := range []struct {
+		name string
+		edit func(*imageStudioInput)
+	}{
+		{"unknown complexity", func(value *imageStudioInput) { value.Complexity = "max" }},
+		{"markup without source", func(value *imageStudioInput) { value.ReferenceIDs = nil }},
+		{"markup is also a source", func(value *imageStudioInput) { value.MarkupID = value.ReferenceIDs[0] }},
+		{"invalid markup ID", func(value *imageStudioInput) { value.MarkupID = "invalid" }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			invalid := input
+			change.edit(&invalid)
+			assert.Error(t, validateImageStudioInput(invalid, caps))
+		})
+	}
+	caps[0].Markup = false
+	assert.Error(t, validateImageStudioInput(input, caps))
+	input.MarkupID = ""
+	caps[0].Complexities = nil
+	assert.Error(t, validateImageStudioInput(input, caps))
+	for _, tc := range []struct {
+		name              string
+		width, height     int
+		fill, mark, valid bool
+	}{
+		{"transparent overlay", 3, 2, false, true, true},
+		{"empty overlay", 3, 2, false, false, false},
+		{"opaque overlay", 3, 2, true, false, false},
+		{"wrong dimensions", 2, 3, false, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			overlay := image.NewNRGBA(image.Rect(0, 0, tc.width, tc.height))
+			if tc.fill {
+				for i := 3; i < len(overlay.Pix); i += 4 {
+					overlay.Pix[i] = 255
+				}
+			}
+			if tc.mark {
+				overlay.Pix[0], overlay.Pix[3] = 255, 255
+			}
+			var data bytes.Buffer
+			require.NoError(t, png.Encode(&data, overlay))
+			err := validateImageStudioMarkup(data.Bytes(), original.Bytes())
+			if tc.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
+	assert.Error(t, validateImageStudioMarkup([]byte("invalid png"), original.Bytes()))
+}
+
+func TestImageStudioMarkupDatabaseMatrix(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
+		t.Run(dialect.kind, func(t *testing.T) {
+			if dialect.env != "" && os.Getenv(dialect.env) == "" {
+				t.Skip("database not configured")
+			}
+			db := modelManagementDB(t, dialect.kind, os.Getenv(dialect.env))
+			require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}))
+			previousAuto := setting.AutoGroups2JsonString()
+			permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+			previousPermissions := permissions.ReadAll()
+			t.Cleanup(func() {
+				require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+				permissions.Clear()
+				permissions.AddAll(previousPermissions)
+			})
+			require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+			permissions.Set("default", map[string]string{"+:auto": "Automatic"})
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"gpt-image-2.6":0.01}`))
+			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+			owner := model.User{Id: 681, Username: "markup-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
+			require.NoError(t, db.Create(&owner).Error)
+			var overlay bytes.Buffer
+			pixels := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+			pixels.Pix[0], pixels.Pix[3] = 255, 255
+			require.NoError(t, png.Encode(&overlay, pixels))
+			response := imageStudioTestResponse(t)
+			var generations, edits atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/v1/images/edits" {
+					edits.Add(1)
+					require.NoError(t, r.ParseMultipartForm(1<<20))
+					defer r.MultipartForm.RemoveAll()
+					assert.Equal(t, "low", r.FormValue("complexity"))
+					assert.Equal(t, "1", r.FormValue("n"))
+					assert.Len(t, r.MultipartForm.File["image[]"], 4)
+					assert.Empty(t, r.MultipartForm.File["mask"])
+					require.Len(t, r.MultipartForm.File["markup"], 1)
+					file, err := r.MultipartForm.File["markup"][0].Open()
+					require.NoError(t, err)
+					defer file.Close()
+					data, err := io.ReadAll(file)
+					require.NoError(t, err)
+					assert.Equal(t, overlay.Bytes(), data)
+				} else {
+					generations.Add(1)
+					assert.Equal(t, "/v1/images/generations", r.URL.Path)
+					var payload map[string]any
+					require.NoError(t, common.DecodeJson(r.Body, &payload))
+					assert.Equal(t, "high", payload["complexity"])
+					assert.NotContains(t, payload, "markup")
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write(response)
+			}))
+			defer upstream.Close()
+			channel := model.Channel{Id: 683, Type: constant.ChannelTypeOpenAI, Name: "markup-fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-2.6,gpt-image-2.6-flare,gpt-image-2.6-sunburst,gpt-image-2", Group: "default", BaseURL: &upstream.URL}
+			require.NoError(t, db.Create(&channel).Error)
+			require.NoError(t, channel.AddAbilities(db))
+			service.InitHttpClient()
+			model.InvalidatePricingCache()
+			caps, err := imageStudioCapabilities(owner.Id)
+			require.NoError(t, err)
+			require.Len(t, caps, 4)
+			for _, cap := range caps {
+				assert.Equal(t, strings.HasPrefix(cap.Model, "gpt-image-2.6"), cap.Markup)
+			}
+			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-2.6"}, nil)
+			require.NoError(t, err)
+			store, restore := imageStudioTestStore(t)
+			restore()
+			worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "markup-node"}
+			payloads, err := decodeImageStudioResponse(response)
+			require.NoError(t, err)
+			original, err := base64.StdEncoding.DecodeString(payloads[0].Base64)
+			require.NoError(t, err)
+			var references []string
+			for i := range 5 {
+				id := uuid.NewString()
+				asset := model.ImageStudioAsset{ID: id, UserID: owner.Id, Kind: "reference", ObjectKey: "references/" + id, Mime: "image/png", CreatedAt: time.Now().Unix(), ExpiresAt: time.Now().Add(time.Hour).Unix()}
+				require.NoError(t, model.CreateImageStudioReference(&asset))
+				data := original
+				if i == 4 {
+					data = overlay.Bytes()
+				}
+				require.NoError(t, store.Put(context.Background(), asset.ObjectKey, data, asset.Mime))
+				references = append(references, id)
+			}
+			input := imageStudioInput{Model: "gpt-image-2.6", Prompt: "make the marked area blue", N: 2, Complexity: "low", ReferenceIDs: references[:4], MarkupID: references[4]}
+			raw, err := common.Marshal(input)
+			require.NoError(t, err)
+			job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: string(raw), Status: "queued", CreatedAt: time.Now().Unix()}
+			// Ownership and expiry are enforced for the auxiliary upload too.
+			require.NoError(t, db.Model(&model.ImageStudioAsset{}).Where("id = ?", input.MarkupID).Update("user_id", owner.Id+1).Error)
+			_, err = model.CreateImageStudioJob(job, input.ReferenceIDs, false)
+			assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+			_, err = loadImageStudioMarkup(context.Background(), owner.Id, input, store)
+			assert.Error(t, err)
+			require.NoError(t, db.Model(&model.ImageStudioAsset{}).Where("id = ?", input.MarkupID).Updates(map[string]any{"user_id": owner.Id, "expires_at": time.Now().Unix() - 1}).Error)
+			_, err = model.CreateImageStudioJob(job, input.ReferenceIDs, false)
+			assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+			require.NoError(t, db.Model(&model.ImageStudioAsset{}).Where("id = ?", input.MarkupID).Update("expires_at", time.Now().Add(time.Hour).Unix()).Error)
+			_, err = model.CreateImageStudioJob(job, input.ReferenceIDs, false)
+			require.NoError(t, err)
+			var children []model.ImageStudioJob
+			require.NoError(t, db.Where("parent_id = ?", job.ID).Order("slot").Find(&children).Error)
+			require.Len(t, children, 2)
+			for range children {
+				child, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+				require.NoError(t, err)
+				require.NotNil(t, child)
+				var links int64
+				require.NoError(t, db.Model(&model.ImageStudioJobReference{}).Where("job_id = ?", child.ID).Count(&links).Error)
+				assert.EqualValues(t, 5, links)
+				worker.execute(child)
+				require.NoError(t, db.First(child, "id = ?", child.ID).Error)
+				assert.Equal(t, "success", child.Status, child.Error)
+				var markup model.ImageStudioAsset
+				require.NoError(t, db.First(&markup, "id = ?", input.MarkupID).Error)
+				assert.GreaterOrEqual(t, markup.ExpiresAt, child.ExpiresAt)
+			}
+			assert.EqualValues(t, 2, edits.Load())
+			input.N, input.Complexity, input.MarkupID, input.ReferenceIDs = 1, "high", "", nil
+			raw, err = common.Marshal(input)
+			require.NoError(t, err)
+			generation := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: string(raw), Status: "queued", CreatedAt: time.Now().Unix()}
+			_, err = model.CreateImageStudioJob(generation, nil, false)
+			require.NoError(t, err)
+			claimed, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+			require.NoError(t, err)
+			require.NotNil(t, claimed)
+			worker.execute(claimed)
+			require.NoError(t, db.First(claimed, "id = ?", claimed.ID).Error)
+			assert.Equal(t, "success", claimed.Status, claimed.Error)
+			assert.EqualValues(t, 1, generations.Load())
+		})
+	}
+}

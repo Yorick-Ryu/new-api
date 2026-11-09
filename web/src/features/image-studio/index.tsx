@@ -254,6 +254,7 @@ function ImageStudioWorkspace() {
                   setReuse({
                     input: {
                       ...job.input,
+                      markup_id: undefined,
                       reference_id: undefined,
                       reference_ids: undefined,
                     },

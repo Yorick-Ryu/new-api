@@ -204,7 +204,7 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		requestPath, relayFormat = "/v1/chat/completions", types.RelayFormatOpenAI
 	} else if len(referenceIDs) > 0 {
 		writer := multipart.NewWriter(&body)
-		for key, value := range map[string]string{"model": input.Model, "prompt": input.Prompt, "n": strconv.Itoa(int(input.N)), "size": input.Size, "quality": input.Quality} {
+		for key, value := range map[string]string{"model": input.Model, "prompt": input.Prompt, "n": strconv.Itoa(int(input.N)), "size": input.Size, "quality": input.Quality, "complexity": input.Complexity} {
 			if value != "" {
 				if err = writer.WriteField(key, value); err != nil {
 					return err
@@ -235,6 +235,20 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 				return err
 			}
 		}
+		if input.MarkupID != "" {
+			markup, err := loadImageStudioMarkup(ctx, job.UserID, input, w.store)
+			if err != nil {
+				w.setStatus(job, "failed", err.Error())
+				return err
+			}
+			part, err := writer.CreateFormFile("markup", "markup.png")
+			if err != nil {
+				return err
+			}
+			if _, err = part.Write(markup); err != nil {
+				return err
+			}
+		}
 		if err = writer.Close(); err != nil {
 			return err
 		}
@@ -242,6 +256,12 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		requestPath = "/v1/images/edits"
 	} else {
 		payload := imagedto.ImageRequest{Model: input.Model, Prompt: input.Prompt, N: &input.N, Size: input.Size, Quality: input.Quality}
+		if input.Complexity != "" {
+			payload.Complexity, err = common.Marshal(input.Complexity)
+			if err != nil {
+				return err
+			}
+		}
 		encoded, err := common.Marshal(payload)
 		if err != nil {
 			return err

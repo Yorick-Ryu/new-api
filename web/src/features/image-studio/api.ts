@@ -30,6 +30,8 @@ export type ImageInput = {
   model: string
   prompt: string
   size: string
+  complexity?: string
+  markup_id?: string
   quality: string
   aspect_ratio?: string
   resolution?: string
@@ -41,6 +43,8 @@ export type ImageCapability = {
   model: string
   group?: string
   sizes: string[]
+  complexities?: string[]
+  markup?: boolean
   qualities: string[]
   aspect_ratios?: string[]
   resolutions?: string[]

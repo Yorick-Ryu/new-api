@@ -8278,6 +8278,20 @@
     "These models have missing or outdated plugin prices. Select a model to see what needs to change.": "Giá plugin của các mô hình này chưa được đặt hoặc đã lỗi thời. Chọn một mô hình để xem nội dung cần thay đổi.",
     "This rule shares its cache and cannot be cleared separately.": "Quy tắc này dùng chung bộ nhớ đệm nên không thể xóa riêng.",
     "Undo changes": "Hoàn tác thay đổi",
-    "Unsaved price changes": "Thay đổi giá chưa lưu"
+    "Unsaved price changes": "Thay đổi giá chưa lưu",
+    "Image complexity": "Độ phức tạp của ảnh",
+    "Mark areas to edit": "Đánh dấu vùng cần chỉnh sửa",
+    "Edit markup": "Sửa đánh dấu",
+    "Apply markup": "Áp dụng đánh dấu",
+    "Remove markup": "Xóa đánh dấu",
+    "Drawing tool": "Công cụ vẽ",
+    "Circle": "Khoanh vùng",
+    "Brush": "Bút vẽ",
+    "Image markup canvas": "Khung đánh dấu ảnh",
+    "Failed to prepare image markup": "Không thể tạo đánh dấu ảnh",
+    "Markup images must have at most 16,777,216 pixels": "Ảnh đánh dấu không được vượt quá 16.777.216 pixel",
+    "Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels": "Đánh dấu phải là PNG trong suốt cùng kích thước ảnh tham chiếu đầu tiên, tối đa 16.777.216 pixel",
+    "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Đánh dấu ảnh tham chiếu đầu tiên rồi mô tả thay đổi trong lời nhắc. Ảnh gốc được giữ nguyên.",
+    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Kéo để đánh dấu vùng. Bàn phím: phím mũi tên di chuyển từ tâm; phím cách thêm vòng tròn."
   }
 }

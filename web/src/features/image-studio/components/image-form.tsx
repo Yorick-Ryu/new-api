@@ -68,6 +68,7 @@ import {
 import { formatAspectRatio } from '../lib/aspect-ratio'
 import { imageModelDisplayName } from '../lib/model-name'
 import { ImageCostEstimate } from './image-cost-estimate'
+import { ImageMarkup, type ImageMarkupValue } from './image-markup'
 import {
   ImageReferences,
   ImageReferencePreview,
@@ -99,6 +100,8 @@ const schema = z.object({
     )
   }, 'Custom image dimensions must be multiples of 16, no larger than 3840 pixels per edge, with 655,360 to 8,294,400 total pixels and an aspect ratio between 1:3 and 3:1.'),
   quality: z.string(),
+  complexity: z.string().optional(),
+  markup_id: z.string().optional(),
   aspect_ratio: z.string().optional(),
   resolution: z.string().optional(),
   n: z.number().int().min(1).max(4),
@@ -136,6 +139,7 @@ export function ImageForm(props: ImageFormProps) {
   const model = form.watch('model')
   const size = form.watch('size')
   const quality = form.watch('quality')
+  const complexity = form.watch('complexity') ?? ''
   const aspectRatio = form.watch('aspect_ratio') ?? ''
   const resolution = form.watch('resolution') ?? ''
   const count = form.watch('n')
@@ -178,6 +182,8 @@ export function ImageForm(props: ImageFormProps) {
   const maxReferences = capability?.max_references ?? 4
   const [references, setReferences] = useState<ImageReference[]>([])
   const [uploading, setUploading] = useState(false)
+  const [markup, setMarkup] = useState<ImageMarkupValue | null>(null)
+  const [markupUploading, setMarkupUploading] = useState(false)
   const request = useRef<{ fingerprint: string; key: string } | null>(null)
   const submitting = useRef(false)
   const [duplicate, setDuplicate] = useState<ImageInput | null>(null)
@@ -227,7 +233,8 @@ export function ImageForm(props: ImageFormProps) {
   }, [props.options.models, form])
   useEffect(() => {
     if (props.reuse) {
-      form.reset(props.reuse.input)
+      form.reset({ ...props.reuse.input, markup_id: undefined })
+      setMarkup(null)
       const ratio = formatAspectRatio(props.reuse.input.size)
       const lastLine = props.reuse.input.prompt.split('\n').at(-1)
       automaticRatioLine.current =
@@ -260,7 +267,11 @@ export function ImageForm(props: ImageFormProps) {
   useEffect(() => {
     onReferenceStateChange?.({
       count: references.length,
-      enabled: !!capability?.editing && !uploading && !create.isPending,
+      enabled:
+        !!capability?.editing &&
+        !uploading &&
+        !markupUploading &&
+        !create.isPending,
       limit: maxReferences,
     })
   }, [
@@ -268,11 +279,13 @@ export function ImageForm(props: ImageFormProps) {
     capability?.editing,
     maxReferences,
     uploading,
+    markupUploading,
     create.isPending,
     onReferenceStateChange,
   ])
 
-  const busy = create.isPending || uploading || !!props.referencePending
+  const busy =
+    create.isPending || uploading || markupUploading || !!props.referencePending
   const qualityLabels: Record<string, string> = {
     low: t('Low'),
     medium: t('Medium'),
@@ -359,6 +372,10 @@ export function ImageForm(props: ImageFormProps) {
                       const next = references.filter(
                         (item) => item.id !== reference.id
                       )
+                      if (reference.id === references[0]?.id) {
+                        setMarkup(null)
+                        form.setValue('markup_id', undefined)
+                      }
                       setReferences(next)
                       form.setValue('reference_id', undefined)
                       form.setValue(
@@ -368,6 +385,32 @@ export function ImageForm(props: ImageFormProps) {
                     }}
                   />
                 ))}
+              </div>
+            )}
+            {capability?.markup && references[0] && (
+              <div className='flex flex-wrap gap-2'>
+                <ImageMarkup
+                  key={references[0].id}
+                  reference={references[0]}
+                  value={markup}
+                  disabled={busy}
+                  onBusyChange={setMarkupUploading}
+                  onClear={() => {
+                    setMarkup(null)
+                    form.setValue('markup_id', undefined)
+                  }}
+                  onApply={(reference, value) => {
+                    const next = [reference, ...references.slice(1)]
+                    setReferences(next)
+                    setMarkup(value)
+                    form.setValue('reference_id', undefined)
+                    form.setValue(
+                      'reference_ids',
+                      next.map((item) => item.id)
+                    )
+                    form.setValue('markup_id', value.id)
+                  }}
+                />
               </div>
             )}
             <div className='flex flex-wrap items-end gap-4'>
@@ -395,6 +438,9 @@ export function ImageForm(props: ImageFormProps) {
                     updatePromptRatio('')
                     setRatioSize('')
                     form.setValue('quality', '')
+                    form.setValue('complexity', undefined)
+                    form.setValue('markup_id', undefined)
+                    setMarkup(null)
                     form.setValue('aspect_ratio', undefined)
                     form.setValue('resolution', undefined)
                     form.setValue('n', 1)
@@ -619,6 +665,35 @@ export function ImageForm(props: ImageFormProps) {
                       </ToggleGroup>
                     </PopoverContent>
                   </Popover>
+                </Field>
+              )}
+              {!!capability?.complexities?.length && (
+                <Field className='w-auto shrink-0'>
+                  <FieldLabel>{t('Image complexity')}</FieldLabel>
+                  <ToggleGroup
+                    aria-label={t('Image complexity')}
+                    variant='outline'
+                    value={[complexity || 'auto']}
+                    disabled={busy}
+                    onValueChange={(values) => {
+                      const value = values[0] === 'auto' ? '' : values[0]
+                      if (
+                        value !== undefined &&
+                        capability.complexities?.includes(value)
+                      ) {
+                        form.setValue('complexity', value)
+                      }
+                    }}
+                  >
+                    {capability.complexities.map((value) => (
+                      <ToggleGroupItem
+                        key={value || 'auto'}
+                        value={value || 'auto'}
+                      >
+                        {qualityLabels[value] || t('Auto')}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
                 </Field>
               )}
               {(capability?.max_count ?? 1) > 1 && (

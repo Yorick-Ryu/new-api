@@ -8278,6 +8278,20 @@
     "These models have missing or outdated plugin prices. Select a model to see what needs to change.": "Les tarifs de plugin de ces modèles sont absents ou obsolètes. Sélectionnez un modèle pour voir les modifications nécessaires.",
     "This rule shares its cache and cannot be cleared separately.": "Cette règle utilise un cache partagé qui ne peut pas être vidé séparément.",
     "Undo changes": "Annuler les modifications",
-    "Unsaved price changes": "Modifications de prix non enregistrées"
+    "Unsaved price changes": "Modifications de prix non enregistrées",
+    "Image complexity": "Complexité de l’image",
+    "Mark areas to edit": "Marquer les zones à modifier",
+    "Edit markup": "Modifier les annotations",
+    "Apply markup": "Appliquer les annotations",
+    "Remove markup": "Supprimer les annotations",
+    "Drawing tool": "Outil de dessin",
+    "Circle": "Ellipse",
+    "Brush": "Pinceau",
+    "Image markup canvas": "Zone d’annotation de l’image",
+    "Failed to prepare image markup": "Impossible de préparer les annotations",
+    "Markup images must have at most 16,777,216 pixels": "L’image à annoter ne doit pas dépasser 16 777 216 pixels",
+    "Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels": "L’annotation doit être un PNG transparent de mêmes dimensions que la première image, avec au plus 16 777 216 pixels",
+    "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Annotez la première image, puis décrivez les changements dans votre prompt. L’image originale reste intacte.",
+    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Faites glisser pour marquer une zone. Clavier : les flèches déplacent depuis le centre ; Espace ajoute un cercle."
   }
 }
