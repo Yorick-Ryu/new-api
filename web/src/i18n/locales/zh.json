@@ -8317,6 +8317,11 @@
     "Choose a valid partner level and enter a reason of 1 to 500 characters": "请选择有效的合伙人等级，并填写1至500个字符的原因",
     "Restore automatic levels before removing an assigned partner level": "该等级仍有用户被人工指定使用，请先恢复其自动等级再删除",
     "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "新充值结算按你的指定等级返佣，真实业绩继续累计。",
-    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "指定等级将保持固定，直到修改或恢复自动。仅影响后续结算，真实业绩、历史佣金和套餐返佣比例保持不变。"
+    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "指定等级将保持固定，直到修改或恢复自动。仅影响后续结算，真实业绩、历史佣金和套餐返佣比例保持不变。",
+    "Not joined": "未加入",
+    "Activate partner": "开通合伙人",
+    "Confirm partner activation": "确认开通合伙人",
+    "Partner activated": "合伙人已开通",
+    "Select a level and confirm to activate this user as a partner.": "选择等级并确认，即可为该用户开通合伙人。"
   }
 }

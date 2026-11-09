@@ -8317,6 +8317,11 @@
     "Choose a valid partner level and enter a reason of 1 to 500 characters": "請選擇有效的合夥人等級，並填寫1至500個字元的原因",
     "Restore automatic levels before removing an assigned partner level": "該等級仍有使用者被人工指定使用，請先恢復其自動等級再刪除",
     "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "新儲值結算按你的指定等級返佣，真實業績繼續累計。",
-    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "指定等級將保持固定，直到修改或恢復自動。僅影響後續結算，真實業績、歷史佣金和方案返佣比例保持不變。"
+    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "指定等級將保持固定，直到修改或恢復自動。僅影響後續結算，真實業績、歷史佣金和方案返佣比例保持不變。",
+    "Not joined": "未加入",
+    "Activate partner": "開通合夥人",
+    "Confirm partner activation": "確認開通合夥人",
+    "Partner activated": "合夥人已開通",
+    "Select a level and confirm to activate this user as a partner.": "選擇等級並確認，即可為該使用者開通合夥人。"
   }
 }

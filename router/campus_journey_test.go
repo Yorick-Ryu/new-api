@@ -291,7 +291,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				assert.Zero(t, list.Total)
 			}))
 
-			t.Run("only authorized administrators can assign enrolled partner levels", func(t *testing.T) {
+			t.Run("only authorized administrators can manage and enroll partners", func(t *testing.T) {
 				path := fmt.Sprintf("/api/campus/admin/members/%d/tier", partner.id)
 				body := gin.H{"level": 3, "revision": 0, "config_revision": 0, "reason": "partner agreement"}
 				assert.Equal(t, 401, j.request(campusClient{}, "GET", path, nil).Code)
@@ -316,6 +316,29 @@ func TestCampusHTTPJourney(t *testing.T) {
 				j.api(t, j.admin, "PUT", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), body, false, nil)
 				j.api(t, j.admin, "GET", fmt.Sprintf("/api/campus/admin/members/%d/tier", stranger.id), nil, true, &detail)
 				assert.False(t, detail.Joined)
+				newPartner := j.register(t, "admin-enrolled", "")
+				newPath := fmt.Sprintf("/api/campus/admin/members/%d/tier", newPartner.id)
+				enroll := gin.H{"level": 3, "revision": 0, "config_revision": 0, "reason": "approved partnership", "enroll": true}
+				assert.Equal(t, 403, j.request(buyer, "PUT", newPath, enroll).Code)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.False(t, detail.Joined)
+				assert.Equal(t, 1, detail.Automatic.Level)
+				j.api(t, j.admin, "PUT", newPath, enroll, true, nil)
+				j.api(t, j.admin, "PUT", newPath, enroll, false, nil)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.True(t, detail.Joined)
+				assert.Equal(t, 3, detail.Effective.Level)
+				require.Len(t, detail.Changes, 1)
+				assert.Zero(t, detail.Changes[0].PreviousLevel)
+				enrolledOverview := j.overview(t, newPartner)
+				assert.Positive(t, enrolledOverview.Member.JoinedAt)
+				assert.Len(t, enrolledOverview.Member.Code, 6)
+				// The newly enrolled account supports normal follow-up level changes.
+				j.api(t, j.admin, "PUT", newPath, gin.H{"level": 0, "revision": 1, "config_revision": 0, "reason": "restore automatic progression"}, true, nil)
+				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
+				assert.True(t, detail.Joined)
+				assert.Zero(t, detail.Override)
+
 			})
 
 			require.True(t, t.Run("coupon_reservation_resume_and_duplicate_checkout", func(t *testing.T) {

@@ -133,6 +133,7 @@ it('user row action opens the selected account and requires reason and confirmat
     expect(put).toHaveBeenCalledWith('/api/campus/admin/members/42/tier', {
       level: 3,
       reason: 'partner agreement',
+      enroll: false,
       revision: 7,
       config_revision: 2,
     })
@@ -173,13 +174,45 @@ it('restoring automatic previews the earned level and submits zero', async () =>
   )
 })
 
-it('unenrolled users see an explanation without an editable level', async () => {
-  renderDialog({ joined: false })
-  expect(
-    await screen.findByText('This user has not joined the partner program')
-  ).toBeVisible()
-  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-})
+it.each([0, 3])(
+  'an administrator can activate an unenrolled user with level %s after explicit confirmation',
+  async (level) => {
+    const put = vi
+      .spyOn(api, 'put')
+      .mockResolvedValue({ data: { success: true } })
+    const { close } = renderDialog({ joined: false, revision: 0 })
+    const user = userEvent.setup()
+    const select = await screen.findByRole('combobox', {
+      name: 'Partner level',
+    })
+    await user.selectOptions(select, String(level))
+    await user.click(screen.getByRole('button', { name: 'Activate partner' }))
+    expect(await screen.findByText('Enter a reason')).toBeVisible()
+    expect(put).not.toHaveBeenCalled()
+    await user.type(
+      screen.getByRole('textbox', { name: 'Reason' }),
+      'approved partnership'
+    )
+    await user.click(screen.getByRole('button', { name: 'Activate partner' }))
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'Confirm partner activation',
+    })
+    expect(confirm).toHaveTextContent('partner-42 (#42)')
+    expect(confirm).toHaveTextContent('Not joined')
+    expect(put).not.toHaveBeenCalled()
+    await user.click(within(confirm).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith('/api/campus/admin/members/42/tier', {
+        level,
+        reason: 'approved partnership',
+        enroll: true,
+        revision: 0,
+        config_revision: 2,
+      })
+    )
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1))
+  }
+)
 
 it('a rejected save preserves the form and does not report success or close', async () => {
   vi.spyOn(api, 'put').mockResolvedValue({
@@ -271,11 +304,13 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
 })
 
 it.each([
-  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级'],
-  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級'],
+  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级', true, '开通合伙人'],
+  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級', true, '開通合夥人'],
+  ['zhCN', zhCN, '管理合伙人', '合伙人等级', '自动等级', false, '开通合伙人'],
+  ['zhTW', zhTW, '管理合夥人', '合夥人等級', '自動等級', false, '開通合夥人'],
 ] as const)(
   'the %s user menu and level editor use the real Chinese translation resources',
-  async (language, resource, title, field, automatic) => {
+  async (language, resource, title, field, automatic, joined, activate) => {
     const translations = createInstance()
     await translations.init({
       lng: language,
@@ -290,7 +325,9 @@ it.each([
       defaultOptions: { queries: { retry: false } },
     })
     clients.push(client)
-    vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data } })
+    vi.spyOn(api, 'get').mockResolvedValue({
+      data: { success: true, data: { ...data, joined } },
+    })
     render(
       <I18nextProvider i18n={translations}>
         <QueryClientProvider client={client}>
@@ -307,6 +344,9 @@ it.each([
     expect(await screen.findByRole('dialog', { name: title })).toBeVisible()
     expect(await screen.findByRole('combobox', { name: field })).toBeVisible()
     expect(screen.getByRole('option', { name: automatic })).toBeInTheDocument()
+    if (!joined) {
+      expect(screen.getByRole('button', { name: activate })).toBeEnabled()
+    }
     expect(
       screen.queryByText(
         'Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.'

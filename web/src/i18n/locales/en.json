@@ -8317,6 +8317,11 @@
     "Choose a valid partner level and enter a reason of 1 to 500 characters": "Choose a valid partner level and enter a reason of 1 to 500 characters",
     "Restore automatic levels before removing an assigned partner level": "Restore automatic levels before removing an assigned partner level",
     "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.": "Your assigned partner level applies to new top-up settlements. Actual performance continues to accumulate.",
-    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged."
+    "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.": "Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.",
+    "Not joined": "Not joined",
+    "Activate partner": "Activate partner",
+    "Confirm partner activation": "Confirm partner activation",
+    "Partner activated": "Partner activated",
+    "Select a level and confirm to activate this user as a partner.": "Select a level and confirm to activate this user as a partner."
   }
 }

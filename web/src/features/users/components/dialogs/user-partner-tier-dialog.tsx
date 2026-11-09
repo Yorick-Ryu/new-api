@@ -25,7 +25,6 @@ import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
-import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
@@ -101,10 +100,7 @@ export function UserPartnerTierDialog(props: Props) {
     >
       {query.isPending && <LoadingState />}
       {query.isError && <ErrorState onRetry={() => void query.refetch()} />}
-      {query.isSuccess && !query.data.joined && (
-        <EmptyState title={t('This user has not joined the partner program')} />
-      )}
-      {query.isSuccess && query.data.joined && (
+      {query.isSuccess && (
         <PartnerTierForm
           key={`${props.user.id}-${query.data.revision}-${query.data.config_revision}`}
           {...props}
@@ -128,8 +124,12 @@ function PartnerTierForm(
     defaultValues: { level: props.data.override, reason: '' },
   })
   const level = form.watch('level')
+  const modeLabel = props.data.override
+    ? t('Assigned level')
+    : t('Automatic level')
   const selected = level === 0 ? props.data.automatic.level : level
   const label = (value: number) => {
+    if (value === 0) return t('Not joined')
     const rule = props.data.tiers[value - 1]
     return `${t('Lv.{{level}}', { level: value })} · ${rule?.name || t(campusTierNameKeys[value - 1] || 'Lv.{{level}}', { level: value })} · ${formatNumber((rule?.rate_bps || 0) / 100, locale)}%`
   }
@@ -139,6 +139,7 @@ function PartnerTierForm(
         `/api/campus/admin/members/${props.user.id}/tier`,
         {
           ...values,
+          enroll: !props.data.joined,
           revision: props.data.revision,
           config_revision: props.data.config_revision,
         }
@@ -146,7 +147,9 @@ function PartnerTierForm(
       return requireServerSuccess(response.data)
     },
     onSuccess: () => {
-      toast.success(t('Partner level updated'))
+      toast.success(
+        t(props.data.joined ? 'Partner level updated' : 'Partner activated')
+      )
       props.onClose()
       void client.invalidateQueries({ queryKey: ['campus'] })
     },
@@ -162,16 +165,24 @@ function PartnerTierForm(
         <form onSubmit={form.handleSubmit(setPending)} className='space-y-4'>
           <div className='space-y-2 text-sm'>
             <p>
-              {t('Current partner level')}: {label(props.data.effective.level)}
+              {t('Current partner level')}:{' '}
+              {label(props.data.joined ? props.data.effective.level : 0)}
             </p>
             <Badge variant='secondary'>
-              {props.data.override ? t('Assigned level') : t('Automatic level')}
+              {props.data.joined ? modeLabel : t('Not joined')}
             </Badge>
             <p>
               {t('Friends cumulative top-ups')}:{' '}
               {cash(props.data.performance_cents, locale)}
             </p>
           </div>
+          {!props.data.joined && (
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'Select a level and confirm to activate this user as a partner.'
+              )}
+            </p>
+          )}
           <FormField
             control={form.control}
             name='level'
@@ -240,9 +251,12 @@ function PartnerTierForm(
             </Button>
             <Button
               type='submit'
-              disabled={save.isPending || level === props.data.override}
+              disabled={
+                save.isPending ||
+                (props.data.joined && level === props.data.override)
+              }
             >
-              {t('Save changes')}
+              {t(props.data.joined ? 'Save changes' : 'Activate partner')}
             </Button>
           </div>
         </form>
@@ -254,8 +268,10 @@ function PartnerTierForm(
             {props.data.changes.map((change) => (
               <li key={change.id} className='space-y-1 break-words'>
                 <p>
-                  {t('Lv.{{level}}', { level: change.previous_level })} →{' '}
-                  {t('Lv.{{level}}', { level: change.level })} ·{' '}
+                  {change.previous_level === 0
+                    ? t('Not joined')
+                    : t('Lv.{{level}}', { level: change.previous_level })}{' '}
+                  → {t('Lv.{{level}}', { level: change.level })} ·{' '}
                   {change.override ? t('Assigned level') : t('Automatic level')}
                 </p>
                 <p className='text-muted-foreground'>
@@ -273,8 +289,12 @@ function PartnerTierForm(
         onOpenChange={(open) => {
           if (!open && !save.isPending) setPending(null)
         }}
-        title={t('Confirm partner level change')}
-        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.effective.level)} → ${label(selected)} · ${level === 0 ? t('Automatic level') : t('Assigned level')}`}
+        title={t(
+          props.data.joined
+            ? 'Confirm partner level change'
+            : 'Confirm partner activation'
+        )}
+        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0)} → ${label(selected)} · ${level === 0 ? t('Automatic level') : t('Assigned level')}`}
         confirmText={t('Confirm')}
         isLoading={save.isPending}
         handleConfirm={() => {

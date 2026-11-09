@@ -363,12 +363,13 @@ func CampusMemberTier(c *gin.Context) {
 			Revision       *int64 `json:"revision"`
 			ConfigRevision *int64 `json:"config_revision"`
 			Reason         string `json:"reason"`
+			Enroll         bool   `json:"enroll"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil || req.Level == nil || req.Revision == nil || req.ConfigRevision == nil {
 			common.ApiErrorT(c, "Invalid parameters")
 			return
 		}
-		if err := model.CampusSetMemberTier(id, *req.Level, *req.Revision, *req.ConfigRevision, req.Reason, c.GetInt("id")); err != nil {
+		if err := model.CampusSetMemberTier(id, *req.Level, *req.Revision, *req.ConfigRevision, req.Reason, c.GetInt("id"), req.Enroll); err != nil {
 			common.ApiError(c, err)
 			return
 		}
