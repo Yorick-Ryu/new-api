@@ -293,7 +293,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 
 			t.Run("only authorized administrators can manage and enroll partners", func(t *testing.T) {
 				path := fmt.Sprintf("/api/campus/admin/members/%d/tier", partner.id)
-				body := gin.H{"level": 3, "revision": 0, "config_revision": 0, "reason": "partner agreement"}
+				body := gin.H{"level": 3, "revision": 0, "config_revision": 0}
 				assert.Equal(t, 401, j.request(campusClient{}, "GET", path, nil).Code)
 				assert.Equal(t, 403, j.request(buyer, "PUT", path, body).Code)
 				assert.Equal(t, 404, j.request(j.admin, "PUT", "https://novapi.cn"+path, body).Code)
@@ -301,7 +301,6 @@ func TestCampusHTTPJourney(t *testing.T) {
 					{"revision": 0, "config_revision": 0, "reason": "missing level"},
 					{"level": 3, "revision": 0, "reason": "missing config"},
 					{"level": 3, "config_revision": 0, "reason": "missing revision"},
-					{"level": 3, "revision": 0, "config_revision": 0, "reason": " "},
 				} {
 					j.api(t, j.admin, "PUT", path, invalid, false, nil)
 				}
@@ -318,7 +317,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				assert.False(t, detail.Joined)
 				newPartner := j.register(t, "admin-enrolled", "")
 				newPath := fmt.Sprintf("/api/campus/admin/members/%d/tier", newPartner.id)
-				enroll := gin.H{"level": 3, "revision": 0, "config_revision": 0, "reason": "approved partnership", "enroll": true}
+				enroll := gin.H{"level": 3, "revision": 0, "config_revision": 0, "enroll": true}
 				assert.Equal(t, 403, j.request(buyer, "PUT", newPath, enroll).Code)
 				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
 				assert.False(t, detail.Joined)
@@ -334,7 +333,7 @@ func TestCampusHTTPJourney(t *testing.T) {
 				assert.Positive(t, enrolledOverview.Member.JoinedAt)
 				assert.Len(t, enrolledOverview.Member.Code, 6)
 				// The newly enrolled account supports normal follow-up level changes.
-				j.api(t, j.admin, "PUT", newPath, gin.H{"level": 0, "revision": 1, "config_revision": 0, "reason": "restore automatic progression"}, true, nil)
+				j.api(t, j.admin, "PUT", newPath, gin.H{"level": 0, "revision": 1, "config_revision": 0}, true, nil)
 				j.api(t, j.admin, "GET", newPath, nil, true, &detail)
 				assert.True(t, detail.Joined)
 				assert.Zero(t, detail.Override)

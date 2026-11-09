@@ -20,10 +20,5 @@ import { z } from 'zod'
 
 export const partnerTierSchema = z.object({
   level: z.number().int().min(0).max(50),
-  reason: z
-    .string()
-    .trim()
-    .min(1, 'Enter a reason')
-    .max(500, 'Reason must be at most 500 characters'),
 })
 export type PartnerTierValues = z.infer<typeof partnerTierSchema>

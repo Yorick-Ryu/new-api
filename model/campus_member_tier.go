@@ -76,8 +76,8 @@ func CampusGetMemberTier(userID int) (CampusMemberTier, error) {
 
 func CampusSetMemberTier(userID, level int, expectedRevision, configRevision int64, reason string, actor int, enroll bool) error {
 	reason = strings.TrimSpace(reason)
-	if userID <= 0 || actor <= 0 || level < 0 || expectedRevision < 0 || configRevision < 0 || reason == "" || !utf8.ValidString(reason) || utf8.RuneCountInString(reason) > 500 {
-		return common.NewMessage("Choose a valid partner level and enter a reason of 1 to 500 characters")
+	if userID <= 0 || actor <= 0 || level < 0 || expectedRevision < 0 || configRevision < 0 || !utf8.ValidString(reason) || utf8.RuneCountInString(reason) > 500 {
+		return common.NewMessage("Invalid parameters")
 	}
 	return campusTransaction(DB, func(tx *gorm.DB) error {
 		config, err := campusReadConfig(tx)
