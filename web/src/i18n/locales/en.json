@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Withdrawal minimum: <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "<amount>{{amount}}</amount> remaining",
     "Withdrawal number": "Withdrawal number",

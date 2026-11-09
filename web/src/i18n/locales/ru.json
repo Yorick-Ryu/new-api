@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Перетаскивайте изображения или используйте стрелки влево и вправо для изменения порядка. Разметка применяется к первому изображению.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Минимум для вывода: <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "Осталось <amount>{{amount}}</amount>",
     "Withdrawal number": "Номер вывода",

@@ -2526,81 +2526,132 @@ describe('Image complexity and markup capabilities', () => {
       )
     )
   })
-  it('submits an applied overlay with its normalized first reference and clears it when that reference is removed', async () => {
-    const context = {
-      clearRect: vi.fn(),
-      beginPath: vi.fn(),
-      ellipse: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      stroke: vi.fn(),
-      drawImage: vi.fn(),
-    }
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      context as unknown as CanvasRenderingContext2D
-    )
-    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
-      (callback) => callback(new Blob(['png'], { type: 'image/png' }))
-    )
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:normalized')
-    const create = vi
-      .spyOn(imageAPI, 'createImageJob')
-      .mockResolvedValue({ id: 'marked-task' })
-    vi.spyOn(api, 'post')
-      .mockResolvedValueOnce({
-        data: { success: true, data: { id: 'normalized' } },
-      })
-      .mockResolvedValueOnce({
-        data: { success: true, data: { id: 'overlay' } },
-      })
-    render(
-      <ImageForm
-        options={capableOptions}
-        reuse={null}
-        reference={{ id: 'first', name: 'Original', url: 'blob:source' }}
-        onCreated={vi.fn()}
-      />,
-      { wrapper }
-    )
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Mark areas to edit' })
-    )
-    const image = within(screen.getByRole('dialog')).getByRole('img', {
-      name: 'Original',
-    })
-    Object.defineProperties(image, {
-      naturalWidth: { value: 400 },
-      naturalHeight: { value: 300 },
-    })
-    fireEvent.load(image)
-    fireEvent.keyDown(
-      screen.getByRole('img', { name: 'Image markup canvas' }),
-      { key: ' ' }
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Apply markup' }))
-    await screen.findByRole('button', { name: 'Edit markup' })
-    fireEvent.change(screen.getByLabelText('Image prompt'), {
-      target: { value: 'Make the marked area blue' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
-    await waitFor(() =>
-      expect(create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          markup_id: 'overlay',
-          reference_ids: ['normalized'],
-        }),
-        expect.any(String),
-        false
+  it.each(['removed', 'reordered'])(
+    'submits an applied overlay and clears it when the first reference is %s',
+    async (action) => {
+      const context = {
+        clearRect: vi.fn(),
+        beginPath: vi.fn(),
+        ellipse: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+        drawImage: vi.fn(),
+      }
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+        context as unknown as CanvasRenderingContext2D
       )
-    )
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Remove reference image: Original' })
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
-    await waitFor(() => expect(create).toHaveBeenCalledTimes(2))
-    expect(create.mock.calls[1][0].markup_id).toBeUndefined()
-    expect(create.mock.calls[1][0].reference_ids).toEqual([])
-  })
+      vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
+        (callback) => callback(new Blob(['png'], { type: 'image/png' }))
+      )
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:normalized')
+      const create = vi
+        .spyOn(imageAPI, 'createImageJob')
+        .mockResolvedValue({ id: 'marked-task' })
+      vi.spyOn(api, 'post')
+        .mockResolvedValueOnce({
+          data: { success: true, data: { id: 'normalized' } },
+        })
+        .mockResolvedValueOnce({
+          data: { success: true, data: { id: 'overlay' } },
+        })
+      const view = render(
+        <ImageForm
+          options={capableOptions}
+          reuse={null}
+          reference={{ id: 'first', name: 'Original', url: 'blob:source' }}
+          onCreated={vi.fn()}
+        />,
+        { wrapper }
+      )
+      if (action === 'reordered') {
+        for (const name of ['Second', 'Third']) {
+          view.rerender(
+            <ImageForm
+              options={capableOptions}
+              reuse={null}
+              reference={{ id: name, name, url: `blob:${name}` }}
+              onCreated={vi.fn()}
+            />
+          )
+          await screen.findByRole('button', { name: `Image Preview: ${name}` })
+        }
+      }
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Mark areas to edit' })
+      )
+      const image = within(screen.getByRole('dialog')).getByRole('img', {
+        name: 'Original',
+      })
+      Object.defineProperties(image, {
+        naturalWidth: { value: 400 },
+        naturalHeight: { value: 300 },
+      })
+      fireEvent.load(image)
+      fireEvent.keyDown(
+        screen.getByRole('img', { name: 'Image markup canvas' }),
+        { key: ' ' }
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Apply markup' }))
+      await screen.findByRole('button', { name: 'Edit markup' })
+      fireEvent.change(screen.getByLabelText('Image prompt'), {
+        target: { value: 'Make the marked area blue' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+      await waitFor(() =>
+        expect(create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            markup_id: 'overlay',
+            reference_ids:
+              action === 'reordered'
+                ? ['normalized', 'Second', 'Third']
+                : ['normalized'],
+          }),
+          expect.any(String),
+          false
+        )
+      )
+      if (action === 'reordered') {
+        const third = screen.getByRole('button', {
+          name: 'Image Preview: Third',
+        })
+        fireEvent.keyDown(third, { key: 'ArrowLeft' })
+        fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2))
+        expect(create.mock.calls[1][0]).toMatchObject({
+          markup_id: 'overlay',
+          reference_ids: ['normalized', 'Third', 'Second'],
+        })
+        fireEvent.keyDown(third, { key: 'ArrowLeft' })
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Mark areas to edit' })
+        )
+        expect(
+          within(screen.getByRole('dialog')).getByRole('img', { name: 'Third' })
+        ).toHaveAttribute('src', 'blob:Third')
+        fireEvent.click(
+          within(screen.getByRole('dialog')).getByRole('button', {
+            name: 'Cancel',
+          })
+        )
+      } else {
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: 'Remove reference image: Original',
+          })
+        )
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+      await waitFor(() =>
+        expect(create).toHaveBeenCalledTimes(action === 'reordered' ? 3 : 2)
+      )
+      const submitted = create.mock.calls.at(-1)?.[0]
+      expect(submitted?.markup_id).toBeUndefined()
+      expect(submitted?.reference_ids).toEqual(
+        action === 'reordered' ? ['Third', 'normalized', 'Second'] : []
+      )
+    }
+  )
 
   it('removes the markup editor when its first reference is removed', async () => {
     render(

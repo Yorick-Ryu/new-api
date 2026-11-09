@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Drag images to reorder, or use the left and right arrow keys. The first image is used for markup.": "Kéo ảnh hoặc dùng phím mũi tên trái và phải để đổi thứ tự. Vùng đánh dấu áp dụng cho ảnh đầu tiên.",
     "Withdrawal minimum: <amount>{{amount}}</amount>": "Rút tiền từ <amount>{{amount}}</amount>",
     "<amount>{{amount}}</amount> remaining": "Còn thiếu <amount>{{amount}}</amount>",
     "Withdrawal number": "Mã rút tiền",
