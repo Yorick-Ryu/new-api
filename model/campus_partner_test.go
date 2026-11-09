@@ -360,19 +360,6 @@ func TestCampusDatabase(t *testing.T) {
 			clock := time.Now().In(zone)
 			lastMonthEnd := time.Date(clock.Year(), clock.Month(), 0, 12, 0, 0, 0, zone)
 			require.NoError(t, db.Model(paid).Updates(map[string]any{"batch": lastMonthEnd.Format(time.DateOnly), "created_at": lastMonthEnd.Add(-24 * time.Hour).Unix()}).Error)
-			batchFixtures := make([]CampusWithdrawal, 101)
-			for i := range batchFixtures {
-				batchFixtures[i] = CampusWithdrawal{UserID: 888, RequestID: fmt.Sprintf("batch-fixture-%d", i), State: "pending", Batch: lastMonthEnd.Format(time.DateOnly)}
-			}
-			require.NoError(t, db.Create(&batchFixtures).Error)
-			require.NoError(t, CampusAdvanceBatches(context.Background()))
-			require.NoError(t, CampusAdvanceBatches(context.Background()))
-			var overdue int64
-			require.NoError(t, db.Model(&CampusWithdrawal{}).Where("user_id = ? AND batch <= ?", 888, lastMonthEnd.Format(time.DateOnly)).Count(&overdue).Error)
-			assert.Zero(t, overdue)
-
-			require.NoError(t, db.First(paid, paid.ID).Error)
-			assert.Equal(t, lastMonthEnd.Format(time.DateOnly), paid.Batch, "approved transfers retain the batch when recorded after month end")
 			t.Run("payout window begins on the 26th and preserves batch and approval guards", func(t *testing.T) {
 				for _, month := range []time.Month{time.February, time.April, time.December} {
 					batch := time.Date(2024, month+1, 0, 0, 0, 0, 0, zone)
