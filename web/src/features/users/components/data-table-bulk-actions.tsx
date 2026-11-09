@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
+import { PowerOff } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -24,6 +25,11 @@ import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -76,21 +82,30 @@ export function DataTableBulkActions(props: DataTableBulkActionsProps) {
   return (
     <>
       <BulkActionsToolbar table={props.table} entityName='user'>
-        <Button
-          variant='destructive'
-          size='sm'
-          disabled={
-            pending ||
-            users.verificationActive ||
-            selected.length === 0 ||
-            selected.length > 100
-          }
-          onClick={() =>
-            setTargets(selected.map((row) => ({ ...row.original })))
-          }
-        >
-          {t('Disable')}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='destructive'
+                size='icon'
+                className='size-8'
+                aria-label={t('Disable')}
+                disabled={
+                  pending ||
+                  users.verificationActive ||
+                  selected.length === 0 ||
+                  selected.length > 100
+                }
+                onClick={() =>
+                  setTargets(selected.map((row) => ({ ...row.original })))
+                }
+              />
+            }
+          >
+            <PowerOff aria-hidden='true' />
+          </TooltipTrigger>
+          <TooltipContent>{t('Disable')}</TooltipContent>
+        </Tooltip>
       </BulkActionsToolbar>
       <ConfirmDialog
         open={targets.length > 0 && !users.verificationActive}
