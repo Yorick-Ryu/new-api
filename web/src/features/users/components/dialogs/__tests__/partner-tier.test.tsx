@@ -99,7 +99,7 @@ afterEach(() => {
   useAuthStore.getState().auth.reset()
 })
 
-it('user row action opens the selected account and requires reason and confirmation before assigning a fixed level', async () => {
+it('user row action opens the selected account and assigns a fixed level with confirmation and no reason field', async () => {
   useAuthStore.getState().auth.setUser({ id: 1, username: 'admin', role: 100 })
   const put = vi
     .spyOn(api, 'put')
@@ -113,14 +113,11 @@ it('user row action opens the selected account and requires reason and confirmat
   const select = await screen.findByRole('combobox', { name: 'Partner level' })
   expect(get).toHaveBeenCalledWith('/api/campus/admin/members/42/tier')
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
-  await user.selectOptions(select, '3')
-  await user.click(screen.getByRole('button', { name: 'Save changes' }))
-  expect(await screen.findByText('Enter a reason')).toBeVisible()
-  expect(put).not.toHaveBeenCalled()
-  await user.type(
-    screen.getByRole('textbox', { name: 'Reason' }),
-    'partner agreement'
-  )
+  await user.click(select)
+  await user.click(await screen.findByRole('option', { name: /^Lv\.3/ }))
+  expect(
+    screen.queryByRole('textbox', { name: 'Reason' })
+  ).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   const confirm = await screen.findByRole('alertdialog', {
     name: 'Confirm partner level change',
@@ -132,7 +129,6 @@ it('user row action opens the selected account and requires reason and confirmat
   await waitFor(() =>
     expect(put).toHaveBeenCalledWith('/api/campus/admin/members/42/tier', {
       level: 3,
-      reason: 'partner agreement',
       enroll: false,
       revision: 7,
       config_revision: 2,
@@ -151,15 +147,15 @@ it('restoring automatic previews the earned level and submits zero', async () =>
     .mockResolvedValue({ data: { success: true } })
   renderDialog({ override: 3, effective: { level: 3, rate_percent: 40 } })
   const user = userEvent.setup()
-  await user.selectOptions(
-    await screen.findByRole('combobox', { name: 'Partner level' }),
-    '0'
+  await user.click(
+    await screen.findByRole('combobox', { name: 'Partner level' })
   )
-  expect(screen.getByText(/Effective after saving/)).toHaveTextContent('Lv.1')
-  await user.type(
-    screen.getByRole('textbox', { name: 'Reason' }),
-    'restore earned level'
+  await user.click(
+    await screen.findByRole('option', { name: /^Automatic level/ })
   )
+  expect(
+    screen.getByRole('combobox', { name: 'Partner level' })
+  ).toHaveTextContent('Lv.1')
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await user.click(
     within(await screen.findByRole('alertdialog')).getByRole('button', {
@@ -185,14 +181,15 @@ it.each([0, 3])(
     const select = await screen.findByRole('combobox', {
       name: 'Partner level',
     })
-    await user.selectOptions(select, String(level))
-    await user.click(screen.getByRole('button', { name: 'Activate partner' }))
-    expect(await screen.findByText('Enter a reason')).toBeVisible()
-    expect(put).not.toHaveBeenCalled()
-    await user.type(
-      screen.getByRole('textbox', { name: 'Reason' }),
-      'approved partnership'
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', {
+        name: level === 0 ? /^Automatic level/ : /^Lv\.3/,
+      })
     )
+    expect(
+      screen.queryByRole('textbox', { name: 'Reason' })
+    ).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Activate partner' }))
     const confirm = await screen.findByRole('alertdialog', {
       name: 'Confirm partner activation',
@@ -204,7 +201,6 @@ it.each([0, 3])(
     await waitFor(() =>
       expect(put).toHaveBeenCalledWith('/api/campus/admin/members/42/tier', {
         level,
-        reason: 'approved partnership',
         enroll: true,
         revision: 0,
         config_revision: 2,
@@ -223,11 +219,10 @@ it('a rejected save preserves the form and does not report success or close', as
   })
   const { close } = renderDialog()
   const user = userEvent.setup()
-  await user.selectOptions(
-    await screen.findByRole('combobox', { name: 'Partner level' }),
-    '3'
+  await user.click(
+    await screen.findByRole('combobox', { name: 'Partner level' })
   )
-  await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'agreement')
+  await user.click(await screen.findByRole('option', { name: /^Lv\.3/ }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await user.click(
     within(await screen.findByRole('alertdialog')).getByRole('button', {
@@ -237,9 +232,9 @@ it('a rejected save preserves the form and does not report success or close', as
   await waitFor(() =>
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   )
-  expect(screen.getByRole('textbox', { name: 'Reason' })).toHaveValue(
-    'agreement'
-  )
+  expect(
+    screen.getByRole('combobox', { name: 'Partner level' })
+  ).toHaveTextContent('Lv.3')
   expect(close).not.toHaveBeenCalled()
 })
 
@@ -281,11 +276,10 @@ it('pending confirmation prevents duplicate saves and dismissal until the reques
   })
   const { close } = renderDialog()
   const user = userEvent.setup()
-  await user.selectOptions(
-    await screen.findByRole('combobox', { name: 'Partner level' }),
-    '2'
+  await user.click(
+    await screen.findByRole('combobox', { name: 'Partner level' })
   )
-  await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'agreement')
+  await user.click(await screen.findByRole('option', { name: /^Lv\.2/ }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   const confirm = within(await screen.findByRole('alertdialog')).getByRole(
     'button',
@@ -343,7 +337,12 @@ it.each([
     await userEvent.click(await screen.findByRole('menuitem', { name: title }))
     expect(await screen.findByRole('dialog', { name: title })).toBeVisible()
     expect(await screen.findByRole('combobox', { name: field })).toBeVisible()
-    expect(screen.getByRole('option', { name: automatic })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: field })).toHaveTextContent(
+      automatic
+    )
+    expect(screen.getByRole('combobox', { name: field })).toHaveTextContent(
+      '30%'
+    )
     if (!joined) {
       expect(screen.getByRole('button', { name: activate })).toBeEnabled()
     }
@@ -354,3 +353,27 @@ it.each([
     ).not.toBeInTheDocument()
   }
 )
+
+it('the compact editor keeps level and commission, without explanatory copy or dot separators', async () => {
+  renderDialog({ joined: false })
+  const select = await screen.findByRole('combobox', { name: 'Partner level' })
+  const dialog = screen.getByRole('dialog', { name: 'Manage partner' })
+  expect(dialog).not.toHaveTextContent('·')
+  expect(screen.getAllByText(/Not joined/)).toHaveLength(1)
+  expect(screen.queryByText(/Effective after saving/)).not.toBeInTheDocument()
+  expect(
+    screen.queryByText(/Assigned levels remain fixed/)
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByText(/Select a level and confirm/)
+  ).not.toBeInTheDocument()
+  expect(select).toHaveTextContent('Lv.1')
+  expect(select).toHaveTextContent('30%')
+  const user = userEvent.setup()
+  await user.click(select)
+  const option = await screen.findByRole('option', { name: /^Lv\.3/ })
+  expect(option).toHaveTextContent('40%')
+  await user.click(option)
+  expect(select).toHaveTextContent('Lv.3')
+  expect(select).toHaveTextContent('40%')
+})

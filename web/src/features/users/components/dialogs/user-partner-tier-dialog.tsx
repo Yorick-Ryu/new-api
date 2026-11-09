@@ -37,8 +37,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   beijingDate,
   campusGet,
@@ -95,7 +100,7 @@ export function UserPartnerTierDialog(props: Props) {
         if (!open && !saving) props.onClose()
       }}
       title={t('Manage partner')}
-      description={`${props.user.username} · #${props.user.id}`}
+      description={`${props.user.username} (#${props.user.id})`}
       contentClassName='sm:max-w-lg'
     >
       {query.isPending && <LoadingState />}
@@ -121,7 +126,7 @@ function PartnerTierForm(
   const [pending, setPending] = useState<PartnerTierValues | null>(null)
   const form = useForm<PartnerTierValues>({
     resolver: zodResolver(partnerTierSchema),
-    defaultValues: { level: props.data.override, reason: '' },
+    defaultValues: { level: props.data.override },
   })
   const level = form.watch('level')
   const modeLabel = props.data.override
@@ -131,8 +136,18 @@ function PartnerTierForm(
   const label = (value: number) => {
     if (value === 0) return t('Not joined')
     const rule = props.data.tiers[value - 1]
-    return `${t('Lv.{{level}}', { level: value })} · ${rule?.name || t(campusTierNameKeys[value - 1] || 'Lv.{{level}}', { level: value })} · ${formatNumber((rule?.rate_bps || 0) / 100, locale)}%`
+    return `${t('Lv.{{level}}', { level: value })} ${rule?.name || t(campusTierNameKeys[value - 1] || 'Lv.{{level}}', { level: value })} ${formatNumber((rule?.rate_bps || 0) / 100, locale)}%`
   }
+  const options = [
+    {
+      value: 0,
+      label: `${t('Automatic level')} (${label(props.data.automatic.level)})`,
+    },
+    ...props.data.tiers.map((_, index) => ({
+      value: index + 1,
+      label: label(index + 1),
+    })),
+  ]
   const save = useMutation({
     mutationFn: async (values: PartnerTierValues) => {
       const response = await api.put(
@@ -168,74 +183,45 @@ function PartnerTierForm(
               {t('Current partner level')}:{' '}
               {label(props.data.joined ? props.data.effective.level : 0)}
             </p>
-            <Badge variant='secondary'>
-              {props.data.joined ? modeLabel : t('Not joined')}
-            </Badge>
+            {props.data.joined && (
+              <Badge variant='secondary'>{modeLabel}</Badge>
+            )}
             <p>
               {t('Friends cumulative top-ups')}:{' '}
               {cash(props.data.performance_cents, locale)}
             </p>
           </div>
-          {!props.data.joined && (
-            <p className='text-muted-foreground text-sm'>
-              {t(
-                'Select a level and confirm to activate this user as a partner.'
-              )}
-            </p>
-          )}
           <FormField
             control={form.control}
             name='level'
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t('Partner level')}</FormLabel>
-                <FormControl>
-                  <NativeSelect
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(Number(event.target.value))
-                    }
-                    className='w-full'
-                    disabled={save.isPending}
-                  >
-                    <NativeSelectOption value={0}>
-                      {t('Automatic level')}
-                    </NativeSelectOption>
-                    {props.data.tiers.map((tier, index) => (
-                      <NativeSelectOption
-                        key={tier.floor_cents}
-                        value={index + 1}
-                      >
-                        {label(index + 1)}
-                      </NativeSelectOption>
+                <Select
+                  items={options}
+                  value={field.value}
+                  onValueChange={(value) =>
+                    value !== null && field.onChange(value)
+                  }
+                  disabled={save.isPending}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      className='w-full'
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
                     ))}
-                  </NativeSelect>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <p className='text-muted-foreground text-sm'>
-            {t('Effective after saving')}: {label(selected)}
-          </p>
-          <p className='text-muted-foreground text-sm'>
-            {t(
-              'Assigned levels remain fixed until changed or restored to automatic. Only future settlements are affected; actual performance, historical commissions and subscription rates stay unchanged.'
-            )}
-          </p>
-          <FormField
-            control={form.control}
-            name='reason'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Reason')}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    {...field}
-                    maxLength={500}
-                    disabled={save.isPending}
-                  />
-                </FormControl>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -271,14 +257,14 @@ function PartnerTierForm(
                   {change.previous_level === 0
                     ? t('Not joined')
                     : t('Lv.{{level}}', { level: change.previous_level })}{' '}
-                  → {t('Lv.{{level}}', { level: change.level })} ·{' '}
+                  → {t('Lv.{{level}}', { level: change.level })}{' '}
                   {change.override ? t('Assigned level') : t('Automatic level')}
                 </p>
                 <p className='text-muted-foreground'>
-                  {beijingDate(change.created_at, locale)} · {t('Operator')} #
+                  {beijingDate(change.created_at, locale)} {t('Operator')} #
                   {change.actor_id}
                 </p>
-                <p>{change.reason}</p>
+                {change.reason && <p>{change.reason}</p>}
               </li>
             ))}
           </ul>
@@ -294,7 +280,7 @@ function PartnerTierForm(
             ? 'Confirm partner level change'
             : 'Confirm partner activation'
         )}
-        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0)} → ${label(selected)} · ${level === 0 ? t('Automatic level') : t('Assigned level')}`}
+        desc={`${props.user.username} (#${props.user.id}): ${label(props.data.joined ? props.data.effective.level : 0)} → ${label(selected)} (${level === 0 ? t('Automatic level') : t('Assigned level')})`}
         confirmText={t('Confirm')}
         isLoading={save.isPending}
         handleConfirm={() => {

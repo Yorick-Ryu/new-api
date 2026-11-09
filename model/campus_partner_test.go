@@ -167,7 +167,7 @@ func TestCampusDatabase(t *testing.T) {
 					var count int64
 					require.NoError(t, tx.Model(&CampusMember{}).Where("user_id IN ?", []int{912, 913}).Count(&count).Error)
 					assert.Zero(t, count, "reads and rejected edits must not create memberships")
-					require.NoError(t, CampusSetMemberTier(913, 3, 0, 0, "administrator enrollment", 1, true))
+					require.NoError(t, CampusSetMemberTier(913, 3, 0, 0, "", 1, true))
 					unjoined, err = CampusGetMemberTier(913)
 					require.NoError(t, err)
 					assert.True(t, unjoined.Joined)
@@ -175,7 +175,8 @@ func TestCampusDatabase(t *testing.T) {
 					assert.Zero(t, unjoined.Performance)
 					require.Len(t, unjoined.Changes, 1)
 					assert.Zero(t, unjoined.Changes[0].PreviousLevel)
-					assert.Equal(t, "administrator enrollment", unjoined.Changes[0].Reason)
+					assert.Empty(t, unjoined.Changes[0].Reason)
+					assert.Equal(t, 1, unjoined.Changes[0].ActorID)
 					assert.ErrorIs(t, CampusSetMemberTier(913, 3, 0, 0, "replayed enrollment", 1, true), ErrCampusState)
 					var enrolled CampusMember
 					require.NoError(t, tx.First(&enrolled, "user_id = ?", 913).Error)
@@ -204,10 +205,10 @@ func TestCampusDatabase(t *testing.T) {
 					for _, level := range []int{-1, 6} {
 						assert.Error(t, CampusSetMemberTier(910, level, 0, 0, "invalid", 1, false))
 					}
-					assert.Error(t, CampusSetMemberTier(910, 3, 0, 0, " ", 1, false))
+					require.NoError(t, CampusSetMemberTier(910, 0, 0, 0, " ", 1, false))
 					assert.Error(t, CampusSetMemberTier(910, 3, 0, 0, strings.Repeat("x", 501), 1, false))
 					assert.ErrorIs(t, CampusSetMemberTier(910, 3, 0, 1, "stale config", 1, false), ErrCampusState)
-					require.NoError(t, CampusSetMemberTier(910, 3, 0, 0, "manual agreement", 1, false))
+					require.NoError(t, CampusSetMemberTier(910, 3, 0, 0, "", 1, false))
 					assert.ErrorIs(t, CampusSetMemberTier(910, 4, 0, 0, "stale member", 1, false), ErrCampusState)
 					assert.Error(t, CampusConfigureTiers(cp.DefaultTiers()[:2], 0, 1))
 					for _, order := range []TopUp{
