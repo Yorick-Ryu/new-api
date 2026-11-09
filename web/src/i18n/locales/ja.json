@@ -1,6 +1,6 @@
 {
   "translation": {
-    "Disable selected users": "選択したユーザーを無効化",
+    "Disable users": "ユーザーを無効化",
     "Selected users": "選択したユーザー",
     "Verify to disable selected users": "認証して選択したユーザーを無効化",
     "Verify once to disable all {{count}} selected users.": "一度の認証で、選択した {{count}} 人全員を無効化します。",

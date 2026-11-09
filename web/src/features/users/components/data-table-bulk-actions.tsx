@@ -112,7 +112,7 @@ export function DataTableBulkActions(props: DataTableBulkActionsProps) {
         onOpenChange={(open) => {
           if (!open && !inFlight.current) setTargets([])
         }}
-        title={t('Disable selected users')}
+        title={t('Disable users')}
         desc={t(
           'Disable these {{count}} users? Their active sessions will be revoked. Already disabled users remain disabled.',
           { count: targets.length }
@@ -128,7 +128,7 @@ export function DataTableBulkActions(props: DataTableBulkActionsProps) {
         >
           {targets.map((user) => (
             <li key={user.id}>
-              #{user.id} · {user.username}
+              #{user.id} {user.username}
             </li>
           ))}
         </ul>
