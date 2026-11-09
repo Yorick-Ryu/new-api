@@ -31,7 +31,8 @@ requested in the prompt are not guaranteed by the model.
 
 GPT Image 2.6 models expose optional `complexity` (`low`, `medium`, `high`;
 omitting it retains the upstream default) and a separate transparent PNG
-`markup` layer on the first reference. The editor normalizes image orientation
+`markup` layer on the first reference. GPT Image 2.5 models also expose markup,
+but do not expose the 2.6 complexity selector. The editor normalizes image orientation
 before uploading the source and overlay, with matching dimensions and at most
 16,777,216 pixels. The overlay shares reference ownership, expiry and child-job
 retention, without consuming any of the four source-image slots. Switching

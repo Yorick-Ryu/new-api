@@ -150,6 +150,11 @@ func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 				capability.Complexities = []string{"", "low", "medium", "high"}
 				capability.Markup = true
 			}
+			// Markup-guided editing also supports GPT Image 2.5; complexity
+			// controls remain limited to the documented 2.6 models.
+			if name == "gpt-image-2.5" || strings.HasPrefix(name, "gpt-image-2.5-") {
+				capability.Markup = true
+			}
 			capability.MaxCount = 4
 			capability.Editing = true
 		case name == "dall-e-3":

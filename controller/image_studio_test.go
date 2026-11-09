@@ -1489,16 +1489,18 @@ func TestImageStudioMarkupDatabaseMatrix(t *testing.T) {
 				_, _ = w.Write(response)
 			}))
 			defer upstream.Close()
-			channel := model.Channel{Id: 683, Type: constant.ChannelTypeOpenAI, Name: "markup-fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-2.6,gpt-image-2.6-flare,gpt-image-2.6-sunburst,gpt-image-2", Group: "default", BaseURL: &upstream.URL}
+			channel := model.Channel{Id: 683, Type: constant.ChannelTypeOpenAI, Name: "markup-fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-2.6,gpt-image-2.6-flare,gpt-image-2.6-sunburst,gpt-image-2,gpt-image-2.5-flare,gpt-image-2.5-sunburst,gpt-image-2.5", Group: "default", BaseURL: &upstream.URL}
 			require.NoError(t, db.Create(&channel).Error)
 			require.NoError(t, channel.AddAbilities(db))
 			service.InitHttpClient()
 			model.InvalidatePricingCache()
 			caps, err := imageStudioCapabilities(owner.Id)
 			require.NoError(t, err)
-			require.Len(t, caps, 4)
+			require.Len(t, caps, 7)
 			for _, cap := range caps {
-				assert.Equal(t, strings.HasPrefix(cap.Model, "gpt-image-2.6"), cap.Markup)
+				is26 := strings.HasPrefix(cap.Model, "gpt-image-2.6")
+				assert.Equal(t, is26 || strings.HasPrefix(cap.Model, "gpt-image-2.5"), cap.Markup, cap.Model)
+				assert.Equal(t, is26, len(cap.Complexities) > 0, cap.Model)
 			}
 			token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-2.6"}, nil)
 			require.NoError(t, err)
