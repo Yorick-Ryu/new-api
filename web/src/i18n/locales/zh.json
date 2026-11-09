@@ -8292,6 +8292,7 @@
     "Markup images must have at most 16,777,216 pixels": "用于圈选的图片不能超过 16,777,216 像素",
     "Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels": "标注必须是与第一张参考图同尺寸的透明 PNG，且不超过 16,777,216 像素",
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "在第一张参考图上圈选，再在提示词中描述要修改的内容。原图会完整保留。",
-    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "拖动以圈画区域。键盘操作：方向键从中心移动，空格键添加圆圈。"
+    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "拖动以圈画区域。键盘操作：方向键从中心移动，空格键添加圆圈。",
+    "Choose image complexity": "选择图片复杂度"
   }
 }

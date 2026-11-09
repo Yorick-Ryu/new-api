@@ -8292,6 +8292,7 @@
     "Markup images must have at most 16,777,216 pixels": "L’image à annoter ne doit pas dépasser 16 777 216 pixels",
     "Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels": "L’annotation doit être un PNG transparent de mêmes dimensions que la première image, avec au plus 16 777 216 pixels",
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "Annotez la première image, puis décrivez les changements dans votre prompt. L’image originale reste intacte.",
-    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Faites glisser pour marquer une zone. Clavier : les flèches déplacent depuis le centre ; Espace ajoute un cercle."
+    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "Faites glisser pour marquer une zone. Clavier : les flèches déplacent depuis le centre ; Espace ajoute un cercle.",
+    "Choose image complexity": "Choisir la complexité de l’image"
   }
 }

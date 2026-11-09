@@ -2471,12 +2471,32 @@ describe('Image complexity and markup capabilities', () => {
       />,
       { wrapper }
     )
-    await screen.findByRole('group', { name: 'Image complexity' })
+    const complexityButton = await screen.findByRole('button', {
+      name: 'Choose image complexity',
+    })
+    expect(complexityButton).toHaveTextContent('Auto')
+    expect(complexityButton).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByRole('group', { name: 'Image complexity' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(complexityButton)
+    expect(complexityButton).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Image complexity' })).getByRole(
         'button',
         { name: 'Low' }
       )
+    )
+    expect(complexityButton).toHaveTextContent('Low')
+    expect(complexityButton).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(complexityButton)
+    const selectedComplexity = within(
+      screen.getByRole('group', { name: 'Image complexity' })
+    ).getByRole('button', { name: 'Low' })
+    expect(selectedComplexity).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.keyDown(selectedComplexity, { key: 'Escape' })
+    await waitFor(() =>
+      expect(complexityButton).toHaveAttribute('aria-expanded', 'false')
     )
     fireEvent.change(screen.getByLabelText('Image prompt'), {
       target: { value: 'A small house' },
@@ -2492,7 +2512,7 @@ describe('Image complexity and markup capabilities', () => {
     fireEvent.click(screen.getByRole('combobox', { name: 'gpt-image-2.6' }))
     fireEvent.click(await screen.findByRole('option', { name: 'gpt-image-1' }))
     expect(
-      screen.queryByRole('group', { name: 'Image complexity' })
+      screen.queryByRole('button', { name: 'Choose image complexity' })
     ).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
     await waitFor(() =>

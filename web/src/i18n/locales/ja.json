@@ -8292,6 +8292,7 @@
     "Markup images must have at most 16,777,216 pixels": "マークする画像は16,777,216ピクセル以下にしてください",
     "Markup must be a transparent PNG matching the first reference image, with at most 16,777,216 pixels": "マークは最初の参照画像と同じ寸法の透明PNGで、16,777,216ピクセル以下にしてください",
     "Mark the first reference image, then describe the changes in your prompt. The original image stays intact.": "最初の参照画像にマークし、プロンプトで変更内容を説明してください。元の画像はそのまま保持されます。",
-    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "ドラッグして領域をマーク。キーボード：矢印キーで中央から移動、スペースで円を追加。"
+    "Drag to mark an area. Keyboard: arrow keys move from the center; Space adds a circle.": "ドラッグして領域をマーク。キーボード：矢印キーで中央から移動、スペースで円を追加。",
+    "Choose image complexity": "画像の複雑さを選択"
   }
 }
