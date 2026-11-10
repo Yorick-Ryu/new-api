@@ -81,14 +81,28 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 		for key, value := range overrides[name] {
 			entry[key] = value
 		}
-		if messages, ok := overrides[name]["model_messages"]; ok {
-			var parsed struct {
-				Template string `json:"instructions_template"`
-			}
-			if common.Unmarshal(messages, &parsed) == nil && parsed.Template != "" {
-				entry["base_instructions"], _ = common.Marshal(parsed.Template)
+		// Explicit remote catalogs arrived after Codex moved instructions into
+		// model_messages. Promote legacy-only saved profiles, then emit one copy.
+		var messages map[string]json.RawMessage
+		if raw := entry["model_messages"]; len(raw) > 0 {
+			if err := common.Unmarshal(raw, &messages); err != nil {
+				return nil, "", fmt.Errorf("decode Codex model messages for %s: %w", name, err)
 			}
 		}
+		template := messages["instructions_template"]
+		if len(template) == 0 || strings.TrimSpace(string(template)) == "null" {
+			if legacy := entry["base_instructions"]; len(legacy) > 0 && strings.TrimSpace(string(legacy)) != "null" {
+				if messages == nil {
+					messages = make(map[string]json.RawMessage)
+				}
+				messages["instructions_template"] = legacy
+				entry["model_messages"], err = common.Marshal(messages)
+				if err != nil {
+					return nil, "", fmt.Errorf("encode Codex model messages for %s: %w", name, err)
+				}
+			}
+		}
+		delete(entry, "base_instructions")
 		if len(ranks) > 0 {
 			priority, ordered := ranks[name]
 			if !ordered {

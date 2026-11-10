@@ -63,7 +63,52 @@ func TestCodexCatalogPreservesCapabilitiesWithoutAddingModels(t *testing.T) {
 	profiles, err := codexCatalogProfiles()
 	require.NoError(t, err)
 	for key, value := range profiles["gpt-6-astra"] {
+		if key == "base_instructions" {
+			assert.NotContains(t, entry, key)
+			continue
+		}
 		assert.JSONEq(t, string(value), string(entry[key]), "capability %s", key)
+	}
+}
+
+func TestCodexCatalogEmitsOneInstructionSource(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	options := common.OptionMap
+	common.OptionMap = map[string]string{}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = options
+		common.OptionMapRWMutex.Unlock()
+	})
+	for _, tc := range []struct {
+		name, override, messages string
+	}{
+		{"canonical wins", `{"base_instructions":"old","model_messages":{"instructions_template":"new","opaque":{"keep":true}}}`, `{"instructions_template":"new","opaque":{"keep":true}}`},
+		{"empty canonical stays empty", `{"base_instructions":"old","model_messages":{"instructions_template":""}}`, `{"instructions_template":""}`},
+		{"legacy only", `{"base_instructions":"saved instructions"}`, `{"instructions_template":"saved instructions"}`},
+		{"null messages", `{"base_instructions":"saved instructions","model_messages":null}`, `{"instructions_template":"saved instructions"}`},
+		{"missing template", `{"base_instructions":"saved instructions","model_messages":{"opaque":{"keep":true}}}`, `{"instructions_template":"saved instructions","opaque":{"keep":true}}`},
+		{"null template", `{"base_instructions":"saved instructions","model_messages":{"instructions_template":null,"opaque":{"keep":true}}}`, `{"instructions_template":"saved instructions","opaque":{"keep":true}}`},
+		{"custom fallback", `{}`, `{"instructions_template":"You are a coding assistant. Help the user complete their task."}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[CodexModelProfilesOptionKey] = `{"catalog-custom":` + tc.override + `}`
+			common.OptionMapRWMutex.Unlock()
+			for _, build := range []func([]dto.OpenAIModels, []string) ([]byte, string, error){BuildCodexModelCatalog, BuildCodexSetupModelCatalog} {
+				body, _, err := build([]dto.OpenAIModels{{Id: "catalog-custom"}}, nil)
+				require.NoError(t, err)
+				var catalog struct {
+					Models []map[string]json.RawMessage `json:"models"`
+				}
+				require.NoError(t, common.Unmarshal(body, &catalog))
+				require.Len(t, catalog.Models, 1)
+				entry := catalog.Models[0]
+				assert.NotContains(t, entry, "base_instructions")
+				assert.JSONEq(t, tc.messages, string(entry["model_messages"]))
+			}
+		})
 	}
 }
 
