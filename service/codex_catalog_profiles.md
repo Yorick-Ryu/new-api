@@ -9,9 +9,12 @@ The `gpt-6-sol` and `gpt-6-luna` profiles come from the official
 `openai/codex` catalog at commit
 [`39598ed17885970828acd42a6370131ed0190a98`](https://github.com/openai/codex/blob/39598ed17885970828acd42a6370131ed0190a98/codex-rs/models-manager/models.json).
 Their capabilities and model messages are preserved; availability fields are
-omitted because NewAPI supplies authorization and visibility. The legacy
-`base_instructions` field mirrors the official instructions template for older
-clients, as in Codex's catalog serializer.
+omitted because NewAPI supplies authorization and visibility. Source profiles may
+retain legacy `base_instructions`, but responses emit only
+`model_messages.instructions_template`. Legacy-only profiles are promoted without
+discarding other messages. Codex 0.147.0 made the old field optional (upstream
+`df72fdb415ee`), before explicit `model_catalog_url` support shipped in 0.156.0
+(`888be42a20c5`). The catalog has no old-client branch.
 
 System settings → Models → Codex can synchronize the current public
 `openai/codex` main-branch catalog and edit per-model capability overrides.
