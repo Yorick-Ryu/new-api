@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 )
 
@@ -39,19 +38,9 @@ const codexFallbackProfileJSON = `{
 				"base_instructions":"You are a coding assistant. Help the user complete their task."
 			}`
 
-// BuildCodexModelCatalog renders the authenticated user's available models as
-// Codex ModelInfo entries. It does not fetch upstreams or change routing.
+// BuildCodexModelCatalog renders only available models with a bundled, official,
+// or saved Codex profile. A profile never grants channel, group or token access.
 func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
-	return buildCodexModelCatalog(available, displayOrder, false)
-}
-
-// BuildCodexSetupModelCatalog offers only available models with a bundled,
-// official, or saved Codex profile. A profile never grants group access.
-func BuildCodexSetupModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
-	return buildCodexModelCatalog(available, displayOrder, true)
-}
-
-func buildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string, configuredOnly bool) ([]byte, string, error) {
 	profiles, err := GetEffectiveCodexModelProfiles()
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
@@ -75,28 +64,12 @@ func buildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string,
 		seen[name] = true
 		profile, known := profiles[name]
 		_, configured := overrides[name]
-		if configuredOnly && !known && !configured {
+		if !known && !configured {
 			continue
 		}
 		if !known {
-			// A saved profile explicitly declares Codex capabilities. Unprofiled
-			// custom models still require an explicit Responses route.
-			responses := false
-			media := false
-			for _, endpoint := range availableModel.SupportedEndpointTypes {
-				switch endpoint {
-				case constant.EndpointTypeOpenAIResponse:
-					responses = true
-				case constant.EndpointTypeImageGeneration, constant.EndpointTypeEmbeddings,
-					constant.EndpointTypeJinaRerank, constant.EndpointTypeOpenAIVideo:
-					media = true
-				}
-			}
-			if !configured && (!responses || media) {
-				continue
-			}
-			// Complete, conservative fallback for explicitly Responses-capable
-			// custom models; no vendor-specific tools or guessed context window.
+			// Supply conservative defaults only for explicitly saved custom profiles;
+			// endpoint metadata alone never enrolls a model in the Codex catalog.
 			if err := common.Unmarshal([]byte(codexFallbackProfileJSON), &profile); err != nil {
 				return nil, "", err
 			}
@@ -159,4 +132,10 @@ func buildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string,
 	}
 	etag := fmt.Sprintf(`"%x"`, sha256.Sum256(body))
 	return body, etag, nil
+}
+
+// BuildCodexSetupModelCatalog uses the same profile and availability rules as
+// client discovery.
+func BuildCodexSetupModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
+	return BuildCodexModelCatalog(available, displayOrder)
 }

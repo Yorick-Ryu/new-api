@@ -30,9 +30,11 @@ This registry does **not** decide model availability. `controller.ListModels`
 first applies the existing enabled-channel/group, token-model and billing
 filters. `BuildCodexModelCatalog` uses the resulting names to select profiles,
 marks configured regular models visible, and keeps automatic modes hidden.
-No registry-only model is added to the response. Unknown models are included
-only when NewAPI explicitly advertises a Responses endpoint; their fallback
-is text-only, with no guessed reasoning levels or vendor-specific tools.
+No registry-only model is added to the response. Both the client catalog and
+desktop setup require a bundled, synced official, or manually saved Codex
+profile; advertising a Responses endpoint alone does not add a model. Manually
+saved custom profiles inherit conservative defaults for omitted fields, with
+no guessed reasoning levels or vendor-specific tools.
 
 Update capability defaults from a reviewed Codex release when its schema or
 model capabilities change. Preserve source attribution under the OpenAI Codex

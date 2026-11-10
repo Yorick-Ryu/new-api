@@ -189,9 +189,18 @@ func TestCodexModelsUsesFilteredAvailabilityAndConditionalResponses(t *testing.T
 	assert.JSONEq(t, `{"models":[]}`, disabled.Body.String())
 }
 
-func TestCodexModelsDiscoversNewResponsesRouteWithColdPricingCache(t *testing.T) {
+func TestCodexModelsRequiresProfileEvenWithResponsesRoute(t *testing.T) {
 	withSelfUseModeEnabled(t)
 	db := setupModelListControllerTestDB(t)
+	common.OptionMapRWMutex.Lock()
+	options := common.OptionMap
+	common.OptionMap = map[string]string{}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = options
+		common.OptionMapRWMutex.Unlock()
+	})
 	model.InvalidatePricingCache()
 	t.Cleanup(model.InvalidatePricingCache)
 	require.NoError(t, db.Create(&model.Channel{
@@ -201,20 +210,51 @@ func TestCodexModelsDiscoversNewResponsesRouteWithColdPricingCache(t *testing.T)
 	require.NoError(t, db.Create(&model.Ability{
 		Group: "default", Model: "custom-responses-route", ChannelId: 901, Enabled: true,
 	}).Error)
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models?client_version=0.153.2", nil)
-	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
-	ListModels(ctx, constant.ChannelTypeOpenAI)
-	require.Equal(t, http.StatusOK, recorder.Code)
-	var catalog struct {
-		Models []struct {
-			Slug string `json:"slug"`
-		} `json:"models"`
+	request := func(path, etag string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, path, nil)
+		ctx.Request.Header.Set("If-None-Match", etag)
+		common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+		ListModels(ctx, constant.ChannelTypeOpenAI)
+		return recorder
 	}
-	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &catalog))
-	require.Len(t, catalog.Models, 1)
-	assert.Equal(t, "custom-responses-route", catalog.Models[0].Slug)
+	var etag string
+	for _, tc := range []struct {
+		name    string
+		profile string
+		want    []string
+	}{
+		{"unconfigured", `{}`, []string{}},
+		{"configured", `{"custom-responses-route":{"priority":1000,"context_window":200000}}`, []string{"custom-responses-route"}},
+		{"removed", `{}`, []string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[service.CodexModelProfilesOptionKey] = tc.profile
+			common.OptionMapRWMutex.Unlock()
+			response := request("/v1/models?client_version=0.153.2", etag)
+			require.Equal(t, http.StatusOK, response.Code)
+			var catalog struct {
+				Models []struct {
+					Slug string `json:"slug"`
+				} `json:"models"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &catalog))
+			got := make([]string, 0, len(catalog.Models))
+			for _, entry := range catalog.Models {
+				got = append(got, entry.Slug)
+			}
+			assert.Equal(t, tc.want, got)
+			currentETag := response.Header().Get("ETag")
+			require.NotEmpty(t, currentETag)
+			assert.NotEqual(t, etag, currentETag, "profile changes must invalidate the client catalog")
+			etag = currentETag
+			plain := request("/v1/models", "")
+			require.Equal(t, http.StatusOK, plain.Code)
+			assert.Equal(t, map[string]struct{}{"custom-responses-route": {}}, decodeListModelsResponse(t, plain))
+		})
+	}
 }
 
 func TestDashboardCodexCatalogMatchesTokenCatalogOrderAndFiltering(t *testing.T) {

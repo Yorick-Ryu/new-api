@@ -26,8 +26,8 @@ func TestSavedCodexProfileDeclaresCustomModelWithoutResponsesMetadata(t *testing
 		{Id: "gemini-configured", SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeGemini}},
 		{Id: "responses-unconfigured", SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAIResponse}},
 	}
-	for _, setup := range []bool{false, true} {
-		body, _, err := buildCodexModelCatalog(available, nil, setup)
+	for _, build := range []func([]dto.OpenAIModels, []string) ([]byte, string, error){BuildCodexModelCatalog, BuildCodexSetupModelCatalog} {
+		body, _, err := build(available, nil)
 		require.NoError(t, err)
 		var catalog struct {
 			Models []struct {
@@ -36,11 +36,7 @@ func TestSavedCodexProfileDeclaresCustomModelWithoutResponsesMetadata(t *testing
 			} `json:"models"`
 		}
 		require.NoError(t, common.Unmarshal(body, &catalog))
-		want := 3
-		if setup {
-			want = 2
-		}
-		require.Len(t, catalog.Models, want)
+		require.Len(t, catalog.Models, 2)
 		assert.Equal(t, "gpt-6-astra", catalog.Models[0].Slug)
 		assert.Equal(t, "gemini-configured", catalog.Models[1].Slug)
 		assert.Equal(t, 262144, catalog.Models[1].ContextWindow)
@@ -71,7 +67,7 @@ func TestCodexCatalogPreservesCapabilitiesWithoutAddingModels(t *testing.T) {
 	}
 }
 
-func TestCodexCatalogFiltersMediaAndRequiresExplicitUnknownResponsesRoute(t *testing.T) {
+func TestCodexCatalogExcludesUnconfiguredModelsRegardlessOfEndpoints(t *testing.T) {
 	body, _, err := BuildCodexModelCatalog([]dto.OpenAIModels{
 		{Id: "gpt-6-astra"}, {Id: "gpt-6-astra"},
 		{Id: "gpt-6-astra-openai-compact"}, {Id: "gpt-*"},
@@ -82,17 +78,12 @@ func TestCodexCatalogFiltersMediaAndRequiresExplicitUnknownResponsesRoute(t *tes
 	require.NoError(t, err)
 	var catalog struct {
 		Models []struct {
-			Slug             string   `json:"slug"`
-			InputModalities  []string `json:"input_modalities"`
-			UseResponsesLite bool     `json:"use_responses_lite"`
+			Slug string `json:"slug"`
 		} `json:"models"`
 	}
 	require.NoError(t, common.Unmarshal(body, &catalog))
-	require.Len(t, catalog.Models, 2)
+	require.Len(t, catalog.Models, 1)
 	assert.Equal(t, "gpt-6-astra", catalog.Models[0].Slug)
-	assert.Equal(t, "custom-responses", catalog.Models[1].Slug)
-	assert.Equal(t, []string{"text"}, catalog.Models[1].InputModalities)
-	assert.False(t, catalog.Models[1].UseResponsesLite)
 }
 
 func TestCodexCatalogETagDependsOnEffectiveModels(t *testing.T) {
@@ -143,7 +134,7 @@ func TestCodexCatalogUsesSavedDisplayOrderWithoutAddingUnavailableModels(t *test
 	}
 	assert.Equal(t, []string{
 		"gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol",
-		"gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "custom-responses",
+		"gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5",
 	}, names)
 	for left, right := 0, len(available)-1; left < right; left, right = left+1, right-1 {
 		available[left], available[right] = available[right], available[left]
