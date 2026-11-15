@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
+import { DEFAULT_LOGO } from '@/lib/constants'
 import {
   getModuleAccessForGuard,
   type HeaderNavModule,
@@ -30,6 +31,7 @@ import {
 import {
   STATUS_QUERY_KEY,
   ensureStatus,
+  mapStatusDataToConfig,
   statusQueryOptions,
 } from '@/lib/status-query'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -260,6 +262,27 @@ describe('module guard status freshness', () => {
         enabled: false,
         requireAuth: true,
       })
+    }
+  )
+})
+
+describe('BeiAPI bundled site logo', () => {
+  test.each([
+    undefined,
+    '',
+    '/logo.png',
+    'https://beiapi.cn/beiapi-assets/logo-north.svg',
+    'https://www.beiapi.cn/beiapi-assets/logo-north.svg',
+  ])(
+    'uses the bundled same-origin logo for the default or legacy logo %s',
+    (logo) => {
+      expect(mapStatusDataToConfig({ logo }).logo).toBe(DEFAULT_LOGO)
+    }
+  )
+  test.each(['https://novapi.example/brand.svg', '/agent-custom-logo.svg'])(
+    'keeps an agent site custom logo %s',
+    (logo) => {
+      expect(mapStatusDataToConfig({ logo }).logo).toBe(logo)
     }
   )
 })

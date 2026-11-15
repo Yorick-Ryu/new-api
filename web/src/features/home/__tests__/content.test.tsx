@@ -105,6 +105,10 @@ describe('configured homepage rendering', () => {
     ).toBeVisible()
     expect(document.querySelector('iframe')).not.toBeInTheDocument()
     expect(localStorage.getItem('home_page_content')).toBeNull()
+    expect(screen.getByRole('link', { name: 'New API' })).toHaveAttribute(
+      'href',
+      'https://github.com/QuantumNous/new-api'
+    )
     expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute(
       'href',
       '/sign-in'
