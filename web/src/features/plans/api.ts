@@ -28,6 +28,7 @@ export interface CatalogSubscription {
   custom_seconds: number
   total_amount: number
   quota_reset_period: 'never' | 'daily' | 'weekly' | 'monthly' | 'custom'
+  quota_reset_custom_seconds: number
   quota_windows: string
   max_purchase_per_user: number
   allow_renewal: boolean

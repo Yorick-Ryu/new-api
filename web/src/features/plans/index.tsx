@@ -35,7 +35,11 @@ import {
   CardDescription,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatDuration } from '@/features/subscriptions/lib'
+import {
+  formatDuration,
+  formatPrimaryQuotaLabel,
+  parseQuotaWindows,
+} from '@/features/subscriptions/lib'
 import { useStatus } from '@/hooks/use-status'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota } from '@/lib/format'
@@ -136,11 +140,16 @@ export function PublicCatalog() {
                     {t('Validity Period')}: {formatDuration(plan, t)}
                   </p>
                   <p>
-                    {t('Total Quota')}:{' '}
+                    {formatPrimaryQuotaLabel(plan, t)}:{' '}
                     {plan.total_amount > 0
                       ? formatQuota(plan.total_amount)
                       : t('Unlimited')}
                   </p>
+                  {parseQuotaWindows(plan).map((window) => (
+                    <p key={window.key}>
+                      {window.name}: {formatQuota(window.amount_total)}
+                    </p>
+                  ))}
                   {plan.allow_renewal && <p>{t('Renewal supported')}</p>}
                   {plan.max_purchase_per_user > 0 && (
                     <p>

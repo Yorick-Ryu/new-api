@@ -14,18 +14,19 @@ import (
 // Only catalog display fields are exposed. Provider product IDs, account data,
 // upgrade groups and internal billing configuration remain authenticated.
 type PlansPageSubscription struct {
-	ID                 int     `json:"id"`
-	Title              string  `json:"title"`
-	Subtitle           string  `json:"subtitle"`
-	PriceAmount        float64 `json:"price_amount"`
-	DurationUnit       string  `json:"duration_unit"`
-	DurationValue      int     `json:"duration_value"`
-	CustomSeconds      int64   `json:"custom_seconds"`
-	TotalAmount        int64   `json:"total_amount"`
-	QuotaResetPeriod   string  `json:"quota_reset_period"`
-	QuotaWindows       string  `json:"quota_windows"`
-	MaxPurchasePerUser int     `json:"max_purchase_per_user"`
-	AllowRenewal       bool    `json:"allow_renewal"`
+	ID                      int     `json:"id"`
+	Title                   string  `json:"title"`
+	Subtitle                string  `json:"subtitle"`
+	PriceAmount             float64 `json:"price_amount"`
+	DurationUnit            string  `json:"duration_unit"`
+	DurationValue           int     `json:"duration_value"`
+	CustomSeconds           int64   `json:"custom_seconds"`
+	TotalAmount             int64   `json:"total_amount"`
+	QuotaResetPeriod        string  `json:"quota_reset_period"`
+	QuotaResetCustomSeconds int64   `json:"quota_reset_custom_seconds"`
+	QuotaWindows            string  `json:"quota_windows"`
+	MaxPurchasePerUser      int     `json:"max_purchase_per_user"`
+	AllowRenewal            bool    `json:"allow_renewal"`
 }
 
 type plansPageAccess struct {
@@ -103,7 +104,7 @@ func GetPlansPageCatalog(c *gin.Context) {
 		catalog.Subscriptions = append(catalog.Subscriptions, PlansPageSubscription{
 			ID: plan.Id, Title: plan.Title, Subtitle: plan.Subtitle, PriceAmount: plan.PriceAmount,
 			DurationUnit: plan.DurationUnit, DurationValue: plan.DurationValue, CustomSeconds: plan.CustomSeconds,
-			TotalAmount: plan.TotalAmount, QuotaResetPeriod: plan.QuotaResetPeriod, QuotaWindows: plan.QuotaWindows,
+			TotalAmount: plan.TotalAmount, QuotaResetPeriod: plan.QuotaResetPeriod, QuotaResetCustomSeconds: plan.QuotaResetCustomSeconds, QuotaWindows: plan.QuotaWindows,
 			MaxPurchasePerUser: plan.MaxPurchasePerUser, AllowRenewal: plan.AllowRenewal != nil && *plan.AllowRenewal,
 		})
 	}

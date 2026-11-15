@@ -194,7 +194,17 @@ test('guest catalog shows live display data and links to login without creating 
             price_amount: 128,
             duration_unit: 'month',
             duration_value: 1,
-            total_amount: 0,
+            total_amount: 62500000,
+            quota_reset_period: 'weekly',
+            quota_windows: JSON.stringify([
+              {
+                key: 'monthly',
+                name: 'Monthly cap',
+                period_unit: 'month',
+                period_value: 1,
+                amount_total: 250000000,
+              },
+            ]),
             allow_renewal: true,
             max_purchase_per_user: 1,
           },
@@ -215,6 +225,8 @@ test('guest catalog shows live display data and links to login without creating 
   )
   expect(await screen.findByText('Local plan')).toBeVisible()
   expect(screen.getByText('¥128')).toBeVisible()
+  expect(screen.getByText(/^Weekly quota:/)).toBeVisible()
+  expect(screen.getByText(/^Monthly cap:/)).toBeVisible()
   expect(
     screen
       .getByRole('button', { name: 'Sign in to top up' })

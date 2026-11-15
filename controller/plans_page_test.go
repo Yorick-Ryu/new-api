@@ -39,7 +39,7 @@ func TestPlansPageCatalog(t *testing.T) {
 		common.OptionMap = previousOptions
 		common.OptionMapRWMutex.Unlock()
 	})
-	plan := model.SubscriptionPlan{Title: "Public subscription", PriceAmount: 128, DurationUnit: "month", DurationValue: 1, StripePriceId: "private-provider-product", UpgradeGroup: "private-internal-group", Enabled: true, TotalAmount: 10000}
+	plan := model.SubscriptionPlan{Title: "Public subscription", PriceAmount: 128, DurationUnit: "month", DurationValue: 1, StripePriceId: "private-provider-product", UpgradeGroup: "private-internal-group", Enabled: true, TotalAmount: 10000, QuotaResetPeriod: "custom", QuotaResetCustomSeconds: 7200}
 	require.NoError(t, db.Create(&plan).Error)
 	hidden := model.SubscriptionPlan{Title: "Disabled subscription", PriceAmount: 256, Enabled: true}
 	require.NoError(t, db.Create(&hidden).Error)
@@ -72,6 +72,8 @@ func TestPlansPageCatalog(t *testing.T) {
 		require.Len(t, payload.Data.Subscriptions, 1)
 		assert.Equal(t, plan.Id, payload.Data.Subscriptions[0].ID)
 		assert.Equal(t, 128.0, payload.Data.Subscriptions[0].PriceAmount)
+		assert.Equal(t, "custom", payload.Data.Subscriptions[0].QuotaResetPeriod)
+		assert.EqualValues(t, 7200, payload.Data.Subscriptions[0].QuotaResetCustomSeconds)
 		assert.NotContains(t, response.Body.String(), "private-provider-product")
 		assert.NotContains(t, response.Body.String(), "private-internal-group")
 		assert.NotContains(t, response.Body.String(), "stripe_price_id")
