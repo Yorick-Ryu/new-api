@@ -37,6 +37,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home [data-slot='card'] {
   display: block;
+  flex-direction: row;
   gap: 0;
   padding: 0;
   box-shadow: none;
@@ -347,6 +348,7 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 16px 18px;
 }
 .beiapi-home .video-chapter {
+  justify-content: flex-start;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
