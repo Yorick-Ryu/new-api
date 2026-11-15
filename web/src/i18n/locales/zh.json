@@ -8501,6 +8501,18 @@
     "Original homepage content and branding.": "首页原创内容与品牌。",
     "Designed and developed based on New API.": "基于 New API 设计与开发",
     "Open-source attribution": "开源说明",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "底层软件：New API。版权归 QuantumNous 及贡献者所有。"
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "底层软件：New API。版权归 QuantumNous 及贡献者所有。",
+    "Top-up Plans": "套餐充值",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "显示原生充值与订阅套餐页面，代理站由品牌配置强制隐藏。",
+    "Require login to view top-up plans": "仅登录后可查看套餐页",
+    "Hide the page and its navigation entry from visitors until they sign in.": "开启后，未登录访客不显示入口，直接访问需先登录。",
+    "Failed to load plans. Please try again.": "套餐加载失败，请重试。",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "选择充值额度，登录后查看账户实时报价与可用支付方式。",
+    "Top-up option {{amount}}": "充值额度 {{amount}}",
+    "Final payable amount follows your live account quote.": "实际支付金额以账户实时报价为准。",
+    "Sign in to top up": "登录充值",
+    "Sign in to subscribe": "登录订阅",
+    "Choose balance top-ups or subscriptions for your research workflow.": "按需选择余额充值或订阅套餐。",
+    "Renewal supported": "支持续订"
   }
 }

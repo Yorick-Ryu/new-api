@@ -8501,6 +8501,18 @@
     "Original homepage content and branding.": "Original homepage content and branding.",
     "Designed and developed based on New API.": "Designed and developed based on New API.",
     "Open-source attribution": "Open-source attribution",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "Underlying software: New API. Copyright QuantumNous and contributors."
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "Underlying software: New API. Copyright QuantumNous and contributors.",
+    "Top-up Plans": "Top-up Plans",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "Native top-up and subscription page for Bei API only. Hidden on agent sites.",
+    "Require login to view top-up plans": "Require login to view top-up plans",
+    "Hide the page and its navigation entry from visitors until they sign in.": "Hide the page and its navigation entry from visitors until they sign in.",
+    "Failed to load plans. Please try again.": "Failed to load plans. Please try again.",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "Choose a top-up amount. Sign in for your live account quote and available payment methods.",
+    "Top-up option {{amount}}": "Top-up option {{amount}}",
+    "Final payable amount follows your live account quote.": "Final payable amount follows your live account quote.",
+    "Sign in to top up": "Sign in to top up",
+    "Sign in to subscribe": "Sign in to subscribe",
+    "Choose balance top-ups or subscriptions for your research workflow.": "Choose balance top-ups or subscriptions for your research workflow.",
+    "Renewal supported": "Renewal supported"
   }
 }

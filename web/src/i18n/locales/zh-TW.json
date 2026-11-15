@@ -8333,6 +8333,18 @@
     "Original homepage content and branding.": "首頁原創內容與品牌。",
     "Designed and developed based on New API.": "基於 New API 設計與開發",
     "Open-source attribution": "開源說明",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "底層軟體：New API。著作權歸 QuantumNous 及貢獻者所有。"
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "底層軟體：New API。著作權歸 QuantumNous 及貢獻者所有。",
+    "Top-up Plans": "套餐儲值",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "顯示原生儲值與訂閱方案頁面，代理站由品牌設定強制隱藏。",
+    "Require login to view top-up plans": "僅登入後可查看方案頁",
+    "Hide the page and its navigation entry from visitors until they sign in.": "開啟後，未登入訪客不顯示入口，直接存取需先登入。",
+    "Failed to load plans. Please try again.": "方案載入失敗，請重試。",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "選擇儲值額度，登入後查看帳戶即時報價與可用付款方式。",
+    "Top-up option {{amount}}": "儲值額度 {{amount}}",
+    "Final payable amount follows your live account quote.": "實際付款金額以帳戶即時報價為準。",
+    "Sign in to top up": "登入儲值",
+    "Sign in to subscribe": "登入訂閱",
+    "Choose balance top-ups or subscriptions for your research workflow.": "依需求選擇餘額儲值或訂閱方案。",
+    "Renewal supported": "支援續訂"
   }
 }

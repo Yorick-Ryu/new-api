@@ -8333,6 +8333,18 @@
     "Original homepage content and branding.": "Nội dung gốc của trang chủ và nhận diện thương hiệu.",
     "Designed and developed based on New API.": "Được thiết kế và phát triển dựa trên New API.",
     "Open-source attribution": "Thông tin nguồn mở",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "Phần mềm nền tảng: New API. Bản quyền thuộc QuantumNous và những người đóng góp."
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "Phần mềm nền tảng: New API. Bản quyền thuộc QuantumNous và những người đóng góp.",
+    "Top-up Plans": "Nạp tiền và gói",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "Hiển thị nạp tiền và gói đăng ký. Ẩn trên trang đại lý.",
+    "Require login to view top-up plans": "Yêu cầu đăng nhập để xem gói",
+    "Hide the page and its navigation entry from visitors until they sign in.": "Ẩn liên kết với khách và yêu cầu đăng nhập khi truy cập trực tiếp.",
+    "Failed to load plans. Please try again.": "Không tải được gói. Vui lòng thử lại.",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "Chọn số tiền. Đăng nhập để xem báo giá và phương thức thanh toán.",
+    "Top-up option {{amount}}": "Mức nạp {{amount}}",
+    "Final payable amount follows your live account quote.": "Số tiền thanh toán theo báo giá của tài khoản.",
+    "Sign in to top up": "Đăng nhập để nạp tiền",
+    "Sign in to subscribe": "Đăng nhập để đăng ký",
+    "Choose balance top-ups or subscriptions for your research workflow.": "Chọn nạp số dư hoặc gói đăng ký theo nhu cầu.",
+    "Renewal supported": "Hỗ trợ gia hạn"
   }
 }

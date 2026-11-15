@@ -8333,6 +8333,18 @@
     "Original homepage content and branding.": "Оригинальное содержимое главной страницы и фирменный стиль.",
     "Designed and developed based on New API.": "Разработано на основе New API.",
     "Open-source attribution": "Сведения об открытом ПО",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "Базовое ПО: New API. Авторские права принадлежат QuantumNous и участникам проекта."
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "Базовое ПО: New API. Авторские права принадлежат QuantumNous и участникам проекта.",
+    "Top-up Plans": "Пополнение и планы",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "Показывать пополнение и подписки. Скрыто на партнёрских сайтах.",
+    "Require login to view top-up plans": "Вход для просмотра планов",
+    "Hide the page and its navigation entry from visitors until they sign in.": "Скрывать ссылку от гостей и требовать вход при прямом доступе.",
+    "Failed to load plans. Please try again.": "Не удалось загрузить планы. Повторите попытку.",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "Выберите сумму. Войдите для расчёта стоимости и доступных способов оплаты.",
+    "Top-up option {{amount}}": "Пополнение {{amount}}",
+    "Final payable amount follows your live account quote.": "Итоговая сумма определяется расчётом для вашего аккаунта.",
+    "Sign in to top up": "Войти для пополнения",
+    "Sign in to subscribe": "Войти для подписки",
+    "Choose balance top-ups or subscriptions for your research workflow.": "Выберите пополнение баланса или подписку.",
+    "Renewal supported": "Продление доступно"
   }
 }

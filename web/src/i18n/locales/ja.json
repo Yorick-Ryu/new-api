@@ -8333,6 +8333,18 @@
     "Original homepage content and branding.": "ホームページのオリジナルコンテンツおよびブランド。",
     "Designed and developed based on New API.": "New API を基に設計・開発されています。",
     "Open-source attribution": "オープンソース表記",
-    "Underlying software: New API. Copyright QuantumNous and contributors.": "基盤ソフトウェア：New API。著作権は QuantumNous およびコントリビューターに帰属します。"
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "基盤ソフトウェア：New API。著作権は QuantumNous およびコントリビューターに帰属します。",
+    "Top-up Plans": "チャージとプラン",
+    "Native top-up and subscription page for Bei API only. Hidden on agent sites.": "チャージとプランを表示します。代理サイトでは非表示になります。",
+    "Require login to view top-up plans": "プラン閲覧にはログインが必要",
+    "Hide the page and its navigation entry from visitors until they sign in.": "未ログイン時はリンクを非表示にし、直接アクセスにはログインを要求します。",
+    "Failed to load plans. Please try again.": "プランを読み込めませんでした。再試行してください。",
+    "Choose a top-up amount. Sign in for your live account quote and available payment methods.": "金額を選び、ログイン後に見積もりと支払い方法を確認できます。",
+    "Top-up option {{amount}}": "チャージ額 {{amount}}",
+    "Final payable amount follows your live account quote.": "実際の支払い額はアカウントの見積もりに基づきます。",
+    "Sign in to top up": "ログインしてチャージ",
+    "Sign in to subscribe": "ログインして登録",
+    "Choose balance top-ups or subscriptions for your research workflow.": "用途に合わせて残高チャージまたはプランを選択してください。",
+    "Renewal supported": "更新可能"
   }
 }

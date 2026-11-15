@@ -1,0 +1,112 @@
+package controller
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/gin-gonic/gin"
+)
+
+// Only catalog display fields are exposed. Provider product IDs, account data,
+// upgrade groups and internal billing configuration remain authenticated.
+type PlansPageSubscription struct {
+	ID                 int     `json:"id"`
+	Title              string  `json:"title"`
+	Subtitle           string  `json:"subtitle"`
+	PriceAmount        float64 `json:"price_amount"`
+	DurationUnit       string  `json:"duration_unit"`
+	DurationValue      int     `json:"duration_value"`
+	CustomSeconds      int64   `json:"custom_seconds"`
+	TotalAmount        int64   `json:"total_amount"`
+	QuotaResetPeriod   string  `json:"quota_reset_period"`
+	QuotaWindows       string  `json:"quota_windows"`
+	MaxPurchasePerUser int     `json:"max_purchase_per_user"`
+	AllowRenewal       bool    `json:"allow_renewal"`
+}
+
+type plansPageAccess struct {
+	Enabled     bool `json:"enabled"`
+	RequireAuth bool `json:"requireAuth"`
+}
+
+func currentPlansPageAccess() plansPageAccess {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap["HeaderNavModules"]
+	common.OptionMapRWMutex.RUnlock()
+	access := plansPageAccess{Enabled: true}
+	if strings.TrimSpace(raw) == "" {
+		return access
+	}
+	var modules map[string]any
+	if common.UnmarshalJsonStr(raw, &modules) != nil {
+		return plansPageAccess{RequireAuth: true}
+	}
+	value, exists := modules["plans"]
+	if !exists {
+		return access
+	}
+	switch v := value.(type) {
+	case bool:
+		access.Enabled = v
+	case map[string]any:
+		if rawEnabled, ok := v["enabled"]; ok {
+			enabled, valid := rawEnabled.(bool)
+			if !valid {
+				return plansPageAccess{RequireAuth: true}
+			}
+			access.Enabled = enabled
+		}
+		if rawAuth, ok := v["requireAuth"]; ok {
+			required, valid := rawAuth.(bool)
+			if !valid {
+				return plansPageAccess{RequireAuth: true}
+			}
+			access.RequireAuth = required
+		}
+	default:
+		return plansPageAccess{RequireAuth: true}
+	}
+	return access
+}
+
+func GetPlansPageCatalog(c *gin.Context) {
+	access := currentPlansPageAccess()
+	if !access.Enabled {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if access.RequireAuth {
+		middleware.UserAuth()(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+	catalog := struct {
+		Subscriptions []PlansPageSubscription `json:"subscriptions"`
+		TopupAmounts  []int                   `json:"topup_amounts"`
+	}{Subscriptions: []PlansPageSubscription{}, TopupAmounts: []int{}}
+	if !operation_setting.IsPaymentComplianceConfirmed() {
+		common.ApiSuccess(c, catalog)
+		return
+	}
+	var plans []model.SubscriptionPlan
+	if err := model.DB.Where("enabled = ?", true).Order("sort_order desc, id desc").Find(&plans).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for _, plan := range plans {
+		plan.NormalizeDefaults()
+		catalog.Subscriptions = append(catalog.Subscriptions, PlansPageSubscription{
+			ID: plan.Id, Title: plan.Title, Subtitle: plan.Subtitle, PriceAmount: plan.PriceAmount,
+			DurationUnit: plan.DurationUnit, DurationValue: plan.DurationValue, CustomSeconds: plan.CustomSeconds,
+			TotalAmount: plan.TotalAmount, QuotaResetPeriod: plan.QuotaResetPeriod, QuotaWindows: plan.QuotaWindows,
+			MaxPurchasePerUser: plan.MaxPurchasePerUser, AllowRenewal: plan.AllowRenewal != nil && *plan.AllowRenewal,
+		})
+	}
+	catalog.TopupAmounts = append(catalog.TopupAmounts, operation_setting.GetPaymentSetting().AmountOptions...)
+	common.ApiSuccess(c, catalog)
+}
