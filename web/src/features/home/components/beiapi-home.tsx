@@ -921,7 +921,9 @@ export function BeiAPIHome() {
         </div>
         <Footer
           columns={[]}
-          copyright={t('AI tools and access services · For researchers')}
+          copyrightOwner='BEI API'
+          attributionVariant='powered-by'
+          copyright={t('Original homepage content and branding.')}
         />
       </main>
       <Dialog

@@ -118,6 +118,33 @@ describe('configured homepage rendering', () => {
       screen.queryByRole('img', { name: 'Bei WeChat contact QR codes' })
     ).not.toBeInTheDocument()
   })
+  test('homepage credits distinguish BeiAPI content from the underlying New API project', async () => {
+    useSystemConfigStore
+      .getState()
+      .setConfig({ systemName: 'Local test system' })
+    await renderHome()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
+    ).toBeVisible()
+    const footer = document.querySelector('footer') as HTMLElement
+    expect(within(footer).getByText(/©.*BEI API/)).toBeVisible()
+    expect(within(footer).getByText('Powered by')).toBeVisible()
+    expect(
+      within(footer).getByText(
+        'Frontend design and development by New API contributors.'
+      )
+    ).toBeVisible()
+    expect(
+      within(footer).getByRole('link', { name: 'New API' })
+    ).toHaveAttribute('href', 'https://github.com/QuantumNous/new-api')
+    expect(within(footer).queryByText(/©.*New API/)).not.toBeInTheDocument()
+    await act(async () => {
+      await i18next.changeLanguage('zhCN')
+    })
+    expect(
+      within(footer).getByText('前端界面由 New API 贡献者设计与开发。')
+    ).toBeVisible()
+  })
   test('a configured URL keeps the existing sandboxed iframe', async () => {
     homeResponse.data = 'https://agent.example/home'
     await renderHome()

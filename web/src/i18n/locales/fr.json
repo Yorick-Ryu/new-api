@@ -8327,6 +8327,9 @@
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Votre niveau minimum est garanti. Vos performances réelles permettent de passer automatiquement aux niveaux supérieurs.",
     "Restore automatic levels before removing a minimum partner level": "Rétablissez les niveaux automatiques avant de supprimer un niveau minimum de partenaire",
     "Partner information": "Informations du partenaire",
-    "Level adjustment": "Modification du niveau"
+    "Level adjustment": "Modification du niveau",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "Interface conçue et développée par les contributeurs de New API.",
+    "Original homepage content and branding.": "Contenu original de la page d’accueil et identité de marque."
   }
 }

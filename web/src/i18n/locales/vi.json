@@ -8327,6 +8327,9 @@
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "Cấp tối thiểu được đảm bảo. Thành tích thực tế vẫn giúp tự động nâng lên cấp cao hơn.",
     "Restore automatic levels before removing a minimum partner level": "Khôi phục cấp tự động trước khi xóa cấp đối tác tối thiểu",
     "Partner information": "Thông tin đối tác",
-    "Level adjustment": "Điều chỉnh cấp độ"
+    "Level adjustment": "Điều chỉnh cấp độ",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "Giao diện được thiết kế và phát triển bởi những người đóng góp cho New API.",
+    "Original homepage content and branding.": "Nội dung gốc của trang chủ và nhận diện thương hiệu."
   }
 }

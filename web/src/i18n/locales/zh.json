@@ -8495,6 +8495,9 @@
     "Scan to contact Bei for API setup, top-ups, request errors or plan questions.": "API 配置、充值到账、调用异常或套餐咨询，都可以扫码联系小北。",
     "Mention “API support” when adding the contact and include the problem or an error screenshot. Try the left WeChat contact first; use the right backup contact if necessary.": "添加时备注「API 售后」，并附上遇到的问题或报错截图，方便定位处理。优先添加左侧微信；添加频繁时可使用右侧备用微信。",
     "Bei WeChat contact QR codes": "小北微信联系二维码",
-    "The WeChat QR codes could not be loaded. Refresh the page to retry.": "微信二维码暂时未能加载，请刷新页面后重试。"
+    "The WeChat QR codes could not be loaded. Refresh the page to retry.": "微信二维码暂时未能加载，请刷新页面后重试。",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "前端界面由 New API 贡献者设计与开发。",
+    "Original homepage content and branding.": "首页原创内容与品牌。"
   }
 }

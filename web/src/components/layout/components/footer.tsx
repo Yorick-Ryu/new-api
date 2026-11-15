@@ -39,6 +39,8 @@ interface FooterProps {
   name?: string
   columns?: FooterColumnProps[]
   copyright?: string
+  copyrightOwner?: string
+  attributionVariant?: 'copyright' | 'powered-by'
   className?: string
 }
 
@@ -123,22 +125,40 @@ function LegalLinks(props: { leadingSeparator?: boolean }) {
 
 // inline=true returns just the inner span for composition in a parent flex
 // row. inline=false wraps in a centered/right-aligned div (default).
-function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
+function ProjectAttribution(props: {
+  currentYear: number
+  inline?: boolean
+  variant?: 'copyright' | 'powered-by'
+}) {
   const { t } = useTranslation()
-  const content = (
+  const projectLink = (
+    <a
+      href='https://github.com/QuantumNous/new-api'
+      target='_blank'
+      rel='noopener noreferrer'
+      className='text-foreground/70 hover:text-foreground font-medium transition-colors'
+    >
+      {t('New API')}
+    </a>
+  )
+  let content = (
     <span className='text-muted-foreground/45'>
-      &copy; {props.currentYear}{' '}
-      <a
-        href='https://github.com/QuantumNous/new-api'
-        target='_blank'
-        rel='noopener noreferrer'
-        className='text-foreground/70 hover:text-foreground font-medium transition-colors'
-      >
-        {t('New API')}
-      </a>
-      . {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
+      &copy; {props.currentYear} {projectLink}.{' '}
+      {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
     </span>
   )
+  if (props.variant === 'powered-by') {
+    content = (
+      <span className='text-muted-foreground/60 inline-flex flex-col gap-1'>
+        <span>
+          <span>{t('Powered by')}</span> {projectLink}
+        </span>
+        <span>
+          {t('Frontend design and development by New API contributors.')}
+        </span>
+      </span>
+    )
+  }
   if (props.inline) {
     return content
   }
@@ -238,7 +258,11 @@ export function Footer(props: FooterProps) {
             />
             <div className='border-border/60 text-muted-foreground/45 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
               <LegalLinks />
-              <ProjectAttribution currentYear={currentYear} inline />
+              <ProjectAttribution
+                currentYear={currentYear}
+                variant={props.attributionVariant}
+                inline
+              />
             </div>
           </div>
         </div>
@@ -272,14 +296,14 @@ export function Footer(props: FooterProps) {
           {/* Links columns */}
           {isDemoSiteMode && (
             <div className='grid grid-cols-3 gap-8 md:gap-16'>
-              {displayColumns.map((column, index) => (
-                <div key={index}>
+              {displayColumns.map((column) => (
+                <div key={column.title}>
                   <p className='text-muted-foreground/50 mb-3 text-xs font-medium tracking-wider uppercase'>
                     {t(column.title)}
                   </p>
                   <ul className='space-y-2.5'>
-                    {column.links.map((link, linkIndex) => (
-                      <li key={linkIndex}>
+                    {column.links.map((link) => (
+                      <li key={`${link.href}:${link.text}`}>
                         <FooterLinkItem link={link} />
                       </li>
                     ))}
@@ -295,12 +319,15 @@ export function Footer(props: FooterProps) {
         <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-x-3 gap-y-2 border-t pt-6 sm:flex-row'>
           <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start'>
             <span>
-              &copy; {currentYear} {displayName}.{' '}
+              &copy; {currentYear} {props.copyrightOwner || displayName}.{' '}
               {props.copyright ?? t('footer.defaultCopyright')}
             </span>
             <LegalLinks leadingSeparator />
           </div>
-          <ProjectAttribution currentYear={currentYear} />
+          <ProjectAttribution
+            currentYear={currentYear}
+            variant={props.attributionVariant}
+          />
         </div>
       </div>
     </footer>

@@ -8327,6 +8327,9 @@
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "最低レベルは保証されます。実績に応じて自動的に上位レベルへ昇格できます。",
     "Restore automatic levels before removing a minimum partner level": "最低保証レベルを削除する前に自動レベルへ戻してください",
     "Partner information": "パートナー情報",
-    "Level adjustment": "レベル変更"
+    "Level adjustment": "レベル変更",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "フロントエンドのデザインと開発は New API のコントリビューターによるものです。",
+    "Original homepage content and branding.": "ホームページのオリジナルコンテンツおよびブランド。"
   }
 }

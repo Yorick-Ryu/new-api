@@ -8327,6 +8327,9 @@
     "Your minimum partner level is guaranteed. Higher levels are earned automatically through actual performance.": "保底等級有保障，真實業績達標後仍可自動升級。",
     "Restore automatic levels before removing a minimum partner level": "該等級仍被設為保底等級，請先恢復相關使用者的自動等級再刪除",
     "Partner information": "合夥人資訊",
-    "Level adjustment": "等級調整"
+    "Level adjustment": "等級調整",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "前端介面由 New API 貢獻者設計與開發。",
+    "Original homepage content and branding.": "首頁原創內容與品牌。"
   }
 }

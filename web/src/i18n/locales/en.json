@@ -8495,6 +8495,9 @@
     "Scan to contact Bei for API setup, top-ups, request errors or plan questions.": "Scan to contact Bei for API setup, top-ups, request errors or plan questions.",
     "Mention “API support” when adding the contact and include the problem or an error screenshot. Try the left WeChat contact first; use the right backup contact if necessary.": "Mention “API support” when adding the contact and include the problem or an error screenshot. Try the left WeChat contact first; use the right backup contact if necessary.",
     "Bei WeChat contact QR codes": "Bei WeChat contact QR codes",
-    "The WeChat QR codes could not be loaded. Refresh the page to retry.": "The WeChat QR codes could not be loaded. Refresh the page to retry."
+    "The WeChat QR codes could not be loaded. Refresh the page to retry.": "The WeChat QR codes could not be loaded. Refresh the page to retry.",
+    "Powered by": "Powered by",
+    "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
+    "Original homepage content and branding.": "Original homepage content and branding."
   }
 }
