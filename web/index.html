@@ -13,6 +13,24 @@
       content="Unified AI API gateway and admin dashboard."
     />
 
+    <meta name="theme-color" content="#fff" />
+    <!-- Resolve the theme before first paint so the page never flashes light
+         and one-shot detectors (e.g. Dark Reader) see the real theme.
+         Keep in sync with ThemeProvider and THEME_STORAGE_KEYS.mode. -->
+    <script>
+      ;(function () {
+        var theme = 'system'
+        try {
+          theme = localStorage.getItem('newapi:theme:v1:mode') || 'system'
+        } catch (e) {}
+        if (theme !== 'dark' && theme !== 'light') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        }
+        document.documentElement.classList.add(theme)
+      })()
+    </script>
     <!-- Apply the brand default before application scripts load. Keep this in
          sync with DEFAULT_SYSTEM_NAME; custom reverse-proxy titles are kept. -->
     <script>
@@ -30,24 +48,6 @@
           var title = document.querySelector('meta[name="title"]')
           if (title) title.setAttribute('content', name)
         }
-      })()
-    </script>
-    <meta name="theme-color" content="#fff" />
-    <!-- Resolve the theme before first paint so the page never flashes light
-         and one-shot detectors (e.g. Dark Reader) see the real theme.
-         Keep in sync with ThemeProvider and THEME_STORAGE_KEYS.mode. -->
-    <script>
-      ;(function () {
-        var theme = 'system'
-        try {
-          theme = localStorage.getItem('newapi:theme:v1:mode') || 'system'
-        } catch (e) {}
-        if (theme !== 'dark' && theme !== 'light') {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light'
-        }
-        document.documentElement.classList.add(theme)
       })()
     </script>
     <!--umami-->
