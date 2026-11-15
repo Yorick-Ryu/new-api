@@ -90,7 +90,7 @@ export function BeiAPIHome() {
                 {t('AI tools and access services for researchers')}
               </p>
               <h1 className='hero-h1' id='hero-title'>
-                {t('BeiAPI')}
+                {resolveSiteName('Bei API', i18n.language)}
               </h1>
               <p className='hero-copy'>
                 {t(

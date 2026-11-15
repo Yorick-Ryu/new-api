@@ -77,7 +77,7 @@ beforeEach(async () => {
   await i18next.changeLanguage('en')
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(STATUS_QUERY_KEY, {
-    system_name: 'BeiAPI',
+    system_name: 'Bei API',
     version: 'test',
   })
   useSystemConfigStore
@@ -103,7 +103,7 @@ describe('configured homepage rendering', () => {
     localStorage.setItem('home_page_content', 'https://old.example/home')
     await renderHome()
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
+      await screen.findByRole('heading', { level: 1, name: 'Bei API' })
     ).toBeVisible()
     expect(document.querySelector('iframe')).not.toBeInTheDocument()
     expect(localStorage.getItem('home_page_content')).toBeNull()
@@ -124,7 +124,7 @@ describe('configured homepage rendering', () => {
   test('homepage credits show the Bei API brand and link to the underlying project', async () => {
     await renderHome()
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
+      await screen.findByRole('heading', { level: 1, name: 'Bei API' })
     ).toBeVisible()
     const footer = document.querySelector('footer') as HTMLElement
     expect(within(footer).getByText(/©.*Bei API/)).toBeVisible()
@@ -196,7 +196,7 @@ describe('configured homepage rendering', () => {
   test('the native homepage omits the removed research-use footer note', async () => {
     await renderHome()
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
+      await screen.findByRole('heading', { level: 1, name: 'Bei API' })
     ).toBeVisible()
     expect(
       screen.queryByLabelText('Research use notice')
@@ -247,7 +247,7 @@ describe('configured homepage rendering', () => {
       'allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation-by-user-activation'
     )
     expect(
-      screen.queryByRole('heading', { level: 1, name: 'BeiAPI' })
+      screen.queryByRole('heading', { level: 1, name: 'Bei API' })
     ).not.toBeInTheDocument()
   })
   test('configured HTML keeps isolated rendering', async () => {
