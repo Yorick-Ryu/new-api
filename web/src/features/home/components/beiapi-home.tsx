@@ -27,7 +27,7 @@ import {
   Landmark,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -35,17 +35,29 @@ import { Footer } from '@/components/layout/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useDialogState } from '@/hooks/use-dialog'
+import { resolveSiteName } from '@/lib/constants'
 
 import '@/styles/beiapi-home.css'
 
 import { InstallationVideo } from './installation-video'
 
 export function BeiAPIHome() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [modal, setModal, modalHandlers] = useDialogState<
     'service' | 'community'
   >()
   const [qrError, setQrError] = useState(false)
+  const [footerVisible, setFooterVisible] = useState(false)
+  const homeRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const footer = homeRef.current?.querySelector('footer')
+    if (!footer || !('IntersectionObserver' in window)) return
+    const observer = new IntersectionObserver((entries) => {
+      setFooterVisible(entries.some((entry) => entry.isIntersecting))
+    })
+    observer.observe(footer)
+    return () => observer.disconnect()
+  }, [])
   return (
     <>
       <link
@@ -54,9 +66,10 @@ export function BeiAPIHome() {
         href='/beiapi-home/assets/3af3c5d013189f31.jpg'
         media='(min-width: 901px)'
       />
-      <main className='beiapi-home' id='top'>
+      <main ref={homeRef} className='beiapi-home' id='top'>
         <Button
           className='support-float'
+          hidden={footerVisible}
           type='button'
           aria-haspopup='dialog'
           aria-expanded={modal === 'community'}
@@ -911,7 +924,7 @@ export function BeiAPIHome() {
         <Footer
           compact
           columns={[]}
-          copyrightOwner='Bei API'
+          copyrightOwner={resolveSiteName('Bei API', i18n.language)}
           attributionVariant='based-on'
           description={t('AI tools and access services · For researchers')}
           copyright={t('Original homepage content and branding.')}

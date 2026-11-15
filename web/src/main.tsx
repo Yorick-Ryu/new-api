@@ -26,12 +26,17 @@ import { applySystemBranding } from '@/lib/dom-utils'
 import '@/lib/dayjs'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import { createAppQueryClient } from '@/lib/query-client'
-import { readCachedStatus, statusQueryOptions } from '@/lib/status-query'
+import {
+  readCachedStatus,
+  statusQueryOptions,
+  STATUS_QUERY_KEY,
+  type StatusData,
+} from '@/lib/status-query'
 
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
-import { i18nReady } from './i18n/config'
+import i18n, { i18nReady } from './i18n/config'
 // Generated Routes
 import { routeTree } from './routeTree.gen'
 
@@ -93,6 +98,13 @@ if (!rootElement) {
 // still resolves initialization with the bundled English fallback.
 void i18nReady
   .then(() => {
+    const syncBranding = () =>
+      applySystemBranding(
+        queryClient.getQueryData<StatusData>(STATUS_QUERY_KEY) ||
+          readCachedStatus()
+      )
+    i18n.on('languageChanged', syncBranding)
+    syncBranding()
     if (!rootElement.innerHTML) {
       const root = ReactDOM.createRoot(rootElement)
       root.render(

@@ -18,9 +18,17 @@
     <script>
       ;(function () {
         if (document.title === 'New API' || document.title === 'BEI API') {
-          document.title = 'Bei API'
+          var language = navigator.language || 'en'
+          try {
+            language = localStorage.getItem('i18nextLng') || language
+          } catch (e) {}
+          var name =
+            language.toLowerCase().indexOf('zh') === 0
+              ? '小北科研API'
+              : 'Bei API'
+          document.title = name
           var title = document.querySelector('meta[name="title"]')
-          if (title) title.setAttribute('content', 'Bei API')
+          if (title) title.setAttribute('content', name)
         }
       })()
     </script>

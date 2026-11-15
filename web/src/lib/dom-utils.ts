@@ -16,7 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { DEFAULT_LOGO, DEFAULT_SYSTEM_NAME } from '@/lib/constants'
+import i18next from 'i18next'
+
+import { DEFAULT_LOGO, resolveSiteName } from '@/lib/constants'
 import { mapStatusDataToConfig, type StatusData } from '@/lib/status-query'
 
 export function applyFaviconToDom(url: string) {
@@ -42,7 +44,10 @@ export function applySystemBranding(
 ): void {
   if (typeof document === 'undefined') return
   const config = mapStatusDataToConfig(status)
-  const name = config.systemName || DEFAULT_SYSTEM_NAME
+  const name = resolveSiteName(
+    config.systemName,
+    i18next.language || navigator.language
+  )
   document.title = name
   document.querySelector('meta[name="title"]')?.setAttribute('content', name)
   applyFaviconToDom(config.logo || DEFAULT_LOGO)

@@ -83,6 +83,7 @@ beforeEach(async () => {
   useSystemConfigStore
     .getState()
     .setConfig({ systemName: 'BeiAPI', footerHtml: '', demoSiteEnabled: false })
+  useSystemConfigStore.getState().setLoading(false)
   homeResponse.data = ''
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/home_page_content') return { data: { ...homeResponse } }
@@ -92,6 +93,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   client.clear()
+  vi.unstubAllGlobals()
   localStorage.clear()
   await i18next.changeLanguage('en')
 })
@@ -143,6 +145,21 @@ describe('configured homepage rendering', () => {
     expect(
       within(footer).getByRole('link', { name: '基于 New API 设计与开发' })
     ).toBeVisible()
+    expect(within(footer).getByText('小北科研API')).toBeVisible()
+    expect(
+      within(document.querySelector('header') as HTMLElement).getByText(
+        '小北科研API'
+      )
+    ).toBeVisible()
+    await act(async () => {
+      await i18next.changeLanguage('en')
+    })
+    expect(within(footer).getByText('Bei API')).toBeVisible()
+    expect(
+      within(document.querySelector('header') as HTMLElement).getByText(
+        'Bei API'
+      )
+    ).toBeVisible()
   })
   test('open-source attribution keeps the original contributor notice and closes by Escape', async () => {
     const user = userEvent.setup()
@@ -184,6 +201,41 @@ describe('configured homepage rendering', () => {
     expect(
       screen.queryByLabelText('Research use notice')
     ).not.toBeInTheDocument()
+  })
+  test('floating support stops covering footer controls when the footer is visible', async () => {
+    let notify: IntersectionObserverCallback | undefined
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        callback: IntersectionObserverCallback
+        constructor(callback: IntersectionObserverCallback) {
+          this.callback = callback
+        }
+        observe(target: Element) {
+          if (target.tagName === 'FOOTER') notify = this.callback
+        }
+        disconnect() {}
+      }
+    )
+    await renderHome()
+    const support = await screen.findByRole('button', {
+      name: 'After-sales support: scan to contact Bei on WeChat',
+    })
+    expect(support).toBeVisible()
+    await act(async () => {
+      notify?.(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      )
+    })
+    expect(support).not.toBeVisible()
+    await act(async () => {
+      notify?.(
+        [{ isIntersecting: false } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      )
+    })
+    expect(support).toBeVisible()
   })
   test('a configured URL keeps the existing sandboxed iframe', async () => {
     homeResponse.data = 'https://agent.example/home'

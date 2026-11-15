@@ -31,6 +31,7 @@ import { SystemUpdateAction } from '@/features/system-update/system-update-actio
 import { useNotifications } from '@/hooks/use-notifications'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
+import { resolveSiteName } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -74,7 +75,7 @@ export function PublicHeader(props: PublicHeaderProps) {
     showNotifications = true,
   } = props
 
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -96,7 +97,8 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   const user = auth.user
   const isAuthenticated = !!user
-  const displaySiteName = customSiteName || systemName
+  const displaySiteName =
+    customSiteName || resolveSiteName(systemName, i18n.language)
   const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
 
   let logoContent: ReactNode = (

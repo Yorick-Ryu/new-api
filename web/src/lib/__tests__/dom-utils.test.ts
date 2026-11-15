@@ -16,9 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import i18next from 'i18next'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
-import { DEFAULT_LOGO } from '@/lib/constants'
+import { DEFAULT_LOGO, resolveSiteName } from '@/lib/constants'
 import { applySystemBranding } from '@/lib/dom-utils'
 
 let originalHead: string
@@ -68,5 +69,35 @@ describe('tab branding', () => {
       'href',
       'https://agent.example/logo.svg'
     )
+  })
+})
+
+describe('localized site brand', () => {
+  test.each([
+    ['zhCN', '小北科研API'],
+    ['zhTW', '小北科研API'],
+    ['en', 'Bei API'],
+    ['fr', 'Bei API'],
+    ['ru', 'Bei API'],
+    ['ja', 'Bei API'],
+    ['vi', 'Bei API'],
+  ])('uses the localized site name for %s', (language, expected) => {
+    expect(resolveSiteName('Bei API', language)).toBe(expected)
+    expect(resolveSiteName('小北科研API', language)).toBe(expected)
+    expect(resolveSiteName('Agent Research API', language)).toBe(
+      'Agent Research API'
+    )
+  })
+  test('switching between Chinese and English updates the tab name', async () => {
+    try {
+      await i18next.changeLanguage('zhCN')
+      applySystemBranding({ system_name: 'New API', logo: '/logo.png' })
+      expect(document.title).toBe('小北科研API')
+      await i18next.changeLanguage('en')
+      applySystemBranding({ system_name: 'New API', logo: '/logo.png' })
+      expect(document.title).toBe('Bei API')
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

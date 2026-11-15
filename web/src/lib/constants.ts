@@ -26,6 +26,18 @@ import beiapiLogo from '@/assets/brand/beiapi.svg'
 export const DEFAULT_SYSTEM_NAME = 'Bei API'
 export const DEFAULT_LOGO = beiapiLogo
 
+// Localize this site's proper name while preserving configured agent brands.
+export function resolveSiteName(
+  name: string | undefined,
+  language: string
+): string {
+  const ownNames = ['New API', 'Bei API', 'BEI API', 'BeiAPI', '小北科研API']
+  if (name && !ownNames.includes(name)) return name
+  return language.toLowerCase().startsWith('zh')
+    ? '小北科研API'
+    : DEFAULT_SYSTEM_NAME
+}
+
 // LocalStorage Keys
 export const STORAGE_KEYS = {
   SYSTEM_NAME: 'system_name',

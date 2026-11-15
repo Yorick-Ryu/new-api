@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { useDialog } from '@/hooks/use-dialog'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import { resolveSiteName } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 interface FooterLink {
@@ -203,7 +204,7 @@ function ProjectAttribution(props: {
 }
 
 export function Footer(props: FooterProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const {
     systemName,
     logo: systemLogo,
@@ -212,7 +213,7 @@ export function Footer(props: FooterProps) {
   } = useSystemConfig()
 
   const displayLogo = systemLogo || props.logo || '/logo.png'
-  const displayName = systemName || props.name || 'New API'
+  const displayName = resolveSiteName(systemName || props.name, i18n.language)
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
 
