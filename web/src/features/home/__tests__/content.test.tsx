@@ -105,10 +105,11 @@ describe('configured homepage rendering', () => {
     ).toBeVisible()
     expect(document.querySelector('iframe')).not.toBeInTheDocument()
     expect(localStorage.getItem('home_page_content')).toBeNull()
-    expect(screen.getByRole('link', { name: 'New API' })).toHaveAttribute(
-      'href',
-      'https://github.com/QuantumNous/new-api'
-    )
+    expect(
+      screen.getByRole('link', {
+        name: 'Designed and developed based on New API.',
+      })
+    ).toHaveAttribute('href', 'https://github.com/QuantumNous/new-api')
     expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute(
       'href',
       '/sign-in'
@@ -118,32 +119,71 @@ describe('configured homepage rendering', () => {
       screen.queryByRole('img', { name: 'Bei WeChat contact QR codes' })
     ).not.toBeInTheDocument()
   })
-  test('homepage credits distinguish BeiAPI content from the underlying New API project', async () => {
-    useSystemConfigStore
-      .getState()
-      .setConfig({ systemName: 'Local test system' })
+  test('homepage credits show the Bei API brand and link to the underlying project', async () => {
     await renderHome()
     expect(
       await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
     ).toBeVisible()
     const footer = document.querySelector('footer') as HTMLElement
-    expect(within(footer).getByText(/©.*BEI API/)).toBeVisible()
-    expect(within(footer).getByText('Powered by')).toBeVisible()
+    expect(within(footer).getByText(/©.*Bei API/)).toBeVisible()
     expect(
-      within(footer).getByText(
-        'Frontend design and development by New API contributors.'
-      )
+      within(footer).getByText('AI tools and access services · For researchers')
     ).toBeVisible()
     expect(
-      within(footer).getByRole('link', { name: 'New API' })
+      within(footer).queryByText('Powerful API Management Platform')
+    ).not.toBeInTheDocument()
+    expect(
+      within(footer).getByRole('link', {
+        name: 'Designed and developed based on New API.',
+      })
     ).toHaveAttribute('href', 'https://github.com/QuantumNous/new-api')
-    expect(within(footer).queryByText(/©.*New API/)).not.toBeInTheDocument()
     await act(async () => {
       await i18next.changeLanguage('zhCN')
     })
     expect(
-      within(footer).getByText('前端界面由 New API 贡献者设计与开发。')
+      within(footer).getByRole('link', { name: '基于 New API 设计与开发' })
     ).toBeVisible()
+  })
+  test('open-source attribution keeps the original contributor notice and closes by Escape', async () => {
+    const user = userEvent.setup()
+    await renderHome()
+    const trigger = await screen.findByRole('button', {
+      name: 'Open-source attribution',
+    })
+    await user.click(trigger)
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Open-source attribution',
+    })
+    expect(
+      within(dialog).getByText(
+        'Frontend design and development by New API contributors.'
+      )
+    ).toBeVisible()
+    expect(
+      within(dialog).getByText(
+        'Underlying software: New API. Copyright QuantumNous and contributors.'
+      )
+    ).toBeVisible()
+    expect(
+      within(dialog).getByRole('link', { name: 'GNU AGPLv3' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/QuantumNous/new-api/blob/main/LICENSE'
+    )
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(trigger).toHaveFocus()
+  })
+  test('the native homepage omits the removed research-use footer note', async () => {
+    await renderHome()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'BeiAPI' })
+    ).toBeVisible()
+    expect(
+      screen.queryByLabelText('Research use notice')
+    ).not.toBeInTheDocument()
   })
   test('a configured URL keeps the existing sandboxed iframe', async () => {
     homeResponse.data = 'https://agent.example/home'

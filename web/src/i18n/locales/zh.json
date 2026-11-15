@@ -8498,6 +8498,9 @@
     "The WeChat QR codes could not be loaded. Refresh the page to retry.": "微信二维码暂时未能加载，请刷新页面后重试。",
     "Powered by": "Powered by",
     "Frontend design and development by New API contributors.": "前端界面由 New API 贡献者设计与开发。",
-    "Original homepage content and branding.": "首页原创内容与品牌。"
+    "Original homepage content and branding.": "首页原创内容与品牌。",
+    "Designed and developed based on New API.": "基于 New API 设计与开发",
+    "Open-source attribution": "开源说明",
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "底层软件：New API。版权归 QuantumNous 及贡献者所有。"
   }
 }

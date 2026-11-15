@@ -13,6 +13,17 @@
       content="Unified AI API gateway and admin dashboard."
     />
 
+    <!-- Apply the brand default before application scripts load. Keep this in
+         sync with DEFAULT_SYSTEM_NAME; custom reverse-proxy titles are kept. -->
+    <script>
+      ;(function () {
+        if (document.title === 'New API' || document.title === 'BEI API') {
+          document.title = 'Bei API'
+          var title = document.querySelector('meta[name="title"]')
+          if (title) title.setAttribute('content', 'Bei API')
+        }
+      })()
+    </script>
     <meta name="theme-color" content="#fff" />
     <!-- Resolve the theme before first paint so the page never flashes light
          and one-shot detectors (e.g. Dark Reader) see the real theme.

@@ -8330,6 +8330,9 @@
     "Level adjustment": "Modification du niveau",
     "Powered by": "Powered by",
     "Frontend design and development by New API contributors.": "Interface conçue et développée par les contributeurs de New API.",
-    "Original homepage content and branding.": "Contenu original de la page d’accueil et identité de marque."
+    "Original homepage content and branding.": "Contenu original de la page d’accueil et identité de marque.",
+    "Designed and developed based on New API.": "Conçu et développé à partir de New API.",
+    "Open-source attribution": "Mentions des logiciels libres",
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "Logiciel sous-jacent : New API. Copyright QuantumNous et contributeurs."
   }
 }

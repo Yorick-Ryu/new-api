@@ -20,6 +20,9 @@ import { Link } from '@tanstack/react-router'
 import { Fragment, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Dialog } from '@/components/dialog'
+import { Button } from '@/components/ui/button'
+import { useDialog } from '@/hooks/use-dialog'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { cn } from '@/lib/utils'
@@ -39,8 +42,10 @@ interface FooterProps {
   name?: string
   columns?: FooterColumnProps[]
   copyright?: string
+  description?: string
+  compact?: boolean
   copyrightOwner?: string
-  attributionVariant?: 'copyright' | 'powered-by'
+  attributionVariant?: 'copyright' | 'based-on'
   className?: string
 }
 
@@ -128,9 +133,10 @@ function LegalLinks(props: { leadingSeparator?: boolean }) {
 function ProjectAttribution(props: {
   currentYear: number
   inline?: boolean
-  variant?: 'copyright' | 'powered-by'
+  variant?: 'copyright' | 'based-on'
 }) {
   const { t } = useTranslation()
+  const [isOpen, dialog] = useDialog()
   const projectLink = (
     <a
       href='https://github.com/QuantumNous/new-api'
@@ -138,7 +144,9 @@ function ProjectAttribution(props: {
       rel='noopener noreferrer'
       className='text-foreground/70 hover:text-foreground font-medium transition-colors'
     >
-      {t('New API')}
+      {props.variant === 'based-on'
+        ? t('Designed and developed based on New API.')
+        : t('New API')}
     </a>
   )
   let content = (
@@ -147,15 +155,40 @@ function ProjectAttribution(props: {
       {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
     </span>
   )
-  if (props.variant === 'powered-by') {
+  if (props.variant === 'based-on') {
     content = (
-      <span className='text-muted-foreground/60 inline-flex flex-col gap-1'>
-        <span>
-          <span>{t('Powered by')}</span> {projectLink}
-        </span>
-        <span>
-          {t('Frontend design and development by New API contributors.')}
-        </span>
+      <span className='text-muted-foreground/60 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-end'>
+        {projectLink}
+        <Button
+          variant='link'
+          className='text-muted-foreground h-auto p-0 text-xs'
+          onClick={dialog.open}
+        >
+          {t('Open-source attribution')}
+        </Button>
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            if (!open) dialog.close()
+          }}
+          title={t('Open-source attribution')}
+          bodyClassName='space-y-3'
+        >
+          <p>
+            {t(
+              'Underlying software: New API. Copyright QuantumNous and contributors.'
+            )}
+          </p>
+          <p>{t('Frontend design and development by New API contributors.')}</p>
+          <a
+            href='https://github.com/QuantumNous/new-api/blob/main/LICENSE'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary underline'
+          >
+            GNU AGPLv3
+          </a>
+        </Dialog>
       </span>
     )
   }
@@ -274,7 +307,12 @@ export function Footer(props: FooterProps) {
     <footer
       className={cn('border-border/40 relative z-10 border-t', props.className)}
     >
-      <div className='mx-auto max-w-6xl px-6 py-12 md:py-16'>
+      <div
+        className={cn(
+          'mx-auto max-w-6xl px-6 py-12 md:py-16',
+          props.compact && 'py-6 md:py-6'
+        )}
+      >
         <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
           {/* Brand column */}
           <div className='shrink-0'>
@@ -289,7 +327,7 @@ export function Footer(props: FooterProps) {
               </span>
             </Link>
             <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-xs leading-relaxed'>
-              {t('Powerful API Management Platform')}
+              {props.description ?? t('Powerful API Management Platform')}
             </p>
           </div>
 
@@ -316,7 +354,12 @@ export function Footer(props: FooterProps) {
 
         {/* Copyright + optional legal links inline on the left, project
             attribution on the right; wraps on narrow screens. */}
-        <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-x-3 gap-y-2 border-t pt-6 sm:flex-row'>
+        <div
+          className={cn(
+            'border-border/30 mt-12 flex flex-col items-center justify-between gap-x-3 gap-y-2 border-t pt-6 sm:flex-row',
+            props.compact && 'mt-6 pt-4'
+          )}
+        >
           <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start'>
             <span>
               &copy; {currentYear} {props.copyrightOwner || displayName}.{' '}

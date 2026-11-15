@@ -1030,7 +1030,7 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--muted-foreground);
 }
 .beiapi-home .final-cta {
-  padding-block: 64px;
+  padding: 48px 0 24px;
 }
 .beiapi-home .final-cta > .wrap {
   border: 1px solid var(--border);
@@ -1051,19 +1051,6 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .final-cta .btn-row {
   justify-content: center;
-}
-.beiapi-home .site-use-note {
-  margin-top: 20px;
-}
-.beiapi-home .site-use-note p {
-  font-size: 11px;
-  line-height: 1.85;
-  color: var(--muted-foreground);
-}
-.beiapi-home .site-use-note strong {
-  font-weight: 550;
-  color: var(--foreground);
-  margin-right: 8px;
 }
 .beiapi-home .support-float {
   position: fixed;
@@ -1620,7 +1607,7 @@ For commercial licensing, please contact support@quantumnous.com
     font-size: 10px;
   }
   .beiapi-home .final-cta {
-    padding-block: 40px;
+    padding: 32px 0 16px;
   }
   .beiapi-home .final-cta > .wrap {
     padding: 28px 20px;
@@ -1633,9 +1620,6 @@ For commercial licensing, please contact support@quantumnous.com
   }
   .beiapi-home .final-cta .btn-row .btn {
     width: 100%;
-  }
-  .beiapi-home .site-use-note p {
-    font-size: 10px;
   }
   .beiapi-home .support-float {
     bottom: 12px;

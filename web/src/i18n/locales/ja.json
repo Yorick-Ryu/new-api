@@ -8330,6 +8330,9 @@
     "Level adjustment": "レベル変更",
     "Powered by": "Powered by",
     "Frontend design and development by New API contributors.": "フロントエンドのデザインと開発は New API のコントリビューターによるものです。",
-    "Original homepage content and branding.": "ホームページのオリジナルコンテンツおよびブランド。"
+    "Original homepage content and branding.": "ホームページのオリジナルコンテンツおよびブランド。",
+    "Designed and developed based on New API.": "New API を基に設計・開発されています。",
+    "Open-source attribution": "オープンソース表記",
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "基盤ソフトウェア：New API。著作権は QuantumNous およびコントリビューターに帰属します。"
   }
 }

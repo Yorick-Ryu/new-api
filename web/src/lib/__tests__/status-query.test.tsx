@@ -286,3 +286,17 @@ describe('BeiAPI bundled site logo', () => {
     }
   )
 })
+
+describe('Bei API site name defaults', () => {
+  test.each([undefined, '', 'New API'])(
+    'uses Bei API for an unconfigured or upstream default name %s',
+    (system_name) => {
+      expect(mapStatusDataToConfig({ system_name }).systemName).toBe('Bei API')
+    }
+  )
+  test('keeps an agent site configured name', () => {
+    expect(
+      mapStatusDataToConfig({ system_name: 'Agent Research API' }).systemName
+    ).toBe('Agent Research API')
+  })
+})

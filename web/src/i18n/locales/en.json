@@ -8498,6 +8498,9 @@
     "The WeChat QR codes could not be loaded. Refresh the page to retry.": "The WeChat QR codes could not be loaded. Refresh the page to retry.",
     "Powered by": "Powered by",
     "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
-    "Original homepage content and branding.": "Original homepage content and branding."
+    "Original homepage content and branding.": "Original homepage content and branding.",
+    "Designed and developed based on New API.": "Designed and developed based on New API.",
+    "Open-source attribution": "Open-source attribution",
+    "Underlying software: New API. Copyright QuantumNous and contributors.": "Underlying software: New API. Copyright QuantumNous and contributors."
   }
 }

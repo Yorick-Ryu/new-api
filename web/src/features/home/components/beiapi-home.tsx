@@ -908,21 +908,12 @@ export function BeiAPIHome() {
             </div>
           </div>
         </section>
-        <div
-          className='wrap site-use-note'
-          aria-label={t('Research use notice')}
-        >
-          <p>
-            <strong>{t('Research use notice')}</strong>
-            {t(
-              'This service assists research and learning. AI output may be incorrect; independently verify facts, citations and conclusions. Follow applicable laws, service terms and academic standards.'
-            )}
-          </p>
-        </div>
         <Footer
+          compact
           columns={[]}
-          copyrightOwner='BEI API'
-          attributionVariant='powered-by'
+          copyrightOwner='Bei API'
+          attributionVariant='based-on'
+          description={t('AI tools and access services · For researchers')}
           copyright={t('Original homepage content and branding.')}
         />
       </main>

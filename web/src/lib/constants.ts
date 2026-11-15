@@ -23,7 +23,7 @@ import beiapiLogo from '@/assets/brand/beiapi.svg'
  */
 
 // System Configuration Defaults
-export const DEFAULT_SYSTEM_NAME = 'New API'
+export const DEFAULT_SYSTEM_NAME = 'Bei API'
 export const DEFAULT_LOGO = beiapiLogo
 
 // LocalStorage Keys

@@ -99,8 +99,14 @@ export function mapStatusDataToConfig(
     configuredLogo === 'https://beiapi.cn/beiapi-assets/logo-north.svg' ||
     configuredLogo === 'https://www.beiapi.cn/beiapi-assets/logo-north.svg'
 
+  const configuredName =
+    typeof data.system_name === 'string' ? data.system_name.trim() : ''
+
   return {
-    systemName: (data.system_name as string | undefined) || DEFAULT_SYSTEM_NAME,
+    systemName:
+      configuredName && configuredName !== 'New API'
+        ? configuredName
+        : DEFAULT_SYSTEM_NAME,
     logo: useBundledLogo ? DEFAULT_LOGO : configuredLogo,
     footerHtml: data.footer_html as string | undefined,
     demoSiteEnabled: data.demo_site_enabled as boolean | undefined,
