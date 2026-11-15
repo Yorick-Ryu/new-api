@@ -162,7 +162,7 @@ function ProjectAttribution(props: {
         {projectLink}
         <Button
           variant='link'
-          className='text-muted-foreground h-auto p-0 text-xs'
+          className='text-muted-foreground/60 hover:text-muted-foreground/80 h-auto p-0 text-xs'
           onClick={dialog.open}
         >
           {t('Open-source attribution')}
