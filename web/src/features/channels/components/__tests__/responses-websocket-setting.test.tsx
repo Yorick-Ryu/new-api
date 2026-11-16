@@ -203,10 +203,12 @@ test.each([false, true])(
     expect(values.responses_websocket_enabled).toBe(enabled)
     expect(values.responses_transport).toBe(enabled ? 'both' : 'http')
     const payload = transformFormDataToUpdatePayload(values, channel.id)
-    expect(JSON.parse(payload.setting!).responses_websocket_enabled).toBe(
+    assert(typeof payload.setting === 'string')
+    assert(typeof payload.settings === 'string')
+    expect(JSON.parse(payload.setting).responses_websocket_enabled).toBe(
       enabled
     )
-    expect(JSON.parse(payload.settings!).responses_websocket_enabled).toBe(
+    expect(JSON.parse(payload.settings).responses_websocket_enabled).toBe(
       enabled
     )
     const reloaded = transformChannelToFormDefaults({ ...channel, ...payload })

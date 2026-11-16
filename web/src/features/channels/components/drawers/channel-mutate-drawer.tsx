@@ -201,10 +201,7 @@ import {
   supportsNewAPIUpstream,
 } from '../../lib/channel-plugin-extensions'
 import { getChannelTypeConfig } from '../../lib/channel-type-config'
-import {
-  normalizeResponsesTransport,
-  supportsResponsesWebSocket,
-} from '../../lib/responses-websocket'
+import { normalizeResponsesTransport } from '../../lib/responses-websocket'
 import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
