@@ -240,6 +240,7 @@ test.each([
               defaultValues={{
                 LogConsumeEnabled: true,
                 LogResponseModelDisplayMode: initial,
+                'system_task_setting.retention_days': 30,
                 'log_setting.user_export_enabled': true,
                 'log_setting.max_range_days': 30,
               }}
