@@ -2,24 +2,44 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 func useFrontendOptionMigrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	previousDB := DB
 	previousType := common.MainDatabaseType()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	dialect := common.DatabaseType(os.Getenv("TEST_TASK_DB_DIALECT"))
+	var driver gorm.Dialector
+	switch dialect {
+	case "", common.DatabaseTypeSQLite:
+		dialect = common.DatabaseTypeSQLite
+		driver = sqlite.Open(":memory:")
+	case common.DatabaseTypeMySQL:
+		require.NotEmpty(t, os.Getenv("TEST_MYSQL_DSN"))
+		driver = mysql.Open(os.Getenv("TEST_MYSQL_DSN"))
+	case common.DatabaseTypePostgreSQL:
+		require.NotEmpty(t, os.Getenv("TEST_POSTGRES_DSN"))
+		driver = postgres.New(postgres.Config{DSN: os.Getenv("TEST_POSTGRES_DSN"), PreferSimpleProtocol: true})
+	default:
+		t.Fatalf("unsupported test dialect %q", dialect)
+	}
+	db, err := gorm.Open(driver, &gorm.Config{NamingStrategy: schema.NamingStrategy{TablePrefix: fmt.Sprintf("option_migration_%d_", time.Now().UnixNano())}})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&Option{}))
 	DB = db
-	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	common.SetMainDatabaseType(dialect)
 	t.Cleanup(func() {
 		DB = previousDB
 		common.SetMainDatabaseType(previousType)
