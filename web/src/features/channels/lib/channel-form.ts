@@ -522,12 +522,15 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
 export function transformChannelToFormDefaults(
   channel: Channel
 ): ChannelFormValues {
+  const canUseResponsesWebSocket =
+    supportsResponsesWebSocket(channel.type) ||
+    channel.type === CHANNEL_TYPE_TASK_PLUGIN
   // Either legacy settings field can contain the original explicit opt-in.
   // Preserve it when saving the newer field, while keeping explicit false.
   const responsesWebSocketDefault =
     responsesWebSocketDefaultEnabled(channel.type) ||
     [channel.setting, channel.settings].some((settings) => {
-      if (!settings || !supportsResponsesWebSocket(channel.type)) return false
+      if (!settings || !canUseResponsesWebSocket) return false
       try {
         return JSON.parse(settings).responses_websocket_enabled === true
       } catch {
@@ -575,7 +578,7 @@ export function transformChannelToFormDefaults(
         tls_insecure_skip_verify: parsed.tls_insecure_skip_verify === true,
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         responses_websocket_enabled:
-          supportsResponsesWebSocket(channel.type) &&
+          canUseResponsesWebSocket &&
           (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
             true,
         system_prompt: parsed.system_prompt || '',
@@ -622,7 +625,7 @@ export function transformChannelToFormDefaults(
       azureResponsesVersion = parsed.azure_responses_version || ''
       const responsesHTTPEnabled = parsed.responses_http_enabled !== false
       const responsesWebSocketEnabled =
-        supportsResponsesWebSocket(channel.type) &&
+        canUseResponsesWebSocket &&
         (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
           true
       if (responsesHTTPEnabled && responsesWebSocketEnabled) {
@@ -811,7 +814,9 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
   }
 
   switch (
-    normalizeResponsesTransport(formData.type, formData.responses_transport)
+    formData.type === CHANNEL_TYPE_TASK_PLUGIN
+      ? formData.responses_transport
+      : normalizeResponsesTransport(formData.type, formData.responses_transport)
   ) {
     case 'http':
       settingsObj.responses_http_enabled = true
@@ -830,9 +835,9 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       if (responsesWebSocketDefaultEnabled(formData.type)) {
         delete settingsObj.responses_websocket_enabled
       } else {
-        settingsObj.responses_websocket_enabled = supportsResponsesWebSocket(
-          formData.type
-        )
+        settingsObj.responses_websocket_enabled =
+          supportsResponsesWebSocket(formData.type) ||
+          formData.type === CHANNEL_TYPE_TASK_PLUGIN
       }
   }
 

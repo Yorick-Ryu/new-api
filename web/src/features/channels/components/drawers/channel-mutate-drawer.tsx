@@ -2432,14 +2432,14 @@ export function ChannelMutateDrawer({
               <SelectContent>
                 <SelectItem
                   value='both'
-                  disabled={!supportsResponsesWebSocket(currentType)}
+                  disabled={!responsesWebsocketSupported}
                 >
                   {t('HTTP and WebSocket')}
                 </SelectItem>
                 <SelectItem value='http'>{t('HTTP only')}</SelectItem>
                 <SelectItem
                   value='websocket'
-                  disabled={!supportsResponsesWebSocket(currentType)}
+                  disabled={!responsesWebsocketSupported}
                 >
                   {t('WebSocket only')}
                 </SelectItem>

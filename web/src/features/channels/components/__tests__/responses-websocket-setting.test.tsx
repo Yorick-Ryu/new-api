@@ -179,3 +179,38 @@ describe('Responses WebSocket channel setting', () => {
     expect(toggle).toBeChecked()
   })
 })
+
+test.each([false, true])(
+  'plugin WebSocket opt-in %s survives saving both setting formats',
+  (enabled) => {
+    const channel = channelSchema.parse({
+      id: 61,
+      name: 'Plugin relay',
+      key: '',
+      type: 61,
+      status: 1,
+      created_time: 0,
+      test_time: 0,
+      response_time: 0,
+      balance_updated_time: 0,
+      setting: JSON.stringify({
+        task_plugin_key: 'native',
+        responses_websocket_enabled: enabled,
+      }),
+      settings: '{}',
+    })
+    const values = transformChannelToFormDefaults(channel)
+    expect(values.responses_websocket_enabled).toBe(enabled)
+    expect(values.responses_transport).toBe(enabled ? 'both' : 'http')
+    const payload = transformFormDataToUpdatePayload(values, channel.id)
+    expect(JSON.parse(payload.setting!).responses_websocket_enabled).toBe(
+      enabled
+    )
+    expect(JSON.parse(payload.settings!).responses_websocket_enabled).toBe(
+      enabled
+    )
+    const reloaded = transformChannelToFormDefaults({ ...channel, ...payload })
+    expect(reloaded.responses_websocket_enabled).toBe(enabled)
+    expect(reloaded.responses_transport).toBe(enabled ? 'both' : 'http')
+  }
+)
