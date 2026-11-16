@@ -18,10 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense } from 'react'
-import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
-import { Footer } from '@/components/layout/components/footer'
+import { PublicFooter } from '@/components/layout/components/public-footer'
 import { useStatus } from '@/hooks/use-status'
 import { getModuleAccessFromStatus } from '@/lib/nav-modules'
 import { useAuthStore } from '@/stores/auth-store'
@@ -37,7 +36,6 @@ const Wallet = lazy(() =>
 )
 
 export function Plans() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.auth.user)
   const { status } = useStatus()
@@ -70,11 +68,7 @@ export function Plans() {
           guestPage
         )}
       </div>
-      <Footer
-        compact
-        attributionVariant='based-on'
-        description={t('AI tools and access services · For researchers')}
-      />
+      <PublicFooter />
     </PublicLayout>
   )
 }

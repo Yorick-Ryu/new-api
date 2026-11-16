@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
-import { Footer } from '@/components/layout/components/footer'
+import { PublicFooter } from '@/components/layout/components/public-footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useDialogState } from '@/hooks/use-dialog'
@@ -49,7 +49,7 @@ export function BeiAPIHome() {
   >()
   const [qrError, setQrError] = useState(false)
   const [footerVisible, setFooterVisible] = useState(false)
-  const homeRef = useRef<HTMLElement>(null)
+  const homeRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const footer = homeRef.current?.querySelector('footer')
     if (!footer || !('IntersectionObserver' in window)) return
@@ -60,14 +60,14 @@ export function BeiAPIHome() {
     return () => observer.disconnect()
   }, [])
   return (
-    <>
+    <div ref={homeRef}>
       <link
         rel='preload'
         as='image'
         href='/beiapi-home/assets/3af3c5d013189f31.jpg'
         media='(min-width: 901px)'
       />
-      <main ref={homeRef} className='beiapi-home' id='top'>
+      <main className='beiapi-home' id='top'>
         <Button
           className='support-float'
           hidden={footerVisible}
@@ -922,15 +922,8 @@ export function BeiAPIHome() {
             </div>
           </div>
         </section>
-        <Footer
-          compact
-          columns={[]}
-          copyrightOwner={systemName}
-          attributionVariant='based-on'
-          description={t('AI tools and access services · For researchers')}
-          copyright={t('Original homepage content and branding.')}
-        />
       </main>
+      <PublicFooter />
       <Dialog
         open={modalHandlers.isOpen}
         onOpenChange={(open) => {
@@ -1063,6 +1056,6 @@ export function BeiAPIHome() {
           </>
         )}
       </Dialog>
-    </>
+    </div>
   )
 }

@@ -501,9 +501,6 @@
     .hero {
       padding: 113px 0 45px;
     }
-    .footer {
-      margin-inline: 24px;
-    }
     .questions {
       grid-template-columns: 1fr;
     }
@@ -667,18 +664,6 @@
     .faq-trigger {
       font-size: 0.75rem;
       padding-block: 17px;
-    }
-    .footer {
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-inline: 18px;
-    }
-    .footer p {
-      order: 3;
-      width: 100%;
-    }
-    .footer > .text-link {
-      margin-left: auto;
     }
     .dialog {
       padding: 25px;

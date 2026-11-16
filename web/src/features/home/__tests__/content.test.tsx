@@ -126,7 +126,8 @@ describe('configured homepage rendering', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Bei API' })
     ).toBeVisible()
-    const footer = document.querySelector('footer') as HTMLElement
+    const footer = screen.getByRole('contentinfo')
+    expect(footer.closest('.beiapi-home')).toBeNull()
     expect(within(footer).getByText(/©.*Bei API/)).toBeVisible()
     expect(
       within(footer).getByText('AI tools and access services · For researchers')
