@@ -72,8 +72,7 @@ export function ResearchHub() {
     if (!map) return
     const center = map.querySelector<HTMLElement>('.research-hub-logo-frame')
     const nodes = [...map.querySelectorAll<HTMLElement>('.research-hub-node')]
-    const icons = [...map.querySelectorAll<HTMLElement>('.research-hub-icon')]
-    if (!center || icons.length !== capabilities.length) return
+    if (!center || nodes.length !== capabilities.length) return
 
     const measure = () => {
       const bounds = map.getBoundingClientRect()
@@ -81,19 +80,20 @@ export function ResearchHub() {
       if (!bounds.width) return
       const stacked = hub.bottom <= nodes[0].getBoundingClientRect().top
       setPaths(
-        icons.map((icon, index) => {
-          const box = icon.getBoundingClientRect()
+        nodes.map((node, index) => {
+          const box = node.getBoundingClientRect()
           const left = index % 2 === 0
+          if (stacked) {
+            const x = box.left + box.width / 2 - bounds.left
+            const y = box.top - bounds.top
+            const cx = (left ? hub.left : hub.right) - bounds.left
+            const cy = hub.top + hub.height / 2 - bounds.top
+            return `M ${cx} ${cy} C ${x} ${cy}, ${x} ${y - 24}, ${x} ${y}`
+          }
           const x = (left ? box.right : box.left) - bounds.left
           const y = box.top + box.height / 2 - bounds.top
           const cx = (left ? hub.left : hub.right) - bounds.left
           const cy = hub.top + hub.height / 2 - bounds.top
-          if (stacked) {
-            const lane = cx + (left ? -16 : 16)
-            const gutter = bounds.width / 2 + (left ? -3 : 3)
-            const join = nodes[0].getBoundingClientRect().top - bounds.top - 8
-            return `M ${cx} ${cy} C ${lane} ${cy}, ${lane} ${join}, ${gutter} ${join} L ${gutter} ${y - 8} Q ${gutter} ${y}, ${x} ${y}`
-          }
           const mid = (x + cx) / 2
           return `M ${cx} ${cy} C ${mid} ${cy}, ${mid} ${y}, ${x} ${y}`
         })
@@ -110,7 +110,6 @@ export function ResearchHub() {
     observer.observe(center)
     if (center.parentElement) observer.observe(center.parentElement)
     nodes.forEach((element) => observer.observe(element))
-    icons.forEach((element) => observer.observe(element))
     return () => observer.disconnect()
   }, [])
 
@@ -165,12 +164,12 @@ export function ResearchHub() {
           >
             <span className='research-hub-icon'>
               <capability.icon aria-hidden='true' />
-              <span className='research-hub-port' aria-hidden='true' />
             </span>
             <span className='research-hub-title'>{t(capability.labelKey)}</span>
             <span className='research-hub-description'>
               {t(capability.descriptionKey)}
             </span>
+            <span className='research-hub-port' aria-hidden='true' />
           </Button>
         ))}
       </div>
