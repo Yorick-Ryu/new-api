@@ -24,10 +24,10 @@ For commercial licensing, please contact support@quantumnous.com
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 108px minmax(0, 1fr);
-  grid-template-rows: repeat(2, minmax(136px, auto));
-  gap: 56px 24px;
-  padding-block: 24px;
+  grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(96px, auto));
+  gap: 40px 24px;
+  padding-block: 16px;
 }
 .beiapi-home .research-hub-connections {
   position: absolute;
@@ -67,12 +67,13 @@ For commercial licensing, please contact support@quantumnous.com
   z-index: 1;
   position: relative;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-  padding: 16px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  justify-items: start;
+  gap: 3px 12px;
+  padding: 14px;
   border-color: var(--border);
   border-radius: var(--radius-xl);
   background: var(--card);
@@ -90,20 +91,22 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .research-hub-icon {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 6px;
+  grid-row: 1 / 3;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-md);
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   color: var(--primary);
 }
 .beiapi-home .research-hub-title {
+  grid-column: 2;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .beiapi-home .research-hub-description {
+  grid-column: 2;
   font-size: 12px;
   line-height: 1.6;
   color: var(--muted-foreground);
@@ -149,29 +152,29 @@ For commercial licensing, please contact support@quantumnous.com
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 112px;
+  gap: 8px;
+  min-height: 88px;
   text-align: center;
 }
 .beiapi-home .research-hub-logo-frame {
   display: grid;
   place-items: center;
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-xl);
   background: var(--card);
 }
 .beiapi-home .research-hub-mark {
   display: block;
-  width: 68px;
-  height: 68px;
+  width: 42px;
+  height: 42px;
   background: var(--primary);
   mask: url('../assets/brand/beiapi-mark.svg') center / contain no-repeat;
 }
 .beiapi-home .research-hub-custom-logo {
-  width: 68px;
-  height: 68px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
 }
 .beiapi-home .research-hub-name {
@@ -185,8 +188,8 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .research-hub-orbit {
   position: absolute;
   z-index: -1;
-  width: 160px;
-  height: 160px;
+  width: 120px;
+  height: 120px;
   border: 1px solid color-mix(in oklab, var(--primary) 12%, transparent);
   border-radius: 50%;
   background: radial-gradient(
@@ -204,15 +207,15 @@ For commercial licensing, please contact support@quantumnous.com
 @container (max-width: 520px) {
   .beiapi-home .research-hub-map {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto repeat(2, minmax(136px, auto));
-    gap: 18px;
-    padding-block: 18px;
+    grid-template-rows: auto repeat(2, minmax(108px, auto));
+    gap: 14px;
+    padding-block: 14px;
   }
   .beiapi-home .research-hub-brand {
     grid-area: 1 / 1 / 2 / 3;
-    width: 130px;
+    width: 112px;
     justify-self: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
   .beiapi-home .research-hub-tools {
     grid-area: 2 / 1;
@@ -227,7 +230,17 @@ For commercial licensing, please contact support@quantumnous.com
     grid-area: 3 / 2;
   }
   .beiapi-home .research-hub-node {
-    padding: 14px 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    padding: 12px;
+  }
+  .beiapi-home .research-hub-icon {
+    grid-row: auto;
+    margin-bottom: 3px;
+  }
+  .beiapi-home .research-hub-title,
+  .beiapi-home .research-hub-description {
+    grid-column: 1;
   }
   .beiapi-home .research-hub-title {
     font-size: 14px;
