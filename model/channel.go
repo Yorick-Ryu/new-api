@@ -609,17 +609,6 @@ func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesT
 		}
 		return ok && plugin.Meta.ServesResponsesWebSocket(model)
 	}
-	if transport == constant.ResponsesTransportWebSocket && channel.Type == constant.ChannelTypeTaskPlugin {
-		if settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled {
-			return false
-		}
-		plugin, ok := jsplugin.DefaultRegistry.Get(channel.GetSetting().TaskPluginKey)
-		model := ""
-		if len(modelNames) > 0 {
-			model = modelNames[0]
-		}
-		return ok && plugin.Meta.ServesResponsesWebSocket(model)
-	}
 	return channelSupportsResponsesTransport(channel.Type, settings, transport, modelNames...)
 }
 
