@@ -8571,6 +8571,12 @@
     "Buy {{title}}, pay {{money}} yuan for {{amount}} USD credits": "购买{{title}}，实付{{money}}元，到账{{amount}}美元额度",
     "Subscribe to {{plan}}": "订阅 {{plan}}",
     "Flagship tier": "旗舰版",
-    "Actual payment": "实付"
+    "Actual payment": "实付",
+    "Starter credit pack": "轻量包",
+    "Standard credit pack": "标准包",
+    "Advanced credit pack": "进阶包",
+    "Professional credit pack": "专业包",
+    "Team credit pack": "团队包",
+    "Flagship credit pack": "旗舰包"
   }
 }

@@ -33,6 +33,8 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import { createInstance } from 'i18next'
+import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { Button } from '@/components/ui/button'
@@ -46,6 +48,7 @@ import { HeaderNavigationSection } from '@/features/system-settings/maintenance/
 import { Wallet } from '@/features/wallet'
 import { useAffiliate } from '@/features/wallet/hooks/use-affiliate'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
+import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 import { getModuleAccessForGuard } from '@/lib/nav-modules'
 import { Route } from '@/routes/plans'
@@ -261,7 +264,7 @@ test('guest catalog shows live display data and links to login without creating 
   expect(screen.getByText('128')).toBeVisible()
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Buy Pro, pay 200 yuan for 220 USD credits',
+      name: 'Buy Professional credit pack, pay 200 yuan for 220 USD credits',
     })
   )
   expect(onCredit).toHaveBeenCalledWith(220)
@@ -419,4 +422,28 @@ test('original offer buttons reuse native quote and subscription dialogs before 
   expect(get.mock.calls.some(([path]) => String(path).includes('aff'))).toBe(
     false
   )
+})
+
+test('Chinese presentation retains all six original package names', async () => {
+  const language = createInstance()
+  await language.init({
+    lng: 'zh',
+    resources: { zh },
+    interpolation: { escapeValue: false },
+  })
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { subscriptions: [], topup_amounts: [] } },
+  })
+  render(
+    <I18nextProvider i18n={language}>
+      <QueryClientProvider client={clientFor()}>
+        <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
+      </QueryClientProvider>
+    </I18nextProvider>
+  )
+  expect(
+    [...document.querySelectorAll('.credit-card h3')].map(
+      (el) => el.textContent
+    )
+  ).toEqual(['轻量包', '标准包', '进阶包', '专业包', '团队包', '旗舰包'])
 })

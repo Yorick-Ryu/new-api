@@ -8403,6 +8403,12 @@
     "Buy {{title}}, pay {{money}} yuan for {{amount}} USD credits": "Buy {{title}}, pay {{money}} yuan for {{amount}} USD credits",
     "Subscribe to {{plan}}": "Subscribe to {{plan}}",
     "Flagship tier": "Flagship",
-    "Actual payment": "Pay"
+    "Actual payment": "Pay",
+    "Starter credit pack": "Starter",
+    "Standard credit pack": "Standard",
+    "Advanced credit pack": "Advanced",
+    "Professional credit pack": "Pro",
+    "Team credit pack": "Team",
+    "Flagship credit pack": "Flagship"
   }
 }
