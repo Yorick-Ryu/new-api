@@ -80,8 +80,9 @@ export function useTopNavLinks(): TopNavLink[] {
   }
 
   const plans = modules.plans
-  if (status && plans.enabled && (!plans.requireAuth || isAuthed)) {
-    links.push({ title: t('Top-up Plans'), href: '/plans' })
+  if (status && plans.enabled) {
+    const requiresAuth = plans.requireAuth && !isAuthed
+    links.push({ title: t('Top-up Plans'), href: '/plans', requiresAuth })
   }
 
   // Rankings

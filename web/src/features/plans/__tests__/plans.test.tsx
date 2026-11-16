@@ -37,6 +37,7 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, test, vi } from 'vitest'
 
+import { PublicHeader } from '@/components/layout/components/public-header'
 import { Button } from '@/components/ui/button'
 import { subscriptionPlanSchema } from '@/features/subscriptions/types'
 import { SettingsPageProvider } from '@/features/system-settings/components/settings-page-context'
@@ -83,7 +84,7 @@ function wrapper(client: QueryClient) {
     )
   }
 }
-test('navigation and guards follow rewritten config, including login-only access', async () => {
+test('plans navigation matches model pricing login prompts and honors brand visibility', async () => {
   const client = clientFor(
     '{"plans":{"enabled":true,"requireAuth":false},"home":false}'
   )
@@ -102,9 +103,12 @@ test('navigation and guards follow rewritten config, including login-only access
     })
   })
   await waitFor(() =>
-    expect(result.result.current.some((link) => link.href === '/plans')).toBe(
-      false
-    )
+    expect(
+      result.result.current.find((link) => link.href === '/plans')
+    ).toMatchObject({
+      href: '/plans',
+      requiresAuth: true,
+    })
   )
   expect(await getModuleAccessForGuard(client, 'plans')).toEqual({
     enabled: true,
@@ -116,9 +120,12 @@ test('navigation and guards follow rewritten config, including login-only access
       .auth.setUser({ id: 1, username: 'local-reader', role: 1 })
   })
   await waitFor(() =>
-    expect(result.result.current.some((link) => link.href === '/plans')).toBe(
-      true
-    )
+    expect(
+      result.result.current.find((link) => link.href === '/plans')
+    ).toMatchObject({
+      href: '/plans',
+      requiresAuth: false,
+    })
   )
   await act(async () => {
     client.setQueryData(['status'], {
@@ -446,4 +453,42 @@ test('Chinese presentation retains all six original package names', async () => 
       (el) => el.textContent
     )
   ).toEqual(['轻量包', '标准包', '进阶包', '专业包', '团队包', '旗舰包'])
+})
+
+test('a visitor sees the plans tab and gets the shared model-square sign-in prompt', async () => {
+  const client = clientFor(
+    '{"plans":{"enabled":true,"requireAuth":true},"pricing":{"enabled":true,"requireAuth":true}}'
+  )
+  vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data: '' } })
+  const root = createRootRoute({
+    component: () => (
+      <PublicHeader
+        showNotifications={false}
+        showThemeSwitch={false}
+        showLanguageSwitcher={false}
+      />
+    ),
+  })
+  const router = createRouter({
+    routeTree: root,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  const link = await screen.findAllByRole('link', { name: 'Top-up Plans' })
+  fireEvent.click(link[0])
+  const prompt = await screen.findByRole('dialog', { name: 'Sign in required' })
+  expect(
+    within(prompt).getByText('Please sign in to view Top-up Plans.')
+  ).toBeVisible()
+  expect(router.state.location.pathname).toBe('/')
+  fireEvent.click(within(prompt).getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  fireEvent.click(screen.getAllByRole('link', { name: 'Model Square' })[0])
+  expect(
+    await screen.findByText('Please sign in to view Model Square.')
+  ).toBeVisible()
 })
