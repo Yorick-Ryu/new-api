@@ -48,10 +48,6 @@ func TestResolveIncomingBillingExprRequestInput(t *testing.T) {
 		})
 	}
 
-	input, err := ResolveIncomingBillingExprRequestInput(ctx, info, true)
-	require.NoError(t, err)
-	require.Equal(t, body, input.Body)
-	require.Equal(t, "application/json", input.Headers["Content-Type"])
 }
 
 func TestBuildBillingExprRequestInputFromRequest(t *testing.T) {

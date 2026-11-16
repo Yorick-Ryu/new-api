@@ -34,7 +34,7 @@ func setupAutoBanSettingsCacheTest(t *testing.T) *gorm.DB {
 
 func TestAutoBanSettingsSyncLoadsChangesAndKeepsLastValidSnapshot(t *testing.T) {
 	db := setupAutoBanSettingsCacheTest(t)
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	assert.Equal(t, "off", auto_ban.CurrentSnapshot().Mode())
 
 	// Write directly to represent a settings save by another instance.
@@ -44,16 +44,16 @@ func TestAutoBanSettingsSyncLoadsChangesAndKeepsLastValidSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	require.NoError(t, db.Create(&Option{Key: auto_ban.OptionKey, Value: string(data)}).Error)
 	assert.Equal(t, "off", auto_ban.CurrentSnapshot().Mode())
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	first := auto_ban.CurrentSnapshot()
 	assert.Equal(t, settings.Version, first.Version())
 	assert.Equal(t, "ban", first.Mode())
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	assert.Same(t, first, auto_ban.CurrentSnapshot(), "unchanged rules should reuse the parsed snapshot")
 
 	for _, value := range []string{"", "{invalid", `{"version":"bad","mode":"invalid","rules":[]}`} {
 		require.NoError(t, db.Model(&Option{}).Where(&Option{Key: auto_ban.OptionKey}).Update("value", value).Error)
-		loadOptionsFromDatabase()
+		LoadOptionsFromDatabase()
 		assert.Same(t, first, auto_ban.CurrentSnapshot(), "invalid configuration must keep the previous valid rules")
 	}
 
@@ -62,7 +62,7 @@ func TestAutoBanSettingsSyncLoadsChangesAndKeepsLastValidSnapshot(t *testing.T) 
 	data, err = common.Marshal(settings)
 	require.NoError(t, err)
 	require.NoError(t, db.Model(&Option{}).Where(&Option{Key: auto_ban.OptionKey}).Update("value", string(data)).Error)
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	second := auto_ban.CurrentSnapshot()
 	assert.Equal(t, "observe", second.Mode())
 	assert.Equal(t, settings.Version, second.Version())
@@ -73,11 +73,11 @@ func TestAutoBanSettingsSyncLoadsChangesAndKeepsLastValidSnapshot(t *testing.T) 
 	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:auto_ban_sync_failure", func(tx *gorm.DB) {
 		tx.AddError(errors.New("database unavailable"))
 	}))
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	assert.Same(t, second, auto_ban.CurrentSnapshot(), "failed refresh must keep the last valid rules")
 	require.NoError(t, db.Callback().Query().Remove("test:auto_ban_sync_failure"))
 	require.NoError(t, db.Where(&Option{Key: auto_ban.OptionKey}).Delete(&Option{}).Error)
-	loadOptionsFromDatabase()
+	LoadOptionsFromDatabase()
 	assert.Equal(t, "off", auto_ban.CurrentSnapshot().Mode(), "missing configuration restores defaults")
 }
 
@@ -130,7 +130,7 @@ func TestAutoBanSettingsReadersContinueDuringSaveAndSync(t *testing.T) {
 	started, synced := make(chan struct{}), make(chan struct{})
 	go func() {
 		close(started)
-		loadOptionsFromDatabase()
+		LoadOptionsFromDatabase()
 		close(synced)
 	}()
 	<-started

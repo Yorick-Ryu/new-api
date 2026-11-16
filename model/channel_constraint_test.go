@@ -258,7 +258,7 @@ func TestTaskPluginChannelResponsesWebSocket(t *testing.T) {
 	}
 	channel := func(key string, enabled bool) *Channel {
 		ch := &Channel{Id: 1, Type: constant.ChannelTypeTaskPlugin}
-		ch.SetSetting(kitdto.ChannelSettings{TaskPluginKey: key, ResponsesWebSocketEnabled: enabled})
+		ch.SetSetting(kitdto.ChannelSettings{TaskPluginKey: key, ResponsesWebSocketEnabled: &enabled})
 		return ch
 	}
 	filters := []dto.ChannelFilter{{Kind: dto.FilterResponsesWebSocket}}

@@ -212,7 +212,7 @@ func TestExtractChannelAffinityValue_JSONFile(t *testing.T) {
 		{`items.#(id=="chosen").id`, "chosen"},
 		{"absent", ""},
 	} {
-		assert.Equal(t, tc.want, extractChannelAffinityValue(c, operation_setting.ChannelAffinityKeySource{Type: "gjson", Path: tc.path}), tc.path)
+		assert.Equal(t, tc.want, extractChannelAffinityValue(c, operation_setting.ChannelAffinityKeySource{Type: "gjson", Path: tc.path}, nil), tc.path)
 	}
 }
 
