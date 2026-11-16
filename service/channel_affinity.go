@@ -3,13 +3,13 @@ package service
 import (
 	"hash/fnv"
 	"maps"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/MoeForge/moego/ojson"
+	"github.com/MoeForge/moego/regexp"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
@@ -315,20 +315,20 @@ func extractChannelAffinityValue(c *gin.Context, src operation_setting.ChannelAf
 		if src.Path == "" {
 			return ""
 		}
-		if body == nil {
+		var res ojson.Result
+		if body != nil {
+			res = ojson.GetBytes(body, src.Path)
+		} else {
 			storage, err := common.GetBodyStorage(c)
 			if err != nil {
 				return ""
 			}
-			body, err = storage.Bytes()
+			values, err := common.ReadBodyJSONFields(storage, src.Path)
 			if err != nil {
 				return ""
 			}
+			res = values[0]
 		}
-		if len(body) == 0 {
-			return ""
-		}
-		res := ojson.GetBytes(body, src.Path)
 		if !res.Exists() {
 			return ""
 		}
