@@ -25,15 +25,27 @@ import {
 } from '@tanstack/react-router'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterAll, afterEach, beforeAll, expect, test } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 
 import { SearchProvider } from '@/context/search-provider'
+import { MODEL_PRICING_ISSUES_QUERY_KEY } from '@/features/system-settings/models/pricing-issues'
+import { api } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { STATUS_QUERY_KEY } from '@/lib/status-query'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CommandMenu } from '../command-menu'
 import { Search } from '../search'
+
+const clients: QueryClient[] = []
 
 const adminEntries = ['Channels', 'Models', 'Users', 'Redemption Codes']
 const superAdminEntries = [
@@ -68,7 +80,20 @@ afterAll(() => {
   }
 })
 
+beforeEach(() => {
+  vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/option/model_pricing/issues') {
+      return { data: { success: true, data: [] } }
+    }
+    if (url === '/api/campus/overview') {
+      return { data: { success: true, data: { enabled: false } } }
+    }
+    throw new Error(`Unexpected navigation request: ${url}`)
+  })
+})
+
 afterEach(() => {
+  clients.splice(0).forEach((client) => client.clear())
   useAuthStore.setState(useAuthStore.getInitialState(), true)
   window.localStorage.clear()
 })
@@ -76,8 +101,11 @@ afterEach(() => {
 async function searchEntriesFor(role: number, sidebarModulesAdmin = '') {
   useAuthStore.getState().auth.setUser({ id: 1, username: 'alice', role })
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+  clients.push(client)
+  client.setQueryData(['campus', 'overview'], { enabled: false })
+  client.setQueryData(MODEL_PRICING_ISSUES_QUERY_KEY, [])
   client.setQueryData(STATUS_QUERY_KEY, {
     SidebarModulesAdmin: sidebarModulesAdmin,
   })
