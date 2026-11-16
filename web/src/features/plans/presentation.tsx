@@ -35,6 +35,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { EmptyState } from '@/components/empty-state'
 import {
   Accordion,
   AccordionItem,
@@ -42,11 +43,13 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { parseQuotaWindows } from '@/features/subscriptions/lib'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
+import { useAuthStore } from '@/stores/auth-store'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
 import { getPlansCatalog } from './api'
@@ -67,10 +70,28 @@ export function PublicCatalog(props: PlansPresentationProps) {
   const { currency } = useSystemConfig()
   const quotaPerUnit =
     currency?.quotaPerUnit || DEFAULT_CURRENCY_CONFIG.quotaPerUnit
+  const userId = useAuthStore((state) => state.auth.user?.id)
   const query = useQuery({
-    queryKey: ['plans-page-catalog'],
+    queryKey: ['plans-page-catalog', userId ?? 'public'],
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     queryFn: async () => requireServerSuccess(await getPlansCatalog()).data,
   })
+  const topupOptions = (query.data?.topup_options || []).map(
+    (option, index) => {
+      const presentation = creditPlans[index]
+      return {
+        ...option,
+        title: presentation
+          ? t(presentation.title)
+          : t('Top-up option {{amount}}', { amount: amount(option.credits) }),
+        description: presentation ? t(presentation.description) : '',
+        tag: presentation?.tag ? t(presentation.tag) : '',
+        featured: presentation?.featured || false,
+      }
+    }
+  )
   const monthlyPlans = (query.data?.subscriptions || []).map((plan) => {
     const approved = approvedMonthlyPlans.find((item) => item.id === plan.id)
     const monthly =
@@ -124,7 +145,9 @@ export function PublicCatalog(props: PlansPresentationProps) {
               <div className='section-kicker'>PAY AS YOU GO</div>
               <h2 id='credit-heading'>
                 {t('Balance top-up')}
-                <span className='count'>{t('6 plans')}</span>
+                <span className='count'>
+                  {t('{{count}} plans', { count: topupOptions.length })}
+                </span>
               </h2>
               <p>{t('Choose your credits and make room for every request.')}</p>
             </div>
@@ -139,28 +162,40 @@ export function PublicCatalog(props: PlansPresentationProps) {
               {t('Failed to load plans. Please try again.')}
             </div>
           )}
+          {query.isPending && (
+            <div aria-label={t('Loading...')} className='credit-grid'>
+              <Skeleton className='h-64' />
+              <Skeleton className='h-64' />
+              <Skeleton className='h-64' />
+            </div>
+          )}
+          {!query.isPending && !query.isError && topupOptions.length === 0 && (
+            <EmptyState title={t('No top-up options available')} />
+          )}
           <div className='credit-grid'>
-            {creditPlans.map((plan, i) => (
+            {topupOptions.map((plan, i) => (
               <article
-                key={plan.title}
+                key={plan.amount}
                 className={`credit-card ${plan.featured ? 'featured' : ''}`}
                 aria-labelledby={`credit-${i}`}
               >
                 <div className='card-top'>
-                  <h3 id={`credit-${i}`}>{t(plan.title)}</h3>
+                  <h3 id={`credit-${i}`}>{plan.title}</h3>
                   {plan.tag && (
                     <span
                       className={`badge ${plan.featured ? 'badge-accent' : ''}`}
                     >
-                      {plan.featured && <Sparkles size={11} />} {t(plan.tag)}
+                      {plan.featured && <Sparkles size={11} />} {plan.tag}
                     </span>
                   )}
                 </div>
-                <p className='card-description'>{t(plan.description)}</p>
+                <p className='card-description'>{plan.description}</p>
                 <div className='price'>
                   <span className='currency'>¥</span>
-                  <strong>{amount(plan.money)}</strong>
-                  <span className='price-suffix'>.00</span>
+                  <strong>{amount(Number(plan.money.split('.')[0]))}</strong>
+                  <span className='price-suffix'>
+                    .{plan.money.split('.')[1] || '00'}
+                  </span>
                   <span className='price-caption'>{t('Actual payment')}</span>
                 </div>
                 <div className='credit-amount'>
@@ -170,7 +205,7 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   </span>
                   <strong>
                     <small>$</small>
-                    {amount(plan.amount)}
+                    {amount(plan.credits)}
                   </strong>
                 </div>
                 <Button
@@ -182,9 +217,9 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   aria-label={t(
                     'Buy {{title}}, pay {{money}} yuan for {{amount}} USD credits',
                     {
-                      title: t(plan.title),
+                      title: plan.title,
                       money: plan.money,
-                      amount: plan.amount,
+                      amount: plan.credits,
                     }
                   )}
                 >
@@ -330,7 +365,7 @@ export function PublicCatalog(props: PlansPresentationProps) {
             {[
               [
                 'How do payment amounts and credits work?',
-                'Each card shows the payment in CNY and credits in USD. For example, Pro costs ¥200.00 and adds $220 in credits. See the model square for usage pricing.',
+                'Each recharge card shows the current payment in CNY and credits received in USD. Prices follow the latest top-up settings. See the model square for usage pricing.',
               ],
               [
                 'Do monthly plans have a five-hour limit?',

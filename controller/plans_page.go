@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -27,6 +29,14 @@ type PlansPageSubscription struct {
 	QuotaWindows            string  `json:"quota_windows"`
 	MaxPurchasePerUser      int     `json:"max_purchase_per_user"`
 	AllowRenewal            bool    `json:"allow_renewal"`
+}
+
+// Amount remains in the wallet API's configured request units; Credits is
+// the USD balance credited by the existing settlement conversion.
+type PlansPageTopup struct {
+	Amount  int64   `json:"amount"`
+	Credits float64 `json:"credits"`
+	Money   string  `json:"money"`
 }
 
 type plansPageAccess struct {
@@ -80,7 +90,7 @@ func GetPlansPageCatalog(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
-	if access.RequireAuth {
+	if access.RequireAuth || c.GetHeader("Authorization") != "" {
 		middleware.UserAuth()(c)
 		if c.IsAborted() {
 			return
@@ -89,7 +99,8 @@ func GetPlansPageCatalog(c *gin.Context) {
 	catalog := struct {
 		Subscriptions []PlansPageSubscription `json:"subscriptions"`
 		TopupAmounts  []int                   `json:"topup_amounts"`
-	}{Subscriptions: []PlansPageSubscription{}, TopupAmounts: []int{}}
+		TopupOptions  []PlansPageTopup        `json:"topup_options"`
+	}{Subscriptions: []PlansPageSubscription{}, TopupAmounts: []int{}, TopupOptions: []PlansPageTopup{}}
 	if !operation_setting.IsPaymentComplianceConfirmed() {
 		common.ApiSuccess(c, catalog)
 		return
@@ -109,5 +120,30 @@ func GetPlansPageCatalog(c *gin.Context) {
 		})
 	}
 	catalog.TopupAmounts = append(catalog.TopupAmounts, operation_setting.GetPaymentSetting().AmountOptions...)
+	// Never accept a group from the request. Signed-in prices use the group
+	// validated by UserAuth; visitors see the standard default-group quote.
+	group := c.GetString("group")
+	if group == "" {
+		group = "default"
+	}
+	seen := make(map[int]bool)
+	for _, amount := range operation_setting.GetPaymentSetting().AmountOptions {
+		if seen[amount] || int64(amount) < getMinTopup() {
+			continue
+		}
+		seen[amount] = true
+		quota, err := getTopUpQuota(int64(amount))
+		if err != nil || quota <= 0 {
+			continue
+		}
+		money := getPayMoney(int64(amount), group)
+		if math.IsNaN(money) || math.IsInf(money, 0) || money <= 0.01 {
+			continue
+		}
+		catalog.TopupOptions = append(catalog.TopupOptions, PlansPageTopup{
+			Amount: int64(amount), Credits: float64(quota) / common.QuotaPerUnit,
+			Money: strconv.FormatFloat(money, 'f', 2, 64),
+		})
+	}
 	common.ApiSuccess(c, catalog)
 }

@@ -8409,6 +8409,9 @@
     "Advanced credit pack": "Advanced",
     "Professional credit pack": "Pro",
     "Team credit pack": "Team",
-    "Flagship credit pack": "Flagship"
+    "Flagship credit pack": "Flagship",
+    "{{count}} plans": "{{count}} lựa chọn",
+    "No top-up options available": "Chưa có mức nạp tiền khả dụng",
+    "Each recharge card shows the current payment in CNY and credits received in USD. Prices follow the latest top-up settings. See the model square for usage pricing.": "Mỗi thẻ hiển thị số tiền CNY hiện tại và tín dụng USD theo cấu hình nạp tiền mới nhất. Xem giá sử dụng trong danh mục mô hình."
   }
 }

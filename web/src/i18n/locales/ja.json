@@ -8409,6 +8409,9 @@
     "Advanced credit pack": "Advanced",
     "Professional credit pack": "Pro",
     "Team credit pack": "Team",
-    "Flagship credit pack": "Flagship"
+    "Flagship credit pack": "Flagship",
+    "{{count}} plans": "{{count}} 件のプラン",
+    "No top-up options available": "利用可能なチャージ額がありません",
+    "Each recharge card shows the current payment in CNY and credits received in USD. Prices follow the latest top-up settings. See the model square for usage pricing.": "各カードに最新設定に基づく人民元の支払額と米ドルの付与クレジットを表示します。モデルの利用料金はモデル一覧をご覧ください。"
   }
 }

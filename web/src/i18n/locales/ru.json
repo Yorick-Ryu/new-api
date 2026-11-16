@@ -8409,6 +8409,9 @@
     "Advanced credit pack": "Advanced",
     "Professional credit pack": "Pro",
     "Team credit pack": "Team",
-    "Flagship credit pack": "Flagship"
+    "Flagship credit pack": "Flagship",
+    "{{count}} plans": "{{count}} вариантов",
+    "No top-up options available": "Нет доступных вариантов пополнения",
+    "Each recharge card shows the current payment in CNY and credits received in USD. Prices follow the latest top-up settings. See the model square for usage pricing.": "Карточки показывают текущую стоимость в CNY и кредиты в USD по актуальным настройкам пополнения. Цены моделей доступны в каталоге."
   }
 }

@@ -8577,6 +8577,9 @@
     "Advanced credit pack": "进阶包",
     "Professional credit pack": "专业包",
     "Team credit pack": "团队包",
-    "Flagship credit pack": "旗舰包"
+    "Flagship credit pack": "旗舰包",
+    "{{count}} plans": "{{count}} 款方案",
+    "No top-up options available": "暂无可用充值档位",
+    "Each recharge card shows the current payment in CNY and credits received in USD. Prices follow the latest top-up settings. See the model square for usage pricing.": "每张充值卡片会显示当前人民币实付金额与美元到账额度，报价按最新充值配置更新。具体模型消耗可在模型广场查看。"
   }
 }

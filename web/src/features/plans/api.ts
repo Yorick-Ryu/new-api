@@ -33,9 +33,16 @@ export interface CatalogSubscription {
   max_purchase_per_user: number
   allow_renewal: boolean
 }
+export interface CatalogTopup {
+  amount: number
+  credits: number
+  money: string
+}
+
 export interface PlansCatalog {
   subscriptions: CatalogSubscription[]
   topup_amounts: number[]
+  topup_options: CatalogTopup[]
 }
 export async function getPlansCatalog(): Promise<{
   success: boolean

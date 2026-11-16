@@ -57,6 +57,14 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { PublicCatalog } from '..'
 
+const liveTopupOptions = [
+  { amount: 10, credits: 10, money: '10.00' },
+  { amount: 20, credits: 20, money: '20.00' },
+  { amount: 100, credits: 100, money: '100.00' },
+  { amount: 220, credits: 220, money: '200.00' },
+  { amount: 450, credits: 450, money: '400.00' },
+  { amount: 1200, credits: 1200, money: '1000.00' },
+]
 const clients: QueryClient[] = []
 afterEach(() => {
   cleanup()
@@ -220,7 +228,8 @@ test('guest catalog shows live display data and links to login without creating 
     data: {
       success: true,
       data: {
-        topup_amounts: [20],
+        topup_amounts: [333],
+        topup_options: [{ amount: 333, credits: 333, money: '88.75' }],
         subscriptions: [
           {
             id: 1,
@@ -266,15 +275,15 @@ test('guest catalog shows live display data and links to login without creating 
       name: 'Choose your credits. Focus on research.',
     })
   ).toBeVisible()
-  expect(document.querySelectorAll('.credit-card')).toHaveLength(6)
   expect(await screen.findByText('Local plan')).toBeVisible()
+  expect(document.querySelectorAll('.credit-card')).toHaveLength(1)
   expect(screen.getByText('128')).toBeVisible()
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Buy Professional credit pack, pay 200 yuan for 220 USD credits',
+      name: /pay 88.75 yuan for 333 USD credits$/,
     })
   )
-  expect(onCredit).toHaveBeenCalledWith(220)
+  expect(onCredit).toHaveBeenCalledWith(333)
   expect(get).toHaveBeenCalledWith('/api/plans/catalog')
   expect(post).not.toHaveBeenCalled()
   expect(document.querySelector('iframe')).toBeNull()
@@ -288,13 +297,23 @@ test('plans mode skips the hidden affiliate code request', () => {
 
 test('preserved credit offers and support interactions keep the original UI', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({
-    data: { success: true, data: { subscriptions: [], topup_amounts: [] } },
+    data: {
+      success: true,
+      data: {
+        subscriptions: [],
+        topup_amounts: [],
+        topup_options: liveTopupOptions,
+      },
+    },
   })
   const onCredit = vi.fn()
   render(
     <QueryClientProvider client={clientFor()}>
       <PublicCatalog onCredit={onCredit} onMonthly={vi.fn()} />
     </QueryClientProvider>
+  )
+  await waitFor(() =>
+    expect(document.querySelectorAll('.credit-card')).toHaveLength(6)
   )
   const offers = [...document.querySelectorAll('.credit-card')]
   expect(
@@ -303,12 +322,12 @@ test('preserved credit offers and support interactions keep the original UI', as
       card.querySelector('[data-amount]')?.getAttribute('data-amount'),
     ])
   ).toEqual([
-    ['10', '10'],
-    ['20', '20'],
-    ['100', '100'],
-    ['200', '220'],
-    ['400', '450'],
-    ['1000', '1200'],
+    ['10.00', '10'],
+    ['20.00', '20'],
+    ['100.00', '100'],
+    ['200.00', '220'],
+    ['400.00', '450'],
+    ['1000.00', '1200'],
   ])
   expect(document.querySelector('.credit-card.featured h3')).toHaveTextContent(
     'Pro'
@@ -439,7 +458,14 @@ test('Chinese presentation retains all six original package names', async () => 
     interpolation: { escapeValue: false },
   })
   vi.spyOn(api, 'get').mockResolvedValue({
-    data: { success: true, data: { subscriptions: [], topup_amounts: [] } },
+    data: {
+      success: true,
+      data: {
+        subscriptions: [],
+        topup_amounts: [],
+        topup_options: liveTopupOptions,
+      },
+    },
   })
   render(
     <I18nextProvider i18n={language}>
@@ -448,6 +474,7 @@ test('Chinese presentation retains all six original package names', async () => 
       </QueryClientProvider>
     </I18nextProvider>
   )
+  await screen.findByRole('heading', { name: '轻量包' })
   expect(
     [...document.querySelectorAll('.credit-card h3')].map(
       (el) => el.textContent
@@ -491,4 +518,98 @@ test('a visitor sees the plans tab and gets the shared model-square sign-in prom
   expect(
     await screen.findByText('Please sign in to view Model Square.')
   ).toBeVisible()
+})
+
+test('live top-up configuration refreshes card counts, cents and request units', async () => {
+  let options = [{ amount: 2500000, credits: 5, money: '6.25' }]
+  vi.spyOn(api, 'get').mockImplementation(async () => ({
+    data: {
+      success: true,
+      data: {
+        subscriptions: [],
+        topup_amounts: options.map((item) => item.amount),
+        topup_options: options,
+      },
+    },
+  }))
+  const client = clientFor()
+  const onCredit = vi.fn()
+  render(
+    <QueryClientProvider client={client}>
+      <PublicCatalog onCredit={onCredit} onMonthly={vi.fn()} />
+    </QueryClientProvider>
+  )
+  const button = await screen.findByRole('button', {
+    name: /pay 6.25 yuan for 5 USD credits$/,
+  })
+  expect(
+    document.querySelector('.credit-card .price-suffix')
+  ).toHaveTextContent('.25')
+  fireEvent.click(button)
+  expect(onCredit).toHaveBeenCalledWith(2500000)
+  options = [
+    { amount: 40, credits: 40, money: '17.45' },
+    { amount: 80, credits: 80, money: '33.70' },
+  ]
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ['plans-page-catalog'] })
+  })
+  expect(
+    await screen.findByRole('button', {
+      name: /pay 17.45 yuan for 40 USD credits$/,
+    })
+  ).toBeVisible()
+  expect(document.querySelectorAll('.credit-card')).toHaveLength(2)
+  expect(screen.queryByRole('button', { name: /pay 6.25 yuan/ })).toBeNull()
+})
+
+test('an empty configured top-up list shows no hardcoded purchase offers', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: { subscriptions: [], topup_amounts: [], topup_options: [] },
+    },
+  })
+  render(
+    <QueryClientProvider client={clientFor()}>
+      <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
+    </QueryClientProvider>
+  )
+  expect(await screen.findByText('No top-up options available')).toBeVisible()
+  expect(document.querySelectorAll('.credit-card')).toHaveLength(0)
+})
+
+test('signed-in cards do not reuse the anonymous price cache', async () => {
+  let money = '10.00'
+  const get = vi
+    .spyOn(api, 'get')
+    .mockImplementation(async () => ({
+      data: {
+        success: true,
+        data: {
+          subscriptions: [],
+          topup_amounts: [10],
+          topup_options: [{ amount: 10, credits: 10, money }],
+        },
+      },
+    }))
+  render(
+    <QueryClientProvider client={clientFor()}>
+      <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
+    </QueryClientProvider>
+  )
+  expect(
+    await screen.findByRole('button', { name: /pay 10.00 yuan/ })
+  ).toBeVisible()
+  money = '8.00'
+  await act(async () => {
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 2, username: 'priced-reader', role: 1 })
+  })
+  expect(
+    await screen.findByRole('button', { name: /pay 8.00 yuan/ })
+  ).toBeVisible()
+  expect(get).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('button', { name: /pay 10.00 yuan/ })).toBeNull()
 })
