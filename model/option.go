@@ -207,8 +207,10 @@ func LoadOptionsFromDatabase() error {
 	defer requestPolicyOptionMutex.Unlock()
 	passkeyOptionMutex.Lock()
 	defer passkeyOptionMutex.Unlock()
+	autoBanSettingsUpdateMu.Lock()
 	options, err := AllOption()
 	if err != nil {
+		autoBanSettingsUpdateMu.Unlock()
 		return err
 	}
 	defer func() {
@@ -217,7 +219,6 @@ func LoadOptionsFromDatabase() error {
 		}
 	}()
 	passkeyOptions := make(map[string]string)
-	autoBanSettingsUpdateMu.Lock()
 	foundAutoBan := false
 	for _, option := range options {
 		if option.Key != auto_ban.OptionKey {
