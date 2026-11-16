@@ -77,12 +77,12 @@ beforeEach(async () => {
   await i18next.changeLanguage('en')
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(STATUS_QUERY_KEY, {
-    system_name: 'Bei API',
+    system_name: '',
     version: 'test',
   })
   useSystemConfigStore
     .getState()
-    .setConfig({ systemName: 'BeiAPI', footerHtml: '', demoSiteEnabled: false })
+    .setConfig({ systemName: '', footerHtml: '', demoSiteEnabled: false })
   useSystemConfigStore.getState().setLoading(false)
   homeResponse.data = ''
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
@@ -161,6 +161,34 @@ describe('configured homepage rendering', () => {
       )
     ).toBeVisible()
   })
+  test.each(['New API', 'Lab Research API', 'Bei API'])(
+    'uses configured %s in header, hero and footer across languages',
+    async (name) => {
+      useSystemConfigStore.getState().setConfig({ systemName: name })
+      await renderHome()
+      for (const language of ['en', 'zhCN']) {
+        await act(async () => {
+          await i18next.changeLanguage(language)
+        })
+        expect(screen.getByRole('heading', { level: 1, name })).toBeVisible()
+        expect(
+          within(document.querySelector('header') as HTMLElement).getByText(
+            name
+          )
+        ).toBeVisible()
+        expect(
+          within(document.querySelector('footer') as HTMLElement).getByText(
+            name
+          )
+        ).toBeVisible()
+        expect(
+          within(document.querySelector('footer') as HTMLElement).getByText(
+            new RegExp(`©.*${name}`)
+          )
+        ).toBeVisible()
+      }
+    }
+  )
   test('open-source attribution keeps the original contributor notice and closes by Escape', async () => {
     const user = userEvent.setup()
     await renderHome()

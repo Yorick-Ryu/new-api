@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
 
 import { getStatus } from '@/lib/api'
-import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import { DEFAULT_LOGO } from '@/lib/constants'
 import {
   useSystemConfigStore,
   type CurrencyConfig,
@@ -103,10 +103,7 @@ export function mapStatusDataToConfig(
     typeof data.system_name === 'string' ? data.system_name.trim() : ''
 
   return {
-    systemName:
-      configuredName && configuredName !== 'New API'
-        ? configuredName
-        : DEFAULT_SYSTEM_NAME,
+    systemName: configuredName,
     logo: useBundledLogo ? DEFAULT_LOGO : configuredLogo,
     footerHtml: data.footer_html as string | undefined,
     demoSiteEnabled: data.demo_site_enabled as boolean | undefined,

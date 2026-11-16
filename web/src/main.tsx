@@ -76,8 +76,8 @@ if (!rootElement) {
 ;(function initSystemBranding() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
-    // Apply the same defaults to both cached and fresh status. Raw server
-    // defaults must not overwrite the bundled site name and favicon.
+    // Respect configured names from both cached and fresh status; only an
+    // empty name falls back to the localized site default.
     applySystemBranding(readCachedStatus())
 
     // Background refresh through the shared cache. This primes ['status']

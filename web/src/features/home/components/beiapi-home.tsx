@@ -35,14 +35,15 @@ import { Footer } from '@/components/layout/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useDialogState } from '@/hooks/use-dialog'
-import { resolveSiteName } from '@/lib/constants'
+import { useSystemConfig } from '@/hooks/use-system-config'
 
 import '@/styles/beiapi-home.css'
 
 import { InstallationVideo } from './installation-video'
 
 export function BeiAPIHome() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
+  const { systemName } = useSystemConfig()
   const [modal, setModal, modalHandlers] = useDialogState<
     'service' | 'community'
   >()
@@ -90,7 +91,7 @@ export function BeiAPIHome() {
                 {t('AI tools and access services for researchers')}
               </p>
               <h1 className='hero-h1' id='hero-title'>
-                {resolveSiteName('Bei API', i18n.language)}
+                {systemName}
               </h1>
               <p className='hero-copy'>
                 {t(
@@ -924,7 +925,7 @@ export function BeiAPIHome() {
         <Footer
           compact
           columns={[]}
-          copyrightOwner={resolveSiteName('Bei API', i18n.language)}
+          copyrightOwner={systemName}
           attributionVariant='based-on'
           description={t('AI tools and access services · For researchers')}
           copyright={t('Original homepage content and branding.')}

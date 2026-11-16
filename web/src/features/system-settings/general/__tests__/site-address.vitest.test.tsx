@@ -125,3 +125,25 @@ it('shows an inline validation error and does not save a business address contai
   expect(field.getAttribute('aria-invalid')).toBe('true')
   expect(put).not.toHaveBeenCalled()
 })
+
+it.each(['', 'Configured Lab'])(
+  'saves the exact system name %s and refreshes cached display settings',
+  async (name) => {
+    const put = vi
+      .spyOn(api, 'put')
+      .mockResolvedValue({ data: { success: true } })
+    window.localStorage.setItem('status', '{}')
+    const user = await openSettings()
+    const field = screen.getByRole('textbox', { name: 'System Name' })
+    await user.clear(field)
+    if (name) await user.type(field, name)
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith('/api/option/', {
+        key: 'SystemName',
+        value: name,
+      })
+    )
+    expect(window.localStorage.getItem('status')).toBeNull()
+  }
+)
