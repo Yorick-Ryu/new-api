@@ -376,7 +376,7 @@ export function BeiAPIHome() {
                 <li>
                   <span>03</span>
                   {t(
-                    'Restart the client, verify a new task and check the dashboard usage records.'
+                    'Restart the ChatGPT desktop app, start a new conversation and check the dashboard usage records.'
                   )}
                 </li>
               </ol>
