@@ -42,13 +42,16 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseQuotaWindows } from '@/features/subscriptions/lib'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
@@ -145,16 +148,20 @@ export function PublicCatalog(props: PlansPresentationProps) {
               <div className='section-kicker'>PAY AS YOU GO</div>
               <h2 id='credit-heading'>
                 {t('Balance top-up')}
-                <span className='count'>
+                <Badge variant='outline'>
                   {t('{{count}} plans', { count: topupOptions.length })}
-                </span>
+                </Badge>
               </h2>
               <p>{t('Choose your credits and make room for every request.')}</p>
             </div>
-            <a className='text-link model-link' href='/pricing'>
+            <Button
+              variant='link'
+              className='text-link model-link h-auto p-0'
+              render={<a href='/pricing' />}
+            >
               {t('View model pricing')}
               <ArrowUpRight size={16} />
-            </a>
+            </Button>
           </div>
           {query.isError && (
             <div role='status' className='payment-status error'>
@@ -174,19 +181,18 @@ export function PublicCatalog(props: PlansPresentationProps) {
           )}
           <div className='credit-grid'>
             {topupOptions.map((plan, i) => (
-              <article
+              <Card
+                role='article'
                 key={plan.amount}
-                className={`credit-card ${plan.featured ? 'featured' : ''}`}
+                className={cn('credit-card', plan.featured && 'featured')}
                 aria-labelledby={`credit-${i}`}
               >
                 <div className='card-top'>
                   <h3 id={`credit-${i}`}>{plan.title}</h3>
                   {plan.tag && (
-                    <span
-                      className={`badge ${plan.featured ? 'badge-accent' : ''}`}
-                    >
+                    <Badge variant={plan.featured ? 'default' : 'secondary'}>
                       {plan.featured && <Sparkles size={11} />} {plan.tag}
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 <p className='card-description'>{plan.description}</p>
@@ -209,7 +215,8 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   </strong>
                 </div>
                 <Button
-                  className={`button purchase-button ${plan.featured ? 'button-accent' : 'button-outline'}`}
+                  variant={plan.featured ? 'default' : 'outline'}
+                  className='purchase-button'
                   data-pay={plan.money}
                   data-amount={plan.amount}
                   disabled={props.loading}
@@ -226,7 +233,7 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   {props.loading ? t('Opening checkout…') : t('Buy now')}
                   <ArrowRight size={16} />
                 </Button>
-              </article>
+              </Card>
             ))}
           </div>
           <div className='benefit-banner'>
@@ -242,7 +249,11 @@ export function PublicCatalog(props: PlansPresentationProps) {
                 )}
               </p>
             </div>
-            <Button className='text-link' onClick={() => setSupportOpen(true)}>
+            <Button
+              variant='link'
+              className='text-link h-auto p-0'
+              onClick={() => setSupportOpen(true)}
+            >
               {t('Contact support to claim')}
               <ArrowUpRight size={16} />
             </Button>
@@ -270,8 +281,12 @@ export function PublicCatalog(props: PlansPresentationProps) {
           </div>
           <div className='monthly-grid'>
             {monthlyPlans.map((plan) => (
-              <article
-                className={`monthly-card ${plan.title.startsWith('Ultra') ? 'ultra' : ''}`}
+              <Card
+                role='article'
+                className={cn(
+                  'monthly-card',
+                  plan.title.startsWith('Ultra') && 'ultra'
+                )}
                 key={plan.id}
               >
                 <div className='monthly-top'>
@@ -282,7 +297,7 @@ export function PublicCatalog(props: PlansPresentationProps) {
                       <Layers size={23} />
                     )}
                   </span>
-                  <span className='badge'>{t('One per person')}</span>
+                  <Badge variant='secondary'>{t('One per person')}</Badge>
                 </div>
                 <h3>{t(plan.title)}</h3>
                 <p className='card-description'>{t(plan.description)}</p>
@@ -323,7 +338,10 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   </li>
                 </ul>
                 <Button
-                  className={`button purchase-button ${plan.title.startsWith('Ultra') ? 'button-dark' : 'button-outline'}`}
+                  variant={
+                    plan.title.startsWith('Ultra') ? 'default' : 'outline'
+                  }
+                  className='purchase-button'
                   data-subscribe={plan.id}
                   data-title={t(plan.title)}
                   data-price={`¥${yuan(plan.money)}`}
@@ -337,7 +355,7 @@ export function PublicCatalog(props: PlansPresentationProps) {
                       })}
                   <ArrowRight size={16} />
                 </Button>
-              </article>
+              </Card>
             ))}
           </div>
           <p className='subscription-note'>
@@ -355,7 +373,11 @@ export function PublicCatalog(props: PlansPresentationProps) {
             <div className='section-kicker'>GOOD TO KNOW</div>
             <h2 id='questions-heading'>{t('Before you choose')}</h2>
             <p>{t('About credits, monthly plans and invoicing.')}</p>
-            <Button className='text-link' onClick={() => setSupportOpen(true)}>
+            <Button
+              variant='link'
+              className='text-link h-auto p-0'
+              onClick={() => setSupportOpen(true)}
+            >
               <MessageCircle size={16} />
               {t('Contact Bei support')}
               <ArrowUpRight size={15} />
