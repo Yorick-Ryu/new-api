@@ -619,15 +619,15 @@ For commercial licensing, please contact support@quantumnous.com
   align-items: center;
   gap: 12px;
 }
-.beiapi-home .tutorial-preview-label {
-  color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.5;
+.beiapi-home .tutorial-brand-logo {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .beiapi-home .tutorial-preview-title {
   font-size: 16px;
   font-weight: 600;
-  margin-top: 3px;
 }
 .beiapi-home .tutorial-checks {
   display: flex;

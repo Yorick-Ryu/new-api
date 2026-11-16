@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import codexBeiLogo from '@/assets/brand/codexbei.svg'
 import { Dialog } from '@/components/dialog'
 import { FloatingSupport } from '@/components/floating-support'
 import { PublicFooter } from '@/components/layout/components/public-footer'
@@ -350,11 +351,12 @@ export function BeiAPIHome() {
               aria-label={t('Codex installation guide preview')}
             >
               <div className='tutorial-video-head'>
-                <div className='tutorial-play' aria-hidden='true'>
-                  <FileText aria-hidden='true' />
-                </div>
+                <img
+                  className='tutorial-brand-logo'
+                  src={codexBeiLogo}
+                  alt=''
+                />
                 <div>
-                  <p className='tutorial-preview-label'>CodexBei Guide</p>
                   <h3 className='tutorial-preview-title'>
                     {t('CodexBei installation and setup')}
                   </h3>
@@ -363,7 +365,7 @@ export function BeiAPIHome() {
               <ol className='tutorial-checks'>
                 <li>
                   <span>01</span>
-                  {t('Install CodexBei and the ChatGPT / Codex desktop app.')}
+                  {t('Install CodexBei and the ChatGPT desktop app.')}
                 </li>
                 <li>
                   <span>02</span>
