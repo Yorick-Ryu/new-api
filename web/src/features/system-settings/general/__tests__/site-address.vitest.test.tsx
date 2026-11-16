@@ -147,3 +147,21 @@ it.each(['', 'Configured Lab'])(
     expect(window.localStorage.getItem('status')).toBeNull()
   }
 )
+
+it('saving a custom logo refreshes the displayed brand configuration', async () => {
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  window.localStorage.setItem('status', '{}')
+  const user = await openSettings()
+  const field = screen.getByRole('textbox', { name: 'Logo URL' })
+  await user.type(field, 'https://brand.example/logo.svg')
+  await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+  await waitFor(() =>
+    expect(put).toHaveBeenCalledWith('/api/option/', {
+      key: 'Logo',
+      value: 'https://brand.example/logo.svg',
+    })
+  )
+  expect(window.localStorage.getItem('status')).toBeNull()
+})

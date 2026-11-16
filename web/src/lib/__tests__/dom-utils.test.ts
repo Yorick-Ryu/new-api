@@ -54,7 +54,7 @@ describe('tab branding', () => {
     expect(document.querySelectorAll('link[rel="icon"]')).toHaveLength(1)
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute(
       'href',
-      DEFAULT_LOGO
+      '/logo.png'
     )
   })
   test('a configured agent name and logo remain in control after refresh', () => {

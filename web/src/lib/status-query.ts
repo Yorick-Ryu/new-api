@@ -92,19 +92,13 @@ export function mapStatusDataToConfig(
   }
 
   const configuredLogo = typeof data.logo === 'string' ? data.logo.trim() : ''
-  const useBundledLogo =
-    !configuredLogo ||
-    configuredLogo === '/logo.png' ||
-    configuredLogo === '/beiapi-assets/logo-north.svg' ||
-    configuredLogo === 'https://beiapi.cn/beiapi-assets/logo-north.svg' ||
-    configuredLogo === 'https://www.beiapi.cn/beiapi-assets/logo-north.svg'
 
   const configuredName =
     typeof data.system_name === 'string' ? data.system_name.trim() : ''
 
   return {
     systemName: configuredName,
-    logo: useBundledLogo ? DEFAULT_LOGO : configuredLogo,
+    logo: configuredLogo || DEFAULT_LOGO,
     footerHtml: data.footer_html as string | undefined,
     demoSiteEnabled: data.demo_site_enabled as boolean | undefined,
     displayTokenStatEnabled: data.display_token_stat_enabled as

@@ -268,24 +268,22 @@ describe('module guard status freshness', () => {
 })
 
 describe('BeiAPI bundled site logo', () => {
-  test.each([
-    undefined,
-    '',
-    '/logo.png',
-    'https://beiapi.cn/beiapi-assets/logo-north.svg',
-    'https://www.beiapi.cn/beiapi-assets/logo-north.svg',
-  ])(
-    'uses the bundled same-origin logo for the default or legacy logo %s',
+  test.each([undefined, '', '   '])(
+    'uses the bundled same-origin logo only when empty %s',
     (logo) => {
       expect(mapStatusDataToConfig({ logo }).logo).toBe(DEFAULT_LOGO)
     }
   )
-  test.each(['https://novapi.example/brand.svg', '/agent-custom-logo.svg'])(
-    'keeps an agent site custom logo %s',
-    (logo) => {
-      expect(mapStatusDataToConfig({ logo }).logo).toBe(logo)
-    }
-  )
+  test.each([
+    '/logo.png',
+    '/beiapi-assets/logo-north.svg',
+    'https://beiapi.cn/beiapi-assets/logo-north.svg',
+    'https://www.beiapi.cn/beiapi-assets/logo-north.svg',
+    'https://novapi.example/brand.svg',
+    '/agent-custom-logo.svg',
+  ])('keeps an agent site custom logo %s', (logo) => {
+    expect(mapStatusDataToConfig({ logo }).logo).toBe(logo)
+  })
 })
 
 describe('Bei API site name defaults', () => {
