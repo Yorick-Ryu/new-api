@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { resolveSiteName } from '@/lib/constants'
 import { isAddressOrigin } from '@/lib/site-address'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
@@ -48,7 +49,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 import { isValidTaskPublicAddress } from './task-public-address'
 
 const _systemInfoSchema = z.object({
-  SystemName: z.string().min(1),
+  SystemName: z.string(),
   ServerAddress: z.string().optional(),
   SiteAddress: z.string().optional(),
   SiteAllowedOrigins: z.string().optional(),
@@ -78,7 +79,7 @@ function normalizeValue(value: unknown): string {
 }
 
 export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const updateOption = useUpdateOption()
 
   const normalizedDefaults: SystemInfoFormValues = {
@@ -101,9 +102,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
   }
 
   const systemInfoSchemaWithI18n = z.object({
-    SystemName: z.string().min(1, {
-      error: () => t('System name is required'),
-    }),
+    SystemName: z.string(),
     ServerAddress: z
       .string()
       .refine(
@@ -192,7 +191,10 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormItem>
                     <FormLabel>{t('System Name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t('New API')} {...field} />
+                      <Input
+                        placeholder={resolveSiteName(undefined, i18n.language)}
+                        {...field}
+                      />
                     </FormControl>
                     <FormDescription>
                       {t('The name displayed across the application')}

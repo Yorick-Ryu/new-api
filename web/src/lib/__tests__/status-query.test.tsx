@@ -22,7 +22,9 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { useStatus } from '@/hooks/use-status'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { api } from '@/lib/api'
+import { DEFAULT_LOGO } from '@/lib/constants'
 import {
   getModuleAccessForGuard,
   type HeaderNavModule,
@@ -30,6 +32,7 @@ import {
 import {
   STATUS_QUERY_KEY,
   ensureStatus,
+  mapStatusDataToConfig,
   statusQueryOptions,
 } from '@/lib/status-query'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -262,4 +265,62 @@ describe('module guard status freshness', () => {
       })
     }
   )
+})
+
+describe('BeiAPI bundled site logo', () => {
+  test.each([undefined, '', '   '])(
+    'uses the bundled same-origin logo only when empty %s',
+    (logo) => {
+      expect(mapStatusDataToConfig({ logo }).logo).toBe(DEFAULT_LOGO)
+    }
+  )
+  test.each([
+    '/logo.png',
+    '/beiapi-assets/logo-north.svg',
+    'https://beiapi.cn/beiapi-assets/logo-north.svg',
+    'https://www.beiapi.cn/beiapi-assets/logo-north.svg',
+    'https://novapi.example/brand.svg',
+    '/agent-custom-logo.svg',
+  ])('keeps an agent site custom logo %s', (logo) => {
+    expect(mapStatusDataToConfig({ logo }).logo).toBe(logo)
+  })
+})
+
+describe('Bei API site name defaults', () => {
+  test.each([undefined, '', '   '])(
+    'keeps an empty value for an unconfigured name %s',
+    (system_name) => {
+      expect(mapStatusDataToConfig({ system_name }).systemName).toBe('')
+    }
+  )
+  test.each(['New API', 'Bei API', '小北科研API'])(
+    'preserves the configured name %s',
+    (system_name) => {
+      expect(mapStatusDataToConfig({ system_name }).systemName).toBe(
+        system_name
+      )
+    }
+  )
+  test('keeps an agent site configured name', () => {
+    expect(
+      mapStatusDataToConfig({ system_name: 'Agent Research API' }).systemName
+    ).toBe('Agent Research API')
+  })
+})
+
+test('refreshing the configured name updates the root title as well as the rendered name', async () => {
+  const client = createQueryClient()
+  stubStatusEndpoint('New API')
+  const hook = renderHook(() => useSystemConfig({ autoLoad: true }), {
+    wrapper: wrapper(client),
+  })
+  await waitFor(() => expect(hook.result.current.systemName).toBe('New API'))
+  await waitFor(() => expect(document.title).toBe('New API'))
+  stubStatusEndpoint('Updated Research Name')
+  await client.invalidateQueries({ queryKey: STATUS_QUERY_KEY })
+  await client.fetchQuery(statusQueryOptions)
+  await waitFor(() =>
+    expect(hook.result.current.systemName).toBe('Updated Research Name')
+  )
+  await waitFor(() => expect(document.title).toBe('Updated Research Name'))
 })

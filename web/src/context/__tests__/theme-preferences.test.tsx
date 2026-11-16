@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -57,6 +60,9 @@ function ThemeControls() {
       </button>
       <button type='button' onClick={() => customization.setPreset('default')}>
         Default preset
+      </button>
+      <button type='button' onClick={() => theme.setTheme('light')}>
+        Light mode
       </button>
       <button
         type='button'
@@ -113,6 +119,34 @@ afterEach(() => {
 })
 
 describe('theme preference persistence', () => {
+  it('uses a light color scheme for embedded logos when the user overrides a dark system theme', async () => {
+    const originalMatchMedia = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...originalMatchMedia(query),
+      matches:
+        query === '(prefers-color-scheme: dark)' ||
+        originalMatchMedia(query).matches,
+    }))
+    const style = document.createElement('style')
+    style.textContent = readFileSync(
+      resolve(import.meta.dirname, '../../styles/theme.css'),
+      'utf8'
+    )
+    document.head.appendChild(style)
+    try {
+      const user = userEvent.setup()
+      render(<ThemeFixture />)
+      expect(document.documentElement).toHaveClass('dark')
+      await user.click(screen.getByRole('button', { name: 'Light mode' }))
+      expect(document.documentElement).toHaveClass('light')
+      expect(getComputedStyle(document.documentElement).colorScheme).toBe(
+        'light'
+      )
+    } finally {
+      style.remove()
+    }
+  })
+
   it('starts with defaults when only shared legacy theme cookies exist', () => {
     document.cookie = 'theme_preset=ocean-breeze; path=/'
     document.cookie = 'vite-ui-theme=dark; path=/'

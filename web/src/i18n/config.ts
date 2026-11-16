@@ -16,34 +16,50 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import i18n from 'i18next'
+import i18n, { type BackendModule } from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import { convertDetectedLanguage } from './languages'
 import en from './locales/en.json'
-import fr from './locales/fr.json'
-import ja from './locales/ja.json'
-import ru from './locales/ru.json'
-import vi from './locales/vi.json'
-import zhTW from './locales/zh-TW.json'
-import zhCN from './locales/zh.json'
 
-export const resources = {
-  en,
-  zhCN,
-  fr,
-  ru,
-  ja,
-  vi,
-  zhTW,
-} as const
+// Keep English available even when a requested language chunk cannot load.
+// Each other locale stays in its own content-hashed, cacheable async chunk.
+const localeLoaders = {
+  zhCN: () => import(/* webpackChunkName: "locale-zhCN" */ './locales/zh.json'),
+  zhTW: () =>
+    import(/* webpackChunkName: "locale-zhTW" */ './locales/zh-TW.json'),
+  fr: () => import(/* webpackChunkName: "locale-fr" */ './locales/fr.json'),
+  ru: () => import(/* webpackChunkName: "locale-ru" */ './locales/ru.json'),
+  ja: () => import(/* webpackChunkName: "locale-ja" */ './locales/ja.json'),
+  vi: () => import(/* webpackChunkName: "locale-vi" */ './locales/vi.json'),
+}
 
-i18n
+const localeBackend: BackendModule = {
+  type: 'backend',
+  init() {},
+  async read(language, namespace) {
+    if (
+      namespace !== 'translation' ||
+      !Object.hasOwn(localeLoaders, language)
+    ) {
+      throw new Error(
+        `Unsupported translation bundle: ${language}/${namespace}`
+      )
+    }
+    const load = localeLoaders[language as keyof typeof localeLoaders]
+    const locale = await load()
+    return locale.default.translation
+  },
+}
+
+export const i18nReady = i18n
+  .use(localeBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources,
+    resources: { en },
+    partialBundledLanguages: true,
     fallbackLng: 'en',
     supportedLngs: ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
     load: 'currentOnly',

@@ -53,6 +53,8 @@ const headerNavSchema = z.object({
   console: z.boolean(),
   pricingEnabled: z.boolean(),
   pricingRequireAuth: z.boolean(),
+  plansEnabled: z.boolean(),
+  plansRequireAuth: z.boolean(),
   rankingsEnabled: z.boolean(),
   rankingsRequireAuth: z.boolean(),
   docs: z.boolean(),
@@ -81,6 +83,9 @@ const toFormValues = (config: HeaderNavModulesConfig): HeaderNavFormValues => ({
     config.pricing?.requireAuth === undefined
       ? HEADER_NAV_DEFAULT.pricing.requireAuth
       : Boolean(config.pricing.requireAuth),
+  plansEnabled: config.plans?.enabled ?? HEADER_NAV_DEFAULT.plans.enabled,
+  plansRequireAuth:
+    config.plans?.requireAuth ?? HEADER_NAV_DEFAULT.plans.requireAuth,
   rankingsEnabled:
     config.rankings?.enabled === undefined
       ? HEADER_NAV_DEFAULT.rankings.enabled
@@ -125,6 +130,10 @@ export function HeaderNavigationSection({
         ...(config.pricing ?? HEADER_NAV_DEFAULT.pricing),
         enabled: values.pricingEnabled,
         requireAuth: values.pricingRequireAuth,
+      },
+      plans: {
+        enabled: values.plansEnabled,
+        requireAuth: values.plansRequireAuth,
       },
       rankings: {
         ...(config.rankings ?? HEADER_NAV_DEFAULT.rankings),
@@ -178,7 +187,7 @@ export function HeaderNavigationSection({
   const accessModules: Array<{
     enabledKey: keyof HeaderNavFormValues
     requireAuthKey: keyof HeaderNavFormValues
-    requireAuthDependsOn: 'pricingEnabled' | 'rankingsEnabled'
+    requireAuthDependsOn: 'pricingEnabled' | 'rankingsEnabled' | 'plansEnabled'
     title: string
     description: string
     requireAuthTitle: string
@@ -193,6 +202,17 @@ export function HeaderNavigationSection({
       requireAuthTitle: t('Require login to view models'),
       requireAuthDescription: t(
         'Visitors must authenticate before accessing the pricing directory.'
+      ),
+    },
+    {
+      enabledKey: 'plansEnabled',
+      requireAuthKey: 'plansRequireAuth',
+      requireAuthDependsOn: 'plansEnabled',
+      title: t('Top-up Plans'),
+      description: t('Public top-up and subscription plans page.'),
+      requireAuthTitle: t('Require login to view top-up plans'),
+      requireAuthDescription: t(
+        'Visitors must authenticate before accessing the plans page.'
       ),
     },
     {

@@ -64,7 +64,7 @@ export default defineConfig(({ envMode }) => {
     },
     html: {
       template: './index.html',
-      favicon: './public/favicon.ico',
+      favicon: './src/assets/brand/beiapi.svg',
     },
     server: {
       host: '0.0.0.0',

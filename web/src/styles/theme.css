@@ -95,6 +95,8 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 :root {
+  /* Native controls and embedded SVGs follow an explicitly selected light theme. */
+  color-scheme: light;
   --radius: 1rem;
   --app-header-height: 3rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */

@@ -16,6 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import i18next from 'i18next'
+
+import { DEFAULT_LOGO, resolveSiteName } from '@/lib/constants'
+import { mapStatusDataToConfig, type StatusData } from '@/lib/status-query'
+
 export function applyFaviconToDom(url: string) {
   if (typeof document === 'undefined' || !url) return
   try {
@@ -31,4 +36,19 @@ export function applyFaviconToDom(url: string) {
   } catch {
     // Ignore malformed URLs
   }
+}
+
+/** Keep tab branding consistent with the normalized UI configuration. */
+export function applySystemBranding(
+  status: StatusData | null | undefined
+): void {
+  if (typeof document === 'undefined') return
+  const config = mapStatusDataToConfig(status)
+  const name = resolveSiteName(
+    config.systemName,
+    i18next.language || navigator.language
+  )
+  document.title = name
+  document.querySelector('meta[name="title"]')?.setAttribute('content', name)
+  applyFaviconToDom(config.logo || DEFAULT_LOGO)
 }

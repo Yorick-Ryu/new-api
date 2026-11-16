@@ -1,0 +1,1660 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/* BeiAPI's deployed homepage styles, scoped to native content and shared-dialog bodies. */
+.beiapi-home {
+  --content-max: 1200px;
+  --page-gutter: 24px;
+  --font-ui-sans: sans-serif;
+  --action: var(--primary);
+  --primary-text: var(--primary);
+  --radius-card: var(--radius-xl);
+  --radius-control: var(--radius-lg);
+  --radius-badge: var(--radius-4xl);
+  --floating-shadow:
+    0 2px 16px -6px rgb(0 0 0 / 8%), 0 0 0 0.5px rgb(0 0 0 / 2%);
+  color: var(--foreground);
+  background: var(--background);
+  font: 14px/1.6 var(--font-ui-sans);
+}
+.dark .beiapi-home {
+  --floating-shadow: 0 2px 16px -6px rgb(0 0 0 / 40%);
+}
+.beiapi-home [data-slot='card'] {
+  display: block;
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.beiapi-home [data-slot='button'] {
+  height: auto;
+}
+.beiapi-home [id] {
+  scroll-margin-top: 96px;
+}
+.beiapi-home .routing-inner > svg {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  display: block;
+}
+
+/* Align the standalone homepage with the site's base-nova semantic theme. */
+.beiapi-home * {
+  box-sizing: border-box;
+}
+.beiapi-home h1,
+.beiapi-home h2,
+.beiapi-home h3,
+.beiapi-home p,
+.beiapi-home ol,
+.beiapi-home ul {
+  margin: 0;
+}
+.beiapi-home button,
+.beiapi-home input {
+  font: inherit;
+}
+.beiapi-home button {
+  cursor: pointer;
+}
+.beiapi-home a {
+  color: inherit;
+  text-decoration: none;
+}
+.beiapi-home button,
+.beiapi-home a {
+  -webkit-tap-highlight-color: transparent;
+}
+.beiapi-home svg {
+  display: block;
+  flex-shrink: 0;
+}
+.beiapi-home img {
+  display: block;
+  max-width: 100%;
+}
+.beiapi-home button,
+.beiapi-home a {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+.beiapi-home :focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--ring) 55%, transparent);
+  outline-offset: 3px;
+}
+.beiapi-home [hidden] {
+  display: none !important;
+}
+.beiapi-home .wrap {
+  width: min(var(--content-max), calc(100% - 2 * var(--page-gutter)));
+  margin-inline: auto;
+}
+.beiapi-home .btn,
+.beiapi-home .hero-consult-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 17px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.beiapi-home .btn-primary {
+  color: var(--primary-foreground);
+  background: var(--action);
+}
+.beiapi-home .btn-primary:hover {
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+}
+.beiapi-home .btn-outline,
+.beiapi-home .hero-consult-btn {
+  color: var(--foreground);
+  background: var(--card);
+  border-color: var(--border);
+}
+.beiapi-home .btn-outline:hover,
+.beiapi-home .hero-consult-btn:hover {
+  background: var(--muted);
+}
+.beiapi-home .btn-icon {
+  width: 17px;
+  height: 17px;
+}
+.beiapi-home .btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+.beiapi-home .section-title,
+.beiapi-home .reward-heading {
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.beiapi-home .section-body,
+.beiapi-home .reward-lead {
+  margin-top: 16px;
+  color: var(--muted-foreground);
+  font-size: 16px;
+  line-height: 1.9;
+}
+.beiapi-home .kicker {
+  color: var(--primary-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+.beiapi-home .hero {
+  padding: 48px 0 56px;
+}
+.beiapi-home .hero {
+  padding-top: 112px;
+}
+.beiapi-home .hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.93fr) minmax(0, 1.07fr);
+  gap: 48px;
+  align-items: start;
+}
+.beiapi-home .hero-intro,
+.beiapi-home .hero-visual {
+  min-width: 0;
+}
+.beiapi-home .hero-intro {
+  padding-top: 8px;
+}
+.beiapi-home .hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  color: var(--primary-text);
+  background: var(--accent);
+  border-radius: var(--radius-badge);
+  font-size: 12px;
+  font-weight: 550;
+  margin-bottom: 22px;
+}
+.beiapi-home .hero-eyebrow::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.beiapi-home .hero-h1 {
+  font-size: clamp(42px, 4.6vw, 62px);
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+.beiapi-home .hero-copy {
+  max-width: 33em;
+  margin-top: 22px;
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--muted-foreground);
+}
+.beiapi-home .hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin-top: 22px;
+}
+.beiapi-home .hero-tags li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-badge);
+  padding: 4px 9px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.beiapi-home .hero .btn-row {
+  margin-top: 26px;
+}
+.beiapi-home .hero .btn-row .btn {
+  min-height: 42px;
+  padding-inline: 22px;
+}
+.beiapi-home .hero-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+.beiapi-home .hero-shortcut {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .hero-shortcut:hover {
+  background: var(--muted);
+}
+.beiapi-home .shortcut-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.beiapi-home .shortcut-desc {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.beiapi-home .hero-video {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--card);
+}
+.beiapi-home .video-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 5px 16px;
+  padding: 20px;
+}
+.beiapi-home .video-heading > div {
+  display: contents;
+}
+.beiapi-home .video-heading h2 {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+}
+.beiapi-home .video-heading em {
+  color: var(--primary-text);
+  font-style: normal;
+}
+.beiapi-home .video-heading p {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.beiapi-home .video-guide-link {
+  grid-column: 2;
+  grid-row: 1;
+  padding-block: 3px;
+  color: var(--primary-text);
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: nowrap;
+}
+.beiapi-home .video-guide-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.beiapi-home .video-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  isolation: isolate;
+  background: #08131d;
+}
+.beiapi-home .video-stage video {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.beiapi-home .video-chapters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 16px 18px;
+}
+.beiapi-home .video-chapter {
+  justify-content: flex-start;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 8px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0 14px;
+  text-align: left;
+  background: transparent;
+  color: var(--foreground);
+}
+.beiapi-home .video-chapter:first-child {
+  padding-left: 0;
+}
+.beiapi-home .video-chapter:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+.beiapi-home .video-chapter small {
+  color: var(--muted-foreground);
+  font:
+    10px/1.5 ui-monospace,
+    monospace;
+  white-space: nowrap;
+}
+.beiapi-home .video-chapter strong {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.beiapi-home .video-chapter:hover strong,
+.beiapi-home .video-chapter[aria-current='true'] strong {
+  color: var(--primary-text);
+}
+.beiapi-home .video-error {
+  position: absolute;
+  inset: auto 12px 12px;
+  padding: 12px;
+  z-index: 4;
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 13px;
+}
+.beiapi-home .video-error a {
+  color: var(--primary-text);
+  text-decoration: underline;
+}
+.beiapi-home .hero-services {
+  margin-top: 40px;
+}
+.beiapi-home .hero-services-head {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.beiapi-home .hero-services-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+}
+.beiapi-home .hero-consult-btn {
+  min-height: 34px;
+  padding: 7px 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.beiapi-home .hero-services-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.beiapi-home .hero-service-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .hero-service-icon,
+.beiapi-home .tutorial-play {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--primary-text);
+  flex-shrink: 0;
+}
+.beiapi-home .hero-service-icon svg,
+.beiapi-home .tutorial-play svg {
+  width: 22px;
+  height: 22px;
+}
+.beiapi-home .hero-service-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.beiapi-home .hero-service-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.beiapi-home .hero-service-copy > span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+.beiapi-home .hero-referral {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 20px;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--accent);
+  font-size: 13px;
+}
+.beiapi-home .hero-referral-copy {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  line-height: 1.8;
+}
+.beiapi-home .hero-referral-copy strong {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+.beiapi-home .hero-referral-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--primary-text);
+}
+.beiapi-home .hero-referral-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--primary-text);
+  font-weight: 550;
+  font-size: 12px;
+}
+.beiapi-home .hero-referral-link svg {
+  width: 16px;
+  height: 16px;
+}
+.beiapi-home .routing,
+.beiapi-home .process,
+.beiapi-home .tutorial,
+.beiapi-home .trust,
+.beiapi-home .pricing,
+.beiapi-home .partner-section {
+  padding-block: 64px;
+}
+.beiapi-home .routing {
+  background: var(--muted);
+}
+.beiapi-home .routing-inner {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: 80px;
+}
+.beiapi-home .routing-inner > div {
+  max-width: 650px;
+}
+.beiapi-home .hub-line {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+.beiapi-home .hub-node {
+  fill: var(--card);
+  stroke: var(--border);
+  stroke-width: 1;
+  rx: var(--radius-md);
+}
+.beiapi-home .hub-text {
+  fill: var(--foreground);
+  font-family: var(--font-ui-sans);
+}
+.beiapi-home .hub-sub {
+  fill: var(--muted-foreground);
+}
+.beiapi-home .hub-center {
+  fill: var(--action);
+  rx: var(--radius-lg);
+}
+.beiapi-home .hub-ctxt {
+  fill: var(--primary-foreground);
+  font-family: var(--font-ui-sans);
+}
+.beiapi-home .process-head {
+  max-width: 750px;
+  margin-bottom: 28px;
+}
+.beiapi-home .steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.beiapi-home .step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .step-num,
+.beiapi-home .signup-reward-num,
+.beiapi-home .reward-path-num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--primary-text);
+  font:
+    600 12px/1 ui-monospace,
+    monospace;
+}
+.beiapi-home .step-title {
+  margin-top: 4px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.beiapi-home .step-body {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.9;
+}
+.beiapi-home .tutorial {
+  padding-top: 0;
+}
+.beiapi-home .tutorial-inner {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 32px;
+  background: var(--card);
+}
+.beiapi-home .tutorial .section-title {
+  font-size: 28px;
+}
+.beiapi-home .tutorial .section-body {
+  font-size: 14px;
+}
+.beiapi-home .tutorial-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.beiapi-home .tutorial-meta {
+  display: flex;
+  gap: 18px;
+  margin-top: 20px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.beiapi-home .tutorial-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.beiapi-home .tutorial-meta svg {
+  width: 12px;
+  height: 12px;
+  color: var(--primary-text);
+}
+.beiapi-home .tutorial-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  background: var(--muted);
+}
+.beiapi-home .tutorial-video-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.beiapi-home .tutorial-preview-label {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.beiapi-home .tutorial-preview-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+.beiapi-home .tutorial-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  padding: 0;
+  margin-top: 22px;
+}
+.beiapi-home .tutorial-checks li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding-block: 13px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.beiapi-home .tutorial-checks li span {
+  color: var(--primary-text);
+  font:
+    11px/1.9 ui-monospace,
+    monospace;
+}
+.beiapi-home .trust {
+  background: var(--muted);
+}
+.beiapi-home .trust-inner {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px;
+  align-items: start;
+}
+.beiapi-home .trust .section-title {
+  font-size: 30px;
+}
+.beiapi-home .trust-quote {
+  font-size: 15px;
+  line-height: 1.95;
+  color: var(--muted-foreground);
+  margin-bottom: 24px;
+}
+.beiapi-home .trust-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.beiapi-home .metric {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+.beiapi-home .metric-val {
+  display: block;
+  color: var(--foreground);
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+}
+.beiapi-home .metric-lbl {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.beiapi-home .pricing-inner {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px;
+  align-items: start;
+}
+.beiapi-home .price-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.beiapi-home .price-fact {
+  padding: 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .price-fact strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+.beiapi-home .price-fact span {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.beiapi-home .price-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .price-tier {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.beiapi-home .price-tier:last-child {
+  border-bottom: 0;
+}
+.beiapi-home .price-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.beiapi-home .price-desc {
+  margin-top: 5px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.beiapi-home .price-badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius-badge);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.beiapi-home .pb-rec {
+  color: var(--primary-text);
+  background: var(--accent);
+}
+.beiapi-home .price-badge:is(button):hover {
+  color: var(--primary-text);
+  background: var(--accent);
+}
+.beiapi-home .price-note {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+  margin-top: 12px;
+}
+.beiapi-home .partner-section {
+  background: var(--muted);
+}
+.beiapi-home .reward-shell {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.beiapi-home .reward-intro {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 40px;
+  margin-bottom: 8px;
+}
+.beiapi-home .reward-intro-copy {
+  max-width: 850px;
+}
+.beiapi-home .reward-lead {
+  font-size: 14px;
+  line-height: 1.9;
+}
+.beiapi-home .signup-reward,
+.beiapi-home .reward-grid {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.beiapi-home .signup-reward {
+  display: flex;
+  flex-direction: column;
+}
+.beiapi-home .signup-reward-main {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 14px 12px;
+  align-content: start;
+}
+.beiapi-home .signup-reward-title,
+.beiapi-home .reward-path-title {
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.beiapi-home .signup-reward-copy {
+  margin-top: 9px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.95;
+}
+.beiapi-home .signup-reward-flow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 14px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.beiapi-home .signup-reward-step {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+}
+.beiapi-home .signup-reward-step + .signup-reward-step {
+  border-top: 1px solid var(--border);
+}
+.beiapi-home .signup-reward-step span {
+  color: var(--primary-text);
+  font:
+    600 10px/1.5 ui-monospace,
+    monospace;
+}
+.beiapi-home .signup-reward-step strong {
+  font-size: 12px;
+  line-height: 1.8;
+  font-weight: 500;
+}
+.beiapi-home .signup-reward-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 20px;
+  align-items: center;
+  margin-top: auto;
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  background: var(--accent);
+}
+.beiapi-home .signup-reward-value-label {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.beiapi-home .signup-reward-value > strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 44px;
+  font-weight: 650;
+  color: var(--primary-text);
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+.beiapi-home .signup-reward-value > em {
+  grid-column: 1;
+  font-size: 12px;
+  font-style: normal;
+}
+.beiapi-home .signup-reward-value .btn {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+}
+.beiapi-home .reward-grid {
+  display: flex;
+  flex-direction: column;
+}
+.beiapi-home .reward-path {
+  padding: 24px;
+}
+.beiapi-home .reward-path-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.beiapi-home .reward-path-subtitle {
+  margin-top: 9px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.95;
+}
+.beiapi-home .commission-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-block: 22px 20px;
+}
+.beiapi-home .commission-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+.beiapi-home .commission-metric > span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.beiapi-home .commission-metric strong {
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+}
+.beiapi-home .commission-metric em {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  font-style: normal;
+  font-weight: 500;
+  margin-left: 5px;
+}
+.beiapi-home .reward-extra {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+  padding-block: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.beiapi-home .reward-extra > span {
+  color: var(--muted-foreground);
+}
+.beiapi-home .reward-extra > strong {
+  font-weight: 500;
+  text-align: right;
+}
+.beiapi-home .reward-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+  padding: 22px 24px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 65%, var(--card));
+}
+.beiapi-home .reward-contact-copy {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted-foreground);
+}
+.beiapi-home .reward-contact-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.beiapi-home .reward-contact-actions .btn {
+  flex: 1;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.beiapi-home .reward-rules-note {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--muted-foreground);
+}
+.beiapi-home .final-cta {
+  padding: 48px 0 24px;
+}
+.beiapi-home .final-cta > .wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 40px;
+  text-align: center;
+  background: var(--card);
+}
+.beiapi-home .final-cta .section-title {
+  max-width: 850px;
+  margin-inline: auto;
+  font-size: 30px;
+}
+.beiapi-home .final-cta .section-body {
+  max-width: 720px;
+  margin-inline: auto;
+  font-size: 14px;
+}
+.beiapi-home .final-cta .btn-row {
+  justify-content: center;
+}
+.beiapi-home .support-float {
+  position: fixed;
+  z-index: 35;
+  right: max(var(--page-gutter), calc((100% - var(--content-max)) / 2));
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow:
+    0 0 0 0.5px color-mix(in oklab, var(--border) 50%, transparent),
+    var(--floating-shadow);
+  text-align: left;
+}
+@supports (
+  (backdrop-filter: blur(40px)) or (-webkit-backdrop-filter: blur(40px))
+) {
+  .beiapi-home .support-float {
+    background: color-mix(in oklab, var(--background) 60%, transparent);
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+  }
+  .beiapi-home .support-float:hover {
+    background: color-mix(in oklab, var(--background) 75%, transparent);
+  }
+}
+.beiapi-home .support-float svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary-text);
+}
+.beiapi-home .support-float strong,
+.beiapi-home .support-float small {
+  display: block;
+}
+.beiapi-home .support-float strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+.beiapi-home .support-float small {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  margin-top: 2px;
+}
+.beiapi-home .support-hint {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.9;
+  margin-bottom: 20px;
+}
+.beiapi-home .modal-img-frame {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.beiapi-home .modal-img {
+  width: 100%;
+  height: auto;
+}
+.beiapi-home .modal-fallback {
+  display: none;
+  padding: 24px;
+  font-size: 13px;
+}
+.beiapi-home .modal-img-frame.err .modal-fallback {
+  display: block;
+}
+.beiapi-home .modal-img-frame.err .modal-img {
+  display: none;
+}
+.beiapi-home .service-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.beiapi-home .service-region {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+.beiapi-home .service-region h3,
+.beiapi-home .service-principle h3,
+.beiapi-home .service-disclaimer h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.beiapi-home .service-region p,
+.beiapi-home .service-principle p,
+.beiapi-home .service-disclaimer p {
+  color: var(--muted-foreground);
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.9;
+}
+.beiapi-home .service-region strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.beiapi-home .service-region .service-region-note {
+  font-size: 11px;
+}
+.beiapi-home .service-principle {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.beiapi-home .service-index {
+  color: var(--primary-text);
+  font:
+    11px/2 ui-monospace,
+    monospace;
+}
+.beiapi-home .service-disclaimer {
+  padding-top: 20px;
+}
+.beiapi-home .service-disclaimer h3,
+.beiapi-home .service-disclaimer p {
+  font-size: 11px;
+}
+@media (max-width: 1100px) {
+  .beiapi-home .hero-inner {
+    gap: 32px;
+  }
+  .beiapi-home .hero-h1 {
+    font-size: 48px;
+  }
+  .beiapi-home .hero-copy {
+    font-size: 14px;
+  }
+  .beiapi-home .hero-eyebrow {
+    font-size: 11px;
+  }
+  .beiapi-home .video-heading {
+    padding: 18px;
+  }
+  .beiapi-home .video-heading h2 {
+    font-size: 16px;
+  }
+  .beiapi-home .hero-shortcut {
+    padding: 12px;
+  }
+  .beiapi-home .shortcut-desc {
+    font-size: 11px;
+  }
+  .beiapi-home .hero-service-item {
+    padding: 18px;
+  }
+  .beiapi-home .routing-inner,
+  .beiapi-home .trust-inner,
+  .beiapi-home .pricing-inner {
+    gap: 40px;
+  }
+  .beiapi-home .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .beiapi-home .tutorial-inner {
+    gap: 28px;
+    padding: 28px;
+  }
+  .beiapi-home .tutorial-meta {
+    gap: 10px;
+  }
+  .beiapi-home .price-facts {
+    gap: 8px;
+  }
+  .beiapi-home .price-fact {
+    padding: 16px 12px;
+  }
+  .beiapi-home .price-fact strong {
+    font-size: 23px;
+  }
+}
+@media (max-width: 900px) {
+  .beiapi-home .hero-inner,
+  .beiapi-home .routing-inner,
+  .beiapi-home .trust-inner,
+  .beiapi-home .pricing-inner,
+  .beiapi-home .tutorial-inner {
+    grid-template-columns: 1fr;
+  }
+  .beiapi-home .hero-intro {
+    padding: 0;
+  }
+  .beiapi-home .hero-h1 {
+    font-size: 54px;
+  }
+  .beiapi-home .hero-copy {
+    max-width: 100%;
+    font-size: 16px;
+  }
+  .beiapi-home .hero-visual {
+    margin-top: 4px;
+  }
+  .beiapi-home .hero-services-row {
+    gap: 12px;
+  }
+  .beiapi-home .hero-service-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .beiapi-home .routing-inner {
+    gap: 24px;
+  }
+  .beiapi-home .routing-inner > svg {
+    max-width: 320px !important;
+  }
+  .beiapi-home .tutorial-inner {
+    gap: 28px;
+  }
+  .beiapi-home .trust-inner,
+  .beiapi-home .pricing-inner {
+    gap: 28px;
+  }
+  .beiapi-home .reward-intro {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .beiapi-home .reward-intro > .btn {
+    justify-self: start;
+  }
+  .beiapi-home .reward-shell {
+    grid-template-columns: 1fr;
+  }
+  .beiapi-home .signup-reward-flow {
+    margin-bottom: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .beiapi-home {
+    --page-gutter: 16px;
+  }
+  .beiapi-home .hero {
+    padding: 28px 0 36px;
+  }
+  .beiapi-home .hero {
+    padding-top: 92px;
+  }
+  .beiapi-home .hero-inner {
+    gap: 28px;
+  }
+  .beiapi-home .hero-eyebrow {
+    font-size: 10px;
+    margin-bottom: 18px;
+  }
+  .beiapi-home .hero-h1 {
+    font-size: clamp(34px, 8.6vw, 46px);
+    letter-spacing: -0.04em;
+  }
+  .beiapi-home .hero-copy {
+    margin-top: 18px;
+    font-size: 14px;
+    line-height: 1.95;
+  }
+  .beiapi-home .hero-tags {
+    gap: 6px;
+    margin-top: 18px;
+  }
+  .beiapi-home .hero-tags li {
+    font-size: 10px;
+    padding: 4px 7px;
+  }
+  .beiapi-home .hero .btn-row {
+    margin-top: 22px;
+  }
+  .beiapi-home .hero .btn-row .btn {
+    flex: 1;
+    padding-inline: 12px;
+  }
+  .beiapi-home .hero-shortcuts {
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .beiapi-home .hero-shortcut {
+    padding: 12px;
+  }
+  .beiapi-home .shortcut-title {
+    font-size: 12px;
+  }
+  .beiapi-home .shortcut-desc {
+    font-size: 10px;
+  }
+  .beiapi-home .video-heading {
+    padding: 16px;
+  }
+  .beiapi-home .video-heading h2 {
+    font-size: 16px;
+  }
+  .beiapi-home .video-heading p {
+    font-size: 11px;
+  }
+  .beiapi-home .video-chapters {
+    padding: 14px;
+  }
+  .beiapi-home .video-chapter {
+    padding-inline: 9px;
+  }
+  .beiapi-home .video-chapter small {
+    font-size: 9px;
+  }
+  .beiapi-home .video-chapter strong {
+    font-size: 10px;
+  }
+  .beiapi-home .video-guide-link {
+    font-size: 11px;
+  }
+  .beiapi-home .hero-services {
+    margin-top: 28px;
+  }
+  .beiapi-home .hero-services-head {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .beiapi-home .hero-services-title {
+    font-size: 16px;
+  }
+  .beiapi-home .hero-consult-btn {
+    min-height: 30px;
+    font-size: 11px;
+    padding: 6px 9px;
+  }
+  .beiapi-home .hero-services-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .beiapi-home .hero-service-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 16px;
+    gap: 14px;
+  }
+  .beiapi-home .hero-service-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .beiapi-home .hero-service-copy strong {
+    font-size: 13px;
+  }
+  .beiapi-home .hero-service-copy > span {
+    font-size: 11px;
+  }
+  .beiapi-home .hero-referral {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+  .beiapi-home .hero-referral-copy {
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 12px;
+  }
+  .beiapi-home .hero-referral-icon {
+    width: 19px;
+    height: 19px;
+    margin-top: 2px;
+  }
+  .beiapi-home .hero-referral-link {
+    margin-left: 29px;
+  }
+  .beiapi-home .routing,
+  .beiapi-home .process,
+  .beiapi-home .tutorial,
+  .beiapi-home .trust,
+  .beiapi-home .pricing,
+  .beiapi-home .partner-section {
+    padding-block: 40px;
+  }
+  .beiapi-home .section-title,
+  .beiapi-home .reward-heading {
+    font-size: 25px;
+    line-height: 1.5;
+  }
+  .beiapi-home .section-body {
+    font-size: 14px;
+    margin-top: 14px;
+  }
+  .beiapi-home .kicker {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+  .beiapi-home .routing-inner > svg {
+    max-width: 280px !important;
+  }
+  .beiapi-home .steps {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .beiapi-home .step {
+    padding: 20px;
+    gap: 12px;
+  }
+  .beiapi-home .step-title {
+    margin-top: 0;
+  }
+  .beiapi-home .tutorial {
+    padding-top: 0;
+  }
+  .beiapi-home .tutorial-inner {
+    padding: 22px;
+    gap: 24px;
+  }
+  .beiapi-home .tutorial .section-title {
+    font-size: 24px;
+  }
+  .beiapi-home .tutorial-actions {
+    gap: 8px;
+  }
+  .beiapi-home .tutorial-actions .btn {
+    width: 100%;
+  }
+  .beiapi-home .tutorial-meta {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .beiapi-home .tutorial-preview {
+    padding: 18px;
+  }
+  .beiapi-home .tutorial-preview-title {
+    font-size: 14px;
+  }
+  .beiapi-home .tutorial-checks li {
+    font-size: 11px;
+  }
+  .beiapi-home .trust .section-title {
+    font-size: 25px;
+  }
+  .beiapi-home .trust-quote {
+    font-size: 13px;
+  }
+  .beiapi-home .trust-metrics {
+    gap: 12px;
+  }
+  .beiapi-home .metric {
+    padding-top: 14px;
+  }
+  .beiapi-home .metric-val {
+    font-size: 24px;
+  }
+  .beiapi-home .metric-lbl {
+    font-size: 10px;
+  }
+  .beiapi-home .price-facts {
+    gap: 8px;
+  }
+  .beiapi-home .price-fact {
+    padding: 14px 10px;
+  }
+  .beiapi-home .price-fact strong {
+    font-size: clamp(16px, 5vw, 20px);
+  }
+  .beiapi-home .price-fact span {
+    font-size: 10px;
+  }
+  .beiapi-home .price-tier {
+    padding: 16px;
+    gap: 12px;
+  }
+  .beiapi-home .price-badge {
+    font-size: 10px;
+  }
+  .beiapi-home .price-desc {
+    font-size: 11px;
+  }
+  .beiapi-home .price-name {
+    font-size: 13px;
+  }
+  .beiapi-home .reward-intro {
+    gap: 18px;
+    margin-bottom: 4px;
+  }
+  .beiapi-home .reward-lead {
+    font-size: 13px;
+  }
+  .beiapi-home .reward-shell {
+    gap: 16px;
+  }
+  .beiapi-home .signup-reward-main,
+  .beiapi-home .reward-path {
+    padding: 20px;
+  }
+  .beiapi-home .signup-reward-title,
+  .beiapi-home .reward-path-title {
+    font-size: 16px;
+  }
+  .beiapi-home .signup-reward-copy,
+  .beiapi-home .reward-path-subtitle {
+    font-size: 12px;
+  }
+  .beiapi-home .signup-reward-flow {
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+  }
+  .beiapi-home .signup-reward-step {
+    display: grid;
+    grid-template-columns: 55px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+  }
+  .beiapi-home .signup-reward-step + .signup-reward-step {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .beiapi-home .signup-reward-step strong {
+    font-size: 11px;
+  }
+  .beiapi-home .signup-reward-value {
+    padding: 20px;
+    gap: 5px 12px;
+  }
+  .beiapi-home .signup-reward-value > strong {
+    font-size: 38px;
+  }
+  .beiapi-home .signup-reward-value-label,
+  .beiapi-home .signup-reward-value > em {
+    font-size: 11px;
+  }
+  .beiapi-home .commission-metrics {
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .beiapi-home .commission-metric {
+    padding: 15px;
+  }
+  .beiapi-home .commission-metric strong {
+    font-size: 31px;
+  }
+  .beiapi-home .commission-metric > span,
+  .beiapi-home .reward-extra {
+    font-size: 11px;
+  }
+  .beiapi-home .reward-contact {
+    padding: 20px;
+  }
+  .beiapi-home .reward-contact-copy {
+    font-size: 11px;
+  }
+  .beiapi-home .reward-contact-actions {
+    gap: 8px;
+  }
+  .beiapi-home .reward-contact-actions .btn {
+    font-size: 11px;
+  }
+  .beiapi-home .reward-rules-note {
+    font-size: 10px;
+  }
+  .beiapi-home .final-cta {
+    padding: 32px 0 16px;
+  }
+  .beiapi-home .final-cta > .wrap {
+    padding: 28px 20px;
+  }
+  .beiapi-home .final-cta .section-title {
+    font-size: 24px;
+  }
+  .beiapi-home .final-cta .section-body {
+    font-size: 13px;
+  }
+  .beiapi-home .final-cta .btn-row .btn {
+    width: 100%;
+  }
+  .beiapi-home .support-float {
+    bottom: 12px;
+    padding: 10px 12px;
+    gap: 7px;
+  }
+  .beiapi-home .support-float small {
+    display: none;
+  }
+  .beiapi-home .support-float strong {
+    font-size: 11px;
+  }
+  .beiapi-home .support-float svg {
+    width: 16px;
+    height: 16px;
+  }
+  .beiapi-home .service-region {
+    padding: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beiapi-home *,
+  .beiapi-home *::before,
+  .beiapi-home *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.beiapi-home .modal-img-frame[data-error] .modal-fallback {
+  display: block;
+}
+.beiapi-home .modal-img-frame[data-error] .modal-img {
+  display: none;
+}
+.beiapi-home-dialog {
+  max-height: calc(100dvh - 32px);
+}

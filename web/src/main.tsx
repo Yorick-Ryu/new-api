@@ -22,16 +22,21 @@ import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { installBuildMetadata } from '@/lib/build-metadata'
-import { applyFaviconToDom } from '@/lib/dom-utils'
+import { applySystemBranding } from '@/lib/dom-utils'
 import '@/lib/dayjs'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import { createAppQueryClient } from '@/lib/query-client'
-import { readCachedStatus, statusQueryOptions } from '@/lib/status-query'
+import {
+  readCachedStatus,
+  statusQueryOptions,
+  STATUS_QUERY_KEY,
+  type StatusData,
+} from '@/lib/status-query'
 
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
-import './i18n/config'
+import i18n, { i18nReady } from './i18n/config'
 // Generated Routes
 import { routeTree } from './routeTree.gen'
 
@@ -71,17 +76,9 @@ if (!rootElement) {
 ;(function initSystemBranding() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
-    const apply = (name: string) => {
-      document.title = name
-      const metaTitle = document.querySelector(
-        'meta[name="title"]'
-      ) as HTMLMetaElement | null
-      if (metaTitle) metaTitle.setAttribute('content', name)
-    }
-    // Cache-first
-    const cached = readCachedStatus()
-    if (cached?.system_name) apply(cached.system_name as string)
-    if (cached?.logo) applyFaviconToDom(cached.logo as string)
+    // Respect configured names from both cached and fresh status; only an
+    // empty name falls back to the localized site default.
+    applySystemBranding(readCachedStatus())
 
     // Background refresh through the shared cache. This primes ['status']
     // before React mounts, so the root guard and every status consumer reuse
@@ -89,10 +86,7 @@ if (!rootElement) {
     // localStorage write and the system-config store sync.
     queryClient
       .ensureQueryData(statusQueryOptions)
-      .then((s) => {
-        if (s?.system_name) apply(s.system_name as string)
-        if (s?.logo) applyFaviconToDom(s.logo as string)
-      })
+      .then(applySystemBranding)
       .catch(() => {
         /* empty */
       })
@@ -100,19 +94,34 @@ if (!rootElement) {
     /* empty */
   }
 })()
-if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <FontProvider>
-            <DirectionProvider>
-              <RouterProvider router={router} />
-            </DirectionProvider>
-          </FontProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </StrictMode>
-  )
-}
+// Wait for the selected locale before the first React render. A failed chunk
+// still resolves initialization with the bundled English fallback.
+void i18nReady
+  .then(() => {
+    const syncBranding = () =>
+      applySystemBranding(
+        queryClient.getQueryData<StatusData>(STATUS_QUERY_KEY) ||
+          readCachedStatus()
+      )
+    i18n.on('languageChanged', syncBranding)
+    syncBranding()
+    if (!rootElement.innerHTML) {
+      const root = ReactDOM.createRoot(rootElement)
+      root.render(
+        <StrictMode>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <FontProvider>
+                <DirectionProvider>
+                  <RouterProvider router={router} />
+                </DirectionProvider>
+              </FontProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </StrictMode>
+      )
+    }
+  })
+  .catch((error: unknown) => {
+    console.warn('Failed to initialize interface translations', error)
+  })

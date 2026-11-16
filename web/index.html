@@ -31,6 +31,28 @@
         document.documentElement.classList.add(theme)
       })()
     </script>
+    <!-- Use cached settings before boot; only an empty name uses the locale default. -->
+    <script>
+      ;(function () {
+        var language = navigator.language || 'en'
+        var name = ''
+        var hasStatus = false
+        try {
+          language = localStorage.getItem('i18nextLng') || language
+          var cached = JSON.parse(localStorage.getItem('status') || 'null')
+          hasStatus = !!cached && typeof cached === 'object'
+          if (hasStatus && typeof cached.system_name === 'string') {
+            name = cached.system_name.trim()
+          }
+        } catch (e) {}
+        if (hasStatus || document.title === 'New API' || document.title === 'BEI API') {
+          name = name || (language.toLowerCase().indexOf('zh') === 0 ? '小北科研API' : 'Bei API')
+          document.title = name
+          var title = document.querySelector('meta[name="title"]')
+          if (title) title.setAttribute('content', name)
+        }
+      })()
+    </script>
     <!--umami-->
     <!--Google Analytics-->
   </head>

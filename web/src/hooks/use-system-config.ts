@@ -18,9 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
-import { DEFAULT_LOGO } from '@/lib/constants'
-import { applyFaviconToDom } from '@/lib/dom-utils'
+import { DEFAULT_LOGO, resolveSiteName } from '@/lib/constants'
+import { applyFaviconToDom, applySystemBranding } from '@/lib/dom-utils'
 import { ensureStatus } from '@/lib/status-query'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -59,6 +60,7 @@ function preloadImage(
  */
 export function useSystemConfig(options: UseSystemConfigOptions = {}) {
   const { autoLoad = false } = options
+  const { i18n } = useTranslation()
   const queryClient = useQueryClient()
   const { config, loading, loadedLogoUrl, setLoadedLogoUrl, setLoading } =
     useSystemConfigStore()
@@ -81,6 +83,13 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
   useEffect(() => {
     if (autoLoad) loadConfig()
   }, [autoLoad, loadConfig])
+
+  // Only the root loader owns tab updates when settings refresh.
+  useEffect(() => {
+    if (autoLoad && !loading) {
+      applySystemBranding({ system_name: config.systemName, logo: config.logo })
+    }
+  }, [autoLoad, loading, config.systemName, config.logo, i18n.language])
 
   // Preload logo image when URL changes
   useEffect(() => {
@@ -110,6 +119,7 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
 
   return {
     ...config,
+    systemName: resolveSiteName(config.systemName, i18n.language),
     loading,
     logoLoaded: config.logo === loadedLogoUrl && !!loadedLogoUrl,
   }

@@ -16,13 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import beiapiLogo from '@/assets/brand/beiapi.svg'
+
 /**
  * Application-wide constants
  */
 
 // System Configuration Defaults
-export const DEFAULT_SYSTEM_NAME = 'New API'
-export const DEFAULT_LOGO = '/logo.png'
+export const DEFAULT_SYSTEM_NAME = 'Bei API'
+export const DEFAULT_LOGO = beiapiLogo
+
+// Configured names are authoritative; only an empty setting uses the locale default.
+export function resolveSiteName(
+  name: string | undefined,
+  language: string
+): string {
+  if (name?.trim()) return name
+  return language.toLowerCase().startsWith('zh')
+    ? '小北科研API'
+    : DEFAULT_SYSTEM_NAME
+}
 
 // LocalStorage Keys
 export const STORAGE_KEYS = {
