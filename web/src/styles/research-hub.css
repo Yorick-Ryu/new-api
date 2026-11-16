@@ -25,7 +25,7 @@ For commercial licensing, please contact support@quantumnous.com
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
-  grid-template-rows: repeat(2, minmax(76px, auto));
+  grid-template-rows: repeat(2, auto);
   gap: 40px 24px;
   padding-block: 16px;
 }
@@ -67,6 +67,9 @@ For commercial licensing, please contact support@quantumnous.com
   z-index: 1;
   position: relative;
   min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  justify-self: end;
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
   align-content: center;
@@ -127,6 +130,10 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .research-hub-code {
   grid-area: 2 / 3;
+}
+.beiapi-home .research-hub-writing,
+.beiapi-home .research-hub-code {
+  justify-self: start;
 }
 .beiapi-home .research-hub-port {
   position: absolute;
@@ -189,20 +196,6 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--foreground);
   overflow-wrap: anywhere;
 }
-.beiapi-home .research-hub-orbit {
-  position: absolute;
-  z-index: -1;
-  width: 120px;
-  height: 120px;
-  border: 1px solid color-mix(in oklab, var(--primary) 12%, transparent);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in oklab, var(--primary) 6%, transparent),
-    transparent 70%
-  );
-  pointer-events: none;
-}
 @keyframes research-hub-flow {
   to {
     stroke-dashoffset: 0;
@@ -234,6 +227,8 @@ For commercial licensing, please contact support@quantumnous.com
     grid-area: 3 / 2;
   }
   .beiapi-home .research-hub-node {
+    width: auto;
+    justify-self: stretch;
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
     padding: 10px 12px;

@@ -135,7 +135,6 @@ export function ResearchHub() {
           ))}
         </svg>
         <div className='research-hub-brand'>
-          <span className='research-hub-orbit' aria-hidden='true' />
           <span className='research-hub-logo-frame'>
             {defaultLogo ? (
               <span className='research-hub-mark' aria-hidden='true' />
