@@ -48,12 +48,6 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home [id] {
   scroll-margin-top: 96px;
 }
-.beiapi-home .routing-inner > svg {
-  width: 100%;
-  max-width: 360px;
-  margin: 0 auto;
-  display: block;
-}
 
 /* Align the standalone homepage with the site's base-nova semantic theme. */
 .beiapi-home * {
@@ -522,37 +516,12 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .routing-inner {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
   gap: 80px;
 }
-.beiapi-home .routing-inner > div {
+.beiapi-home .routing-inner > div:first-child {
   max-width: 650px;
-}
-.beiapi-home .hub-line {
-  stroke: var(--border);
-  stroke-width: 1.5;
-}
-.beiapi-home .hub-node {
-  fill: var(--card);
-  stroke: var(--border);
-  stroke-width: 1;
-  rx: var(--radius-md);
-}
-.beiapi-home .hub-text {
-  fill: var(--foreground);
-  font-family: var(--font-ui-sans);
-}
-.beiapi-home .hub-sub {
-  fill: var(--muted-foreground);
-}
-.beiapi-home .hub-center {
-  fill: var(--action);
-  rx: var(--radius-lg);
-}
-.beiapi-home .hub-ctxt {
-  fill: var(--primary-foreground);
-  font-family: var(--font-ui-sans);
 }
 .beiapi-home .process-head {
   max-width: 750px;
@@ -1189,9 +1158,6 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .routing-inner {
     gap: 24px;
   }
-  .beiapi-home .routing-inner > svg {
-    max-width: 320px !important;
-  }
   .beiapi-home .tutorial-inner {
     gap: 28px;
   }
@@ -1365,9 +1331,6 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .kicker {
     font-size: 11px;
     margin-bottom: 10px;
-  }
-  .beiapi-home .routing-inner > svg {
-    max-width: 280px !important;
   }
   .beiapi-home .steps {
     grid-template-columns: 1fr;

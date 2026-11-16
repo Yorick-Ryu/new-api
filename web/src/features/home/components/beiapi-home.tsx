@@ -39,6 +39,7 @@ import { useSystemConfig } from '@/hooks/use-system-config'
 import '@/styles/beiapi-home.css'
 
 import { InstallationVideo } from './installation-video'
+import { ResearchHub } from './research-hub'
 
 export function BeiAPIHome() {
   const { t } = useTranslation()
@@ -218,148 +219,7 @@ export function BeiAPIHome() {
                 )}
               </p>
             </div>
-            <svg
-              viewBox='0 0 340 310'
-              fill='none'
-              xmlns='http://www.w3.org/2000/svg'
-              aria-hidden='true'
-            >
-              <line className='hub-line' x1='124' y1='44' x2='162' y2='142' />
-              <line className='hub-line' x1='270' y1='90' x2='192' y2='146' />
-              <line className='hub-line' x1='270' y1='220' x2='192' y2='164' />
-              <line className='hub-line' x1='124' y1='266' x2='162' y2='168' />
-              <rect
-                className='hub-node'
-                x='10'
-                y='20'
-                width='114'
-                height='48'
-              />
-              <text
-                className='hub-text'
-                x='67'
-                y='40'
-                textAnchor='middle'
-                fontSize='12'
-                fontWeight='600'
-              >
-                ChatGPT / Claude
-              </text>
-              <text
-                className='hub-text hub-sub'
-                x='67'
-                y='56'
-                textAnchor='middle'
-                fontSize='10.5'
-              >
-                {t('Codex · IDE · Scripts')}
-              </text>
-              <rect
-                className='hub-node'
-                x='216'
-                y='64'
-                width='114'
-                height='48'
-              />
-              <text
-                className='hub-text'
-                x='273'
-                y='84'
-                textAnchor='middle'
-                fontSize='12'
-                fontWeight='600'
-              >
-                {t('Academic writing')}
-              </text>
-              <text
-                className='hub-text hub-sub'
-                x='273'
-                y='100'
-                textAnchor='middle'
-                fontSize='10.5'
-              >
-                {t('Polishing · Structure · Submission')}
-              </text>
-              <rect
-                className='hub-node'
-                x='216'
-                y='198'
-                width='114'
-                height='48'
-              />
-              <text
-                className='hub-text'
-                x='273'
-                y='218'
-                textAnchor='middle'
-                fontSize='12'
-                fontWeight='600'
-              >
-                {t('Code experiments')}
-              </text>
-              <text
-                className='hub-text hub-sub'
-                x='273'
-                y='234'
-                textAnchor='middle'
-                fontSize='10.5'
-              >
-                {t('Debugging · Refactoring · Engineering')}
-              </text>
-              <rect
-                className='hub-node'
-                x='10'
-                y='242'
-                width='114'
-                height='48'
-              />
-              <text
-                className='hub-text'
-                x='67'
-                y='262'
-                textAnchor='middle'
-                fontSize='12'
-                fontWeight='600'
-              >
-                {t('Literature workflows')}
-              </text>
-              <text
-                className='hub-text hub-sub'
-                x='67'
-                y='278'
-                textAnchor='middle'
-                fontSize='10.5'
-              >
-                {t('Reading · Summarizing · Analysis')}
-              </text>
-              <rect
-                className='hub-center'
-                x='138'
-                y='128'
-                width='64'
-                height='54'
-              />
-              <text
-                className='hub-ctxt'
-                x='170'
-                y='149'
-                textAnchor='middle'
-                fontSize='11.5'
-                fontWeight='700'
-              >
-                {t('Bei')}
-              </text>
-              <text
-                className='hub-ctxt'
-                x='170'
-                y='165'
-                textAnchor='middle'
-                fontSize='11.5'
-                fontWeight='700'
-              >
-                {t('Research API')}
-              </text>
-            </svg>
+            <ResearchHub />
           </div>
         </section>
         <section
