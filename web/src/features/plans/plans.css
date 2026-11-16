@@ -1,0 +1,881 @@
+/* Preserved from the deployed BeiAPI plans page; scoped to avoid changing other routes. */
+.beiapi-plans {
+  color-scheme: light;
+  --background: #fafaf9;
+  --card: #fff;
+  --soft: #f4f4f2;
+  --foreground: #202320;
+  --muted: #747872;
+  --line: #e3e5e1;
+  --strong-line: #d3d7d1;
+  --accent: #3465d8;
+  --accent-hover: #2756c4;
+  --accent-soft: #eff4fe;
+  --accent-ink: #315fca;
+  --nav: rgb(250 250 249 / 0.72);
+  --overlay: rgb(30 35 30 / 0.22);
+  --dark-button: #252a25;
+  --dark-button-ink: #fff;
+  --shadow: 0 8px 30px -16px rgb(25 35 25 / 0.18);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  font-family:
+    'Public Sans Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 16px;
+  line-height: 1.6;
+
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:disabled {
+    opacity: 0.55;
+    cursor: progress;
+  }
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+  }
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+  svg {
+    flex-shrink: 0;
+    stroke-width: 1.7;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .skip-link {
+    position: fixed;
+    top: -100px;
+    left: 24px;
+    padding: 12px;
+    background: var(--card);
+    z-index: 100;
+  }
+  .skip-link:focus {
+    top: 12px;
+  }
+  .button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    min-height: 42px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.3;
+    transition:
+      background 160ms,
+      border-color 160ms,
+      transform 160ms;
+  }
+  .button:active {
+    transform: translateY(1px);
+  }
+  .button-dark {
+    color: var(--dark-button-ink);
+    background: var(--dark-button);
+  }
+  .button-dark:hover {
+    opacity: 0.9;
+  }
+  .button-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .dark .button-accent {
+    color: #102248;
+  }
+  .button-accent:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+  .button-outline {
+    background: var(--card);
+    border-color: var(--strong-line);
+    color: var(--foreground);
+  }
+  .button-outline:hover {
+    background: var(--soft);
+    border-color: var(--muted);
+  }
+
+  .page {
+    max-width: 1120px;
+    padding: 0 24px;
+    margin: auto;
+  }
+  .hero {
+    padding: 129px 0 57px;
+    text-align: center;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--accent-ink);
+    letter-spacing: 1.3px;
+    font-weight: 550;
+  }
+  .eyebrow span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  h1 {
+    font-size: clamp(34px, 4.2vw, 48px);
+    letter-spacing: -1.6px;
+    font-weight: 620;
+    line-height: 1.35;
+    margin: 18px 0 15px;
+  }
+  h1 span {
+    color: var(--muted);
+    font-weight: 450;
+  }
+  .hero > p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .section-switch {
+    display: inline-flex;
+    gap: 4px;
+    padding: 5px;
+    margin-top: 27px;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .section-switch a {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 15px;
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+  .section-switch a:first-child {
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
+  }
+  .section-switch a:hover {
+    color: var(--foreground);
+    background: var(--card);
+  }
+  .section-switch a > span {
+    font-size: 10px;
+    margin-left: 4px;
+    color: var(--muted);
+  }
+  .content-section {
+    margin: 0 0 64px;
+    scroll-margin-top: 10px;
+  }
+  .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+    gap: 20px;
+  }
+  .section-kicker {
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    color: var(--muted);
+    font-weight: 550;
+    margin-bottom: 7px;
+  }
+  h2 {
+    font-size: 23px;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  .section-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-heading p,
+  .questions-intro > p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 7px;
+  }
+  .count {
+    font-size: 10px;
+    letter-spacing: 0;
+    font-weight: 450;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--muted);
+    padding: 2px 6px;
+  }
+  .text-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    color: var(--foreground);
+    background: none;
+    font-size: 12px;
+    font-weight: 550;
+  }
+  .text-link:hover {
+    color: var(--accent-ink);
+  }
+  .credit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .credit-card {
+    padding: 22px 23px 20px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 14px;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+  .credit-card:hover {
+    border-color: var(--strong-line);
+    box-shadow: var(--shadow);
+  }
+  .credit-card.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    min-height: 24px;
+  }
+  .card-top h3 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .badge {
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--soft);
+    border-radius: 5px;
+    font-size: 10px;
+    line-height: 1.5;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+  .badge-accent {
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-color: transparent;
+  }
+  .card-description {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  .price {
+    display: flex;
+    align-items: baseline;
+    margin: 19px 0 16px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    gap: 3px;
+  }
+  .currency {
+    font-size: 19px;
+    align-self: flex-start;
+    padding-top: 7px;
+  }
+  .price strong {
+    font-size: 37px;
+    letter-spacing: -1.3px;
+    font-weight: 550;
+  }
+  .price-suffix {
+    color: var(--muted);
+    font-size: 20px;
+    font-weight: 400;
+    margin-left: -2px;
+  }
+  .price-caption {
+    font-size: 11px;
+    margin-left: 5px;
+    color: var(--muted);
+  }
+  .credit-amount {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: 7px;
+    background: var(--soft);
+    font-size: 12px;
+  }
+  .credit-amount > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+  }
+  .credit-amount strong {
+    font-size: 18px;
+    font-weight: 560;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+  .credit-amount small {
+    font-weight: 450;
+    font-size: 12px;
+    margin-right: 3px;
+  }
+  .featured .credit-amount {
+    background: var(--accent-soft);
+  }
+  .featured .credit-amount strong {
+    color: var(--accent-ink);
+  }
+  .purchase-button {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .benefit-banner {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 22px;
+    background: color-mix(in srgb, var(--soft) 60%, var(--background));
+  }
+  .benefit-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .benefit-banner h3 {
+    font-size: 13px;
+    font-weight: 550;
+  }
+  .benefit-banner p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .benefit-banner p strong {
+    color: var(--foreground);
+    font-weight: 550;
+  }
+  .benefit-banner > .text-link {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .monthly-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .monthly-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    background: var(--card);
+  }
+  .monthly-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .monthly-symbol {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--soft);
+  }
+  .ultra .monthly-symbol {
+    background: var(--accent-soft);
+    border-color: transparent;
+    color: var(--accent-ink);
+  }
+  .monthly-card h3 {
+    font-size: 23px;
+    letter-spacing: -0.4px;
+    margin-top: 18px;
+    font-weight: 550;
+  }
+  .monthly-card .card-description {
+    font-size: 12px;
+  }
+  .monthly-price {
+    margin: 23px 0 24px;
+  }
+  .monthly-price strong {
+    font-size: 43px;
+  }
+  .monthly-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 17px 0;
+    border-block: 1px solid var(--line);
+  }
+  .monthly-metrics > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .monthly-metrics > div + div {
+    border-left: 1px solid var(--line);
+    padding-left: 26px;
+  }
+  .monthly-metrics span {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .monthly-metrics strong {
+    font-size: 25px;
+    font-weight: 550;
+    letter-spacing: -0.7px;
+  }
+  .monthly-metrics small {
+    font-weight: 450;
+    font-size: 14px;
+    margin-right: 4px;
+  }
+  .features {
+    margin: 21px 0 23px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .features li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .features svg {
+    color: var(--muted);
+  }
+  .subscription-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 17px;
+  }
+  .questions {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 64px;
+    border-top: 1px solid var(--line);
+    padding-top: 44px;
+    margin-bottom: 56px;
+  }
+  .questions h2 {
+    font-size: 21px;
+  }
+  .questions-intro .text-link {
+    margin-top: 22px;
+  }
+  .faq-item {
+    border-bottom: 1px solid var(--line);
+  }
+  .faq-item:last-child {
+    border-bottom: 0;
+  }
+  .faq h3 {
+    margin: 0;
+  }
+  .faq-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    gap: 18px;
+    width: 100%;
+    padding: 17px 0;
+    border: 0;
+    color: var(--foreground);
+    background: none;
+    font-size: 13px;
+    font-weight: 450;
+  }
+  .faq-item:first-child .faq-trigger {
+    padding-top: 2px;
+  }
+  .faq-trigger svg {
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .faq-trigger[data-panel-open] svg {
+    transform: rotate(180deg);
+  }
+  .faq-panel {
+    height: var(--accordion-panel-height);
+    overflow: hidden;
+    transition: height 250ms var(--ease);
+  }
+  .faq-panel[data-starting-style],
+  .faq-panel[data-ending-style] {
+    height: 0;
+  }
+  .faq-panel p {
+    padding: 0 25px 17px 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.9;
+  }
+  .payment-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .payment-status.error {
+    color: #cf493e;
+  }
+  @media (min-width: 1024px) {
+    .mobile-menu,
+    .mobile-backdrop {
+      display: none;
+    }
+  }
+  @media (max-width: 1023px) {
+    .desktop-links {
+      display: none;
+    }
+    .mobile-toggle {
+      display: inline-flex;
+    }
+    .header-actions {
+      margin-left: auto;
+    }
+    .header-shell {
+      padding-inline: 16px;
+    }
+    .credit-card {
+      padding: 20px;
+    }
+    .questions {
+      gap: 30px;
+    }
+  }
+  @media (max-width: 800px) {
+    .credit-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .hero {
+      padding: 113px 0 45px;
+    }
+    .footer {
+      margin-inline: 24px;
+    }
+    .questions {
+      grid-template-columns: 1fr;
+    }
+    .questions-intro > .text-link {
+      margin-top: 14px;
+    }
+    .benefit-banner {
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .benefit-banner > .text-link {
+      margin-left: 55px;
+    }
+    .monthly-card {
+      padding: 23px;
+    }
+  }
+  @media (max-width: 520px) {
+    .page {
+      padding: 0 18px;
+    }
+    .hero {
+      padding-top: 109px;
+      padding-bottom: 39px;
+    }
+    h1 {
+      font-size: 33px;
+      letter-spacing: -1.3px;
+      margin-block: 17px 13px;
+    }
+    .hero > p {
+      font-size: 12px;
+      max-width: 280px;
+      margin: auto;
+      line-height: 1.9;
+    }
+    .eyebrow {
+      font-size: 11px;
+    }
+    .section-switch {
+      margin-top: 23px;
+    }
+    .section-switch a {
+      padding: 9px 12px;
+      font-size: 12px;
+    }
+    .section-switch a > span {
+      display: none;
+    }
+    .header-nav {
+      padding: 0;
+    }
+    .header-shell {
+      padding-inline: 18px;
+    }
+    .brand {
+      font-size: 13px;
+      gap: 8px;
+    }
+    .header-actions {
+      gap: 3px;
+    }
+    .is-scrolled .header-nav {
+      padding-left: 12px;
+    }
+    .content-section {
+      margin-bottom: 44px;
+    }
+    .section-heading {
+      align-items: flex-end;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      font-size: 21px;
+    }
+    .section-heading h2 {
+      gap: 9px;
+    }
+    .section-heading p {
+      font-size: 11px;
+      max-width: 260px;
+    }
+    .section-kicker {
+      font-size: 9px;
+    }
+    .model-link {
+      font-size: 11px;
+      white-space: nowrap;
+      margin-bottom: 3px;
+    }
+    .model-link svg {
+      width: 13px;
+    }
+    .credit-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .credit-card {
+      padding: 21px;
+    }
+    .card-description {
+      font-size: 12px;
+    }
+    .price {
+      margin-top: 19px;
+    }
+    .price strong {
+      font-size: 38px;
+    }
+    .credit-amount {
+      padding: 11px 12px;
+    }
+    .button {
+      min-height: 44px;
+    }
+    .benefit-banner {
+      padding: 18px;
+      align-items: flex-start;
+    }
+    .benefit-banner h3 {
+      font-size: 12px;
+    }
+    .benefit-banner p {
+      max-width: 235px;
+      font-size: 11px;
+    }
+    .benefit-icon {
+      width: 32px;
+      height: 32px;
+    }
+    .benefit-banner > .text-link {
+      margin-left: 44px;
+      font-size: 11px;
+    }
+    .monthly-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .monthly-card {
+      padding: 25px;
+    }
+    .section-label {
+      display: none;
+    }
+    .subscription-note {
+      align-items: flex-start;
+      font-size: 10px;
+      text-align: left;
+    }
+    .subscription-note svg {
+      margin-top: 1px;
+    }
+    .questions {
+      padding-top: 30px;
+      gap: 25px;
+    }
+    .questions h2 {
+      font-size: 20px;
+    }
+    .faq-trigger {
+      font-size: 12px;
+      padding-block: 17px;
+    }
+    .footer {
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-inline: 18px;
+    }
+    .footer p {
+      order: 3;
+      width: 100%;
+    }
+    .footer > .text-link {
+      margin-left: auto;
+    }
+    .dialog {
+      padding: 25px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+.dark .beiapi-plans {
+  color-scheme: dark;
+  --background: #131613;
+  --card: #1b1f1b;
+  --soft: #222722;
+  --foreground: #edf0ea;
+  --muted: #a2aaa0;
+  --line: #303730;
+  --strong-line: #465044;
+  --accent: #719bff;
+  --accent-hover: #8fb0ff;
+  --accent-soft: #202d46;
+  --accent-ink: #97b7ff;
+  --nav: rgb(19 22 19 / 0.72);
+  --overlay: rgb(0 0 0 / 0.6);
+  --dark-button: #e3e9df;
+  --dark-button-ink: #1b2119;
+  --shadow: 0 8px 30px -16px rgb(0 0 0 / 0.5);
+}
+
+.beiapi-plans .text-link[data-slot='button'] {
+  background: transparent;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--foreground);
+}
+.beiapi-plans .faq-trigger {
+  text-decoration: none;
+}
+
+.dark .beiapi-plans .button-accent {
+  color: #102248;
+}
+
+html:has(.beiapi-plans) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(.beiapi-plans) {
+    scroll-behavior: auto;
+  }
+}

@@ -194,19 +194,6 @@ export function HeaderNavigationSection({
     requireAuthDescription: string
   }> = [
     {
-      enabledKey: 'plansEnabled',
-      requireAuthKey: 'plansRequireAuth',
-      requireAuthDependsOn: 'plansEnabled',
-      title: t('Top-up Plans'),
-      description: t(
-        'Native top-up and subscription page for Bei API only. Hidden on agent sites.'
-      ),
-      requireAuthTitle: t('Require login to view top-up plans'),
-      requireAuthDescription: t(
-        'Hide the page and its navigation entry from visitors until they sign in.'
-      ),
-    },
-    {
       enabledKey: 'pricingEnabled',
       requireAuthKey: 'pricingRequireAuth',
       requireAuthDependsOn: 'pricingEnabled',
@@ -215,6 +202,17 @@ export function HeaderNavigationSection({
       requireAuthTitle: t('Require login to view models'),
       requireAuthDescription: t(
         'Visitors must authenticate before accessing the pricing directory.'
+      ),
+    },
+    {
+      enabledKey: 'plansEnabled',
+      requireAuthKey: 'plansRequireAuth',
+      requireAuthDependsOn: 'plansEnabled',
+      title: t('Top-up Plans'),
+      description: t('Public top-up and subscription plans page.'),
+      requireAuthTitle: t('Require login to view top-up plans'),
+      requireAuthDescription: t(
+        'Visitors must authenticate before accessing the plans page.'
       ),
     },
     {

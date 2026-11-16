@@ -73,6 +73,10 @@ import { SubscriptionQuotaUsage } from './subscription-quota-usage'
 
 interface SubscriptionPlansCardProps {
   topupInfo: TopupInfo | null
+  renderCatalog?: (
+    purchase: (id: number) => void,
+    loading: boolean
+  ) => React.ReactNode
   onAvailabilityChange?: (available: boolean) => void
   userQuota?: number
   onPurchaseSuccess?: () => void | Promise<void>
@@ -104,6 +108,7 @@ function getBillingPreferenceLabel(
 
 export function SubscriptionPlansCard({
   topupInfo,
+  renderCatalog,
   onAvailabilityChange,
   userQuota,
   onPurchaseSuccess,
@@ -279,6 +284,53 @@ export function SubscriptionPlansCard({
     }
     return map
   }, [plans])
+
+  const purchaseDialog = (
+    <SubscriptionPurchaseDialog
+      open={purchaseOpen}
+      onOpenChange={(open) => {
+        setPurchaseOpen(open)
+        if (!open) {
+          fetchSelfSubscription()
+        }
+      }}
+      plan={selectedPlan}
+      renewalSubscription={renewalSubscription}
+      enableStripe={enableStripe}
+      enableCreem={enableCreem}
+      enableWaffoPancake={enableWaffoPancake}
+      enableOnlineTopUp={enableOnlineTopUp}
+      epayMethods={epayMethods}
+      userQuota={userQuota}
+      onPurchaseSuccess={onPurchaseSuccess}
+      purchaseLimit={
+        selectedPlan?.plan?.max_purchase_per_user
+          ? Number(selectedPlan.plan.max_purchase_per_user)
+          : undefined
+      }
+      purchaseCount={
+        selectedPlan?.plan?.id
+          ? planPurchaseCountMap.get(selectedPlan.plan.id)
+          : undefined
+      }
+    />
+  )
+  if (renderCatalog) {
+    return (
+      <>
+        {renderCatalog((id) => {
+          const selected = plans.find((record) => record.plan.id === id)
+          if (!selected || loading) return
+          setSelectedPlan(selected)
+          setRenewalSubscription(
+            selected.plan.allow_renewal ? renewalByPlan.get(id) : undefined
+          )
+          setPurchaseOpen(true)
+        }, loading)}
+        {purchaseDialog}
+      </>
+    )
+  }
 
   if (loading) {
     return (
@@ -737,34 +789,7 @@ export function SubscriptionPlansCard({
         )}
       </TitledCard>
 
-      <SubscriptionPurchaseDialog
-        open={purchaseOpen}
-        onOpenChange={(open) => {
-          setPurchaseOpen(open)
-          if (!open) {
-            fetchSelfSubscription()
-          }
-        }}
-        plan={selectedPlan}
-        renewalSubscription={renewalSubscription}
-        enableStripe={enableStripe}
-        enableCreem={enableCreem}
-        enableWaffoPancake={enableWaffoPancake}
-        enableOnlineTopUp={enableOnlineTopUp}
-        epayMethods={epayMethods}
-        userQuota={userQuota}
-        onPurchaseSuccess={onPurchaseSuccess}
-        purchaseLimit={
-          selectedPlan?.plan?.max_purchase_per_user
-            ? Number(selectedPlan.plan.max_purchase_per_user)
-            : undefined
-        }
-        purchaseCount={
-          selectedPlan?.plan?.id
-            ? planPurchaseCountMap.get(selectedPlan.plan.id)
-            : undefined
-        }
-      />
+      {purchaseDialog}
     </>
   )
 }
