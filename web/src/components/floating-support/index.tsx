@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Headset } from 'lucide-react'
+import { HeadsetIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -77,7 +78,11 @@ export function FloatingSupport(props: FloatingSupportProps) {
               )}
               onClick={() => setOpen(true)}
             >
-              <Headset className='text-primary size-5' aria-hidden='true' />
+              <HugeiconsIcon
+                icon={HeadsetIcon}
+                className='text-primary size-5'
+                aria-hidden='true'
+              />
             </Button>
           }
         />

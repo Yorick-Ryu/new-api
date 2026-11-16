@@ -16,7 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { BookOpen, CodeXml, Feather, MessagesSquare } from 'lucide-react'
+import {
+  BookOpen01Icon,
+  Chat01Icon,
+  CodeIcon,
+  QuillWrite01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -32,25 +38,25 @@ const capabilities = [
     id: 'tools',
     labelKey: 'ChatGPT / Claude',
     descriptionKey: 'Codex · IDE · Scripts',
-    icon: MessagesSquare,
+    icon: Chat01Icon,
   },
   {
     id: 'writing',
     labelKey: 'Academic writing',
     descriptionKey: 'Polishing · Structure · Submission',
-    icon: Feather,
+    icon: QuillWrite01Icon,
   },
   {
     id: 'literature',
     labelKey: 'Literature workflows',
     descriptionKey: 'Reading · Summarizing · Analysis',
-    icon: BookOpen,
+    icon: BookOpen01Icon,
   },
   {
     id: 'code',
     labelKey: 'Code experiments',
     descriptionKey: 'Debugging · Refactoring · Engineering',
-    icon: CodeXml,
+    icon: CodeIcon,
   },
 ] as const
 
@@ -163,7 +169,7 @@ export function ResearchHub() {
             }
           >
             <span className='research-hub-icon'>
-              <capability.icon aria-hidden='true' />
+              <HugeiconsIcon icon={capability.icon} aria-hidden='true' />
             </span>
             <span className='research-hub-title'>{t(capability.labelKey)}</span>
             <span className='research-hub-description'>

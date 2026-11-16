@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Settings, Zap, BarChart3 } from 'lucide-react'
+import {
+  ChartBarLineIcon,
+  FlashIcon,
+  Settings01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { AnimateInView } from '@/components/animate-in-view'
@@ -31,7 +36,14 @@ export function HowItWorks() {
       desc: t(
         'Add your API keys, set up channels and configure access permissions'
       ),
-      icon: <Settings className='size-6' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={Settings01Icon}
+          className='size-6'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
     },
     {
       num: '2',
@@ -39,13 +51,27 @@ export function HowItWorks() {
       desc: t(
         'Connect through OpenAI, Claude, Gemini, and other compatible API routes'
       ),
-      icon: <Zap className='size-6' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={FlashIcon}
+          className='size-6'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
     },
     {
       num: '3',
       title: t('Monitor'),
       desc: t('Track usage, costs and performance with real-time analytics'),
-      icon: <BarChart3 className='size-6' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={ChartBarLineIcon}
+          className='size-6'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
     },
   ]
 

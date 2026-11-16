@@ -17,33 +17,33 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  Zap,
-  Shield,
-  Globe,
-  Code,
-  Gauge,
-  DollarSign,
-  Users,
-  HeartHandshake,
-  type LucideIcon,
-} from 'lucide-react'
+  Agreement01Icon,
+  CodeIcon,
+  DashboardSpeed01Icon,
+  Dollar01Icon,
+  FlashIcon,
+  GlobeIcon,
+  Shield01Icon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 
 /**
- * Map of icon names to Lucide icon components
+ * Map of icon names to project icon data
  */
-const ICON_MAP: Record<string, LucideIcon> = {
-  Zap,
-  Shield,
-  Globe,
-  Code,
-  Gauge,
-  DollarSign,
-  Users,
-  HeartHandshake,
+const ICON_MAP: Record<string, typeof FlashIcon> = {
+  Zap: FlashIcon,
+  Shield: Shield01Icon,
+  Globe: GlobeIcon,
+  Code: CodeIcon,
+  Gauge: DashboardSpeed01Icon,
+  DollarSign: Dollar01Icon,
+  Users: UserGroupIcon,
+  HeartHandshake: Agreement01Icon,
 }
 
 /**
- * Get a Lucide icon component by name
+ * Get a project icon by name
  */
 export function getFeatureIcon(
   iconName: string,
@@ -55,5 +55,5 @@ export function getFeatureIcon(
     console.warn(`Icon "${iconName}" not found in icon map`)
     return null
   }
-  return <Icon className={className} />
+  return <HugeiconsIcon icon={Icon} className={className} aria-hidden='true' />
 }

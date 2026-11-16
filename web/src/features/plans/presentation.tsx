@@ -16,20 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
 import {
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  Wallet,
-  CalendarDays,
-  Gift,
-  MessageCircle,
-  Sparkles,
-  Layers,
-  Zap,
-  Info,
-} from 'lucide-react'
+  ArrowRight02Icon,
+  ArrowUpRight01Icon,
+  Calendar03Icon,
+  Chat01Icon,
+  FlashIcon,
+  GiftIcon,
+  InformationCircleIcon,
+  Layers01Icon,
+  SparklesIcon,
+  Tick02Icon,
+  Wallet01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -125,14 +126,22 @@ export function PublicCatalog(props: PlansPresentationProps) {
             )}
           </p>
           <div className='section-switch' aria-label={t('Choose a plan type')}>
-            <a href='#recharge'>
-              <Wallet size={16} />
+            <Button variant='ghost' role='link' render={<a href='#recharge' />}>
+              <HugeiconsIcon icon={Wallet01Icon} size={16} aria-hidden='true' />
               {t('Balance top-up')}
-            </a>
-            <a href='#subscriptions'>
-              <CalendarDays size={16} />
+            </Button>
+            <Button
+              variant='ghost'
+              role='link'
+              render={<a href='#subscriptions' />}
+            >
+              <HugeiconsIcon
+                icon={Calendar03Icon}
+                size={16}
+                aria-hidden='true'
+              />
               {t('Monthly subscriptions')}
-            </a>
+            </Button>
           </div>
         </section>
         <section
@@ -142,7 +151,6 @@ export function PublicCatalog(props: PlansPresentationProps) {
         >
           <div className='section-heading'>
             <div>
-              <div className='section-kicker'>PAY AS YOU GO</div>
               <h2 id='credit-heading'>
                 {t('Balance top-up')}
                 <Badge variant='outline'>
@@ -157,12 +165,20 @@ export function PublicCatalog(props: PlansPresentationProps) {
               render={<a href='/pricing' />}
             >
               {t('View model pricing')}
-              <ArrowUpRight size={16} />
+              <HugeiconsIcon
+                icon={ArrowUpRight01Icon}
+                size={16}
+                aria-hidden='true'
+              />
             </Button>
           </div>
           {query.isError && (
             <div role='status' className='payment-status error'>
-              <Info size={16} />
+              <HugeiconsIcon
+                icon={InformationCircleIcon}
+                size={16}
+                aria-hidden='true'
+              />
               {t('Failed to load plans. Please try again.')}
             </div>
           )}
@@ -188,7 +204,14 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   <h3 id={`credit-${i}`}>{plan.title}</h3>
                   {plan.tag && (
                     <Badge variant={plan.featured ? 'default' : 'secondary'}>
-                      {plan.featured && <Sparkles size={11} />} {plan.tag}
+                      {plan.featured && (
+                        <HugeiconsIcon
+                          icon={SparklesIcon}
+                          size={11}
+                          aria-hidden='true'
+                        />
+                      )}{' '}
+                      {plan.tag}
                     </Badge>
                   )}
                 </div>
@@ -203,7 +226,11 @@ export function PublicCatalog(props: PlansPresentationProps) {
                 </div>
                 <div className='credit-amount'>
                   <span>
-                    <Layers size={15} />
+                    <HugeiconsIcon
+                      icon={Layers01Icon}
+                      size={15}
+                      aria-hidden='true'
+                    />
                     {t('Credits received')}
                   </span>
                   <strong>
@@ -228,14 +255,18 @@ export function PublicCatalog(props: PlansPresentationProps) {
                   )}
                 >
                   {props.loading ? t('Opening checkout…') : t('Buy now')}
-                  <ArrowRight size={16} />
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    size={16}
+                    aria-hidden='true'
+                  />
                 </Button>
               </Card>
             ))}
           </div>
           <div className='benefit-banner'>
             <div className='benefit-icon'>
-              <Gift size={20} />
+              <HugeiconsIcon icon={GiftIcon} size={20} aria-hidden='true' />
             </div>
             <div>
               <h3>{t('Get more from every purchase')}</h3>
@@ -252,7 +283,11 @@ export function PublicCatalog(props: PlansPresentationProps) {
               onClick={() => setSupportOpen(true)}
             >
               {t('Contact support to claim')}
-              <ArrowUpRight size={16} />
+              <HugeiconsIcon
+                icon={ArrowUpRight01Icon}
+                size={16}
+                aria-hidden='true'
+              />
             </Button>
           </div>
         </section>
@@ -263,7 +298,6 @@ export function PublicCatalog(props: PlansPresentationProps) {
         >
           <div className='section-heading'>
             <div>
-              <div className='section-kicker'>MONTHLY MEMBERSHIP</div>
               <h2 id='monthly-heading'>{t('A plan for everyday use')}</h2>
               <p>
                 {t(
@@ -272,7 +306,11 @@ export function PublicCatalog(props: PlansPresentationProps) {
               </p>
             </div>
             <span className='section-label'>
-              <CalendarDays size={15} />
+              <HugeiconsIcon
+                icon={Calendar03Icon}
+                size={15}
+                aria-hidden='true'
+              />
               {t('Billed monthly')}
             </span>
           </div>
@@ -289,9 +327,17 @@ export function PublicCatalog(props: PlansPresentationProps) {
                 <div className='monthly-top'>
                   <span className='monthly-symbol'>
                     {!plan.title.startsWith('Ultra') ? (
-                      <Zap size={23} />
+                      <HugeiconsIcon
+                        icon={FlashIcon}
+                        size={23}
+                        aria-hidden='true'
+                      />
                     ) : (
-                      <Layers size={23} />
+                      <HugeiconsIcon
+                        icon={Layers01Icon}
+                        size={23}
+                        aria-hidden='true'
+                      />
                     )}
                   </span>
                   <Badge variant='secondary'>{t('One per person')}</Badge>
@@ -322,15 +368,27 @@ export function PublicCatalog(props: PlansPresentationProps) {
                 </div>
                 <ul className='features'>
                   <li>
-                    <Check size={16} />
+                    <HugeiconsIcon
+                      icon={Tick02Icon}
+                      size={16}
+                      aria-hidden='true'
+                    />
                     {t('No five-hour limit')}
                   </li>
                   <li>
-                    <Check size={16} />
+                    <HugeiconsIcon
+                      icon={Tick02Icon}
+                      size={16}
+                      aria-hidden='true'
+                    />
                     {t('Same model usage multipliers as wallet credits')}
                   </li>
                   <li>
-                    <Check size={16} />
+                    <HugeiconsIcon
+                      icon={Tick02Icon}
+                      size={16}
+                      aria-hidden='true'
+                    />
                     {t('Renewal supported')}
                   </li>
                 </ul>
@@ -350,13 +408,21 @@ export function PublicCatalog(props: PlansPresentationProps) {
                     : t('Subscribe to {{plan}}', {
                         plan: plan.title.split(' ')[0],
                       })}
-                  <ArrowRight size={16} />
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    size={16}
+                    aria-hidden='true'
+                  />
                 </Button>
               </Card>
             ))}
           </div>
           <p className='subscription-note'>
-            <Info size={15} />
+            <HugeiconsIcon
+              icon={InformationCircleIcon}
+              size={15}
+              aria-hidden='true'
+            />
             {t(
               'Each monthly plan is limited to one per user, with renewals supported.'
             )}
@@ -367,7 +433,6 @@ export function PublicCatalog(props: PlansPresentationProps) {
           aria-labelledby='questions-heading'
         >
           <div className='questions-intro'>
-            <div className='section-kicker'>GOOD TO KNOW</div>
             <h2 id='questions-heading'>{t('Before you choose')}</h2>
             <p>{t('About credits, monthly plans and invoicing.')}</p>
             <Button
@@ -375,9 +440,13 @@ export function PublicCatalog(props: PlansPresentationProps) {
               className='text-link h-auto p-0'
               onClick={() => setSupportOpen(true)}
             >
-              <MessageCircle size={16} />
+              <HugeiconsIcon icon={Chat01Icon} size={16} aria-hidden='true' />
               {t('Contact Bei support')}
-              <ArrowUpRight size={15} />
+              <HugeiconsIcon
+                icon={ArrowUpRight01Icon}
+                size={15}
+                aria-hidden='true'
+              />
             </Button>
           </div>
           <Accordion className='faq' multiple>

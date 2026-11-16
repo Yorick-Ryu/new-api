@@ -17,15 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  Zap,
-  Shield,
-  Globe,
-  Code,
-  Gauge,
-  DollarSign,
-  Users,
-  HeartHandshake,
-} from 'lucide-react'
+  Agreement01Icon,
+  CodeIcon,
+  DashboardSpeed01Icon,
+  Dollar01Icon,
+  FlashIcon,
+  GlobeIcon,
+  Shield01Icon,
+  Tick02Icon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { AnimateInView } from '@/components/animate-in-view'
@@ -46,7 +48,13 @@ export function Features(_props: FeaturesProps) {
         'Optimized network architecture ensures millisecond response times'
       ),
       span: 'md:col-span-2',
-      icon: <Zap className='size-4 text-blue-400' />,
+      icon: (
+        <HugeiconsIcon
+          icon={FlashIcon}
+          className='size-4 text-blue-400'
+          aria-hidden='true'
+        />
+      ),
       visual: (
         <div className='mt-4 grid grid-cols-3 gap-2'>
           {['OpenAI', 'Claude', 'Gemini', 'DeepSeek', 'Qwen', 'Llama'].map(
@@ -70,30 +78,30 @@ export function Features(_props: FeaturesProps) {
         'Enterprise-grade security with comprehensive permission management'
       ),
       span: 'md:col-span-1',
-      icon: <Shield className='size-4 text-emerald-400' />,
+      icon: (
+        <HugeiconsIcon
+          icon={Shield01Icon}
+          className='size-4 text-emerald-400'
+          aria-hidden='true'
+        />
+      ),
       visual: (
         <div className='mt-4 flex items-center justify-center'>
           <div className='relative'>
             <div className='flex size-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/5'>
-              <Shield
+              <HugeiconsIcon
+                icon={Shield01Icon}
                 className='size-7 text-emerald-500/70'
                 strokeWidth={1.5}
+                aria-hidden='true'
               />
             </div>
             <div className='absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-emerald-500'>
-              <svg
+              <HugeiconsIcon
+                icon={Tick02Icon}
                 className='size-2.5 text-white'
-                fill='none'
-                viewBox='0 0 24 24'
-                stroke='currentColor'
-                strokeWidth={3}
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  d='m4.5 12.75 6 6 9-13.5'
-                />
-              </svg>
+                aria-hidden='true'
+              />
             </div>
           </div>
         </div>
@@ -105,7 +113,13 @@ export function Features(_props: FeaturesProps) {
       title: t('Global Coverage'),
       desc: t('Multi-region deployment for stable global access'),
       span: 'md:col-span-1',
-      icon: <Globe className='size-4 text-violet-400' />,
+      icon: (
+        <HugeiconsIcon
+          icon={GlobeIcon}
+          className='size-4 text-violet-400'
+          aria-hidden='true'
+        />
+      ),
       visual: (
         <div className='mt-4 space-y-2'>
           {[t('Load Balancing'), t('Rate Limiting'), t('Cost Tracking')].map(
@@ -134,7 +148,13 @@ export function Features(_props: FeaturesProps) {
       title: t('Developer Friendly'),
       desc: t('Compatible API routes for common AI application workflows'),
       span: 'md:col-span-2',
-      icon: <Code className='size-4 text-amber-400' />,
+      icon: (
+        <HugeiconsIcon
+          icon={CodeIcon}
+          className='size-4 text-amber-400'
+          aria-hidden='true'
+        />
+      ),
       visual: (
         <div className='mt-4 flex items-center gap-3'>
           <div className='flex -space-x-2'>
@@ -148,7 +168,11 @@ export function Features(_props: FeaturesProps) {
             ))}
           </div>
           <div className='text-muted-foreground flex items-center gap-1.5 text-xs'>
-            <Code className='size-3.5 text-blue-500' />
+            <HugeiconsIcon
+              icon={CodeIcon}
+              className='size-3.5 text-blue-500'
+              aria-hidden='true'
+            />
             {t('Multi-protocol Compatible')}
           </div>
         </div>
@@ -158,22 +182,50 @@ export function Features(_props: FeaturesProps) {
 
   const additionalFeatures = [
     {
-      icon: <Gauge className='size-5' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={DashboardSpeed01Icon}
+          className='size-5'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
       title: t('High Performance'),
       desc: t('Support for high concurrency with automatic load balancing'),
     },
     {
-      icon: <DollarSign className='size-5' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={Dollar01Icon}
+          className='size-5'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
       title: t('Transparent Billing'),
       desc: t('Pay-as-you-go with real-time usage monitoring'),
     },
     {
-      icon: <Users className='size-5' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={UserGroupIcon}
+          className='size-5'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
       title: t('Team Collaboration'),
       desc: t('Multi-user management with flexible permission allocation'),
     },
     {
-      icon: <HeartHandshake className='size-5' strokeWidth={1.5} />,
+      icon: (
+        <HugeiconsIcon
+          icon={Agreement01Icon}
+          className='size-5'
+          strokeWidth={1.5}
+          aria-hidden='true'
+        />
+      ),
       title: t('Open Source'),
       desc: t('Community driven, self-hosted, and extensible'),
     },

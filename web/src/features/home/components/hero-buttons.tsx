@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -34,7 +35,12 @@ export function HeroButtons({ isAuthenticated }: HeroButtonsProps) {
   if (isAuthenticated) {
     return (
       <Button size='lg' render={<Link to='/dashboard' />}>
-        {t('Go to Dashboard')} <ArrowRight className='ml-2 h-5 w-5' />
+        {t('Go to Dashboard')}{' '}
+        <HugeiconsIcon
+          icon={ArrowRight02Icon}
+          className='ml-2 h-5 w-5'
+          aria-hidden='true'
+        />
       </Button>
     )
   }
@@ -43,7 +49,11 @@ export function HeroButtons({ isAuthenticated }: HeroButtonsProps) {
     <>
       <Button size='lg' render={<Link to='/sign-up' />}>
         {t('Get Started')}
-        <ArrowRight className='ml-2 h-5 w-5' />
+        <HugeiconsIcon
+          icon={ArrowRight02Icon}
+          className='ml-2 h-5 w-5'
+          aria-hidden='true'
+        />
       </Button>
       <Button size='lg' variant='outline' render={<Link to='/sign-in' />}>
         {t('Sign In')}

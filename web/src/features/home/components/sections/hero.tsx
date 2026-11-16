@@ -16,9 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  ArrowRight02Icon,
+  BookOpen01Icon,
+  MoreHorizontalIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { CherryStudio } from '@lobehub/icons'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, BookOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -30,20 +35,6 @@ interface HeroProps {
   className?: string
   isAuthenticated?: boolean
 }
-
-// Stylized three-dots indicator representing "More"
-const MoreIcon = () => (
-  <svg
-    className='text-muted-foreground/60 group-hover:text-foreground size-6 shrink-0 transition-colors'
-    viewBox='0 0 24 24'
-    fill='none'
-    xmlns='http://www.w3.org/2000/svg'
-  >
-    <circle cx='6' cy='12' r='2' fill='currentColor' />
-    <circle cx='12' cy='12' r='2' fill='currentColor' />
-    <circle cx='18' cy='12' r='2' fill='currentColor' />
-  </svg>
-)
 
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
@@ -62,7 +53,11 @@ export function Hero(props: HeroProps) {
             <a href={docsUrl} target='_blank' rel='noopener noreferrer' />
           }
         >
-          <BookOpen className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200' />
+          <HugeiconsIcon
+            icon={BookOpen01Icon}
+            className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200'
+            aria-hidden='true'
+          />
           <span>{t('Docs')}</span>
         </Button>
       )
@@ -73,7 +68,11 @@ export function Hero(props: HeroProps) {
         className='group border-border/50 hover:border-border hover:bg-muted/50 inline-flex h-11 items-center gap-1.5 rounded-lg px-5 text-sm font-medium'
         render={<Link to={docsUrl} />}
       >
-        <BookOpen className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200' />
+        <HugeiconsIcon
+          icon={BookOpen01Icon}
+          className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200'
+          aria-hidden='true'
+        />
         <span>{t('Docs')}</span>
       </Button>
     )
@@ -144,7 +143,11 @@ export function Hero(props: HeroProps) {
                   render={<Link to='/dashboard' />}
                 >
                   {t('Go to Dashboard')}
-                  <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5'
+                    aria-hidden='true'
+                  />
                 </Button>
                 {renderDocsButton()}
               </>
@@ -155,7 +158,11 @@ export function Hero(props: HeroProps) {
                   render={<Link to='/sign-up' />}
                 >
                   {t('Get Started')}
-                  <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5'
+                    aria-hidden='true'
+                  />
                 </Button>
                 <Button
                   variant='outline'
@@ -225,7 +232,11 @@ export function Hero(props: HeroProps) {
 
               {/* "更多" */}
               <div className='group border-border/40 bg-muted/15 text-foreground/55 hover:border-border hover:bg-muted/30 hover:text-foreground flex cursor-default items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'>
-                <MoreIcon />
+                <HugeiconsIcon
+                  icon={MoreHorizontalIcon}
+                  aria-hidden='true'
+                  className='text-muted-foreground/60 group-hover:text-foreground size-6 shrink-0 transition-colors'
+                />
                 <span>{t('More Apps')}</span>
               </div>
             </div>

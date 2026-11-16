@@ -16,16 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
 import {
-  Check,
-  ChevronRight,
-  FileText,
-  Gift,
-  Handshake,
-  Landmark,
-  Users,
-} from 'lucide-react'
+  Agreement01Icon,
+  ArrowRight01Icon,
+  BankIcon,
+  File01Icon,
+  GiftIcon,
+  Tick02Icon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import codexBeiLogo from '@/assets/brand/codexbei.svg'
@@ -150,7 +151,7 @@ export function BeiAPIHome() {
             <div className='hero-services-row'>
               <Card className='hero-service-item'>
                 <span className='hero-service-icon' aria-hidden='true'>
-                  <Landmark aria-hidden='true' />
+                  <HugeiconsIcon icon={BankIcon} aria-hidden='true' />
                 </span>
                 <span className='hero-service-copy'>
                   <strong>{t('Centralized purchasing')}</strong>
@@ -159,7 +160,7 @@ export function BeiAPIHome() {
               </Card>
               <Card className='hero-service-item'>
                 <span className='hero-service-icon' aria-hidden='true'>
-                  <Users aria-hidden='true' />
+                  <HugeiconsIcon icon={UserGroupIcon} aria-hidden='true' />
                 </span>
                 <span className='hero-service-copy'>
                   <strong>{t('Team access')}</strong>
@@ -168,7 +169,7 @@ export function BeiAPIHome() {
               </Card>
               <Card className='hero-service-item'>
                 <span className='hero-service-icon' aria-hidden='true'>
-                  <Handshake aria-hidden='true' />
+                  <HugeiconsIcon icon={Agreement01Icon} aria-hidden='true' />
                 </span>
                 <span className='hero-service-copy'>
                   <strong>{t('Partnership support')}</strong>
@@ -185,7 +186,11 @@ export function BeiAPIHome() {
             aria-label={t('View the campus partner program and how to join')}
           >
             <span className='hero-referral-copy'>
-              <Gift aria-hidden='true' className='hero-referral-icon' />
+              <HugeiconsIcon
+                icon={GiftIcon}
+                aria-hidden='true'
+                className='hero-referral-icon'
+              />
               <span>
                 {t('Campus partners:')}
                 <strong>
@@ -197,7 +202,7 @@ export function BeiAPIHome() {
             </span>
             <span className='hero-referral-link'>
               <span>{t('How to participate')}</span>
-              <ChevronRight aria-hidden='true' />
+              <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden='true' />
             </span>
           </a>
         </section>
@@ -319,7 +324,11 @@ export function BeiAPIHome() {
                     />
                   }
                 >
-                  <FileText aria-hidden='true' className='btn-icon' />
+                  <HugeiconsIcon
+                    icon={File01Icon}
+                    aria-hidden='true'
+                    className='btn-icon'
+                  />
                   {t('Read the installation docs')}
                 </Button>
                 <Button
@@ -333,15 +342,15 @@ export function BeiAPIHome() {
               </div>
               <div className='tutorial-meta' aria-label={t('Tutorial topics')}>
                 <span>
-                  <Check aria-hidden='true' />
+                  <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
                   {t('Codex installation')}
                 </span>
                 <span>
-                  <Check aria-hidden='true' />
+                  <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
                   {t('One-click website setup')}
                 </span>
                 <span>
-                  <Check aria-hidden='true' />
+                  <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
                   {t('Connection verification')}
                 </span>
               </div>
@@ -599,17 +608,17 @@ export function BeiAPIHome() {
                     aria-label={t('Three steps to join campus partners')}
                   >
                     <div className='signup-reward-step'>
-                      <span>STEP 01</span>
+                      <span>01</span>
                       <strong>
                         {t('Join and share your invitation link')}
                       </strong>
                     </div>
                     <div className='signup-reward-step'>
-                      <span>STEP 02</span>
+                      <span>02</span>
                       <strong>{t('Friends bind and receive a coupon')}</strong>
                     </div>
                     <div className='signup-reward-step'>
-                      <span>STEP 03</span>
+                      <span>03</span>
                       <strong>{t('Friends top up, you earn cash')}</strong>
                     </div>
                   </div>

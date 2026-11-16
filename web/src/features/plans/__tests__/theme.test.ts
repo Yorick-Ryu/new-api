@@ -53,10 +53,28 @@ test('plans typography and corners respect global font and radius preferences', 
     }
     if (
       declaration.prop === 'border-radius' &&
-      /\dpx/.test(declaration.value)
+      /(?<![\d.])[1-9]\d*(?:\.\d+)?px/.test(declaration.value)
     ) {
       fixedPreferences.push(declaration.toString())
     }
   })
   expect(fixedPreferences).toEqual([])
+})
+
+test('section navigation derives inset corners from the outer theme radius and gap', () => {
+  const radii: Record<string, string> = {}
+  styles.walkRules((rule) => {
+    if (
+      rule.selector === '.section-switch' ||
+      rule.selector === '.section-switch a'
+    ) {
+      rule.walkDecls('border-radius', (declaration) => {
+        radii[rule.selector] = declaration.value
+      })
+    }
+  })
+  expect(radii['.section-switch']).toBe('var(--radius)')
+  expect(radii['.section-switch a']).toBe(
+    'max(0px, calc(var(--radius) - var(--plans-switch-inset)))'
+  )
 })

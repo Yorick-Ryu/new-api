@@ -276,6 +276,9 @@ test('guest catalog shows live display data and links to login without creating 
     })
   ).toBeVisible()
   expect(await screen.findByText('Local plan')).toBeVisible()
+  for (const label of ['PAY AS YOU GO', 'MONTHLY MEMBERSHIP', 'GOOD TO KNOW']) {
+    expect(screen.queryByText(label)).not.toBeInTheDocument()
+  }
   expect(document.querySelectorAll('.credit-card')).toHaveLength(1)
   expect(screen.getByText('128')).toBeVisible()
   fireEvent.click(
@@ -581,18 +584,16 @@ test('an empty configured top-up list shows no hardcoded purchase offers', async
 
 test('signed-in cards do not reuse the anonymous price cache', async () => {
   let money = '10.00'
-  const get = vi
-    .spyOn(api, 'get')
-    .mockImplementation(async () => ({
+  const get = vi.spyOn(api, 'get').mockImplementation(async () => ({
+    data: {
+      success: true,
       data: {
-        success: true,
-        data: {
-          subscriptions: [],
-          topup_amounts: [10],
-          topup_options: [{ amount: 10, credits: 10, money }],
-        },
+        subscriptions: [],
+        topup_amounts: [10],
+        topup_options: [{ amount: 10, credits: 10, money }],
       },
-    }))
+    },
+  }))
   render(
     <QueryClientProvider client={clientFor()}>
       <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
