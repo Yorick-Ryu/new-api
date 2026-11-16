@@ -41,10 +41,7 @@ import {
   validateAdvancedCustomConfig,
 } from './advanced-custom'
 import { readTaskExtendPluginKeys } from './channel-plugin-extensions'
-import {
-  responsesWebSocketDefaultEnabled,
-  supportsResponsesWebSocket,
-} from './responses-websocket'
+import { supportsResponsesWebSocket } from './responses-websocket'
 
 // ============================================================================
 // Form Validation Schema
@@ -520,21 +517,6 @@ export function transformChannelToFormDefaults(
   const canUseResponsesWebSocket =
     supportsResponsesWebSocket(channel.type) ||
     channel.type === CHANNEL_TYPE_TASK_PLUGIN
-  // Official setting is authoritative. Read the retired field only for channels
-  // that have never saved the official setting.
-  let responsesWebSocketDefault = responsesWebSocketDefaultEnabled(channel.type)
-  for (const settings of [channel.settings, channel.setting]) {
-    if (!settings) continue
-    try {
-      const value = JSON.parse(settings).responses_websocket_enabled
-      if (typeof value === 'boolean') responsesWebSocketDefault = value
-    } catch {
-      responsesWebSocketDefault = false
-    }
-  }
-  responsesWebSocketDefault =
-    canUseResponsesWebSocket && responsesWebSocketDefault
-
   // Parse channel extra settings from setting field
   let extraSettings = {
     task_plugin_key: '',
@@ -547,7 +529,7 @@ export function transformChannelToFormDefaults(
     http2_connection_shards: 1,
     tls_insecure_skip_verify: false,
     pass_through_body_enabled: false,
-    responses_websocket_enabled: responsesWebSocketDefault,
+    responses_websocket_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
   }
@@ -576,8 +558,7 @@ export function transformChannelToFormDefaults(
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         responses_websocket_enabled:
           canUseResponsesWebSocket &&
-          (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
-            true,
+          parsed.responses_websocket_enabled === true,
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
       }
@@ -792,10 +773,6 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
   } else if ('azure_responses_version' in settingsObj) {
     delete settingsObj.azure_responses_version
   }
-
-  // These retired transport flags must not override the official WebSocket switch.
-  delete settingsObj.responses_http_enabled
-  delete settingsObj.responses_websocket_enabled
 
   // Add enterprise account setting for OpenRouter (type 20)
   if (formData.type === 20) {

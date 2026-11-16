@@ -218,14 +218,14 @@ func TestChannelSatisfiesFilters(t *testing.T) {
 	assert.Equal(t, dto.FilterRequestPath, kind)
 }
 
-func TestResponsesWebSocketConstraintPreservesLegacyTransportSettings(t *testing.T) {
+func TestResponsesWebSocketConstraintUsesOfficialSetting(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		setting *string
 		legacy  *bool
 		want    bool
 	}{
-		{name: "legacy missing switch", want: true},
+		{name: "missing official switch", want: false},
 		{name: "legacy explicit disable", legacy: common.GetPointer(false), want: false},
 		{name: "new explicit disable", setting: common.GetPointer(`{"responses_websocket_enabled":false}`), want: false},
 		{name: "new explicit enable", setting: common.GetPointer(`{"responses_websocket_enabled":true}`), want: true},
@@ -233,7 +233,9 @@ func TestResponsesWebSocketConstraintPreservesLegacyTransportSettings(t *testing
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			channel := &Channel{Type: constant.ChannelTypeOpenAI, Setting: test.setting}
-			channel.SetOtherSettings(kitdto.ChannelOtherSettings{ResponsesWebSocketEnabled: test.legacy})
+			legacy, err := common.Marshal(map[string]any{"responses_websocket_enabled": test.legacy})
+			require.NoError(t, err)
+			channel.OtherSettings = string(legacy)
 			ok, _ := ChannelSatisfiesFilters(channel, "gpt-test", []dto.ChannelFilter{{Kind: dto.FilterResponsesWebSocket}})
 			assert.Equal(t, test.want, ok)
 		})

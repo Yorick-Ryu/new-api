@@ -73,9 +73,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 					MultiKeySize: 2,
 					MultiKeyMode: constant.MultiKeyModePolling,
 				},
-			}, dto.ChannelOtherSettings{
-				ResponsesWebSocketEnabled: common.GetPointer(false),
-			})
+			}, dto.ChannelOtherSettings{})
 			insertChannelTransportSelectionChannel(t, &Channel{
 				Id:       14,
 				Name:     "Krill WS",
@@ -88,9 +86,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 					MultiKeySize: 2,
 					MultiKeyMode: constant.MultiKeyModePolling,
 				},
-			}, dto.ChannelOtherSettings{
-				ResponsesHTTPEnabled: common.GetPointer(false),
-			})
+			}, dto.ChannelOtherSettings{})
 			InitChannelCache()
 
 			httpText, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
@@ -126,9 +122,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			if memoryCacheEnabled {
 				updatedHTTP, err := GetChannelById(13, true)
 				require.NoError(t, err)
-				updatedHTTP.SetOtherSettings(dto.ChannelOtherSettings{
-					ResponsesHTTPEnabled: common.GetPointer(false),
-				})
+				updatedHTTP.OtherSettings = `{"responses_http_enabled":false}`
 				updatedHTTP.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: common.GetPointer(true)})
 				CacheUpdateChannel(updatedHTTP)
 

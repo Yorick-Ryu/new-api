@@ -58,11 +58,11 @@ function channel(type: number, settings = '{}'): Channel {
 
 describe('official Responses WebSocket setting', () => {
   it.each([1, 3, 57, 58, 59, 60, 61])(
-    'uses the official field first and falls back to the retired field for channel %i',
+    'reads only the official field for channel %i',
     (type) => {
       for (const [legacy, official, enabled] of [
-        [undefined, undefined, type === 1 || type === 57],
-        [true, undefined, true],
+        [undefined, undefined, false],
+        [true, undefined, false],
         [false, undefined, false],
         [false, true, true],
         [true, false, false],
@@ -84,7 +84,7 @@ describe('official Responses WebSocket setting', () => {
   )
 
   it.each([false, true])(
-    'saves official switch %s without retired transport restrictions',
+    'saves official switch %s in normalized channel settings',
     (enabled) => {
       const values = {
         ...CHANNEL_FORM_DEFAULT_VALUES,
@@ -93,8 +93,7 @@ describe('official Responses WebSocket setting', () => {
         key: 'fixture',
         models: 'gpt-test',
         responses_websocket_enabled: enabled,
-        settings:
-          '{"responses_http_enabled":false,"responses_websocket_enabled":false,"custom_flag":"keep"}',
+        settings: '{"custom_flag":"keep"}',
       }
       const payload = transformFormDataToCreatePayload(values).channel
       expect(

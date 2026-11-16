@@ -577,65 +577,38 @@ func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesT
 	if channel == nil {
 		return false
 	}
-	settings := channel.GetOtherSettings()
-	// The official switch only controls WebSocket; HTTP is unaffected.
-	// Use the retired WebSocket field only when the official one is absent.
-	if transport == constant.ResponsesTransportWebSocket && channel.Setting != nil && *channel.Setting != "" {
-		var upstream struct {
-			ResponsesWebSocketEnabled *bool `json:"responses_websocket_enabled"`
-		}
-		if err := common.UnmarshalJsonStr(*channel.Setting, &upstream); err != nil {
-			return false
-		}
-		if upstream.ResponsesWebSocketEnabled != nil {
-			if !*upstream.ResponsesWebSocketEnabled {
-				return false
-			}
-			settings.ResponsesWebSocketEnabled = upstream.ResponsesWebSocketEnabled
-		}
+	if transport != constant.ResponsesTransportWebSocket {
+		return true
 	}
-	if transport == constant.ResponsesTransportWebSocket && channel.Type == constant.ChannelTypeTaskPlugin {
-		if settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled {
-			return false
-		}
-		plugin, ok := jsplugin.DefaultRegistry.Get(channel.GetSetting().TaskPluginKey)
+	var settings dto.ChannelSettings
+	if channel.Setting == nil || common.UnmarshalJsonStr(*channel.Setting, &settings) != nil ||
+		settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled {
+		return false
+	}
+	switch channel.Type {
+	case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex, constant.ChannelTypeAzure, constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
+		return true
+	case constant.ChannelTypeTaskPlugin:
+		plugin, ok := jsplugin.DefaultRegistry.Get(settings.TaskPluginKey)
 		model := ""
 		if len(modelNames) > 0 {
 			model = modelNames[0]
 		}
 		return ok && plugin.Meta.ServesResponsesWebSocket(model)
-	}
-	return channelSupportsResponsesTransport(channel.Type, settings, transport, modelNames...)
-}
-
-// Keep legacy OpenAI/Codex defaults, while additional WS channel types opt in.
-// Passing a model also checks the selected Advanced Custom route, so a converter
-// route cannot bypass the restriction through pinning, affinity or retries.
-func channelSupportsResponsesTransport(channelType int, settings dto.ChannelOtherSettings, transport constant.ResponsesTransport, modelNames ...string) bool {
-	if transport != constant.ResponsesTransportWebSocket {
-		return true
-	}
-	if !settings.SupportsResponsesTransport(transport) {
-		return false
-	}
-	switch channelType {
-	case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex:
-		return true
-	case constant.ChannelTypeAzure, constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
-		return settings.ResponsesWebSocketEnabled != nil && *settings.ResponsesWebSocketEnabled
 	case constant.ChannelTypeAdvancedCustom:
-		if settings.ResponsesWebSocketEnabled == nil || !*settings.ResponsesWebSocketEnabled || settings.AdvancedCustom == nil {
+		routes := channel.GetOtherSettings().AdvancedCustom
+		if routes == nil {
 			return false
 		}
 		if len(modelNames) == 0 {
-			for _, route := range settings.AdvancedCustom.Routes {
+			for _, route := range routes.Routes {
 				if strings.TrimSpace(route.IncomingPath) == "/v1/responses" && route.IsNative() {
 					return true
 				}
 			}
 			return false
 		}
-		route, ok := settings.AdvancedCustom.MatchPathForModel("/v1/responses", modelNames[0])
+		route, ok := routes.MatchPathForModel("/v1/responses", modelNames[0])
 		return ok && route.IsNative()
 	default:
 		return false

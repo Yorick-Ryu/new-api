@@ -36,8 +36,3 @@ const RESPONSES_WEBSOCKET_CHANNEL_TYPES: ReadonlySet<number> = new Set([
 export function supportsResponsesWebSocket(channelType: number): boolean {
   return RESPONSES_WEBSOCKET_CHANNEL_TYPES.has(channelType)
 }
-
-// Preserve implicit support only for the original OpenAI and Codex providers.
-export function responsesWebSocketDefaultEnabled(channelType: number): boolean {
-  return channelType === 1 || channelType === 57
-}

@@ -128,8 +128,6 @@ export interface ChannelSettings {
 
 export interface ChannelOtherSettings {
   azure_responses_version?: string
-  responses_http_enabled?: boolean
-  responses_websocket_enabled?: boolean
   vertex_key_type?: 'json' | 'api_key'
   vertex_project_id?: string
   vertex_api_version?: 'v1' | 'v1beta1'

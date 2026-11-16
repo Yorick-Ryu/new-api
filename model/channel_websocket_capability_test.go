@@ -19,8 +19,8 @@ func TestResponsesWebSocketChannelCapabilities(t *testing.T) {
 		converter string
 		want      bool
 	}{
-		{"legacy OpenAI", constant.ChannelTypeOpenAI, nil, "", true},
-		{"legacy Codex", constant.ChannelTypeCodex, nil, "", true},
+		{"OpenAI requires opt in", constant.ChannelTypeOpenAI, nil, "", false},
+		{"Codex requires opt in", constant.ChannelTypeCodex, nil, "", false},
 		{"disabled OpenAI", constant.ChannelTypeOpenAI, common.GetPointer(false), "", false},
 		{"Azure requires opt in", constant.ChannelTypeAzure, nil, "", false},
 		{"Azure enabled", constant.ChannelTypeAzure, common.GetPointer(true), "", true},
@@ -35,8 +35,8 @@ func TestResponsesWebSocketChannelCapabilities(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			channel := &Channel{Type: tc.kind}
+			channel.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: tc.enabled})
 			channel.SetOtherSettings(dto.ChannelOtherSettings{
-				ResponsesWebSocketEnabled: tc.enabled,
 				AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{
 					IncomingPath: "/v1/responses", UpstreamPath: "/native/responses", Converter: tc.converter, Models: []string{"gpt-native"},
 				}}},
@@ -62,10 +62,9 @@ func TestResponsesWebSocketSelectionExcludesConvertersBeforePriority(t *testing.
 				{71, "openai_responses_to_openai_chat_completions", 200}, {72, "none", 100},
 			} {
 				insertChannelTransportSelectionChannel(t, &Channel{
-					Id: tc.id, Type: constant.ChannelTypeAdvancedCustom, Models: "gpt-native", Priority: &tc.priority,
+					Setting: common.GetPointer(`{"responses_websocket_enabled":true}`), Id: tc.id, Type: constant.ChannelTypeAdvancedCustom, Models: "gpt-native", Priority: &tc.priority,
 				}, dto.ChannelOtherSettings{
-					ResponsesWebSocketEnabled: common.GetPointer(true),
-					AdvancedCustom:            &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses", Converter: tc.converter}}},
+					AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses", Converter: tc.converter}}},
 				})
 			}
 			InitChannelCache()
@@ -81,7 +80,7 @@ func TestResponsesWebSocketSelectionExcludesConvertersBeforePriority(t *testing.
 	}
 }
 
-func TestResponsesWebSocketSwitchesHonorBothStorageFormats(t *testing.T) {
+func TestResponsesWebSocketUsesOnlyOfficialSetting(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		kind     int
@@ -89,8 +88,9 @@ func TestResponsesWebSocketSwitchesHonorBothStorageFormats(t *testing.T) {
 		upstream string
 		want     bool
 	}{
-		{"legacy OpenAI missing", constant.ChannelTypeOpenAI, nil, "{}", true},
+		{"missing official setting is disabled", constant.ChannelTypeOpenAI, nil, "{}", false},
 		{"new provider missing", constant.ChannelTypeNewAPI, nil, "{}", false},
+		{"retired enable ignored", constant.ChannelTypeOpenAI, common.GetPointer(true), "{}", false},
 		{"new provider upstream opt in", constant.ChannelTypeNewAPI, nil, `{"responses_websocket_enabled":true}`, true},
 		{"official enable overrides retired disable", constant.ChannelTypeNewAPI, common.GetPointer(false), `{"responses_websocket_enabled":true}`, true},
 		{"upstream disabled wins", constant.ChannelTypeOpenAI, common.GetPointer(true), `{"responses_websocket_enabled":false}`, false},
@@ -98,7 +98,9 @@ func TestResponsesWebSocketSwitchesHonorBothStorageFormats(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			channel := &Channel{Type: tc.kind, Setting: &tc.upstream}
-			channel.SetOtherSettings(dto.ChannelOtherSettings{ResponsesWebSocketEnabled: tc.legacy, ResponsesHTTPEnabled: common.GetPointer(false)})
+			legacy, err := common.Marshal(map[string]any{"responses_websocket_enabled": tc.legacy, "responses_http_enabled": false})
+			require.NoError(t, err)
+			channel.OtherSettings = string(legacy)
 			assert.Equal(t, tc.want, channel.SupportsResponsesTransport(constant.ResponsesTransportWebSocket, "gpt-test"))
 			assert.True(t, channel.SupportsResponsesTransport(constant.ResponsesTransportHTTP, "gpt-test"))
 		})

@@ -3739,10 +3739,9 @@ test.each([true, false])(
   }
 )
 
-test('the official WebSocket switch is the only transport setting and clears retired restrictions on save', async () => {
+test('the official WebSocket switch is the only transport setting and saves its value', async () => {
   editingChannel.setting = '{"responses_websocket_enabled":true}'
-  editingChannel.settings =
-    '{"responses_http_enabled":false,"responses_websocket_enabled":false,"custom_flag":"keep"}'
+  editingChannel.settings = '{"custom_flag":"keep"}'
   const put = vi
     .spyOn(api, 'put')
     .mockResolvedValue({ data: { success: true } })

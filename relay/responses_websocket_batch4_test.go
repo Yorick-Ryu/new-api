@@ -61,7 +61,7 @@ func TestResponsesWSAdditionalChannelsPreserveNativeConversation(t *testing.T) {
 			channel := &appmodel.Channel{Id: 71, Name: "batch4", Models: "gpt-test", BaseURL: common.GetPointer(upstream.URL)}
 			addResponsesWSChannelSelectionTestChannel(t, channel)
 			channel.Type = tc.kind
-			settings := dto.ChannelOtherSettings{ResponsesWebSocketEnabled: common.GetPointer(true)}
+			settings := dto.ChannelOtherSettings{}
 			if tc.kind == appconstant.ChannelTypeAdvancedCustom {
 				settings.AdvancedCustom = &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/native/responses", Converter: "none", Auth: tc.auth}}}
 			}
@@ -210,8 +210,8 @@ func TestResponsesWSPinnedChannelCannotBypassNativeRoutePolicy(t *testing.T) {
 			channel := &appmodel.Channel{Id: 81, Models: "gpt-test"}
 			addResponsesWSChannelSelectionTestChannel(t, channel)
 			channel.Type = tc.kind
+			channel.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: tc.enabled})
 			channel.SetOtherSettings(dto.ChannelOtherSettings{
-				ResponsesWebSocketEnabled: tc.enabled,
 				AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{
 					IncomingPath: "/v1/responses", Converter: tc.converter,
 				}}},
@@ -245,7 +245,6 @@ func TestResponsesWSRejectsChangedCustomRouteOnContinuation(t *testing.T) {
 			addResponsesWSChannelSelectionTestChannel(t, channel)
 			channel.Type = appconstant.ChannelTypeAdvancedCustom
 			channel.SetOtherSettings(dto.ChannelOtherSettings{
-				ResponsesWebSocketEnabled: common.GetPointer(true),
 				AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{
 					IncomingPath: "/v1/responses", UpstreamPath: "/native/responses", Converter: "none",
 					Auth: &dto.AdvancedCustomRouteAuth{Type: "header", Name: "X-Key", Value: "{api_key}"},

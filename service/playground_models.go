@@ -100,7 +100,6 @@ func channelSupportsPlaygroundChat(channel *model.Channel, name string) bool {
 		return false
 	}
 	return slices.Contains(endpoints, constant.EndpointTypeOpenAIResponse) &&
-		other.SupportsResponsesTransport(constant.ResponsesTransportHTTP) &&
 		!model_setting.GetGlobalSettings().PassThroughRequestEnabled && !settings.PassThroughBodyEnabled &&
 		ShouldChatCompletionsUseResponsesGlobal(channel.Id, channel.Type, name)
 }

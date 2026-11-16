@@ -289,7 +289,7 @@ func TestRestoreConnectionContextRejectsChangedAdvancedCustomRoute(t *testing.T)
 	assert.ErrorContains(t, apiErr, "upstream route changed")
 }
 
-func TestResponsesWSChannelRoutingRetainsLegacyDefaults(t *testing.T) {
+func TestResponsesWSChannelRoutingRequiresOfficialOptIn(t *testing.T) {
 	require.NoError(t, i18n.Init())
 	database := setupRelayChannelDB(t)
 	require.NoError(t, database.AutoMigrate(&model.Ability{}))
@@ -318,7 +318,7 @@ func TestResponsesWSChannelRoutingRetainsLegacyDefaults(t *testing.T) {
 	channel, apiErr := selectResponsesWSChannel(c, "ws-model", params)
 	require.Nil(t, apiErr)
 	require.NotNil(t, channel)
-	assert.Equal(t, legacy.Id, channel.Id)
+	assert.Equal(t, enabled.Id, channel.Id)
 	httpChannel, err := model.GetRandomSatisfiedChannel("default", "ws-model", 0, nil)
 	require.NoError(t, err)
 	require.NotNil(t, httpChannel)
@@ -1092,6 +1092,9 @@ func setupResponsesWSChannelSelectionTest(t *testing.T) {
 
 func addResponsesWSChannelSelectionTestChannel(t *testing.T, channel *model.Channel) {
 	t.Helper()
+	if channel.Setting == nil {
+		channel.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: common.GetPointer(true)})
+	}
 	channel.Status = common.ChannelStatusEnabled
 	channel.Type = constant.ChannelTypeOpenAI
 	channel.Key = "test-key"

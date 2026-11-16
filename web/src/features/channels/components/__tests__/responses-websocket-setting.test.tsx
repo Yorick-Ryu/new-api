@@ -100,20 +100,14 @@ describe('Responses WebSocket channel setting', () => {
         for (const payload of payloads) {
           assert(typeof payload.setting === 'string')
           expect(JSON.parse(payload.setting).responses_websocket_enabled).toBe(
-            enabled === true ||
-              (enabled === undefined &&
-                (channelType === 1 || channelType === 57))
+            enabled === true
           )
           expect(
             transformChannelToFormDefaults({
               ...channel,
               setting: payload.setting,
             }).responses_websocket_enabled
-          ).toBe(
-            enabled === true ||
-              (enabled === undefined &&
-                (channelType === 1 || channelType === 57))
-          )
+          ).toBe(enabled === true)
         }
       }
     )
