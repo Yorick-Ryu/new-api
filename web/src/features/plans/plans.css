@@ -109,11 +109,6 @@
     color: var(--foreground);
     background: var(--card);
   }
-  .section-switch a > span {
-    font-size: 0.625rem;
-    margin-left: 4px;
-    color: var(--muted-foreground);
-  }
   .content-section {
     margin: 0 0 64px;
     scroll-margin-top: 10px;
@@ -546,9 +541,6 @@
     .section-switch a {
       padding: 9px 12px;
       font-size: 0.75rem;
-    }
-    .section-switch a > span {
-      display: none;
     }
     .header-nav {
       padding: 0;

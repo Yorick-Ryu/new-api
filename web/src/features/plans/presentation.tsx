@@ -26,7 +26,6 @@ import {
   Gift,
   MessageCircle,
   Sparkles,
-  ArrowDown,
   Layers,
   Zap,
   Info,
@@ -129,12 +128,10 @@ export function PublicCatalog(props: PlansPresentationProps) {
             <a href='#recharge'>
               <Wallet size={16} />
               {t('Balance top-up')}
-              <span>{t('On demand')}</span>
             </a>
             <a href='#subscriptions'>
               <CalendarDays size={16} />
               {t('Monthly subscriptions')}
-              <ArrowDown size={14} />
             </a>
           </div>
         </section>
