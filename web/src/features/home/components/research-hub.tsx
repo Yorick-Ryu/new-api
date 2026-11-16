@@ -70,7 +70,7 @@ export function ResearchHub() {
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const center = map.querySelector<HTMLElement>('.research-hub-brand')
+    const center = map.querySelector<HTMLElement>('.research-hub-logo-frame')
     const nodes = [...map.querySelectorAll<HTMLElement>('.research-hub-node')]
     if (!center || nodes.length !== capabilities.length) return
 
@@ -86,9 +86,9 @@ export function ResearchHub() {
           if (stacked) {
             const x = box.left + box.width / 2 - bounds.left
             const y = box.top - bounds.top
-            const cx = hub.left + hub.width / 2 - bounds.left
-            const cy = hub.bottom - bounds.top
-            return `M ${cx} ${cy} C ${cx} ${cy + 24}, ${x} ${cy + 24}, ${x} ${y}`
+            const cx = (left ? hub.left : hub.right) - bounds.left
+            const cy = hub.top + hub.height / 2 - bounds.top
+            return `M ${cx} ${cy} C ${x} ${cy}, ${x} ${y - 24}, ${x} ${y}`
           }
           const x = (left ? box.right : box.left) - bounds.left
           const y = box.top + box.height / 2 - bounds.top
@@ -108,6 +108,7 @@ export function ResearchHub() {
     const observer = new ResizeObserver(measure)
     observer.observe(map)
     observer.observe(center)
+    if (center.parentElement) observer.observe(center.parentElement)
     nodes.forEach((element) => observer.observe(element))
     return () => observer.disconnect()
   }, [])
