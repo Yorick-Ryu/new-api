@@ -41,11 +41,3 @@ export function supportsResponsesWebSocket(channelType: number): boolean {
 export function responsesWebSocketDefaultEnabled(channelType: number): boolean {
   return channelType === 1 || channelType === 57
 }
-
-export function normalizeResponsesTransport(
-  channelType: number,
-  transport: 'both' | 'http' | 'websocket' | 'none' = 'both'
-): 'both' | 'http' | 'websocket' | 'none' {
-  if (supportsResponsesWebSocket(channelType)) return transport
-  return transport === 'both' || transport === 'http' ? 'http' : 'none'
-}

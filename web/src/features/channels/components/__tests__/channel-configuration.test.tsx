@@ -3738,3 +3738,50 @@ test.each([true, false])(
     }
   }
 )
+
+test('the official WebSocket switch is the only transport setting and clears retired restrictions on save', async () => {
+  editingChannel.setting = '{"responses_websocket_enabled":true}'
+  editingChannel.settings =
+    '{"responses_http_enabled":false,"responses_websocket_enabled":false,"custom_flag":"keep"}'
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  render(<ConfigurationHarness currentRow={editingChannel} />)
+  await screen.findByDisplayValue('Existing channel')
+  const quick = within(screen.getByRole('group', { name: 'Quick options' }))
+  expect(
+    quick.getByRole('switch', { name: 'Responses WebSocket' })
+  ).toBeChecked()
+  await user.click(screen.getByRole('tab', { name: /Routing & Mapping/ }))
+  expect(
+    screen.queryByRole('combobox', { name: 'Responses API transport' })
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('tab', { name: /Request & Response/ }))
+  const websocket = screen.getByRole('switch', {
+    name: 'Enable Responses WebSocket',
+  })
+  expect(websocket).toBeChecked()
+  await user.click(websocket)
+  await user.click(screen.getByRole('tab', { name: /Connection & Models/ }))
+  const updatedQuick = within(
+    await screen.findByRole('group', { name: 'Quick options' })
+  )
+  expect(
+    updatedQuick.getByRole('switch', { name: 'Responses WebSocket' })
+  ).not.toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+  await waitFor(() => expect(put).toHaveBeenCalled())
+  const payload = put.mock.calls[0]?.[1] as {
+    setting: string
+    settings: string
+  }
+  expect(JSON.parse(payload.setting).responses_websocket_enabled).toBe(false)
+  expect(JSON.parse(payload.settings)).not.toHaveProperty(
+    'responses_http_enabled'
+  )
+  expect(JSON.parse(payload.settings)).not.toHaveProperty(
+    'responses_websocket_enabled'
+  )
+  expect(JSON.parse(payload.settings).custom_flag).toBe('keep')
+})

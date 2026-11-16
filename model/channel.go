@@ -578,12 +578,8 @@ func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesT
 		return false
 	}
 	settings := channel.GetOtherSettings()
-	if !settings.SupportsResponsesTransport(transport) {
-		return false
-	}
-	// Honor explicit switches in both legacy settings and upstream setting.
-	// A stored false in either format wins. Only legacy OpenAI/Codex channels
-	// default to enabled; newly supported channel types must opt in.
+	// The official switch only controls WebSocket; HTTP is unaffected.
+	// Use the retired WebSocket field only when the official one is absent.
 	if transport == constant.ResponsesTransportWebSocket && channel.Setting != nil && *channel.Setting != "" {
 		var upstream struct {
 			ResponsesWebSocketEnabled *bool `json:"responses_websocket_enabled"`
@@ -616,11 +612,11 @@ func (channel *Channel) SupportsResponsesTransport(transport constant.ResponsesT
 // Passing a model also checks the selected Advanced Custom route, so a converter
 // route cannot bypass the restriction through pinning, affinity or retries.
 func channelSupportsResponsesTransport(channelType int, settings dto.ChannelOtherSettings, transport constant.ResponsesTransport, modelNames ...string) bool {
-	if !settings.SupportsResponsesTransport(transport) {
-		return false
-	}
 	if transport != constant.ResponsesTransportWebSocket {
 		return true
+	}
+	if !settings.SupportsResponsesTransport(transport) {
+		return false
 	}
 	switch channelType {
 	case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex:

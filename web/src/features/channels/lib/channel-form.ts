@@ -42,7 +42,6 @@ import {
 } from './advanced-custom'
 import { readTaskExtendPluginKeys } from './channel-plugin-extensions'
 import {
-  normalizeResponsesTransport,
   responsesWebSocketDefaultEnabled,
   supportsResponsesWebSocket,
 } from './responses-websocket'
@@ -287,9 +286,6 @@ export const channelFormSchema = z
     aws_key_type: z.enum(['ak_sk', 'api_key']).optional(), // AWS specific
     aws_api_type: z.enum(['invoke_model', 'mantle']).optional(),
     azure_responses_version: z.string().optional(), // Azure specific
-    responses_transport: z
-      .enum(['both', 'http', 'websocket', 'none'])
-      .optional(),
     // Field passthrough controls (stored in settings JSON)
     allow_service_tier: z.boolean().optional(), // OpenAI/Anthropic
     disable_store: z.boolean().optional(), // OpenAI only
@@ -493,7 +489,6 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   aws_key_type: 'ak_sk',
   aws_api_type: 'invoke_model',
   azure_responses_version: '',
-  responses_transport: 'both',
   // Field passthrough controls
   allow_service_tier: false,
   disable_store: false,
@@ -525,18 +520,20 @@ export function transformChannelToFormDefaults(
   const canUseResponsesWebSocket =
     supportsResponsesWebSocket(channel.type) ||
     channel.type === CHANNEL_TYPE_TASK_PLUGIN
-  // Either legacy settings field can contain the original explicit opt-in.
-  // Preserve it when saving the newer field, while keeping explicit false.
-  const responsesWebSocketDefault =
-    responsesWebSocketDefaultEnabled(channel.type) ||
-    [channel.setting, channel.settings].some((settings) => {
-      if (!settings || !canUseResponsesWebSocket) return false
-      try {
-        return JSON.parse(settings).responses_websocket_enabled === true
-      } catch {
-        return false
-      }
-    })
+  // Official setting is authoritative. Read the retired field only for channels
+  // that have never saved the official setting.
+  let responsesWebSocketDefault = responsesWebSocketDefaultEnabled(channel.type)
+  for (const settings of [channel.settings, channel.setting]) {
+    if (!settings) continue
+    try {
+      const value = JSON.parse(settings).responses_websocket_enabled
+      if (typeof value === 'boolean') responsesWebSocketDefault = value
+    } catch {
+      responsesWebSocketDefault = false
+    }
+  }
+  responsesWebSocketDefault =
+    canUseResponsesWebSocket && responsesWebSocketDefault
 
   // Parse channel extra settings from setting field
   let extraSettings = {
@@ -595,8 +592,6 @@ export function transformChannelToFormDefaults(
   let vertexProjectId = ''
   let vertexApiVersion: 'v1' | 'v1beta1' = 'v1'
   let azureResponsesVersion = ''
-  let responsesTransport: 'both' | 'http' | 'websocket' | 'none' =
-    responsesWebSocketDefault ? 'both' : 'http'
   let isEnterpriseAccount = false
   let awsKeyType: 'ak_sk' | 'api_key' = 'ak_sk'
   let awsApiType: 'invoke_model' | 'mantle' = 'invoke_model'
@@ -623,20 +618,6 @@ export function transformChannelToFormDefaults(
       vertexApiVersion =
         parsed.vertex_api_version === 'v1beta1' ? 'v1beta1' : 'v1'
       azureResponsesVersion = parsed.azure_responses_version || ''
-      const responsesHTTPEnabled = parsed.responses_http_enabled !== false
-      const responsesWebSocketEnabled =
-        canUseResponsesWebSocket &&
-        (parsed.responses_websocket_enabled ?? responsesWebSocketDefault) ===
-          true
-      if (responsesHTTPEnabled && responsesWebSocketEnabled) {
-        responsesTransport = 'both'
-      } else if (responsesHTTPEnabled && !responsesWebSocketEnabled) {
-        responsesTransport = 'http'
-      } else if (!responsesHTTPEnabled && responsesWebSocketEnabled) {
-        responsesTransport = 'websocket'
-      } else if (!responsesHTTPEnabled && !responsesWebSocketEnabled) {
-        responsesTransport = 'none'
-      }
       isEnterpriseAccount = parsed.openrouter_enterprise === true
       awsKeyType = parsed.aws_key_type || 'ak_sk'
       awsApiType = parsed.aws_api_type || 'invoke_model'
@@ -704,7 +685,6 @@ export function transformChannelToFormDefaults(
     vertex_project_id: vertexProjectId,
     vertex_api_version: vertexApiVersion,
     azure_responses_version: azureResponsesVersion,
-    responses_transport: responsesTransport,
     aws_key_type: awsKeyType,
     aws_api_type: awsApiType,
     allow_service_tier: allowServiceTier,
@@ -813,33 +793,9 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     delete settingsObj.azure_responses_version
   }
 
-  switch (
-    formData.type === CHANNEL_TYPE_TASK_PLUGIN
-      ? formData.responses_transport
-      : normalizeResponsesTransport(formData.type, formData.responses_transport)
-  ) {
-    case 'http':
-      settingsObj.responses_http_enabled = true
-      settingsObj.responses_websocket_enabled = false
-      break
-    case 'websocket':
-      settingsObj.responses_http_enabled = false
-      settingsObj.responses_websocket_enabled = true
-      break
-    case 'none':
-      settingsObj.responses_http_enabled = false
-      settingsObj.responses_websocket_enabled = false
-      break
-    default:
-      delete settingsObj.responses_http_enabled
-      if (responsesWebSocketDefaultEnabled(formData.type)) {
-        delete settingsObj.responses_websocket_enabled
-      } else {
-        settingsObj.responses_websocket_enabled =
-          supportsResponsesWebSocket(formData.type) ||
-          formData.type === CHANNEL_TYPE_TASK_PLUGIN
-      }
-  }
+  // These retired transport flags must not override the official WebSocket switch.
+  delete settingsObj.responses_http_enabled
+  delete settingsObj.responses_websocket_enabled
 
   // Add enterprise account setting for OpenRouter (type 20)
   if (formData.type === 20) {

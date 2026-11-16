@@ -45,7 +45,6 @@ export default defineConfig({
     restoreMocks: true,
     exclude: [
       'src/lib/__tests__/oauth.test.ts',
-      'src/features/channels/lib/__tests__/channel-responses-transport.test.ts',
       'src/features/keys/components/dialogs/__tests__/cc-switch-dialog.test.ts',
       'src/features/wallet/components/__tests__/subscription-quota-usage.test.tsx',
       'src/features/dashboard/components/overview/__tests__/performance-health-panel-layout.test.ts',

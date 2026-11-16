@@ -92,13 +92,13 @@ func TestResponsesWebSocketSwitchesHonorBothStorageFormats(t *testing.T) {
 		{"legacy OpenAI missing", constant.ChannelTypeOpenAI, nil, "{}", true},
 		{"new provider missing", constant.ChannelTypeNewAPI, nil, "{}", false},
 		{"new provider upstream opt in", constant.ChannelTypeNewAPI, nil, `{"responses_websocket_enabled":true}`, true},
-		{"legacy disabled wins", constant.ChannelTypeNewAPI, common.GetPointer(false), `{"responses_websocket_enabled":true}`, false},
+		{"official enable overrides retired disable", constant.ChannelTypeNewAPI, common.GetPointer(false), `{"responses_websocket_enabled":true}`, true},
 		{"upstream disabled wins", constant.ChannelTypeOpenAI, common.GetPointer(true), `{"responses_websocket_enabled":false}`, false},
 		{"malformed upstream fails closed", constant.ChannelTypeOpenAI, common.GetPointer(true), `{`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			channel := &Channel{Type: tc.kind, Setting: &tc.upstream}
-			channel.SetOtherSettings(dto.ChannelOtherSettings{ResponsesWebSocketEnabled: tc.legacy})
+			channel.SetOtherSettings(dto.ChannelOtherSettings{ResponsesWebSocketEnabled: tc.legacy, ResponsesHTTPEnabled: common.GetPointer(false)})
 			assert.Equal(t, tc.want, channel.SupportsResponsesTransport(constant.ResponsesTransportWebSocket, "gpt-test"))
 			assert.True(t, channel.SupportsResponsesTransport(constant.ResponsesTransportHTTP, "gpt-test"))
 		})

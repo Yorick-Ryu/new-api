@@ -25,10 +25,7 @@ import {
   transformChannelToFormDefaults,
   transformFormDataToCreatePayload,
 } from '../channel-form'
-import {
-  normalizeResponsesTransport,
-  supportsResponsesWebSocket,
-} from '../responses-websocket'
+import { supportsResponsesWebSocket } from '../responses-websocket'
 
 function channel(type: number, settings = '{}'): Channel {
   return {
@@ -59,106 +56,78 @@ function channel(type: number, settings = '{}'): Channel {
   }
 }
 
-describe('Responses WebSocket settings', () => {
-  it.each([58, 59, 60])(
-    'requires an explicit opt-in for channel type %i and preserves it after saving',
+describe('official Responses WebSocket setting', () => {
+  it.each([1, 3, 57, 58, 59, 60, 61])(
+    'uses the official field first and falls back to the retired field for channel %i',
     (type) => {
-      expect(supportsResponsesWebSocket(type)).toBe(true)
-      expect(
-        transformChannelToFormDefaults(channel(type)).responses_transport
-      ).toBe('http')
-      const payload = transformFormDataToCreatePayload({
+      for (const [legacy, official, enabled] of [
+        [undefined, undefined, type === 1 || type === 57],
+        [true, undefined, true],
+        [false, undefined, false],
+        [false, true, true],
+        [true, false, false],
+      ] as const) {
+        const values = transformChannelToFormDefaults({
+          ...channel(
+            type,
+            JSON.stringify({
+              responses_http_enabled: false,
+              responses_websocket_enabled: legacy,
+            })
+          ),
+          setting: JSON.stringify({ responses_websocket_enabled: official }),
+        })
+        expect(values.responses_websocket_enabled).toBe(enabled)
+        expect(values).not.toHaveProperty('responses_transport')
+      }
+    }
+  )
+
+  it.each([false, true])(
+    'saves official switch %s without retired transport restrictions',
+    (enabled) => {
+      const values = {
         ...CHANNEL_FORM_DEFAULT_VALUES,
-        type,
+        type: 1,
         name: 'native',
         key: 'fixture',
         models: 'gpt-test',
-        responses_transport: 'both',
-        settings: '{"custom_flag":"keep"}',
-      })
-      const settings = String(payload.channel.settings)
-      expect(JSON.parse(settings)).toMatchObject({
-        responses_websocket_enabled: true,
-        custom_flag: 'keep',
-      })
+        responses_websocket_enabled: enabled,
+        settings:
+          '{"responses_http_enabled":false,"responses_websocket_enabled":false,"custom_flag":"keep"}',
+      }
+      const payload = transformFormDataToCreatePayload(values).channel
       expect(
-        transformChannelToFormDefaults(channel(type, settings))
-          .responses_transport
-      ).toBe('both')
+        JSON.parse(String(payload.setting)).responses_websocket_enabled
+      ).toBe(enabled)
+      expect(JSON.parse(String(payload.settings))).not.toHaveProperty(
+        'responses_http_enabled'
+      )
+      expect(JSON.parse(String(payload.settings))).not.toHaveProperty(
+        'responses_websocket_enabled'
+      )
+      expect(JSON.parse(String(payload.settings)).custom_flag).toBe('keep')
       expect(
-        transformChannelToFormDefaults(
-          channel(
-            type,
-            '{"responses_http_enabled":false,"responses_websocket_enabled":true}'
-          )
-        ).responses_transport
-      ).toBe('websocket')
+        transformChannelToFormDefaults({
+          ...channel(1, String(payload.settings)),
+          setting: String(payload.setting),
+        }).responses_websocket_enabled
+      ).toBe(enabled)
       expect(
-        transformChannelToFormDefaults(
-          channel(type, '{"responses_websocket_enabled":false}')
-        ).responses_transport
-      ).toBe('http')
+        JSON.parse(buildSettingJSON(values)).responses_websocket_enabled
+      ).toBe(enabled)
     }
   )
 
-  it.each([1, 57])(
-    'keeps legacy channel type %i enabled when the setting is absent',
-    (type) => {
-      expect(
-        transformChannelToFormDefaults(channel(type)).responses_transport
-      ).toBe('both')
-    }
-  )
-
-  it('does not advertise WebSocket on providers outside the backend allowlist', () => {
+  it('does not enable unsupported providers', () => {
     expect(supportsResponsesWebSocket(14)).toBe(false)
+    const values = transformChannelToFormDefaults({
+      ...channel(14),
+      setting: '{"responses_websocket_enabled":true}',
+    })
+    expect(values.responses_websocket_enabled).toBe(false)
     expect(
-      transformChannelToFormDefaults(
-        channel(14, '{"responses_websocket_enabled":true}')
-      ).responses_transport
-    ).toBe('http')
+      JSON.parse(buildSettingJSON(values)).responses_websocket_enabled
+    ).toBe(false)
   })
 })
-
-it('drops only unsupported WS when the channel type changes', () => {
-  expect(normalizeResponsesTransport(14, undefined)).toBe('http')
-  expect(normalizeResponsesTransport(14, 'both')).toBe('http')
-  expect(normalizeResponsesTransport(14, 'websocket')).toBe('none')
-  expect(normalizeResponsesTransport(60, 'both')).toBe('both')
-})
-
-it.each([58, 59, 60])(
-  'preserves the effective WebSocket opt-in across both settings fields for type %i',
-  (type) => {
-    const fromLegacy = transformChannelToFormDefaults(
-      channel(type, '{"responses_websocket_enabled":true}')
-    )
-    expect(fromLegacy.responses_websocket_enabled).toBe(true)
-    expect(fromLegacy.responses_transport).toBe('both')
-    expect(
-      JSON.parse(buildSettingJSON(fromLegacy)).responses_websocket_enabled
-    ).toBe(true)
-
-    const fromUpstream = transformChannelToFormDefaults({
-      ...channel(type),
-      setting: '{"responses_websocket_enabled":true}',
-    })
-    expect(fromUpstream.responses_transport).toBe('both')
-    expect(
-      JSON.parse(
-        String(transformFormDataToCreatePayload(fromUpstream).channel.settings)
-      ).responses_websocket_enabled
-    ).toBe(true)
-
-    const explicitlyDisabled = transformChannelToFormDefaults({
-      ...channel(type, '{"responses_websocket_enabled":true}'),
-      setting: '{"responses_websocket_enabled":false}',
-    })
-    expect(explicitlyDisabled.responses_websocket_enabled).toBe(false)
-    const legacyDisabled = transformChannelToFormDefaults({
-      ...channel(type, '{"responses_websocket_enabled":false}'),
-      setting: '{"responses_websocket_enabled":true}',
-    })
-    expect(legacyDisabled.responses_transport).toBe('http')
-  }
-)

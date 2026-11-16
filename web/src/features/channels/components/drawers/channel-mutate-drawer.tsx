@@ -201,7 +201,7 @@ import {
   supportsNewAPIUpstream,
 } from '../../lib/channel-plugin-extensions'
 import { getChannelTypeConfig } from '../../lib/channel-type-config'
-import { normalizeResponsesTransport } from '../../lib/responses-websocket'
+import { supportsResponsesWebSocket } from '../../lib/responses-websocket'
 import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
@@ -335,7 +335,6 @@ const SENSITIVE_FORM_FIELDS = [
   'aws_key_type',
   'aws_api_type',
   'azure_responses_version',
-  'responses_transport',
   'force_format',
   'thinking_to_content',
   'proxy',
@@ -956,16 +955,14 @@ export function ChannelMutateDrawer({
           form.setValue('name', label ? t(label) : `#${target.type}`)
         }
       }
-      const nextType =
-        target.kind === 'plugin' ? CHANNEL_TYPE_TASK_PLUGIN : target.type
-      form.setValue(
-        'responses_transport',
-        normalizeResponsesTransport(
-          nextType,
-          form.getValues('responses_transport')
-        ),
-        { shouldDirty: true }
-      )
+      if (
+        target.kind === 'builtin' &&
+        !supportsResponsesWebSocket(target.type)
+      ) {
+        form.setValue('responses_websocket_enabled', false, {
+          shouldDirty: true,
+        })
+      }
       setProviderTarget(target)
       setChoosingProvider(false)
     },
@@ -2409,57 +2406,6 @@ export function ChannelMutateDrawer({
           )}
         />
       </div>
-
-      <FormField
-        control={form.control}
-        name='responses_transport'
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('Responses API transport')}</FormLabel>
-            <Select
-              value={field.value || 'both'}
-              onValueChange={field.onChange}
-              disabled={sensitiveLocked}
-            >
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem
-                  value='both'
-                  disabled={!responsesWebsocketSupported}
-                >
-                  {t('HTTP and WebSocket')}
-                </SelectItem>
-                <SelectItem value='http'>{t('HTTP only')}</SelectItem>
-                <SelectItem
-                  value='websocket'
-                  disabled={!responsesWebsocketSupported}
-                >
-                  {t('WebSocket only')}
-                </SelectItem>
-                <SelectItem value='none'>
-                  {t('Responses API disabled')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <FormDescription>
-              {t('Only matching /v1/responses requests can use this channel')}
-              {currentType === CHANNEL_TYPE_ADVANCED_CUSTOM && (
-                <>
-                  {' '}
-                  {t(
-                    'For advanced custom channels this applies only to /v1/responses routes without protocol conversion.'
-                  )}
-                </>
-              )}
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
 
       <FormField
         control={form.control}

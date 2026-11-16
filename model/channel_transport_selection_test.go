@@ -56,6 +56,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			insertChannelTransportSelectionChannel(t, &Channel{
 				Id:       4,
 				Name:     "CPA",
+				Setting:  common.GetPointer(`{"responses_websocket_enabled":true}`),
 				Models:   "gpt-5.6-sol,gpt-image-2",
 				Priority: common.GetPointer[int64](80),
 				Weight:   common.GetPointer[uint](100),
@@ -63,6 +64,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			insertChannelTransportSelectionChannel(t, &Channel{
 				Id:       13,
 				Name:     "Krill HTTP",
+				Setting:  common.GetPointer(`{"responses_websocket_enabled":false}`),
 				Models:   "gpt-5.6-sol",
 				Priority: common.GetPointer[int64](100),
 				Weight:   common.GetPointer[uint](100),
@@ -77,8 +79,9 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			insertChannelTransportSelectionChannel(t, &Channel{
 				Id:       14,
 				Name:     "Krill WS",
+				Setting:  common.GetPointer(`{"responses_websocket_enabled":true}`),
 				Models:   "gpt-5.6-sol",
-				Priority: common.GetPointer[int64](100),
+				Priority: common.GetPointer[int64](90),
 				Weight:   common.GetPointer[uint](100),
 				ChannelInfo: ChannelInfo{
 					IsMultiKey:   true,
@@ -108,7 +111,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			httpFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 			require.NoError(t, err)
 			require.NotNil(t, httpFallback)
-			require.Equal(t, 4, httpFallback.Id)
+			require.Equal(t, 14, httpFallback.Id)
 
 			wsFallback, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 1, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportWebSocket}})
 			require.NoError(t, err)
@@ -118,7 +121,7 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 			legacy, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportNone}})
 			require.NoError(t, err)
 			require.NotNil(t, legacy)
-			require.Contains(t, []int{13, 14}, legacy.Id)
+			require.Equal(t, 13, legacy.Id)
 
 			if memoryCacheEnabled {
 				updatedHTTP, err := GetChannelById(13, true)
@@ -126,12 +129,17 @@ func TestResponsesTransportSelectionUsesChannelCapabilityThenRegularPriority(t *
 				updatedHTTP.SetOtherSettings(dto.ChannelOtherSettings{
 					ResponsesHTTPEnabled: common.GetPointer(false),
 				})
+				updatedHTTP.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: common.GetPointer(true)})
 				CacheUpdateChannel(updatedHTTP)
 
 				hotReloaded, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterRequestPath, RequestPath: "/v1/responses"}, {Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportHTTP}})
 				require.NoError(t, err)
 				require.NotNil(t, hotReloaded)
-				require.Equal(t, 4, hotReloaded.Id)
+				require.Equal(t, 13, hotReloaded.Id)
+				wsReloaded, err := GetRandomSatisfiedChannel("default", "gpt-5.6-sol", 0, []hostdto.ChannelFilter{{Kind: hostdto.FilterResponsesTransport, ResponsesTransport: constant.ResponsesTransportWebSocket}})
+				require.NoError(t, err)
+				require.NotNil(t, wsReloaded)
+				require.Equal(t, 13, wsReloaded.Id)
 			}
 		})
 	}

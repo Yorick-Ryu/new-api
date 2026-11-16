@@ -17,6 +17,8 @@ func TestResponsesTransportSettingsDefaultToLegacyBehavior(t *testing.T) {
 	require.True(t, settings.SupportsResponsesTransport(types.ResponsesTransportWebSocket))
 
 	disabled := false
+	settings.ResponsesHTTPEnabled = &disabled
+	require.True(t, settings.SupportsResponsesTransport(types.ResponsesTransportHTTP), "retired HTTP restriction must not affect the official WebSocket switch")
 	settings.ResponsesWebSocketEnabled = &disabled
 	require.False(t, settings.SupportsResponsesTransport(types.ResponsesTransportWebSocket))
 }

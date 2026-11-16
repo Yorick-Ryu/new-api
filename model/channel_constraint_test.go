@@ -229,7 +229,7 @@ func TestResponsesWebSocketConstraintPreservesLegacyTransportSettings(t *testing
 		{name: "legacy explicit disable", legacy: common.GetPointer(false), want: false},
 		{name: "new explicit disable", setting: common.GetPointer(`{"responses_websocket_enabled":false}`), want: false},
 		{name: "new explicit enable", setting: common.GetPointer(`{"responses_websocket_enabled":true}`), want: true},
-		{name: "legacy restriction retained", setting: common.GetPointer(`{"responses_websocket_enabled":true}`), legacy: common.GetPointer(false), want: false},
+		{name: "official setting overrides retired restriction", setting: common.GetPointer(`{"responses_websocket_enabled":true}`), legacy: common.GetPointer(false), want: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			channel := &Channel{Type: constant.ChannelTypeOpenAI, Setting: test.setting}

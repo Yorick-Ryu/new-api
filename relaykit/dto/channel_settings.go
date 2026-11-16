@@ -159,7 +159,7 @@ type ChannelOtherSettings struct {
 func (s ChannelOtherSettings) SupportsResponsesTransport(transport types.ResponsesTransport) bool {
 	switch transport {
 	case types.ResponsesTransportHTTP:
-		return s.ResponsesHTTPEnabled == nil || *s.ResponsesHTTPEnabled
+		return true
 	case types.ResponsesTransportWebSocket:
 		return s.ResponsesWebSocketEnabled == nil || *s.ResponsesWebSocketEnabled
 	default:
