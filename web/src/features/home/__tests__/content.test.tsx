@@ -321,6 +321,7 @@ describe('configured homepage rendering', () => {
     const trigger = await screen.findByRole('button', {
       name: 'After-sales support: scan to contact Bei on WeChat',
     })
+    expect(trigger).toHaveTextContent(/^$/)
     await user.click(trigger)
     const dialog = await screen.findByRole('dialog', {
       name: 'Contact Bei · Consultation and support',

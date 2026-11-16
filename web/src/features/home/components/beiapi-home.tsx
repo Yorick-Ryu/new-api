@@ -23,14 +23,13 @@ import {
   FileText,
   Gift,
   Handshake,
-  Headset,
   Landmark,
   Users,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { FloatingSupport } from '@/components/floating-support'
 import { PublicFooter } from '@/components/layout/components/public-footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -47,20 +46,8 @@ export function BeiAPIHome() {
   const [modal, setModal, modalHandlers] = useDialogState<
     'service' | 'community'
   >()
-  const [qrError, setQrError] = useState(false)
-  const [footerVisible, setFooterVisible] = useState(false)
-  const homeRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const footer = homeRef.current?.querySelector('footer')
-    if (!footer || !('IntersectionObserver' in window)) return
-    const observer = new IntersectionObserver((entries) => {
-      setFooterVisible(entries.some((entry) => entry.isIntersecting))
-    })
-    observer.observe(footer)
-    return () => observer.disconnect()
-  }, [])
   return (
-    <div ref={homeRef}>
+    <div>
       <link
         rel='preload'
         as='image'
@@ -68,22 +55,6 @@ export function BeiAPIHome() {
         media='(min-width: 901px)'
       />
       <main className='beiapi-home' id='top'>
-        <Button
-          className='support-float'
-          hidden={footerVisible}
-          type='button'
-          aria-haspopup='dialog'
-          aria-expanded={modal === 'community'}
-          aria-label={t('After-sales support: scan to contact Bei on WeChat')}
-          variant='ghost'
-          onClick={() => setModal('community')}
-        >
-          <Headset aria-hidden='true' />
-          <span>
-            <strong>{t('After-sales support')}</strong>
-            <small>{t('Contact Bei on WeChat')}</small>
-          </span>
-        </Button>
         <section className='hero' aria-labelledby='hero-title'>
           <div className='wrap hero-inner'>
             <div className='hero-intro'>
@@ -924,137 +895,102 @@ export function BeiAPIHome() {
         </section>
       </main>
       <PublicFooter />
+      <FloatingSupport
+        open={modal === 'community'}
+        onOpenChange={(open) =>
+          open ? setModal('community') : modalHandlers.reset()
+        }
+      />
       <Dialog
-        open={modalHandlers.isOpen}
+        open={modal === 'service'}
         onOpenChange={(open) => {
           if (!open) modalHandlers.reset()
         }}
-        title={
-          modal === 'service'
-            ? t('Service scope and usage guidelines')
-            : t('Contact Bei · Consultation and support')
-        }
-        description={
-          modal === 'service'
-            ? t('Audience, research uses and service boundaries.')
-            : t(
-                'Scan to contact Bei for API setup, top-ups, request errors or plan questions.'
-              )
-        }
+        title={t('Service scope and usage guidelines')}
+        description={t('Audience, research uses and service boundaries.')}
         contentClassName='beiapi-home beiapi-home-dialog'
         titleClassName='pr-6'
         bodyClassName='space-y-4'
         footer={
-          modal === 'service' ? (
-            <>
-              <span className='text-muted-foreground mr-auto text-xs'>
-                {t('Use AI thoughtfully · Respect academic standards')}
-              </span>
-              <Button onClick={modalHandlers.reset}>{t('Got it')}</Button>
-            </>
-          ) : undefined
+          <>
+            <span className='text-muted-foreground mr-auto text-xs'>
+              {t('Use AI thoughtfully · Respect academic standards')}
+            </span>
+            <Button onClick={modalHandlers.reset}>{t('Got it')}</Button>
+          </>
         }
       >
-        {modal === 'service' ? (
-          <div className='service-body'>
-            <section
-              className='service-region'
-              aria-labelledby='service-region-title'
-            >
-              <div className='service-region-heading'>
-                <h3 id='service-region-title'>
-                  {t('Service region and audience')}
-                </h3>
-              </div>
-              <p>
-                {t('This service is')}
-                <strong>{t('only for users outside mainland China')}</strong>
-                {t('and provides research and learning assistance.')}
-              </p>
-              <p className='service-region-note'>
-                {t(
-                  'Before use, confirm that local laws and the relevant model service terms permit the service.'
-                )}
-              </p>
-            </section>
-            <div className='service-principles'>
-              <section className='service-principle'>
-                <span className='service-index' aria-hidden='true'>
-                  01
-                </span>
-                <div>
-                  <h3>{t('For research and learning assistance')}</h3>
-                  <p>
-                    {t(
-                      'Supports literature organization, academic expression, debugging and data analysis. Follow academic standards. Do not use it for ghostwriting, data fabrication or illegal activities.'
-                    )}
-                  </p>
-                </div>
-              </section>
-              <section className='service-principle'>
-                <span className='service-index' aria-hidden='true'>
-                  02
-                </span>
-                <div>
-                  <h3>{t('Verify output independently')}</h3>
-                  <p>
-                    {t(
-                      'AI output may contain errors, omissions or fabricated citations. It is not professional advice or a research conclusion. Verify facts, citations, code and data, and take responsibility for your final use and publications.'
-                    )}
-                  </p>
-                </div>
-              </section>
-              <section className='service-principle'>
-                <span className='service-index' aria-hidden='true'>
-                  03
-                </span>
-                <div>
-                  <h3>{t('Protect research materials')}</h3>
-                  <p>
-                    {t(
-                      'Do not submit state secrets, unauthorized personal information, confidential research or other material you are not entitled to process. Obtain permission and anonymize material before uploading.'
-                    )}
-                  </p>
-                </div>
-              </section>
+        <div className='service-body'>
+          <section
+            className='service-region'
+            aria-labelledby='service-region-title'
+          >
+            <div className='service-region-heading'>
+              <h3 id='service-region-title'>
+                {t('Service region and audience')}
+              </h3>
             </div>
-            <div className='service-disclaimer'>
-              <h3>{t('Responsibility statement')}</h3>
-              <p>
-                {t(
-                  'We provide AI tool access, setup guidance and support, without guaranteeing output accuracy, completeness or specific research outcomes. This notice does not exclude or limit our legal responsibilities.'
-                )}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className='support-hint'>
+            <p>
+              {t('This service is')}
+              <strong>{t('only for users outside mainland China')}</strong>
+              {t('and provides research and learning assistance.')}
+            </p>
+            <p className='service-region-note'>
               {t(
-                'Mention “API support” when adding the contact and include the problem or an error screenshot. Try the left WeChat contact first; use the right backup contact if necessary.'
+                'Before use, confirm that local laws and the relevant model service terms permit the service.'
               )}
             </p>
-            <div className='modal-img-frame' data-error={qrError || undefined}>
-              <img
-                className='modal-img'
-                src='/beiapi-home/assets/3a3296fc7db30a31.png'
-                loading='lazy'
-                decoding='async'
-                fetchPriority='low'
-                width='983'
-                height='614'
-                alt={t('Bei WeChat contact QR codes')}
-                onError={() => setQrError(true)}
-                onLoad={() => setQrError(false)}
-              />
-              <p className='modal-fallback'>
-                {t(
-                  'The WeChat QR codes could not be loaded. Refresh the page to retry.'
-                )}
-              </p>
-            </div>
-          </>
-        )}
+          </section>
+          <div className='service-principles'>
+            <section className='service-principle'>
+              <span className='service-index' aria-hidden='true'>
+                01
+              </span>
+              <div>
+                <h3>{t('For research and learning assistance')}</h3>
+                <p>
+                  {t(
+                    'Supports literature organization, academic expression, debugging and data analysis. Follow academic standards. Do not use it for ghostwriting, data fabrication or illegal activities.'
+                  )}
+                </p>
+              </div>
+            </section>
+            <section className='service-principle'>
+              <span className='service-index' aria-hidden='true'>
+                02
+              </span>
+              <div>
+                <h3>{t('Verify output independently')}</h3>
+                <p>
+                  {t(
+                    'AI output may contain errors, omissions or fabricated citations. It is not professional advice or a research conclusion. Verify facts, citations, code and data, and take responsibility for your final use and publications.'
+                  )}
+                </p>
+              </div>
+            </section>
+            <section className='service-principle'>
+              <span className='service-index' aria-hidden='true'>
+                03
+              </span>
+              <div>
+                <h3>{t('Protect research materials')}</h3>
+                <p>
+                  {t(
+                    'Do not submit state secrets, unauthorized personal information, confidential research or other material you are not entitled to process. Obtain permission and anonymize material before uploading.'
+                  )}
+                </p>
+              </div>
+            </section>
+          </div>
+          <div className='service-disclaimer'>
+            <h3>{t('Responsibility statement')}</h3>
+            <p>
+              {t(
+                'We provide AI tool access, setup guidance and support, without guaranteeing output accuracy, completeness or specific research outcomes. This notice does not exclude or limit our legal responsibilities.'
+              )}
+            </p>
+          </div>
+        </div>
       </Dialog>
     </div>
   )

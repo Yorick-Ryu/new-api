@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense } from 'react'
 
+import { FloatingSupport } from '@/components/floating-support'
 import { PublicLayout } from '@/components/layout'
 import { PublicFooter } from '@/components/layout/components/public-footer'
 import { useStatus } from '@/hooks/use-status'
@@ -68,6 +69,7 @@ export function Plans() {
           guestPage
         )}
       </div>
+      <FloatingSupport />
       <PublicFooter />
     </PublicLayout>
   )
