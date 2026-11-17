@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, it } from 'vitest'
 
-import { buildDesktopSetupLink } from '../desktop-setup-link'
+import { buildDesktopSetupLink, sortClaudeModels } from '../desktop-setup-link'
 
 describe('Claude Desktop setup links', () => {
   it('uses a separate route and preset with an Anthropic base URL', () => {
@@ -59,4 +59,25 @@ describe('Claude Desktop setup links', () => {
       )
     ).toThrow('HTTPS gateway address is not configured.')
   })
+})
+
+it('orders Claude families by priority and versions descending without mutating input', () => {
+  const models = [
+    'claude-haiku-4-5',
+    'claude-sonnet-4-6',
+    'claude-fable-5-2',
+    'claude-opus-4-6',
+    'claude-sonnet-5-5',
+    'claude-fable-5-10',
+  ]
+  const before = [...models]
+  expect(sortClaudeModels(models)).toEqual([
+    'claude-fable-5-10',
+    'claude-fable-5-2',
+    'claude-opus-4-6',
+    'claude-sonnet-5-5',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5',
+  ])
+  expect(models).toEqual(before)
 })

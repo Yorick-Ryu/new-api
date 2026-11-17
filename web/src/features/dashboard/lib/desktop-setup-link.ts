@@ -78,3 +78,18 @@ export function buildDesktopSetupLink(
   )
   return link.href
 }
+
+// Family priority is a UI choice; numeric comparison orders releases within it.
+export function sortClaudeModels(models: string[]): string[] {
+  const families = ['fable', 'opus', 'sonnet', 'haiku']
+  const rank = (model: string) => {
+    const family = model
+      .replace(/^anthropic\//, '')
+      .match(/^claude-([^-]+)-/)?.[1]
+    const index = families.indexOf(family ?? '')
+    return index < 0 ? families.length : index
+  }
+  return [...models].sort(
+    (a, b) => rank(a) - rank(b) || b.localeCompare(a, 'en', { numeric: true })
+  )
+}

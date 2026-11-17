@@ -37,6 +37,7 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 import { findCodexSetupKey } from '../../lib/codex-setup-key'
 import {
   buildDesktopSetupLink,
+  sortClaudeModels,
   InvalidDesktopSetupUrlError,
   type SetupAgent,
 } from '../../lib/desktop-setup-link'
@@ -163,6 +164,7 @@ export function DesktopSetupDialog(props: {
                     id
                   )
               )
+            models = sortClaudeModels(models)
           } else {
             if (!Array.isArray(result.data.models)) {
               throw new Error('Models unavailable')
