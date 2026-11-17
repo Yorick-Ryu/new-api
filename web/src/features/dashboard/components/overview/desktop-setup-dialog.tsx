@@ -144,18 +144,25 @@ export function DesktopSetupDialog(props: {
             signal,
             params: {
               group: candidateGroup,
-              client_version: agent === 'claude' ? 'claude' : 'codexbei',
+              client_version: agent === 'codex' ? 'codexbei' : 'claude',
               ...(agent === 'codex' ? { purpose: 'desktop_setup' } : {}),
             },
           })
           let models: string[]
-          if (agent === 'claude') {
+          if (agent !== 'codex') {
             if (!Array.isArray(result.data.data)) {
               throw new Error('Models unavailable')
             }
             models = result.data.data
               .map((item) => item.id)
               .filter((id) => /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(id))
+              .filter(
+                (id) =>
+                  agent !== 'claude-desktop' ||
+                  /^(anthropic\/)?claude-(sonnet|opus|haiku|fable|mythos)-\d/.test(
+                    id
+                  )
+              )
           } else {
             if (!Array.isArray(result.data.models)) {
               throw new Error('Models unavailable')
@@ -238,11 +245,13 @@ export function DesktopSetupDialog(props: {
       )
       if (selection.version !== version.current) return
       if (!tokenId) {
+        let keyName = 'CodexBei · ChatGPT'
+        if (selection.agent === 'claude') keyName = 'CodexBei · CC'
+        if (selection.agent === 'claude-desktop') {
+          keyName = 'CodexBei · Claude Desktop'
+        }
         const created = await createApiKey({
-          name:
-            selection.agent === 'claude'
-              ? 'CodexBei · CC'
-              : 'CodexBei · ChatGPT',
+          name: keyName,
           group: selection.group,
           expired_time: -1,
           remain_quota: 0,

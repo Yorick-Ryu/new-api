@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Claude, OpenAI } from '@lobehub/icons'
+import { Claude, ClaudeCode, OpenAI } from '@lobehub/icons'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -27,18 +27,35 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+import type { SetupAgent } from '../../lib/desktop-setup-link'
+
 export function SetupAgentSelect(props: {
   disabled: boolean
-  value: 'codex' | 'claude'
-  onValueChange: (value: 'codex' | 'claude') => void
+  value: SetupAgent
+  onValueChange: (value: SetupAgent) => void
 }) {
   const { t } = useTranslation()
+  let icon = <OpenAI size={16} aria-hidden='true' />
+  let label = 'ChatGPT'
+  if (props.value === 'claude') {
+    icon = <ClaudeCode.Color size={16} aria-hidden='true' />
+    label = 'Claude Code'
+  } else if (props.value === 'claude-desktop') {
+    icon = <Claude.Color size={16} aria-hidden='true' />
+    label = t('Claude Desktop')
+  }
   return (
     <Select
       value={props.value}
       disabled={props.disabled}
       onValueChange={(value) => {
-        if (value === 'codex' || value === 'claude') props.onValueChange(value)
+        if (
+          value === 'codex' ||
+          value === 'claude' ||
+          value === 'claude-desktop'
+        ) {
+          props.onValueChange(value)
+        }
       }}
     >
       <SelectTrigger
@@ -47,12 +64,8 @@ export function SetupAgentSelect(props: {
         className='bg-background hover:bg-accent/50 w-40 shrink-0 rounded-lg px-2.5 py-1.5 shadow-xs data-[size=default]:h-9'
       >
         <SelectValue>
-          {props.value === 'claude' ? (
-            <Claude.Color size={16} aria-hidden='true' />
-          ) : (
-            <OpenAI size={16} aria-hidden='true' />
-          )}
-          {props.value === 'claude' ? 'Claude Code' : 'ChatGPT'}
+          {icon}
+          {label}
         </SelectValue>
       </SelectTrigger>
       <SelectContent
@@ -67,8 +80,12 @@ export function SetupAgentSelect(props: {
           ChatGPT
         </SelectItem>
         <SelectItem value='claude' className='min-h-8 pr-8 pl-2.5'>
-          <Claude.Color size={16} aria-hidden='true' />
+          <ClaudeCode.Color size={16} aria-hidden='true' />
           Claude Code
+        </SelectItem>
+        <SelectItem value='claude-desktop' className='min-h-8 pr-8 pl-2.5'>
+          <Claude.Color size={16} aria-hidden='true' />
+          {t('Claude Desktop')}
         </SelectItem>
       </SelectContent>
     </Select>
