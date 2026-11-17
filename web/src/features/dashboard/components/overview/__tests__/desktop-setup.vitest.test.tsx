@@ -1152,3 +1152,69 @@ it('selects an available group when the default group has no configured models',
   await userEvent.click(group)
   expect(screen.queryByRole('option', { name: /^default/ })).toBeNull()
 })
+
+it('Claude Desktop offers native Claude models and launches its dedicated preset after confirmation', async () => {
+  const { calls, launch } = requests({
+    claudeModels: {
+      claude: ['claude-sonnet-5-5', 'deepseek-flash'],
+      'claude-kiro': ['claude-fable-5-2'],
+    },
+  })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(
+    await screen.findByRole('option', { name: 'Claude Desktop' })
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByRole('combobox', { name: 'Model' }).textContent
+    ).toContain('claude-sonnet-5-5')
+  )
+  await user.click(screen.getByRole('combobox', { name: 'Model' }))
+  expect(
+    await screen.findByRole('option', { name: 'claude-sonnet-5-5' })
+  ).toBeTruthy()
+  expect(screen.queryByRole('option', { name: 'deepseek-flash' })).toBeNull()
+  await user.keyboard('{Escape}')
+  expect(calls.every((call) => call.method === 'get')).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  const created = calls.find((call) => call.url === '/api/token/')
+  expect(JSON.parse(String(created?.data))).toMatchObject({
+    name: 'CodexBei · Claude Desktop',
+    group: 'claude',
+    cross_group_retry: false,
+  })
+  const link = new URL(String(launch.mock.calls[0][0]))
+  expect(link.pathname).toBe('/claude-desktop')
+  expect(link.searchParams.get('preset')).toBe('claude-desktop-v1')
+  expect(link.searchParams.get('base_url')).toBe('https://api.beiapi.cn')
+  expect(link.searchParams.get('model')).toBe('claude-sonnet-5-5')
+  expect(document.body.textContent).not.toContain(
+    'fixture-not-a-real-credential'
+  )
+  expect(document.querySelector('a[href*="api_key="]')).toBeNull()
+})
+
+it('Claude Desktop without native models cannot create a key or launch', async () => {
+  const { calls, launch } = requests({
+    claudeModels: { claude: ['deepseek-flash'], 'claude-kiro': ['kimi-k3'] },
+  })
+  renderDialog()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(
+    await screen.findByRole('option', { name: 'Claude Desktop' })
+  )
+  await screen.findByText('No group found.')
+  expect(
+    (
+      screen.getByRole('button', {
+        name: 'One-click setup',
+      }) as HTMLButtonElement
+    ).disabled
+  ).toBe(true)
+  expect(calls.every((call) => call.method === 'get')).toBe(true)
+  expect(launch).not.toHaveBeenCalled()
+})

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export type SetupAgent = 'codex' | 'claude'
+export type SetupAgent = 'codex' | 'claude' | 'claude-desktop'
 
 export class InvalidDesktopSetupUrlError extends Error {
   constructor() {
@@ -30,6 +30,9 @@ export function buildDesktopSetupLink(
   model: string,
   agent: SetupAgent = 'codex'
 ): string {
+  if (!['codex', 'claude', 'claude-desktop'].includes(agent)) {
+    throw new Error('Invalid agent')
+  }
   let endpoint: URL
   try {
     endpoint = new URL(baseUrl.trim())
@@ -47,7 +50,7 @@ export function buildDesktopSetupLink(
     throw new InvalidDesktopSetupUrlError()
   }
   const pathname = endpoint.pathname.replace(/\/+$/, '')
-  if (agent === 'claude') {
+  if (agent !== 'codex') {
     endpoint.pathname = pathname.replace(/\/v1$/, '') || '/'
   } else {
     endpoint.pathname = pathname.endsWith('/v1') ? pathname : `${pathname}/v1`
@@ -59,13 +62,34 @@ export function buildDesktopSetupLink(
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model)) {
     throw new Error('Invalid model')
   }
+  if (
+    agent === 'claude-desktop' &&
+    !/^(anthropic\/)?claude-(sonnet|opus|haiku|fable|mythos)-\d/.test(model)
+  ) {
+    throw new Error('Invalid model')
+  }
   const link = new URL(`codexbei://configure/${agent}`)
   link.searchParams.set('base_url', endpoint.href.replace(/\/$/, ''))
   link.searchParams.set('api_key', key)
   link.searchParams.set('model', model)
   link.searchParams.set(
     'preset',
-    agent === 'claude' ? 'claude-v1' : 'codexbei-v1'
+    agent === 'codex' ? 'codexbei-v1' : `${agent}-v1`
   )
   return link.href
+}
+
+// Family priority is a UI choice; numeric comparison orders releases within it.
+export function sortClaudeModels(models: string[]): string[] {
+  const families = ['fable', 'opus', 'sonnet', 'haiku']
+  const rank = (model: string) => {
+    const family = model
+      .replace(/^anthropic\//, '')
+      .match(/^claude-([^-]+)-/)?.[1]
+    const index = families.indexOf(family ?? '')
+    return index < 0 ? families.length : index
+  }
+  return [...models].sort(
+    (a, b) => rank(a) - rank(b) || b.localeCompare(a, 'en', { numeric: true })
+  )
 }

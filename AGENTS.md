@@ -196,3 +196,9 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 API and business origins, compatibility, and release checks: [docs/site-addresses.md](docs/site-addresses.md).
 
 Local UI previews must use the existing local NewAPI test environment and the real application frontend. Do not create standalone preview pages/frontends, preview-only API mocks, or data-seeding scripts for visual previews.
+
+## Local NewAPI preview defaults
+
+User preference (2026-11-17): all NewAPI previews must reuse the existing local database `/Users/yorick/Servers/new-api/one-api.db` and frontend address `http://127.0.0.1:3001/dashboard/overview`; API on port 3000. Reuse an existing compatible process before starting another. A frontend worktree must proxy to this API, never silently create a Compose-project database, initialize a new workspace, seed preview data, or reset credentials. Preserve the existing users, channels, keys and settings. Isolated automated tests remain separate from previews.
+
+For the current local database, start the existing local API with `NODE_TYPE=slave` and `UPDATE_TASK=false` to skip automatic schema migrations and scheduled jobs. Do not repair migration conflicts or replace the database just to open a preview. Keep credentials and database contents out of logs and replies. Local runtime entrypoint: `/tmp/newapi-official-only-20261116 --port 3000`, with explicit `SQLITE_PATH=/Users/yorick/Servers/new-api/one-api.db`, empty `SQL_DSN` and `REDIS_CONN_STRING`, and `SESSION_COOKIE_SECURE=false`; verify the executable exists before using it.
