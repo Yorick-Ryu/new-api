@@ -1797,6 +1797,7 @@
     "Continue with OIDC": "使用 OIDC 继续",
     "Continue with Telegram": "使用 Telegram 继续",
     "Continue with WeChat": "使用 微信 继续",
+    "Continuing updates the group of this API key.": "继续后会更新当前 API 密钥的分组。",
     "Contract review, compliance, summarisation": "合同审阅、合规与摘要",
     "Control which models are exposed and which groups may use them.": "控制对外暴露的模型，以及哪些分组可以使用它们。",
     "Controls catalog visibility. Channel availability is configured separately.": "控制目录中的展示，渠道可用性需单独配置。",

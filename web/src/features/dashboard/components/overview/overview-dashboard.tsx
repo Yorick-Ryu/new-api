@@ -403,7 +403,7 @@ export function OverviewDashboard() {
             key={user?.id}
             userId={user?.id ?? 0}
             baseUrl={normalizeEndpoint(
-              getAPIAddress(status, apiInfoItems[0]?.url?.trim() || '')
+              apiInfoItems[0]?.url?.trim() || getAPIAddress(status)
             ).replace(/\/chat\/completions$/, '')}
             hasCredits={remainQuota > 0}
             onConfirmed={() => {

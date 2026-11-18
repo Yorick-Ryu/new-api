@@ -512,6 +512,60 @@ func UpdateToken(c *gin.Context) {
 	})
 }
 
+func UpdateTokenGroup(c *gin.Context) {
+	tokenID, err := strconv.Atoi(c.Param("id"))
+	var request struct {
+		Group *string `json:"group" binding:"required"`
+	}
+	if err != nil || tokenID <= 0 || c.ShouldBindJSON(&request) != nil {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	params := tokenAuditParams(c)
+	params["id"] = tokenID
+	token, err := model.GetTokenByIds(tokenID, c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	group := *request.Group
+	params["name"] = token.Name
+	userGroup, err := getTokenRequestUserGroup(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	allowed := service.IsUserSelectableGroup(userGroup, group)
+	if group == "auto" {
+		allowed = service.GroupInUserUsableGroups(userGroup, group)
+	}
+	if group != "" && !allowed {
+		common.ApiErrorT(c, "Auto group {{group}} is unavailable or unauthorized", map[string]any{"group": group})
+		return
+	}
+	if token.Group != group {
+		token.Group = group
+		changedFields := []string{"group"}
+		if group != "auto" {
+			if token.CrossGroupRetry {
+				changedFields = append(changedFields, "cross_group_retry")
+			}
+			if token.AutoGroups != "" {
+				changedFields = append(changedFields, "auto_groups")
+			}
+			token.CrossGroupRetry = false
+			_ = token.SetAutoGroups(nil)
+		}
+		if err := token.UpdateGroup(); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		params["changed_fields"] = changedFields
+	}
+	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
+	common.ApiSuccess(c, buildMaskedTokenResponse(token))
+}
+
 type TokenBatch struct {
 	Ids []int `json:"ids"`
 }

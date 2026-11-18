@@ -71,6 +71,46 @@ func newTokenAutoGroupsAuthenticatedContext(t *testing.T, method string, target 
 	return ctx, recorder
 }
 
+func TestUpdateTokenGroupOnly(t *testing.T) {
+	configureTokenAutoGroupsTest(t, "5", `["default","vip"]`)
+	user := setupTokenAutoGroupsControllerTest(t)
+	token := model.Token{UserId: user.Id, Name: "group-only", Key: "test-token-group-only",
+		Status: common.TokenStatusEnabled, Group: "auto", RemainQuota: 42, ExpiredTime: -1,
+		ModelLimitsEnabled: true, ModelLimits: "claude-sonnet-4-6", CrossGroupRetry: true}
+	require.NoError(t, token.SetAutoGroups([]string{"default"}))
+	require.NoError(t, model.DB.Create(&token).Error)
+
+	for _, test := range []struct {
+		name    string
+		owner   int
+		group   string
+		success bool
+	}{
+		{"different owner", user.Id + 1, "vip", false},
+		{"unavailable group", user.Id, "unknown", false},
+		{"allowed group", user.Id, "vip", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, recorder := newTokenAutoGroupsAuthenticatedContext(t, http.MethodPatch, "/api/token/"+stringInt(token.Id)+"/group",
+				map[string]any{"group": test.group, "remain_quota": 99}, test.owner)
+			ctx.Params = gin.Params{{Key: "id", Value: stringInt(token.Id)}}
+			UpdateTokenGroup(ctx)
+			require.Equal(t, test.success, decodeAPIResponse(t, recorder).Success)
+			stored, err := model.GetTokenByIds(token.Id, user.Id)
+			require.NoError(t, err)
+			if !test.success {
+				assert.Equal(t, "auto", stored.Group)
+				return
+			}
+			assert.Equal(t, "vip", stored.Group)
+			assert.Empty(t, stored.AutoGroups)
+			assert.False(t, stored.CrossGroupRetry)
+			assert.Equal(t, token.RemainQuota, stored.RemainQuota)
+			assert.Equal(t, token.ModelLimits, stored.ModelLimits)
+		})
+	}
+}
+
 func TestAddTokenEmptyAutoGroupsInheritGlobalAuto(t *testing.T) {
 	tests := []struct {
 		name         string

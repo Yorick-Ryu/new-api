@@ -27,6 +27,7 @@ import {
   Copy,
   Link,
   Loader2,
+  WandSparkles,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -241,6 +242,18 @@ export function DataTableRowActions<TData>({
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={!isEnabled}
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('desktop-setup')
+          }}
+        >
+          {t('One-click setup')}
+          <DropdownMenuShortcut>
+            <WandSparkles size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
             const realKey = await resolveRealKey(apiKey.id)

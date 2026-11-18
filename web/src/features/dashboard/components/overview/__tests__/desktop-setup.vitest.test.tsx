@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 // @vitest-environment happy-dom
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -59,6 +60,7 @@ function requests(
     modelsFail?: boolean
     keys?: Partial<ApiKey>[]
     keysFail?: boolean
+    groupUpdateFails?: boolean
     keyPages?: Partial<ApiKey>[][]
   } = {}
 ) {
@@ -134,6 +136,10 @@ function requests(
           page_size: 100,
         },
       }
+    } else if (config.url === '/api/token/73/group') {
+      data = options.groupUpdateFails
+        ? { success: false, message: 'Group is unavailable' }
+        : { success: true, data: { ...selectedKey, group: 'default' } }
     } else if (config.url === '/api/token/') {
       data = { success: !options.creationFails, data: { id: 42 } }
       if (!options.creationFails) {
@@ -160,7 +166,8 @@ function requests(
 function renderDialog(
   downloads: { label: string; url: string }[] | undefined = undefined,
   showDownloads = false,
-  baseUrl = 'https://api.beiapi.cn/v1'
+  baseUrl = 'https://api.beiapi.cn/v1',
+  selectedKey?: ApiKey
 ) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -179,6 +186,7 @@ function renderDialog(
           downloads={downloads}
           showDownloads={showDownloads}
           baseUrl={baseUrl}
+          selectedKey={selectedKey}
         />
       </I18nextProvider>
     </QueryClientProvider>
@@ -190,6 +198,143 @@ function renderDialog(
     reopen: () => view.rerender(content(true)),
   }
 }
+
+const selectedKey: ApiKey = {
+  id: 73,
+  name: 'Existing API key',
+  key: 'masked',
+  status: 1,
+  group: 'auto',
+  auto_groups: ['team', 'default'],
+  expired_time: -1,
+  remain_quota: 0,
+  used_quota: 0,
+  unlimited_quota: true,
+  created_time: 0,
+  accessed_time: 0,
+  model_limits_enabled: true,
+  model_limits: 'gpt-5.6-terra,claude-sonnet-4-6',
+  allow_ips: '',
+  cross_group_retry: false,
+  allow_user_quota_query: false,
+}
+
+it('uses the selected key and an allowed model from its routing groups', async () => {
+  const { calls, launch } = requests({
+    models: ['gpt-5.6-terra'],
+    claudeModels: {
+      team: ['gpt-6-astra', 'claude-opus-4-7'],
+      default: ['claude-sonnet-4-6'],
+    },
+  })
+  renderDialog(undefined, false, undefined, {
+    ...selectedKey,
+    model_limits: `${selectedKey.model_limits},gpt-6-astra`,
+  })
+  expect(screen.getByRole('combobox', { name: 'Model' })).toBeDisabled()
+  expect(
+    within(screen.getByRole('group', { name: 'Group' })).getByText('auto')
+  ).toBeTruthy()
+  await within(screen.getByRole('combobox', { name: 'Model' })).findByText(
+    'gpt-5.6-terra'
+  )
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+  await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
+  await within(screen.getByRole('combobox', { name: 'Model' })).findByText(
+    'claude-sonnet-4-6'
+  )
+  await user.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  const link = new URL(launch.mock.calls[0][0].toString())
+  expect(link.pathname).toBe('/claude')
+  expect(link.searchParams.get('model')).toBe('claude-sonnet-4-6')
+  expect(link.searchParams.get('api_key')).toBe(
+    'sk-fixture-not-a-real-credential'
+  )
+  expect(
+    calls
+      .filter((call) => call.url?.startsWith('/api/token/'))
+      .map((call) => call.url)
+  ).toEqual(['/api/token/73/key'])
+})
+
+it('disables setup when the selected key has no allowed model for the agent', async () => {
+  const { calls } = requests()
+  renderDialog(undefined, false, undefined, {
+    ...selectedKey,
+    group: 'default',
+    model_limits: 'claude-sonnet-4-6',
+  })
+  await screen.findByText('No models available')
+  expect(screen.getByRole('button', { name: 'One-click setup' })).toBeDisabled()
+  expect(calls.some((call) => call.url?.startsWith('/api/token/'))).toBe(false)
+})
+
+it.each([false, true])(
+  'saves the selected key group before launch and handles failure=%s',
+  async (groupUpdateFails) => {
+    const { calls, launch } = requests({ groupUpdateFails })
+    renderDialog(undefined, false, undefined, selectedKey)
+    await within(screen.getByRole('combobox', { name: 'Model' })).findByText(
+      'gpt-5.6-terra'
+    )
+    const user = userEvent.setup()
+    const picker = within(screen.getByRole('group', { name: 'Group' }))
+    await user.click(picker.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /default/ }))
+    expect(calls.some((call) => call.method === 'patch')).toBe(false)
+    const submit = screen.getByRole('button', { name: 'One-click setup' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(submit)
+    if (groupUpdateFails) {
+      await screen.findByRole('alert')
+      expect(launch).not.toHaveBeenCalled()
+    } else {
+      await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+    }
+    const update = calls.find((call) => call.url === '/api/token/73/group')
+    expect(JSON.parse(update?.data)).toEqual({ group: 'default' })
+  }
+)
+
+it.each([false, true])(
+  'offers installers after launch when the browser loses focus: %s',
+  async (losesFocus) => {
+    requests()
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const timers = vi.spyOn(window, 'setTimeout')
+    renderDialog(undefined, false, undefined, selectedKey)
+    await within(screen.getByRole('combobox', { name: 'Model' })).findByText(
+      'gpt-5.6-terra'
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: 'One-click setup' })
+    )
+    const download = await screen.findByRole('button', {
+      name: 'Download CodexBei',
+    })
+    const fallback = timers.mock.calls.find(([, delay]) => delay === 1800)
+    if (!fallback) throw new Error('Download fallback did not start')
+    if (losesFocus) {
+      const clear = vi.spyOn(window, 'clearTimeout')
+      window.dispatchEvent(new Event('blur'))
+      const timer = timers.mock.results[timers.mock.calls.indexOf(fallback)]
+      expect(clear).toHaveBeenCalledWith(timer.value)
+      await userEvent.click(download)
+    } else {
+      await act(async () => {
+        if (typeof fallback[0] === 'function') fallback[0]()
+      })
+    }
+    await screen.findByRole('dialog', { name: 'Download CodexBei' })
+    expect(
+      screen.getByRole('link', { name: 'macOS Apple Silicon' })
+    ).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await screen.findByRole('combobox', { name: 'Agent' })
+  }
+)
 
 it('opens without a key, selects the default group and prefers the recommended available model', async () => {
   const { calls } = requests()

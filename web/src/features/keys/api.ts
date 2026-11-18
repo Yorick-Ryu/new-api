@@ -85,6 +85,14 @@ export async function updateApiKey(
   return res.data
 }
 
+export async function updateApiKeyGroup(
+  id: number,
+  group: string
+): Promise<ApiResponse<ApiKey>> {
+  const res = await api.patch(`/api/token/${id}/group`, { group })
+  return res.data
+}
+
 // Delete a single API key
 export async function deleteApiKey(id: number): Promise<ApiResponse> {
   const res = await api.delete(`/api/token/${id}/`)

@@ -16,13 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { DesktopSetupDialog } from '@/features/dashboard/components/overview/desktop-setup-dialog'
+import { useApiInfo } from '@/features/dashboard/hooks/use-status-data'
+import { useStatus } from '@/hooks/use-status'
+import { getAPIAddress } from '@/lib/site-address'
+import { useAuthStore } from '@/stores/auth-store'
+
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
 export function ApiKeysDialogs() {
-  const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  const { open, setOpen, currentRow, setCurrentRow, resolvedKey } = useApiKeys()
+  const user = useAuthStore((state) => state.auth.user)
+  const { status } = useStatus()
+  const { items: apiInfoItems } = useApiInfo()
 
   return (
     <>
@@ -37,6 +46,17 @@ export function ApiKeysDialogs() {
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
         tokenKey={resolvedKey}
       />
+      {open === 'desktop-setup' && currentRow && user && (
+        <DesktopSetupDialog
+          key={currentRow.id}
+          open
+          onOpenChange={(isOpen) => !isOpen && setOpen(null)}
+          userId={user.id}
+          baseUrl={apiInfoItems[0]?.url?.trim() || getAPIAddress(status)}
+          selectedKey={currentRow}
+          onKeyGroupSaved={setCurrentRow}
+        />
+      )}
     </>
   )
 }

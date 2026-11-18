@@ -45,6 +45,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   DEFAULT_CURRENCY_CONFIG,
   useSystemConfigStore,
@@ -53,6 +54,7 @@ import {
 import { apiKeySchema, type ApiKey } from '../../types'
 import { ApiKeyQuotaCell } from '../api-key-quota-cell'
 import { useApiKeysColumns } from '../api-keys-columns'
+import { ApiKeysDialogs } from '../api-keys-dialogs'
 import { ApiKeysProvider } from '../api-keys-provider'
 import { ApiKeysTable } from '../api-keys-table'
 
@@ -143,6 +145,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  useAuthStore.getState().auth.reset()
   toast.dismiss()
   localStorage.clear()
   clients.splice(0).forEach((client) => client.clear())
@@ -298,14 +301,25 @@ function KeysPage() {
   return (
     <ApiKeysProvider>
       <ApiKeysTable />
+      <ApiKeysDialogs />
       <Toaster />
     </ApiKeysProvider>
   )
 }
 
 async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
+  useAuthStore.getState().auth.setUser({ id: 7, username: 'tester', role: 1 })
   let currentKey = { ...key, status, ...overrides }
   vi.mocked(api.get).mockImplementation(async (url) => {
+    if (url === '/api/user/models') {
+      return {
+        data: {
+          models: [
+            { slug: 'gpt-6-astra', visibility: 'list', supported_in_api: true },
+          ],
+        },
+      }
+    }
     if (url.startsWith('/api/token/')) {
       return {
         data: { success: true, data: { items: [currentKey], total: 1 } },
@@ -348,6 +362,21 @@ async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
   await screen.findByText(currentKey.name)
   return { post, put }
 }
+
+it('opens one-click setup for the row group without fetching the full key', async () => {
+  const { post } = await renderKeysPage(1, { group: 'team' })
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  await user.click(screen.getByRole('menuitem', { name: 'One-click setup' }))
+  const dialog = await screen.findByRole('dialog', { name: 'One-click setup' })
+  expect(within(dialog).getByText('team')).toBeInTheDocument()
+  expect(
+    within(dialog).getByRole('combobox', { name: 'Agent' })
+  ).toBeInTheDocument()
+  const model = within(dialog).getByRole('combobox', { name: 'Model' })
+  expect(await within(model).findByText('gpt-6-astra')).toBeInTheDocument()
+  expect(post).not.toHaveBeenCalled()
+})
 
 it('combines creation and last use while keeping expiry, models and IP restrictions separate', async () => {
   await renderKeysPage()

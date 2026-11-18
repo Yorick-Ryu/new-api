@@ -1797,6 +1797,7 @@
     "Continue with OIDC": "OIDC で続行",
     "Continue with Telegram": "Telegram で続行",
     "Continue with WeChat": "WeChat で続行",
+    "Continuing updates the group of this API key.": "続行すると、この API キーのグループが更新されます。",
     "Contract review, compliance, summarisation": "契約レビュー・コンプライアンス・要約",
     "Control which models are exposed and which groups may use them.": "公開するモデルと、それらを利用できるグループを制御します。",
     "Controls catalog visibility. Channel availability is configured separately.": "カタログでの表示を制御します。チャネルの可用性は別途設定します。",

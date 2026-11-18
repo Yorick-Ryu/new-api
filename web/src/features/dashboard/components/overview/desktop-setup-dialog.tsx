@@ -29,8 +29,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { createApiKey, fetchTokenKey } from '@/features/keys/api'
+import {
+  createApiKey,
+  fetchTokenKey,
+  updateApiKeyGroup,
+} from '@/features/keys/api'
 import { ApiKeyGroupCombobox } from '@/features/keys/components/api-key-group-combobox'
+import type { ApiKey } from '@/features/keys/types'
 import { api, getUserGroups } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
@@ -87,10 +92,12 @@ function setupDownloads(): SetupDownload[] {
 export function DesktopSetupDialog(props: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirmed: () => void
+  onConfirmed?: () => void
   userId: number
   baseUrl: string
-  hasCredits: boolean
+  hasCredits?: boolean
+  selectedKey?: ApiKey
+  onKeyGroupSaved?: (key: ApiKey) => void
   downloads?: SetupDownload[]
   showDownloads?: boolean
 }) {
@@ -98,20 +105,26 @@ export function DesktopSetupDialog(props: {
   const queryClient = useQueryClient()
   const [selectedModel, setSelectedModel] = useState('')
   const [agent, setAgent] = useState<SetupAgent>('codex')
-  const [selectedGroup, setSelectedGroup] = useState('')
+  const [selectedGroup, setSelectedGroup] = useState<string>()
   const [launched, setLaunched] = useState(false)
+  const [downloadFallback, setDownloadFallback] = useState(false)
   const version = useRef(0)
+  const selectedKey = props.selectedKey
+  const showDownloads = props.showDownloads || downloadFallback
   const downloads = props.downloads ?? setupDownloads()
   const groupsQuery = useQuery({
     queryKey: ['codexbei', 'groups', props.userId],
-    enabled: props.open && !props.showDownloads,
+    enabled: props.open && !showDownloads,
     queryFn: async () => requireServerSuccess(await getUserGroups()),
     retry: false,
   })
   const groupOptions = Object.entries(groupsQuery.data?.data ?? {})
     .filter(
       ([name]) =>
-        agent === 'codex' || name === 'claude' || name === 'claude-kiro'
+        selectedKey ||
+        agent === 'codex' ||
+        name === 'claude' ||
+        name === 'claude-kiro'
     )
     .map(([name, info]) => ({
       value: name,
@@ -126,11 +139,21 @@ export function DesktopSetupDialog(props: {
       ...candidateGroups.filter((name) => name !== 'default'),
     ]
   }
+  const savedKeyGroup = selectedKey?.group ?? ''
+  const keyGroup = selectedGroup ?? savedKeyGroup
+  if (selectedKey) {
+    candidateGroups =
+      keyGroup === 'auto' &&
+      keyGroup === savedKeyGroup &&
+      selectedKey.auto_groups?.length
+        ? selectedKey.auto_groups
+        : [keyGroup]
+  }
   const groupReady = candidateGroups.length > 0
 
   const modelsQuery = useQuery({
     queryKey: ['codexbei', 'catalog', props.userId, agent, candidateGroups],
-    enabled: props.open && !props.showDownloads && groupReady,
+    enabled: props.open && !showDownloads && groupReady,
     queryFn: async ({ signal }) => {
       const catalogs = await Promise.all(
         candidateGroups.map(async (candidateGroup) => {
@@ -195,16 +218,59 @@ export function DesktopSetupDialog(props: {
       ? modelsQuery.data?.find((catalog) => catalog.group === 'default')
       : undefined) ??
     modelsQuery.data?.[0]
-  const group = selectedCatalog?.group ?? ''
-  const models = selectedCatalog?.models ?? []
-  const modelsLoading = modelsQuery.isFetching || groupsQuery.isFetching
+  const group = selectedKey ? keyGroup : (selectedCatalog?.group ?? '')
+  const keyGroupOptions = [
+    { value: '', label: t('User Group') },
+    ...groupOptions,
+  ]
+  if (group && !keyGroupOptions.some((option) => option.value === group)) {
+    keyGroupOptions.push({ value: group, label: group })
+  }
+  const keyGroupChanged = Boolean(selectedKey && group !== savedKeyGroup)
+  const allowedModels = selectedKey?.model_limits_enabled
+    ? new Set(selectedKey.model_limits?.split(','))
+    : null
+  let models = selectedCatalog?.models ?? []
+  if (selectedKey) {
+    models = [
+      ...new Set(modelsQuery.data?.flatMap((catalog) => catalog.models)),
+    ].filter((model) => !allowedModels || allowedModels.has(model))
+    if (agent !== 'codex') models = sortClaudeModels(models)
+  }
+  const groupLoading = groupsQuery.isFetching
+  const groupError = groupsQuery.isError
+  const modelsLoading = modelsQuery.isFetching || groupLoading
+  let description = t('Choose an agent and model for CodexBei.')
+  if (showDownloads) description = t('For Windows and macOS')
+  else if (selectedKey) description = t('Agent')
 
   useEffect(() => {
     if (props.open) {
-      setSelectedGroup('')
+      setSelectedGroup(undefined)
       setSelectedModel('')
     }
   }, [props.open, props.userId])
+
+  useEffect(() => {
+    if (!selectedKey || !props.open || !launched || showDownloads) return
+
+    // Browsers do not report whether a custom protocol has a handler.
+    // Losing focus can mean the app or the browser's launch prompt appeared.
+    const timer = window.setTimeout(() => {
+      if (!document.hidden && document.hasFocus()) setDownloadFallback(true)
+    }, 1800)
+    const cancelFallback = () => window.clearTimeout(timer)
+    const onVisibilityChange = () => {
+      if (document.hidden) cancelFallback()
+    }
+    window.addEventListener('blur', cancelFallback)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      cancelFallback()
+      window.removeEventListener('blur', cancelFallback)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [selectedKey, props.open, launched, showDownloads])
 
   useEffect(() => {
     version.current += 1
@@ -222,7 +288,11 @@ export function DesktopSetupDialog(props: {
   ])
 
   let model = models.includes(selectedModel) ? selectedModel : (models[0] ?? '')
-  if (!models.includes(selectedModel) && models.includes('gpt-6-astra')) {
+  if (
+    agent === 'codex' &&
+    !models.includes(selectedModel) &&
+    models.includes('gpt-6-astra')
+  ) {
     model = 'gpt-6-astra'
   }
 
@@ -240,13 +310,15 @@ export function DesktopSetupDialog(props: {
         selection.model,
         selection.agent
       )
-      let tokenId = await findCodexSetupKey(
-        selection.model,
-        () => selection.version === version.current,
-        selection.group
-      )
+      let tokenId =
+        selectedKey?.id ??
+        (await findCodexSetupKey(
+          selection.model,
+          () => selection.version === version.current,
+          selection.group
+        ))
       if (selection.version !== version.current) return
-      if (!tokenId) {
+      if (tokenId === null) {
         let keyName = 'CodexBei · ChatGPT'
         if (selection.agent === 'claude') keyName = 'CodexBei · CC'
         if (selection.agent === 'claude-desktop') {
@@ -286,7 +358,22 @@ export function DesktopSetupDialog(props: {
         selection.model,
         selection.agent
       )
-      window.location.assign(link)
+      if (selectedKey && selection.group !== savedKeyGroup) {
+        const updated = requireServerSuccess(
+          await updateApiKeyGroup(tokenId, selection.group)
+        )
+        if (!updated.data) throw new Error('Key unavailable')
+        void queryClient.invalidateQueries({ queryKey: ['keys'] })
+        if (selection.version !== version.current) return
+        props.onKeyGroupSaved?.(updated.data)
+      }
+      try {
+        window.location.assign(link)
+      } catch (error) {
+        if (!selectedKey) throw error
+        setDownloadFallback(true)
+        return
+      }
       setLaunched(true)
     },
     retry: false,
@@ -297,18 +384,27 @@ export function DesktopSetupDialog(props: {
       <DialogContent className='max-h-[85dvh] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-lg sm:p-6'>
         <DialogHeader>
           <DialogTitle>
-            {props.showDownloads
-              ? t('Download CodexBei')
-              : t('One-click setup')}
+            {showDownloads ? t('Download CodexBei') : t('One-click setup')}
           </DialogTitle>
           <DialogDescription className='sr-only'>
-            {props.showDownloads
-              ? t('For Windows and macOS')
-              : t('Choose an agent and model for CodexBei.')}
+            {description}
           </DialogDescription>
         </DialogHeader>
-        {props.showDownloads ? (
-          <DesktopSetupDownloads downloads={downloads} />
+        {showDownloads ? (
+          <>
+            <DesktopSetupDownloads downloads={downloads} />
+            {downloadFallback && (
+              <Button
+                variant='outline'
+                onClick={() => {
+                  setLaunched(false)
+                  setDownloadFallback(false)
+                }}
+              >
+                {t('Back')}
+              </Button>
+            )}
+          </>
         ) : (
           <>
             <div
@@ -328,8 +424,10 @@ export function DesktopSetupDialog(props: {
                       onValueChange={(value) => {
                         version.current += 1
                         setAgent(value)
-                        setSelectedGroup('')
-                        setSelectedModel('')
+                        if (!selectedKey) {
+                          setSelectedGroup(undefined)
+                          setSelectedModel('')
+                        }
                         setLaunched(false)
                         launch.reset()
                       }}
@@ -340,7 +438,10 @@ export function DesktopSetupDialog(props: {
                       value={model}
                       models={models}
                       disabled={
-                        launch.isPending || modelsLoading || !models.length
+                        Boolean(selectedKey) ||
+                        launch.isPending ||
+                        modelsLoading ||
+                        !models.length
                       }
                       loading={modelsLoading}
                       onValueChange={(value) => {
@@ -365,14 +466,13 @@ export function DesktopSetupDialog(props: {
                 size='compact'
                 searchable={false}
                 placeholder={modelsLoading ? t('Loading') : undefined}
-                options={groups}
+                options={selectedKey ? keyGroupOptions : groups}
                 value={group}
                 disabled={
                   launch.isPending ||
-                  modelsLoading ||
-                  modelsQuery.isError ||
+                  (!selectedKey && (modelsLoading || modelsQuery.isError)) ||
                   groupsQuery.isError ||
-                  !groups.length
+                  (selectedKey ? groupLoading : !groups.length)
                 }
                 onValueChange={(value) => {
                   version.current += 1
@@ -382,7 +482,8 @@ export function DesktopSetupDialog(props: {
                   launch.reset()
                 }}
               />
-              {!modelsLoading &&
+              {!selectedKey &&
+                !modelsLoading &&
                 !groupsQuery.isError &&
                 !modelsQuery.isError &&
                 !groups.length && <p role='status'>{t('No group found.')}</p>}
@@ -400,11 +501,18 @@ export function DesktopSetupDialog(props: {
               )}
             </div>
             <div className='flex flex-col gap-2'>
-              <p className='text-muted-foreground text-xs leading-relaxed'>
-                {t(
-                  'An API key is configured for your selection and created automatically if no suitable key is available.'
-                )}
-              </p>
+              {keyGroupChanged && (
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {t('Continuing updates the group of this API key.')}
+                </p>
+              )}
+              {!selectedKey && (
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {t(
+                    'An API key is configured for your selection and created automatically if no suitable key is available.'
+                  )}
+                </p>
+              )}
               {modelsQuery.isError && (
                 <div
                   role='alert'
@@ -422,7 +530,7 @@ export function DesktopSetupDialog(props: {
                 </div>
               )}
             </div>
-            {!props.hasCredits && (
+            {!selectedKey && !props.hasCredits && (
               <p className='text-muted-foreground text-xs'>
                 {t('Add credits before use.')}{' '}
                 <Link to='/wallet' className='text-primary underline'>
@@ -435,8 +543,8 @@ export function DesktopSetupDialog(props: {
               disabled={
                 !model ||
                 !groupReady ||
-                groupsQuery.isFetching ||
-                groupsQuery.isError ||
+                groupLoading ||
+                groupError ||
                 launch.isPending ||
                 modelsQuery.isFetching ||
                 modelsQuery.isError
@@ -455,7 +563,15 @@ export function DesktopSetupDialog(props: {
                   : t('Setup failed. Please retry.')}
               </p>
             )}
-            {launched && (
+            {launched && selectedKey && (
+              <Button
+                variant='outline'
+                onClick={() => setDownloadFallback(true)}
+              >
+                {t('Download CodexBei')}
+              </Button>
+            )}
+            {launched && !selectedKey && (
               <>
                 <p
                   role='status'

@@ -148,6 +148,28 @@ func TestAuthCacheIntegrityDatabaseMatrix(t *testing.T) {
 				}
 			})
 
+			t.Run("token_group_update_preserves_concurrent_quota", func(t *testing.T) {
+				edited := Token{UserId: user.Id, Key: "cache-integrity-group-change", Group: "auto",
+					AutoGroups: `["default"]`, RemainQuota: 100, ModelLimitsEnabled: true, ModelLimits: "allowed-model"}
+				require.NoError(t, db.Create(&edited).Error)
+				t.Cleanup(func() { assert.NoError(t, db.Unscoped().Delete(&edited).Error) })
+				_, err := GetTokenByKey(edited.Key, false)
+				require.NoError(t, err)
+				require.NoError(t, db.Model(&edited).UpdateColumn("remain_quota", 18).Error)
+				edited.Group = "default"
+				require.NoError(t, edited.SetAutoGroups(nil))
+				require.NoError(t, edited.UpdateGroup())
+				var stored Token
+				require.NoError(t, db.First(&stored, edited.Id).Error)
+				assert.Equal(t, "default", stored.Group)
+				assert.Empty(t, stored.AutoGroups)
+				assert.Equal(t, 18, stored.RemainQuota)
+				assert.Equal(t, edited.ModelLimits, stored.ModelLimits)
+				cached, err := GetTokenByKey(edited.Key, false)
+				require.NoError(t, err)
+				assert.Equal(t, "default", cached.Group)
+			})
+
 			session := newTestUserSession("cache-integrity-session", user.Id, time.Now().Unix())
 			require.NoError(t, CreateUserSession(session))
 			t.Cleanup(func() { assert.NoError(t, db.Delete(session).Error) })

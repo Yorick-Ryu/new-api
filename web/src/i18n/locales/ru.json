@@ -1797,6 +1797,7 @@
     "Continue with OIDC": "Продолжить с OIDC",
     "Continue with Telegram": "Продолжить с Telegram",
     "Continue with WeChat": "Продолжить с WeChat",
+    "Continuing updates the group of this API key.": "При продолжении группа этого ключа API будет изменена.",
     "Contract review, compliance, summarisation": "Анализ контрактов, комплаенс, резюме",
     "Control which models are exposed and which groups may use them.": "Управляйте тем, какие модели доступны и какие группы могут их использовать.",
     "Controls catalog visibility. Channel availability is configured separately.": "Управляет видимостью в каталоге. Доступность каналов настраивается отдельно.",

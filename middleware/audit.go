@@ -220,6 +220,8 @@ func TokenOperationAudit() gin.HandlerFunc {
 			}
 		case "DELETE /api/token/:id":
 			action, content = "token.delete", "API token deletion"
+		case "PATCH /api/token/:id/group":
+			action, content = "token.update", "API token configuration update"
 		case "POST /api/token/batch":
 			action, content = "token.delete_batch", "API token batch deletion"
 		case "POST /api/token/:id/key":
