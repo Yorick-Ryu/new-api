@@ -1,18 +1,20 @@
 # BeiAPI build versions
 
-The reviewed upstream baseline and its exact source commit are pinned in
-`.github/beiapi-version-base`, together with the local integration commit.
-Subsequent first-parent commits increment the BeiAPI revision once each,
-including docs, reverts and merges. Commits within merged branches do not inflate
-the count. Rebuilding a commit does not change its version.
+The reviewed upstream baseline, its source commit, the local integration commit,
+and the manual BeiAPI `revision` are stored in `.github/beiapi-version-base`.
+Increment `revision` once for each change explicitly requested by the owner.
+Keep one increment for the entire request, including follow-up commits for the
+same change. Routine commits, merges, upstream syncs and rebuilds do not advance
+the number on their own.
 
 Stable baselines use `v1.0.0-beiapi.1`; prerelease baselines use
 `v1.0.0-rc.46.beiapi.1`. Uncommitted or untracked files append `-dirty`.
 Inspect the version with `bash .github/scripts/beiapi-version.sh`. Full Git
 history and the recorded upstream tag are required. Selective integrations may
 retain intentional exclusions; document those in the integration commits.
-After a new integration, update all three metadata fields in a follow-up commit.
-The integration is revision zero; its metadata follow-up becomes revision one.
+When the approved upstream release version changes, update the baseline fields
+and reset `revision` to zero. For each new release, use an unused version tag.
+Published tags stay on their original commits.
 
 Only pushes of BeiAPI version tags build production images. Ordinary branch
 pushes do not. Push source to `beiapi-production`, calculate the version from a

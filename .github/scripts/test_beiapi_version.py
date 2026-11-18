@@ -41,11 +41,12 @@ class VersionTests(unittest.TestCase):
     def commit(self, message):
         self.git("commit", "--allow-empty", "-m", message)
 
-    def write_base(self, version="v8.0.44", upstream=None, anchor=None):
+    def write_base(self, version="v8.0.44", upstream=None, anchor=None, revision="1"):
         self.metadata.write_text(
             f"upstream_version={version}\n"
             f"upstream_commit={upstream or self.upstream}\n"
-            f"integration_commit={anchor or self.anchor}\n")
+            f"integration_commit={anchor or self.anchor}\n"
+            f"revision={revision}\n")
 
     def version(self, cwd=None):
         return subprocess.run(["bash", str(SCRIPT)], cwd=cwd or self.repo,
@@ -60,6 +61,12 @@ class VersionTests(unittest.TestCase):
         self.assert_version("v8.0.44-beiapi.1")
         self.assert_version("v8.0.44-beiapi.1")
         self.commit("local fix")
+        self.assert_version("v8.0.44-beiapi.1")
+        self.write_base(revision="2")
+        self.git("add", ".")
+        self.commit("bump revision for requested change")
+        self.assert_version("v8.0.44-beiapi.2")
+        self.commit("follow-up for the same change")
         self.assert_version("v8.0.44-beiapi.2")
 
     def test_dirty_tracked_and_untracked_files(self):
@@ -67,17 +74,16 @@ class VersionTests(unittest.TestCase):
         extra.write_text("draft")
         self.assert_version("v8.0.44-beiapi.1-dirty")
         extra.unlink()
-        self.metadata.write_text(self.metadata.read_text().replace(
-            self.anchor, self.git("rev-parse", "HEAD")))
-        self.assert_version("v8.0.44-beiapi.0-dirty")
+        self.write_base(revision="2")
+        self.assert_version("v8.0.44-beiapi.2-dirty")
 
-    def test_branch_merge_counts_once(self):
+    def test_branch_merge_preserves_manual_revision(self):
         self.git("checkout", "-b", "feature")
         self.commit("feature part one")
         self.commit("feature part two")
         self.git("checkout", "production")
         self.git("merge", "--no-ff", "feature", "-m", "merge feature")
-        self.assert_version("v8.0.44-beiapi.2")
+        self.assert_version("v8.0.44-beiapi.1")
 
     def test_selective_integration_and_baseline_reset(self):
         self.git("checkout", "-b", "upstream", self.upstream)
@@ -89,10 +95,10 @@ class VersionTests(unittest.TestCase):
         self.assert_version("v8.0.44-beiapi.1")
         self.commit("selectively integrate approved upstream changes")
         anchor = self.git("rev-parse", "HEAD")
-        self.write_base("v8.0.45", new_upstream, anchor)
+        self.write_base("v8.0.45", new_upstream, anchor, revision="0")
         self.git("add", ".")
         self.commit("advance reviewed baseline")
-        self.assert_version("v8.0.45-beiapi.1")
+        self.assert_version("v8.0.45-beiapi.0")
 
     def test_side_branch_anchor_rejected(self):
         self.git("checkout", "-b", "feature")
@@ -110,7 +116,15 @@ class VersionTests(unittest.TestCase):
         self.write_base("v1.0.0-rc.46")
         self.git("add", ".")
         self.commit("use prerelease baseline")
-        self.assert_version("v1.0.0-rc.46.beiapi.2")
+        self.assert_version("v1.0.0-rc.46.beiapi.1")
+
+    def test_invalid_manual_revision_rejected(self):
+        for revision in ("", "-1", "01", "1.5"):
+            with self.subTest(revision=revision):
+                self.write_base(revision=revision)
+                result = self.version()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Revision must be a non-negative integer", result.stderr)
 
     def test_inconsistent_tag_rejected(self):
         self.write_base(upstream=self.anchor)
