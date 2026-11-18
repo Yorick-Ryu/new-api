@@ -20,7 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
-import { afterEach, beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import en from '@/i18n/locales/en.json'
 import zh from '@/i18n/locales/zh.json'
@@ -111,4 +111,54 @@ test('a configured brand replaces the default glyph and retains the configured n
   expect(
     view.container.querySelector('.research-hub-mark')
   ).not.toBeInTheDocument()
+})
+
+test.each([
+  {
+    layout: 'mobile with two tasks above and two below',
+    hub: new DOMRect(168, 150, 64, 64),
+    tasks: [
+      new DOMRect(0, 0, 180, 100),
+      new DOMRect(220, 0, 180, 100),
+      new DOMRect(0, 250, 180, 100),
+      new DOMRect(220, 250, 180, 100),
+    ],
+    endpoints: ['90 100', '310 100', '90 250', '310 250'],
+  },
+  {
+    layout: 'desktop with tasks on either side',
+    hub: new DOMRect(268, 110, 64, 64),
+    tasks: [
+      new DOMRect(0, 0, 200, 100),
+      new DOMRect(400, 0, 200, 100),
+      new DOMRect(0, 200, 200, 100),
+      new DOMRect(400, 200, 200, 100),
+    ],
+    endpoints: ['200 50', '400 50', '200 250', '400 250'],
+  },
+])('$layout connects every wire to the task edge facing the brand', (tc) => {
+  const taskClasses = [
+    'research-hub-tools',
+    'research-hub-writing',
+    'research-hub-literature',
+    'research-hub-code',
+  ]
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+    function (this: HTMLElement) {
+      if (this.classList.contains('research-hub-logo-frame')) return tc.hub
+      const index = taskClasses.findIndex((name) =>
+        this.classList.contains(name)
+      )
+      if (index >= 0) return tc.tasks[index]
+      return new DOMRect(0, 0, 600, 350)
+    }
+  )
+  const view = renderHub()
+  const wires = view.container.querySelectorAll('.research-hub-wire')
+  expect(wires).toHaveLength(4)
+  wires.forEach((wire, index) => {
+    expect(wire.getAttribute('d')).toMatch(
+      new RegExp(`${tc.endpoints[index]}$`)
+    )
+  })
 })

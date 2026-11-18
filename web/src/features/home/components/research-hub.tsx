@@ -84,17 +84,20 @@ export function ResearchHub() {
       const bounds = map.getBoundingClientRect()
       const hub = center.getBoundingClientRect()
       if (!bounds.width) return
-      const stacked = hub.bottom <= nodes[0].getBoundingClientRect().top
       setPaths(
         nodes.map((node, index) => {
           const box = node.getBoundingClientRect()
           const left = index % 2 === 0
-          if (stacked) {
+          const above = box.bottom <= hub.top
+          const below = box.top >= hub.bottom
+          const overlapsHub = box.left < hub.right && box.right > hub.left
+          if (overlapsHub && (above || below)) {
             const x = box.left + box.width / 2 - bounds.left
-            const y = box.top - bounds.top
+            const y = (above ? box.bottom : box.top) - bounds.top
             const cx = (left ? hub.left : hub.right) - bounds.left
             const cy = hub.top + hub.height / 2 - bounds.top
-            return `M ${cx} ${cy} C ${x} ${cy}, ${x} ${y - 24}, ${x} ${y}`
+            const approach = y + (above ? 24 : -24)
+            return `M ${cx} ${cy} C ${x} ${cy}, ${x} ${approach}, ${x} ${y}`
           }
           const x = (left ? box.right : box.left) - bounds.left
           const y = box.top + box.height / 2 - bounds.top
