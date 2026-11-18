@@ -71,7 +71,7 @@ test('public pages share the configured brand, legal links and keyboard-accessib
   const footer = await screen.findByRole('contentinfo')
   expect(within(footer).getByText('Research Lab')).toBeVisible()
   expect(
-    within(footer).getByText(/Original site content and branding/)
+    within(footer).getByText(`© ${new Date().getFullYear()} Research Lab`)
   ).toBeVisible()
   expect(
     within(footer).getByRole('link', { name: 'User Agreement' })
@@ -96,6 +96,24 @@ test('public pages share the configured brand, legal links and keyboard-accessib
   )
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('the project link and the open-source explanation use matching text colors', async () => {
+  renderFooter()
+  const footer = await screen.findByRole('contentinfo')
+  const projectLink = within(footer).getByRole('link', {
+    name: 'Designed and developed based on New API.',
+  })
+  const explanation = within(footer).getByRole('button', {
+    name: 'Open-source attribution',
+  })
+
+  for (const control of [projectLink, explanation]) {
+    expect(control).toHaveClass(
+      'text-muted-foreground/40',
+      'hover:text-muted-foreground/80'
+    )
+  }
 })
 
 test('configured footer content retains legal links and project attribution', async () => {

@@ -138,12 +138,19 @@ function ProjectAttribution(props: {
 }) {
   const { t } = useTranslation()
   const [isOpen, dialog] = useDialog()
+  const attributionColors =
+    'text-muted-foreground/40 hover:text-muted-foreground/80'
   const projectLink = (
     <a
       href='https://github.com/QuantumNous/new-api'
       target='_blank'
       rel='noopener noreferrer'
-      className='text-foreground/70 hover:text-foreground font-medium transition-colors'
+      className={cn(
+        'font-medium transition-colors',
+        props.variant === 'based-on'
+          ? attributionColors
+          : 'text-foreground/70 hover:text-foreground'
+      )}
     >
       {props.variant === 'based-on'
         ? t('Designed and developed based on New API.')
@@ -162,7 +169,7 @@ function ProjectAttribution(props: {
         {projectLink}
         <Button
           variant='link'
-          className='text-muted-foreground/60 hover:text-muted-foreground/80 h-auto p-0 text-xs'
+          className={cn('h-auto p-0 text-xs', attributionColors)}
           onClick={dialog.open}
         >
           {t('Open-source attribution')}
@@ -216,6 +223,7 @@ export function Footer(props: FooterProps) {
   const displayName = resolveSiteName(systemName || props.name, i18n.language)
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
+  const copyright = props.copyright ?? t('footer.defaultCopyright')
 
   const fallbackColumns = useMemo<FooterColumnProps[]>(
     () => [
@@ -361,10 +369,17 @@ export function Footer(props: FooterProps) {
             props.compact && 'mt-6 pt-4'
           )}
         >
-          <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start'>
+          <div
+            className={cn(
+              'flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start',
+              props.attributionVariant === 'based-on'
+                ? 'text-muted-foreground/60'
+                : 'text-muted-foreground/40'
+            )}
+          >
             <span>
-              &copy; {currentYear} {props.copyrightOwner || displayName}.{' '}
-              {props.copyright ?? t('footer.defaultCopyright')}
+              &copy; {currentYear} {props.copyrightOwner || displayName}
+              {copyright && `. ${copyright}`}
             </span>
             <LegalLinks leadingSeparator />
           </div>

@@ -304,11 +304,11 @@ export function BeiAPIHome() {
             <div className='tutorial-content'>
               <p className='kicker'>{t('Installation and setup')}</p>
               <h2 className='section-title' id='codex-video-title'>
-                {t('Installing Codex for the first time? Follow the guide.')}
+                {t('Want to use ChatGPT or Claude but stuck on setup?')}
               </h2>
               <p className='section-body'>
                 {t(
-                  'Install CodexBei, then use one-click setup in the dashboard. The guide covers Windows, macOS, manual setup and common questions.'
+                  'Not sure which version to download or where to enter the API URL and key? Follow the guide to install the app, then use CodexBei for one-click setup in the dashboard. Available on Windows and macOS.'
                 )}
               </p>
               <div className='tutorial-actions'>
@@ -343,11 +343,15 @@ export function BeiAPIHome() {
               <div className='tutorial-meta' aria-label={t('Tutorial topics')}>
                 <span>
                   <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
-                  {t('Codex installation')}
+                  {t('ChatGPT installation')}
                 </span>
                 <span>
                   <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
-                  {t('One-click website setup')}
+                  {t('Claude installation')}
+                </span>
+                <span>
+                  <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
+                  {t('One-click setup')}
                 </span>
                 <span>
                   <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
@@ -367,14 +371,14 @@ export function BeiAPIHome() {
                 />
                 <div>
                   <h3 className='tutorial-preview-title'>
-                    {t('CodexBei installation and setup')}
+                    {t('Set up Codex or Claude in one click without a VPN')}
                   </h3>
                 </div>
               </div>
               <ol className='tutorial-checks'>
                 <li>
                   <span>01</span>
-                  {t('Install CodexBei and the ChatGPT desktop app.')}
+                  {t('Install CodexBei and the ChatGPT or Claude desktop app.')}
                 </li>
                 <li>
                   <span>02</span>
@@ -385,7 +389,7 @@ export function BeiAPIHome() {
                 <li>
                   <span>03</span>
                   {t(
-                    'Restart the ChatGPT desktop app, start a new conversation and check the dashboard usage records.'
+                    'Restart the desktop app, start a new conversation and check the dashboard usage records.'
                   )}
                 </li>
               </ol>

@@ -315,6 +315,35 @@ describe('configured homepage rendering', () => {
       })
     ).toBeVisible()
   })
+  test('the Chinese setup guide addresses installation and API configuration questions', async () => {
+    await i18next.changeLanguage('zhCN')
+    await renderHome()
+    const setup = await screen.findByRole('region', {
+      name: '想用 ChatGPT 或 Claude，却卡在安装或配置？',
+    })
+    expect(
+      within(setup).getByText(/不知道该下载哪个版本.*API 地址和密钥填在哪/)
+    ).toHaveTextContent(/CodexBei 一键配置/)
+    expect(
+      within(setup).getByRole('heading', {
+        name: '无需魔法，一键配置 Codex 或 Claude',
+      })
+    ).toBeVisible()
+  })
+  test('the Chinese setup guide lists both apps, one-click setup and connection verification', async () => {
+    await i18next.changeLanguage('zhCN')
+    await renderHome()
+    const topics = await screen.findByLabelText('教程覆盖内容')
+
+    for (const label of [
+      'ChatGPT 安装',
+      'Claude 安装',
+      '一键配置',
+      '连通性验证',
+    ]) {
+      expect(within(topics).getByText(label)).toBeVisible()
+    }
+  })
   test('support opens on demand, shows QR load failures and closes with Escape', async () => {
     const user = userEvent.setup()
     await renderHome()

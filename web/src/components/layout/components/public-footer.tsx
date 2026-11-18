@@ -29,7 +29,7 @@ export function PublicFooter() {
       columns={[]}
       attributionVariant='based-on'
       description={t('AI tools and access services · For researchers')}
-      copyright={t('Original site content and branding.')}
+      copyright=''
     />
   )
 }
