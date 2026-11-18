@@ -118,11 +118,6 @@ func ValidateCodexModelProfiles(raw string) error {
 		if len(fields.InputModalities) == 0 || (fields.ContextWindow != nil && *fields.ContextWindow <= 0) || (fields.MaxContextWindow != nil && *fields.MaxContextWindow <= 0) {
 			return fmt.Errorf("%s: input modalities and context window must be valid", name)
 		}
-		for _, modality := range fields.InputModalities {
-			if !slices.Contains([]string{"text", "image"}, modality) {
-				return fmt.Errorf("%s: input_modalities must contain text or image", name)
-			}
-		}
 		if fields.BaseInstructions == "" && (fields.ModelMessages == nil || fields.ModelMessages.Template == "") {
 			return fmt.Errorf("%s: model instructions cannot be empty", name)
 		}

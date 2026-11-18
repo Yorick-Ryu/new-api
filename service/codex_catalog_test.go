@@ -43,6 +43,49 @@ func TestSavedCodexProfileDeclaresCustomModelWithoutResponsesMetadata(t *testing
 	}
 }
 
+func TestCodexProfilePreservesUpstreamInputModalities(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	options := common.OptionMap
+	common.OptionMap = map[string]string{}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = options
+		common.OptionMapRWMutex.Unlock()
+	})
+	for _, tc := range []struct {
+		name       string
+		modalities string
+		valid      bool
+	}{
+		{"audio", `["text","image","audio"]`, true},
+		{"future modality", `["text","video"]`, true},
+		{"empty list", `[]`, false},
+		{"invalid type", `["text",42]`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := `{"upstream-model":{"priority":1,"input_modalities":` + tc.modalities + `}}`
+			err := ValidateCodexModelProfiles(raw)
+			if !tc.valid {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[CodexModelProfilesOptionKey] = raw
+			common.OptionMapRWMutex.Unlock()
+			body, _, err := BuildCodexModelCatalog([]dto.OpenAIModels{{Id: "upstream-model"}}, nil)
+			require.NoError(t, err)
+			var catalog struct {
+				Models []map[string]json.RawMessage `json:"models"`
+			}
+			require.NoError(t, common.Unmarshal(body, &catalog))
+			require.Len(t, catalog.Models, 1)
+			assert.JSONEq(t, tc.modalities, string(catalog.Models[0]["input_modalities"]))
+		})
+	}
+}
+
 func TestCodexCatalogPreservesCapabilitiesWithoutAddingModels(t *testing.T) {
 	body, _, err := BuildCodexModelCatalog([]dto.OpenAIModels{{Id: "gpt-6-astra"}}, nil)
 	require.NoError(t, err)
