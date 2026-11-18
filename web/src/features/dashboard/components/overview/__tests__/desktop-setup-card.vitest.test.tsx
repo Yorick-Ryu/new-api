@@ -64,17 +64,22 @@ it('lists three automatic setup features as plain text and uses a full-width dow
     </I18nextProvider>
   )
 
+  expect(screen.getByText('ChatGPT、Claude 一键配置工具')).toBeVisible()
   expect(
-    screen.getByText(
-      zh.translation[
-        'Choose your model. CodexBei configures the connection and API key for you.'
-      ]
-    )
-  ).toBeTruthy()
+    screen.queryByText('自研一键配置工具，自动使用最佳配置。')
+  ).not.toBeInTheDocument()
   const preview = screen.getByRole('img', {
     name: zh.translation['CodexBei setup preview'],
   })
-  expect(within(preview).getByText('Claude Code')).toBeTruthy()
+  for (const [name, icon] of [
+    ['ChatGPT', 'OpenAI'],
+    ['Claude Code', 'Claude Code'],
+    ['Claude 桌面版', 'Claude'],
+  ]) {
+    const client = within(preview).getByText(name, { selector: 'span' })
+    expect(client).toBeVisible()
+    expect(within(client).getByTitle(icon)).toBeInTheDocument()
+  }
   expect(within(preview).queryByText(zh.translation['Coming soon'])).toBeNull()
   expect(
     within(preview).queryByText(zh.translation['Choose a model'])

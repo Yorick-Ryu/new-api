@@ -125,6 +125,16 @@ describe('overview setup guide', () => {
     expect(panel).not.toBeVisible()
   })
 
+  it('allocates a wider desktop column for the CodexBei card when the guide opens', async () => {
+    await renderOverview()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Setup guide' })
+    )
+
+    const card = await screen.findByRole('region', { name: 'CodexBei' })
+    expect(card.parentElement).toHaveClass('lg:grid-cols-[minmax(0,1fr)_23rem]')
+  })
+
   it('toggles the completed guide with the keyboard and restores focus after hiding it', async () => {
     const user = userEvent.setup()
     await renderOverview()

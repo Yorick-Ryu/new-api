@@ -45,6 +45,8 @@ export async function findCodexSetupKey(
         key.id > 0 &&
         key.status === 1 &&
         key.group === group &&
+        // The setup catalog for Auto uses the global group configuration.
+        (group !== 'auto' || !key.auto_groups?.length) &&
         (key.expired_time === -1 || key.expired_time > now) &&
         (key.unlimited_quota === true || key.remain_quota > 0) &&
         !(key.allow_ips ?? '').trim() &&

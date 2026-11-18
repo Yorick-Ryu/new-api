@@ -123,6 +123,7 @@ export function DesktopSetupDialog(props: {
       ([name]) =>
         selectedKey ||
         agent === 'codex' ||
+        name === 'auto' ||
         name === 'claude' ||
         name === 'claude-kiro'
     )
@@ -132,13 +133,12 @@ export function DesktopSetupDialog(props: {
       desc: info.desc,
       ratio: info.ratio,
     }))
-  let candidateGroups = groupOptions.map((item) => item.value)
-  if (agent === 'codex' && candidateGroups.includes('default')) {
-    candidateGroups = [
-      'default',
-      ...candidateGroups.filter((name) => name !== 'default'),
-    ]
-  }
+  const availableGroups = groupOptions.map((item) => item.value)
+  const preferredGroups = agent === 'codex' ? ['auto', 'default'] : ['auto']
+  let candidateGroups = [
+    ...preferredGroups.filter((name) => availableGroups.includes(name)),
+    ...availableGroups.filter((name) => !preferredGroups.includes(name)),
+  ]
   const savedKeyGroup = selectedKey?.group ?? ''
   const keyGroup = selectedGroup ?? savedKeyGroup
   if (selectedKey) {
@@ -214,9 +214,6 @@ export function DesktopSetupDialog(props: {
   )
   const selectedCatalog =
     modelsQuery.data?.find((catalog) => catalog.group === selectedGroup) ??
-    (agent === 'codex'
-      ? modelsQuery.data?.find((catalog) => catalog.group === 'default')
-      : undefined) ??
     modelsQuery.data?.[0]
   const group = selectedKey ? keyGroup : (selectedCatalog?.group ?? '')
   const keyGroupOptions = [
@@ -287,14 +284,9 @@ export function DesktopSetupDialog(props: {
     group,
   ])
 
-  let model = models.includes(selectedModel) ? selectedModel : (models[0] ?? '')
-  if (
-    agent === 'codex' &&
-    !models.includes(selectedModel) &&
-    models.includes('gpt-6-astra')
-  ) {
-    model = 'gpt-6-astra'
-  }
+  const model = models.includes(selectedModel)
+    ? selectedModel
+    : (models[0] ?? '')
 
   const launch = useMutation({
     mutationFn: async (selection: {

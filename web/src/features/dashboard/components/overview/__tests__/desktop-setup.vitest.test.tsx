@@ -336,7 +336,7 @@ it.each([false, true])(
   }
 )
 
-it('opens without a key, selects the default group and prefers the recommended available model', async () => {
+it('opens without a key and selects the first available model in the default group', async () => {
   const { calls } = requests()
   renderDialog()
   await waitFor(() =>
@@ -593,6 +593,20 @@ it('uses a configured HTTPS installer URL and excludes unsafe overrides', () => 
     screen.getByRole('link', { name: 'Windows x64' }).getAttribute('href')
   ).toBe('https://downloads.example.com/setup.exe')
   expect(screen.queryByRole('link', { name: 'macOS Intel' })).toBeNull()
+})
+
+it('defaults to the first catalog model and preserves a manual selection', async () => {
+  requests({ models: ['gpt-6.2-astra', 'gpt-6-astra'] })
+  renderDialog()
+  const model = screen.getByRole('combobox', { name: 'Model' })
+
+  await waitFor(() => expect(model.textContent).toBe('gpt-6.2-astra'))
+  await userEvent.click(model)
+  await userEvent.click(
+    await screen.findByRole('option', { name: 'gpt-6-astra' })
+  )
+
+  expect(model.textContent).toBe('gpt-6-astra')
 })
 
 it('preserves the dedicated Codex catalog order and hides automatic models', async () => {
@@ -1259,7 +1273,73 @@ it.each([
   }
 )
 
-it('prefers the default group regardless of server group order and resets to it when reopened', async () => {
+it('prefers Auto when available and creates a key that inherits the global Auto groups', async () => {
+  const { calls, launch } = requests({
+    groups: ['default', 'auto'],
+    codexModels: { auto: ['gpt-6.2-astra'] },
+    keys: [{ ...selectedKey, model_limits_enabled: false }],
+  })
+  renderDialog()
+  const group = within(screen.getByRole('group', { name: 'Group' })).getByRole(
+    'combobox'
+  )
+  await waitFor(() => expect(group).toHaveTextContent('auto'))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+    'gpt-6.2-astra'
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'One-click setup' }))
+  await waitFor(() => expect(launch).toHaveBeenCalledOnce())
+  const created = calls.find(
+    (call) => call.method === 'post' && call.url === '/api/token/'
+  )
+  expect(JSON.parse(String(created?.data))).toMatchObject({
+    group: 'auto',
+    auto_groups: [],
+  })
+})
+
+it('falls back to the default group when Auto has no available models', async () => {
+  requests({ groups: ['auto', 'default'], codexModels: { auto: [] } })
+  renderDialog()
+  const group = within(screen.getByRole('group', { name: 'Group' })).getByRole(
+    'combobox'
+  )
+  await waitFor(() => expect(group).toHaveTextContent('default'))
+})
+
+it.each([
+  { agent: 'Claude Code', autoModels: ['claude-opus-4-7'], group: 'auto' },
+  { agent: 'Claude Code', autoModels: [], group: 'claude-kiro' },
+  { agent: 'Claude Desktop', autoModels: ['claude-opus-4-7'], group: 'auto' },
+  {
+    agent: 'Claude Desktop',
+    autoModels: ['deepseek-flash'],
+    group: 'claude-kiro',
+  },
+])(
+  '$agent selects $group based on compatible Auto models',
+  async ({ agent, autoModels, group }) => {
+    requests({
+      groups: ['default', 'claude-kiro', 'claude', 'auto'],
+      claudeModels: {
+        auto: autoModels,
+        'claude-kiro': ['claude-sonnet-4-6'],
+        claude: ['claude-sonnet-4-5'],
+      },
+    })
+    renderDialog()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Agent' }))
+    await user.click(await screen.findByRole('option', { name: agent }))
+
+    const groupSelect = within(
+      screen.getByRole('group', { name: 'Group' })
+    ).getByRole('combobox')
+    expect(await within(groupSelect).findByText(group)).toBeVisible()
+  }
+)
+
+it('prefers the default group when Auto is unavailable and resets to it when reopened', async () => {
   requests({
     groups: ['antigravity', 'default'],
     codexModels: { antigravity: ['gemini-flash'] },

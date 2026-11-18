@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Claude, OpenAI } from '@lobehub/icons'
+import { Claude, ClaudeCode, OpenAI } from '@lobehub/icons'
 import { Download, KeyRound, Link2, SlidersHorizontal } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -47,16 +47,10 @@ export function DesktopSetupCard() {
             CodexBei
           </h4>
           <p className='text-muted-foreground text-xs'>
-            {t('For Windows and macOS')}
+            {t('One-click setup tool for ChatGPT and Claude')}
           </p>
         </div>
       </div>
-
-      <p className='text-muted-foreground text-sm leading-relaxed'>
-        {t(
-          'Choose your model. CodexBei configures the connection and API key for you.'
-        )}
-      </p>
 
       <div
         role='img'
@@ -81,8 +75,12 @@ export function DesktopSetupCard() {
                 ChatGPT
               </span>
               <span className='flex items-center gap-1.5'>
-                <Claude.Color size={14} />
+                <ClaudeCode.Color size={14} />
                 Claude Code
+              </span>
+              <span className='flex items-center gap-1.5'>
+                <Claude.Color size={14} />
+                {t('Claude Desktop')}
               </span>
             </div>
             <ul className='text-muted-foreground space-y-3 border-t pt-3 text-xs'>
