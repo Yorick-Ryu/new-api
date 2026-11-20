@@ -614,3 +614,66 @@ test('signed-in cards do not reuse the anonymous price cache', async () => {
   expect(get).toHaveBeenCalledTimes(2)
   expect(screen.queryByRole('button', { name: /pay 10.00 yuan/ })).toBeNull()
 })
+
+test('section switch tracks active destination with aria-current', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        subscriptions: [],
+        topup_amounts: [10],
+        topup_options: [{ amount: 10, credits: 10, money: '10.00' }],
+      },
+    },
+  })
+  render(
+    <QueryClientProvider client={clientFor()}>
+      <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
+    </QueryClientProvider>
+  )
+  const nav = await screen.findByRole('navigation', {
+    name: 'Choose a plan type',
+  })
+  const rechargeLink = within(nav).getByRole('link', { name: 'Balance top-up' })
+  const subscriptionsLink = within(nav).getByRole('link', {
+    name: 'Monthly subscriptions',
+  })
+  expect(rechargeLink).toHaveAttribute('aria-current', 'location')
+  expect(subscriptionsLink).not.toHaveAttribute('aria-current')
+  fireEvent.click(subscriptionsLink)
+  expect(subscriptionsLink).toHaveAttribute('aria-current', 'location')
+  expect(rechargeLink).not.toHaveAttribute('aria-current')
+})
+
+test('catalog error state exposes a retry action that reloads plans', async () => {
+  let attempt = 0
+  const get = vi.spyOn(api, 'get').mockImplementation(async () => {
+    attempt += 1
+    if (attempt === 1) {
+      return { data: { success: false, message: 'temporary outage' } }
+    }
+    return {
+      data: {
+        success: true,
+        data: {
+          subscriptions: [],
+          topup_amounts: [10],
+          topup_options: [{ amount: 10, credits: 10, money: '10.00' }],
+        },
+      },
+    }
+  })
+  render(
+    <QueryClientProvider client={clientFor()}>
+      <PublicCatalog onCredit={vi.fn()} onMonthly={vi.fn()} />
+    </QueryClientProvider>
+  )
+  expect(
+    await screen.findByText('Failed to load plans. Please try again.')
+  ).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(
+    await screen.findByRole('button', { name: /pay 10.00 yuan/ })
+  ).toBeVisible()
+  expect(get).toHaveBeenCalledTimes(2)
+})

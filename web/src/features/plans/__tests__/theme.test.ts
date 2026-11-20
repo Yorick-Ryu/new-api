@@ -21,9 +21,8 @@ import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
 import { expect, test } from 'vitest'
 
-const styles = postcss.parse(
-  readFileSync('src/features/plans/plans.css', 'utf8')
-)
+const cssSource = readFileSync('src/features/plans/plans.css', 'utf8')
+const styles = postcss.parse(cssSource)
 
 test('plans inherit the global palette instead of masking preset and dark-mode changes', () => {
   const overrides: string[] = []
@@ -77,4 +76,54 @@ test('section navigation derives inset corners from the outer theme radius and g
   expect(radii['.section-switch a']).toBe(
     'max(0px, calc(var(--radius) - var(--plans-switch-inset)))'
   )
+})
+
+test('avoids global 0.01ms reduced-motion overrides and gates scroll-driven motion on no-preference + @supports', () => {
+  expect(cssSource).not.toContain('0.01ms')
+  let hasViewTimelineGuard = false
+  let hasSiblingIndexGuard = false
+  let hasAnchorGuard = false
+  styles.walkAtRules('supports', (supports) => {
+    if (supports.params.includes('position-anchor: auto')) {
+      hasAnchorGuard = true
+    }
+  })
+  styles.walkAtRules('media', (media) => {
+    if (!media.params.includes('prefers-reduced-motion: no-preference')) {
+      return
+    }
+    media.walkAtRules('supports', (supports) => {
+      if (
+        supports.params.includes('animation-timeline: view()') &&
+        supports.params.includes('animation-range: entry')
+      ) {
+        hasViewTimelineGuard = true
+      }
+      if (supports.params.includes('calc(sibling-index() * 0.1s)')) {
+        hasSiblingIndexGuard = true
+      }
+    })
+  })
+  expect(hasViewTimelineGuard).toBe(true)
+  expect(hasSiblingIndexGuard).toBe(true)
+  expect(hasAnchorGuard).toBe(true)
+})
+
+test('keeps credit cards, monthly cards and benefit banner stationary on hover and avoids oklch neutral mixes', () => {
+  expect(cssSource).not.toContain('color-mix(in oklch')
+  const cardMotionDecls: string[] = []
+  styles.walkRules((rule) => {
+    if (
+      /\.(credit-card|monthly-card|benefit-banner)[^,]*:hover/.test(
+        rule.selector
+      )
+    ) {
+      rule.walkDecls((decl) => {
+        if (/^(transform|translate|scale|box-shadow)$/.test(decl.prop)) {
+          cardMotionDecls.push(`${rule.selector}: ${decl.toString()}`)
+        }
+      })
+    }
+  })
+  expect(cardMotionDecls).toEqual([])
 })
