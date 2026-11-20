@@ -8788,6 +8788,15 @@
     "Standard cache write price": "Đơn giá ghi bộ nhớ đệm thông thường",
     "Switch cache billing method?": "Đổi cách tính phí bộ nhớ đệm?",
     "Switch method": "Đổi cách tính phí",
-    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "Chuyển sang {{method}} sẽ xóa các đơn giá bộ nhớ đệm đã cấu hình sau: {{prices}}."
+    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "Chuyển sang {{method}} sẽ xóa các đơn giá bộ nhớ đệm đã cấu hình sau: {{prices}}.",
+    "Hover or select a node to inspect each research workflow.": "Di chuột hoặc chọn một nút để xem chi tiết từng quy trình nghiên cứu.",
+    "Unified OpenAI & Claude compatible gateway": "Cổng API thống nhất tương thích OpenAI & Claude",
+    "Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.": "Kết nối Codex, Cursor, Claude Code và các script Python qua cùng một điểm cuối và khóa API.",
+    "Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.": "Trau chuốt bản thảo, tối ưu bố cục và soạn phản hồi phản biện với ngữ cảnh dài chính xác.",
+    "Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.": "Đọc nhanh bài báo chuyên sâu, trích xuất bảng có cấu trúc và tổng hợp kết quả từ nhiều nghiên cứu.",
+    "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Gỡ lỗi thí nghiệm, tái cấu trúc notebook phân tích và tăng tốc mã nguồn nghiên cứu có thể tái lập.",
+    "Pinned": "Đã ghim",
+    "Video playback progress": "Tiến trình phát video",
+    "Setup walkthrough steps": "Các bước cấu hình nhanh"
   }
 }

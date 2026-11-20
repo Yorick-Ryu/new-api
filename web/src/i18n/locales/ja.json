@@ -8788,6 +8788,15 @@
     "Standard cache write price": "通常のキャッシュ書き込み単価",
     "Switch cache billing method?": "キャッシュ課金方式を切り替えますか？",
     "Switch method": "方式を切り替え",
-    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "{{method}} に切り替えると、次の設定済みキャッシュ単価が削除されます：{{prices}}。"
+    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "{{method}} に切り替えると、次の設定済みキャッシュ単価が削除されます：{{prices}}。",
+    "Hover or select a node to inspect each research workflow.": "ノードにカーソルを合わせるか選択すると、各研究ワークフローの詳細を確認できます。",
+    "Unified OpenAI & Claude compatible gateway": "OpenAI・Claude 互換の統合ゲートウェイ",
+    "Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.": "共通の API エンドポイントとキーで Codex、Cursor、Claude Code、Python スクリプトを接続できます。",
+    "Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.": "長い文脈を保ちながら、論文の推敲、構成改善、査読コメントへの返信作成を支援します。",
+    "Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.": "専門論文の精読、構造化テーブルの抽出、複数論文の知見整理を効率的に行えます。",
+    "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "実験エラーのデバッグ、分析ノートブックのリファクタリング、再現性の高い研究コード開発を加速します。",
+    "Pinned": "固定中",
+    "Video playback progress": "動画の再生進行状況",
+    "Setup walkthrough steps": "セットアップ手順"
   }
 }

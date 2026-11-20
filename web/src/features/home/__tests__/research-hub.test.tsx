@@ -96,6 +96,33 @@ test('language changes update the research tasks and default site name without l
     'aria-pressed',
     'true'
   )
+  expect(screen.getByText(/面向长文润色、结构梳理与审稿意见回复/)).toBeVisible()
+})
+
+test('selecting a research task updates the workflow detail summary and pinned indicator', async () => {
+  const user = userEvent.setup()
+  renderHub()
+  expect(
+    screen.getByText(
+      'Hover or select a node to inspect each research workflow.'
+    )
+  ).toBeVisible()
+  const code = screen.getByRole('button', { name: /Code experiments/ })
+  await user.click(code)
+  expect(
+    screen.getByText(
+      'Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.'
+    )
+  ).toBeVisible()
+  expect(screen.getByText('Pinned')).toBeVisible()
+  await user.click(code)
+  await user.click(document.body)
+  expect(screen.queryByText('Pinned')).not.toBeInTheDocument()
+  expect(
+    screen.getByText(
+      'Hover or select a node to inspect each research workflow.'
+    )
+  ).toBeVisible()
 })
 
 test('a configured brand replaces the default glyph and retains the configured name', () => {

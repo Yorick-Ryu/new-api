@@ -95,4 +95,22 @@ describe('installation video chapters', () => {
     await waitFor(() => expect(video).toHaveFocus())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+  test('video time updates synchronize the playback progress bar and end at 100%', () => {
+    render(<InstallationVideo />)
+    const video = document.querySelector('video') as HTMLVideoElement
+    const progressbar = screen.getByRole('progressbar', {
+      name: 'Video playback progress',
+    })
+    expect(progressbar).toHaveAttribute('aria-valuenow', '0')
+    Object.defineProperty(video, 'duration', {
+      configurable: true,
+      value: 80,
+    })
+    fireEvent.loadedMetadata(video)
+    video.currentTime = 40
+    fireEvent.timeUpdate(video)
+    expect(progressbar).toHaveAttribute('aria-valuenow', '50')
+    fireEvent.ended(video)
+    expect(progressbar).toHaveAttribute('aria-valuenow', '100')
+  })
 })

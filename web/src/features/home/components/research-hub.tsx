@@ -21,11 +21,13 @@ import {
   Chat01Icon,
   CodeIcon,
   QuillWrite01Icon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { DEFAULT_LOGO } from '@/lib/constants'
@@ -38,24 +40,32 @@ const capabilities = [
     id: 'tools',
     labelKey: 'ChatGPT / Claude',
     descriptionKey: 'Codex · IDE · Scripts',
+    detailKey:
+      'Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.',
     icon: Chat01Icon,
   },
   {
     id: 'writing',
     labelKey: 'Academic writing',
     descriptionKey: 'Polishing · Structure · Submission',
+    detailKey:
+      'Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.',
     icon: QuillWrite01Icon,
   },
   {
     id: 'literature',
     labelKey: 'Literature workflows',
     descriptionKey: 'Reading · Summarizing · Analysis',
+    detailKey:
+      'Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.',
     icon: BookOpen01Icon,
   },
   {
     id: 'code',
     labelKey: 'Code experiments',
     descriptionKey: 'Debugging · Refactoring · Engineering',
+    detailKey:
+      'Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.',
     icon: CodeIcon,
   },
 ] as const
@@ -71,6 +81,7 @@ export function ResearchHub() {
   const [hovered, setHovered] = useState<Capability | null>(null)
   const [focused, setFocused] = useState<Capability | null>(null)
   const active = hovered ?? focused ?? selected
+  const activeCapability = capabilities.find((item) => item.id === active)
   const defaultLogo = !logo || logo === DEFAULT_LOGO || logo === '/logo.png'
 
   useEffect(() => {
@@ -127,60 +138,108 @@ export function ResearchHub() {
       className='research-hub'
       role='group'
       aria-label={t('Unified model access')}
+      data-has-active={active ? 'true' : 'false'}
     >
-      <div className='research-hub-map' ref={mapRef}>
-        <svg className='research-hub-connections' aria-hidden='true'>
-          {paths.map((path, index) => (
-            <g
-              key={capabilities[index].id}
-              className={cn(
-                'research-hub-connection',
-                active === capabilities[index].id && 'is-active'
+      <div className='research-hub-canvas'>
+        <div
+          className='research-hub-map'
+          ref={mapRef}
+          data-has-active={active ? 'true' : 'false'}
+        >
+          <svg className='research-hub-connections' aria-hidden='true'>
+            {paths.map((path, index) => (
+              <g
+                key={capabilities[index].id}
+                className={cn(
+                  'research-hub-connection',
+                  active === capabilities[index].id && 'is-active'
+                )}
+              >
+                <path d={path} className='research-hub-glow' />
+                <path d={path} className='research-hub-wire' />
+                <path
+                  d={path}
+                  pathLength='100'
+                  className='research-hub-pulse'
+                />
+              </g>
+            ))}
+          </svg>
+          <div className='research-hub-brand'>
+            <span className='research-hub-logo-frame'>
+              <span className='research-hub-halo' aria-hidden='true' />
+              {defaultLogo ? (
+                <span className='research-hub-mark' aria-hidden='true' />
+              ) : (
+                <img className='research-hub-custom-logo' src={logo} alt='' />
               )}
+            </span>
+            <span className='research-hub-name'>{systemName}</span>
+          </div>
+          {capabilities.map((capability) => (
+            <Button
+              key={capability.id}
+              variant='outline'
+              className={cn(
+                'research-hub-node',
+                `research-hub-${capability.id}`,
+                active === capability.id && 'is-active'
+              )}
+              aria-pressed={selected === capability.id}
+              onPointerEnter={() => setHovered(capability.id)}
+              onPointerLeave={() => setHovered(null)}
+              onFocus={() => setFocused(capability.id)}
+              onBlur={() => setFocused(null)}
+              onClick={() =>
+                setSelected(selected === capability.id ? null : capability.id)
+              }
             >
-              <path d={path} className='research-hub-wire' />
-              <path d={path} pathLength='100' className='research-hub-pulse' />
-            </g>
+              <span className='research-hub-icon'>
+                <HugeiconsIcon icon={capability.icon} aria-hidden='true' />
+              </span>
+              <span className='research-hub-title'>
+                {t(capability.labelKey)}
+              </span>
+              <span className='research-hub-description'>
+                {t(capability.descriptionKey)}
+              </span>
+              <span className='research-hub-port' aria-hidden='true' />
+            </Button>
           ))}
-        </svg>
-        <div className='research-hub-brand'>
-          <span className='research-hub-logo-frame'>
-            {defaultLogo ? (
-              <span className='research-hub-mark' aria-hidden='true' />
-            ) : (
-              <img className='research-hub-custom-logo' src={logo} alt='' />
-            )}
-          </span>
-          <span className='research-hub-name'>{systemName}</span>
         </div>
-        {capabilities.map((capability) => (
-          <Button
-            key={capability.id}
-            variant='outline'
-            className={cn(
-              'research-hub-node',
-              `research-hub-${capability.id}`,
-              active === capability.id && 'is-active'
-            )}
-            aria-pressed={selected === capability.id}
-            onPointerEnter={() => setHovered(capability.id)}
-            onPointerLeave={() => setHovered(null)}
-            onFocus={() => setFocused(capability.id)}
-            onBlur={() => setFocused(null)}
-            onClick={() =>
-              setSelected(selected === capability.id ? null : capability.id)
-            }
-          >
-            <span className='research-hub-icon'>
-              <HugeiconsIcon icon={capability.icon} aria-hidden='true' />
-            </span>
-            <span className='research-hub-title'>{t(capability.labelKey)}</span>
-            <span className='research-hub-description'>
-              {t(capability.descriptionKey)}
-            </span>
-            <span className='research-hub-port' aria-hidden='true' />
-          </Button>
-        ))}
+        <div
+          className='research-hub-detail'
+          aria-live='polite'
+          data-active={activeCapability ? activeCapability.id : 'idle'}
+        >
+          <span className='research-hub-detail-icon' aria-hidden='true'>
+            <HugeiconsIcon
+              icon={activeCapability ? activeCapability.icon : SparklesIcon}
+              aria-hidden='true'
+            />
+          </span>
+          <div className='research-hub-detail-body'>
+            <div className='research-hub-detail-head'>
+              <strong className='research-hub-detail-title'>
+                {activeCapability
+                  ? t(activeCapability.labelKey)
+                  : t('Unified OpenAI & Claude compatible gateway')}
+              </strong>
+              {activeCapability && selected === activeCapability.id && (
+                <Badge variant='secondary' className='research-hub-detail-tag'>
+                  {t('Pinned')}
+                </Badge>
+              )}
+            </div>
+            <p className='research-hub-detail-copy'>
+              {activeCapability
+                ? t(activeCapability.detailKey)
+                : t(
+                    'Hover or select a node to inspect each research workflow.'
+                  )}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )

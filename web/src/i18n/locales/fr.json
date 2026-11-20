@@ -8788,6 +8788,15 @@
     "Standard cache write price": "Prix d’écriture standard du cache",
     "Switch cache billing method?": "Changer le mode de facturation du cache ?",
     "Switch method": "Changer de mode",
-    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "Passer à {{method}} supprime les prix du cache suivants : {{prices}}."
+    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "Passer à {{method}} supprime les prix du cache suivants : {{prices}}.",
+    "Hover or select a node to inspect each research workflow.": "Survolez ou sélectionnez un nœud pour explorer chaque flux de travail de recherche.",
+    "Unified OpenAI & Claude compatible gateway": "Passerelle unifiée compatible OpenAI et Claude",
+    "Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.": "Connectez Codex, Cursor, Claude Code et vos scripts Python via un seul point de terminaison et une seule clé API.",
+    "Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.": "Peaufinez vos manuscrits, affinez leur structure et rédigez des réponses aux relecteurs avec un long contexte précis.",
+    "Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.": "Lisez des articles denses, extrayez des tableaux structurés et synthétisez efficacement les résultats entre publications.",
+    "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Déboguez vos expériences, refactorisez vos notebooks d’analyse et accélérez votre code de recherche reproductible.",
+    "Pinned": "Épinglé",
+    "Video playback progress": "Progression de la lecture vidéo",
+    "Setup walkthrough steps": "Étapes de configuration guidée"
   }
 }

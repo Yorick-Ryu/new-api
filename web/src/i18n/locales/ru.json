@@ -8788,6 +8788,15 @@
     "Standard cache write price": "Цена обычной записи в кеш",
     "Switch cache billing method?": "Изменить способ оплаты кеша?",
     "Switch method": "Изменить способ",
-    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "При переходе на {{method}} будут удалены следующие настроенные цены кеша: {{prices}}."
+    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "При переходе на {{method}} будут удалены следующие настроенные цены кеша: {{prices}}.",
+    "Hover or select a node to inspect each research workflow.": "Наведите курсор или выберите узел, чтобы посмотреть детали каждого научного сценария.",
+    "Unified OpenAI & Claude compatible gateway": "Единый шлюз с поддержкой OpenAI и Claude",
+    "Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.": "Подключайте Codex, Cursor, Claude Code и скрипты Python через единый адрес API и ключ.",
+    "Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.": "Редактируйте рукописи, улучшайте структуру и готовьте ответы рецензентам с точным длинным контекстом.",
+    "Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.": "Быстро разбирайте сложные статьи, извлекайте структурированные таблицы и обобщайте выводы по публикациям.",
+    "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Отлаживайте эксперименты, рефакторите ноутбуки анализа и ускоряйте разработку воспроизводимого научного кода.",
+    "Pinned": "Закреплено",
+    "Video playback progress": "Прогресс воспроизведения видео",
+    "Setup walkthrough steps": "Шаги быстрой настройки"
   }
 }

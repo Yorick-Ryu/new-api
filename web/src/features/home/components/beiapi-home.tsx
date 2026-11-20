@@ -19,36 +19,107 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Agreement01Icon,
   ArrowRight01Icon,
+  ArrowRight02Icon,
+  ArrowUpRight01Icon,
   BankIcon,
   File01Icon,
+  FlashIcon,
   GiftIcon,
+  Key01Icon,
+  Layers01Icon,
+  SparklesIcon,
   Tick02Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
+import { useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import codexBeiLogo from '@/assets/brand/codexbei.svg'
 import { Dialog } from '@/components/dialog'
 import { FloatingSupport } from '@/components/floating-support'
 import { PublicFooter } from '@/components/layout/components/public-footer'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useDialogState } from '@/hooks/use-dialog'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import { cn } from '@/lib/utils'
 
 import '@/styles/beiapi-home.css'
 
+import { useHomeScrollReveal } from '../hooks/use-home-scroll-reveal'
 import { InstallationVideo } from './installation-video'
 import { ResearchHub } from './research-hub'
+
+const processSteps = [
+  {
+    num: '01',
+    icon: Key01Icon,
+    titleKey: 'Set up access',
+    bodyKey:
+      'Follow the guide to configure ChatGPT or Claude API access in your research tools.',
+  },
+  {
+    num: '02',
+    icon: FlashIcon,
+    titleKey: 'Full model capabilities',
+    bodyKey:
+      'An uncompromised experience for long research documents, code reasoning and literature workflows.',
+  },
+  {
+    num: '03',
+    icon: Layers01Icon,
+    titleKey: 'Cover research tasks',
+    bodyKey:
+      'One API gateway for writing, debugging, data analysis and literature workflows.',
+  },
+  {
+    num: '04',
+    icon: UserGroupIcon,
+    titleKey: 'Ongoing community updates',
+    bodyKey:
+      'Practical AI research workflows and tips for common graduate and PhD questions.',
+  },
+] as const
+
+const setupGuideSteps = [
+  {
+    num: '01',
+    textKey: 'Install CodexBei and the ChatGPT or Claude desktop app.',
+  },
+  {
+    num: '02',
+    textKey:
+      'Click “One-click setup” in the dashboard and wait for completion.',
+  },
+  {
+    num: '03',
+    textKey:
+      'Restart the desktop app, start a new conversation and check the dashboard usage records.',
+  },
+] as const
+
+const commissionLadderBars = [
+  { id: 'tier-1', height: 0.44, opacity: 0.36 },
+  { id: 'tier-2', height: 0.58, opacity: 0.52 },
+  { id: 'tier-3', height: 0.72, opacity: 0.68 },
+  { id: 'tier-4', height: 0.86, opacity: 0.84 },
+  { id: 'tier-5', height: 1, opacity: 1 },
+] as const
 
 export function BeiAPIHome() {
   const { t } = useTranslation()
   const { systemName } = useSystemConfig()
+  const mainRef = useRef<HTMLElement>(null)
+  const [activeSetupStep, setActiveSetupStep] = useState(0)
   const [modal, setModal, modalHandlers] = useDialogState<
     'service' | 'community'
   >()
+
+  useHomeScrollReveal(mainRef)
+
   return (
     <div>
       <link
@@ -57,34 +128,49 @@ export function BeiAPIHome() {
         href='/beiapi-home/assets/3af3c5d013189f31.jpg'
         media='(min-width: 901px)'
       />
-      <main className='beiapi-home' id='top'>
+      <main className='beiapi-home' id='top' ref={mainRef}>
+        <div className='home-scroll-progress' aria-hidden='true' />
         <section className='hero' aria-labelledby='hero-title'>
+          <div className='hero-backdrop' aria-hidden='true' />
+          <div className='hero-grid' aria-hidden='true' />
           <div className='wrap hero-inner'>
             <div className='hero-intro'>
-              <p className='hero-eyebrow'>
-                {t('AI tools and access services for researchers')}
+              <p className='hero-eyebrow hero-enter hero-enter-1'>
+                <span className='hero-beacon' aria-hidden='true'>
+                  <span className='hero-beacon-ring' />
+                  <span className='hero-beacon-dot' />
+                </span>
+                <span>{t('AI tools and access services for researchers')}</span>
               </p>
-              <h1 className='hero-h1' id='hero-title'>
+              <h1 className='hero-h1 hero-enter hero-enter-2' id='hero-title'>
                 {systemName}
               </h1>
-              <p className='hero-copy'>
+              <p className='hero-copy hero-enter hero-enter-3'>
                 {t(
                   'AI tool access, setup guidance and support for graduate students, PhD students and researchers, helping with literature, academic writing, code debugging and data analysis.'
                 )}
               </p>
-              <ul className='hero-tags' aria-label={t('Key features')}>
+              <ul
+                className='hero-tags hero-enter hero-enter-4'
+                aria-label={t('Key features')}
+              >
                 <li>{t('Research workflow support')}</li>
                 <li>{t('Tool setup guidance')}</li>
                 <li>{t('Tutorials and support')}</li>
               </ul>
-              <div className='btn-row'>
+              <div className='btn-row hero-enter hero-enter-5'>
                 <Button
-                  className='btn btn-primary'
+                  className='btn btn-primary btn-arrow-group'
                   variant='default'
                   role='link'
                   render={<Link to='/sign-in' />}
                 >
                   {t('Get started')}
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    aria-hidden='true'
+                    className='btn-arrow'
+                  />
                 </Button>
                 <Button
                   className='btn btn-outline'
@@ -98,7 +184,7 @@ export function BeiAPIHome() {
                 </Button>
               </div>
               <nav
-                className='hero-shortcuts'
+                className='hero-shortcuts hero-enter hero-enter-6'
                 aria-label={t('Guides and rewards')}
               >
                 <a
@@ -108,14 +194,26 @@ export function BeiAPIHome() {
                   rel='noopener noreferrer'
                 >
                   <span className='shortcut-title'>
-                    {t('Codex installation guide')}
+                    <span>{t('Codex installation guide')}</span>
+                    <HugeiconsIcon
+                      icon={ArrowUpRight01Icon}
+                      aria-hidden='true'
+                      className='shortcut-arrow'
+                    />
                   </span>
                   <span className='shortcut-desc'>
                     {t('Installation and one-click setup')}
                   </span>
                 </a>
                 <a className='hero-shortcut' href='#campus-partner'>
-                  <span className='shortcut-title'>{t('Campus partners')}</span>
+                  <span className='shortcut-title'>
+                    <span>{t('Campus partners')}</span>
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      aria-hidden='true'
+                      className='shortcut-arrow shortcut-arrow-inline'
+                    />
+                  </span>
                   <span className='shortcut-desc'>
                     {t('Savings for friends. Commission for you.')}
                   </span>
@@ -123,7 +221,7 @@ export function BeiAPIHome() {
               </nav>
             </div>
             <div
-              className='hero-visual'
+              className='hero-visual hero-enter hero-enter-visual'
               aria-label={t('Codex installation video')}
             >
               <InstallationVideo />
@@ -132,13 +230,14 @@ export function BeiAPIHome() {
           <section
             className='wrap hero-services'
             aria-labelledby='hero-services-title'
+            data-reveal=''
           >
             <div className='hero-services-head'>
               <h2 className='hero-services-title' id='hero-services-title'>
                 {t('Research AI access for labs and businesses')}
               </h2>
               <Button
-                className='hero-consult-btn'
+                className='hero-consult-btn btn-arrow-group'
                 type='button'
                 aria-haspopup='dialog'
                 aria-expanded={modal === 'community'}
@@ -146,6 +245,11 @@ export function BeiAPIHome() {
                 onClick={() => setModal('community')}
               >
                 {t('Discuss a partnership')}
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  aria-hidden='true'
+                  className='btn-arrow'
+                />
               </Button>
             </div>
             <div className='hero-services-row'>
@@ -184,13 +288,16 @@ export function BeiAPIHome() {
             className='wrap hero-referral'
             href='#campus-partner'
             aria-label={t('View the campus partner program and how to join')}
+            data-reveal=''
           >
             <span className='hero-referral-copy'>
-              <HugeiconsIcon
-                icon={GiftIcon}
-                aria-hidden='true'
-                className='hero-referral-icon'
-              />
+              <span className='hero-referral-icon-wrap' aria-hidden='true'>
+                <HugeiconsIcon
+                  icon={GiftIcon}
+                  aria-hidden='true'
+                  className='hero-referral-icon'
+                />
+              </span>
               <span>
                 {t('Campus partners:')}
                 <strong>
@@ -202,7 +309,11 @@ export function BeiAPIHome() {
             </span>
             <span className='hero-referral-link'>
               <span>{t('How to participate')}</span>
-              <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden='true' />
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                aria-hidden='true'
+                className='hero-referral-arrow'
+              />
             </span>
           </a>
         </section>
@@ -212,7 +323,7 @@ export function BeiAPIHome() {
           aria-labelledby='routing-title'
         >
           <div className='wrap routing-inner'>
-            <div>
+            <div data-reveal=''>
               <p className='kicker'>{t('Unified model access')}</p>
               <h2 className='section-title' id='routing-title'>
                 {t(
@@ -225,7 +336,9 @@ export function BeiAPIHome() {
                 )}
               </p>
             </div>
-            <ResearchHub />
+            <div data-reveal=''>
+              <ResearchHub />
+            </div>
           </div>
         </section>
         <section
@@ -234,7 +347,7 @@ export function BeiAPIHome() {
           aria-labelledby='process-title'
         >
           <div className='wrap'>
-            <div className='process-head'>
+            <div className='process-head' data-reveal=''>
               <p className='kicker'>{t('Getting connected')}</p>
               <h2 className='section-title' id='process-title'>
                 {t(
@@ -248,50 +361,27 @@ export function BeiAPIHome() {
               </p>
             </div>
             <div className='steps'>
-              <Card className='step'>
-                <span className='step-num' aria-hidden='true'>
-                  01
-                </span>
-                <h3 className='step-title'>{t('Set up access')}</h3>
-                <p className='step-body'>
-                  {t(
-                    'Follow the guide to configure ChatGPT or Claude API access in your research tools.'
-                  )}
-                </p>
-              </Card>
-              <Card className='step'>
-                <span className='step-num' aria-hidden='true'>
-                  02
-                </span>
-                <h3 className='step-title'>{t('Full model capabilities')}</h3>
-                <p className='step-body'>
-                  {t(
-                    'An uncompromised experience for long research documents, code reasoning and literature workflows.'
-                  )}
-                </p>
-              </Card>
-              <Card className='step'>
-                <span className='step-num' aria-hidden='true'>
-                  03
-                </span>
-                <h3 className='step-title'>{t('Cover research tasks')}</h3>
-                <p className='step-body'>
-                  {t(
-                    'One API gateway for writing, debugging, data analysis and literature workflows.'
-                  )}
-                </p>
-              </Card>
-              <Card className='step'>
-                <span className='step-num' aria-hidden='true'>
-                  04
-                </span>
-                <h3 className='step-title'>{t('Ongoing community updates')}</h3>
-                <p className='step-body'>
-                  {t(
-                    'Practical AI research workflows and tips for common graduate and PhD questions.'
-                  )}
-                </p>
-              </Card>
+              {processSteps.map((step, index) => (
+                <Card
+                  key={step.num}
+                  className='step'
+                  data-reveal=''
+                  style={
+                    { '--reveal-delay': `${index * 65}ms` } as CSSProperties
+                  }
+                >
+                  <div className='step-head'>
+                    <span className='step-num' aria-hidden='true'>
+                      {step.num}
+                    </span>
+                    <span className='step-icon' aria-hidden='true'>
+                      <HugeiconsIcon icon={step.icon} aria-hidden='true' />
+                    </span>
+                  </div>
+                  <h3 className='step-title'>{t(step.titleKey)}</h3>
+                  <p className='step-body'>{t(step.bodyKey)}</p>
+                </Card>
+              ))}
             </div>
           </div>
         </section>
@@ -300,7 +390,7 @@ export function BeiAPIHome() {
           id='codex-install-video'
           aria-labelledby='codex-video-title'
         >
-          <div className='wrap tutorial-inner'>
+          <div className='wrap tutorial-inner' data-reveal=''>
             <div className='tutorial-content'>
               <p className='kicker'>{t('Installation and setup')}</p>
               <h2 className='section-title' id='codex-video-title'>
@@ -313,7 +403,7 @@ export function BeiAPIHome() {
               </p>
               <div className='tutorial-actions'>
                 <Button
-                  className='btn btn-primary'
+                  className='btn btn-primary btn-arrow-group'
                   variant='default'
                   role='link'
                   render={
@@ -330,6 +420,11 @@ export function BeiAPIHome() {
                     className='btn-icon'
                   />
                   {t('Read the installation docs')}
+                  <HugeiconsIcon
+                    icon={ArrowUpRight01Icon}
+                    aria-hidden='true'
+                    className='btn-arrow btn-arrow-up-right'
+                  />
                 </Button>
                 <Button
                   className='btn btn-outline'
@@ -364,47 +459,60 @@ export function BeiAPIHome() {
               aria-label={t('Codex installation guide preview')}
             >
               <div className='tutorial-video-head'>
-                <img
-                  className='tutorial-brand-logo'
-                  src={codexBeiLogo}
-                  alt=''
-                />
+                <span className='tutorial-brand-frame'>
+                  <img
+                    className='tutorial-brand-logo'
+                    src={codexBeiLogo}
+                    alt=''
+                  />
+                </span>
                 <div>
                   <h3 className='tutorial-preview-title'>
                     {t('Set up Codex or Claude in one click without a VPN')}
                   </h3>
                 </div>
               </div>
-              <ol className='tutorial-checks'>
-                <li>
-                  <span>01</span>
-                  {t('Install CodexBei and the ChatGPT or Claude desktop app.')}
-                </li>
-                <li>
-                  <span>02</span>
-                  {t(
-                    'Click “One-click setup” in the dashboard and wait for completion.'
-                  )}
-                </li>
-                <li>
-                  <span>03</span>
-                  {t(
-                    'Restart the desktop app, start a new conversation and check the dashboard usage records.'
-                  )}
-                </li>
+              <ol
+                className='tutorial-checks'
+                aria-label={t('Setup walkthrough steps')}
+              >
+                {setupGuideSteps.map((step, index) => (
+                  <li
+                    key={step.num}
+                    className={cn(
+                      'tutorial-check-item',
+                      activeSetupStep === index && 'is-active'
+                    )}
+                  >
+                    <button
+                      type='button'
+                      className='tutorial-check-btn'
+                      aria-pressed={activeSetupStep === index}
+                      onClick={() => setActiveSetupStep(index)}
+                      onPointerEnter={() => setActiveSetupStep(index)}
+                    >
+                      <span className='tutorial-check-num' aria-hidden='true'>
+                        {step.num}
+                      </span>
+                      <span className='tutorial-check-text'>
+                        {t(step.textKey)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
               </ol>
             </Card>
           </div>
         </section>
         <section className='trust' id='trust' aria-labelledby='trust-title'>
           <div className='wrap trust-inner'>
-            <div>
+            <div data-reveal=''>
               <p className='kicker'>{t('About Bei')}</p>
               <h2 className='section-title' id='trust-title'>
                 {t('Research AI access from a long-time research AI educator.')}
               </h2>
             </div>
-            <div className='trust-panel'>
+            <div className='trust-panel' data-reveal=''>
               <p className='trust-quote'>
                 {t(
                   'BeiAPI reaches over 100,000 followers, sharing research AI content to help graduate and PhD students apply AI to writing, code and research workflows.'
@@ -412,12 +520,22 @@ export function BeiAPIHome() {
               </p>
               <div className='trust-metrics'>
                 <div className='metric'>
+                  <span
+                    className='metric-accent'
+                    data-reveal-bar=''
+                    aria-hidden='true'
+                  />
                   <strong className='metric-val'>{t('100K+')}</strong>
                   <span className='metric-lbl'>
                     {t('Followers and research AI audiences')}
                   </span>
                 </div>
                 <div className='metric'>
+                  <span
+                    className='metric-accent'
+                    data-reveal-bar=''
+                    aria-hidden='true'
+                  />
                   <strong className='metric-val'>{t('Long-term')}</strong>
                   <span className='metric-lbl'>
                     {t(
@@ -426,6 +544,11 @@ export function BeiAPIHome() {
                   </span>
                 </div>
                 <div className='metric'>
+                  <span
+                    className='metric-accent'
+                    data-reveal-bar=''
+                    aria-hidden='true'
+                  />
                   <strong className='metric-val'>{t('Focused')}</strong>
                   <span className='metric-lbl'>
                     {t(
@@ -443,7 +566,7 @@ export function BeiAPIHome() {
           aria-labelledby='pricing-title'
         >
           <div className='wrap pricing-inner'>
-            <div>
+            <div data-reveal=''>
               <p className='kicker'>{t('Flexible usage')}</p>
               <h2 className='section-title' id='pricing-title'>
                 {t(
@@ -457,12 +580,17 @@ export function BeiAPIHome() {
               </p>
               <div className='btn-row'>
                 <Button
-                  className='btn btn-primary'
+                  className='btn btn-primary btn-arrow-group'
                   variant='default'
                   role='link'
                   render={<Link to='/sign-in' />}
                 >
                   {t('Connect now')}
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    aria-hidden='true'
+                    className='btn-arrow'
+                  />
                 </Button>
                 <Button
                   className='btn btn-outline'
@@ -474,10 +602,17 @@ export function BeiAPIHome() {
                 </Button>
               </div>
             </div>
-            <div>
+            <div data-reveal=''>
               <div className='price-facts' aria-label={t('Pricing advantages')}>
                 <div className='price-fact'>
                   <strong>95%</strong>
+                  <span className='price-fact-meter' aria-hidden='true'>
+                    <span
+                      className='price-fact-meter-fill'
+                      data-reveal-bar=''
+                      style={{ '--meter-width': '95%' } as CSSProperties}
+                    />
+                  </span>
                   <span>
                     {t(
                       'High cache hit rates save on repeated context and frequent tasks.'
@@ -486,12 +621,27 @@ export function BeiAPIHome() {
                 </div>
                 <div className='price-fact'>
                   <strong>{t('10% of price')}</strong>
+                  <span
+                    className='price-fact-meter price-fact-meter-discount'
+                    aria-hidden='true'
+                  >
+                    <span
+                      className='price-fact-meter-fill'
+                      data-reveal-bar=''
+                      style={{ '--meter-width': '14%' } as CSSProperties}
+                    />
+                  </span>
                   <span>
                     {t('Cached tokens cost one tenth of the original price.')}
                   </span>
                 </div>
                 <div className='price-fact'>
                   <strong>{t('Pay as needed')}</strong>
+                  <span className='price-fact-segments' aria-hidden='true'>
+                    <span />
+                    <span />
+                    <span />
+                  </span>
                   <span>
                     {t('Start small and top up based on actual usage.')}
                   </span>
@@ -508,17 +658,22 @@ export function BeiAPIHome() {
                     </p>
                   </div>
                   <Button
-                    className='price-badge pb-link'
+                    className='price-action btn-arrow-group'
                     type='button'
                     aria-haspopup='dialog'
                     aria-expanded={modal === 'service'}
-                    variant='ghost'
+                    variant='outline'
                     onClick={() => setModal('service')}
                   >
-                    {t('About the research API')}
+                    <span>{t('About the research API')}</span>
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      aria-hidden='true'
+                      className='btn-arrow'
+                    />
                   </Button>
                 </div>
-                <div className='price-tier'>
+                <div className='price-tier is-featured'>
                   <div>
                     <p className='price-name'>{t('Frequent research use')}</p>
                     <p className='price-desc'>
@@ -527,7 +682,18 @@ export function BeiAPIHome() {
                       )}
                     </p>
                   </div>
-                  <span className='price-badge pb-rec'>{t('Recommended')}</span>
+                  <Badge
+                    variant='secondary'
+                    className='price-badge pb-rec'
+                    data-static-badge='true'
+                  >
+                    <HugeiconsIcon
+                      icon={SparklesIcon}
+                      aria-hidden='true'
+                      className='price-rec-icon'
+                    />
+                    {t('Recommended')}
+                  </Badge>
                 </div>
                 <div className='price-tier'>
                   <div>
@@ -539,14 +705,19 @@ export function BeiAPIHome() {
                     </p>
                   </div>
                   <Button
-                    className='price-badge pb-consult'
+                    className='price-action btn-arrow-group'
                     type='button'
                     aria-haspopup='dialog'
                     aria-expanded={modal === 'community'}
-                    variant='ghost'
+                    variant='outline'
                     onClick={() => setModal('community')}
                   >
-                    {t('Contact us')}
+                    <span>{t('Contact us')}</span>
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      aria-hidden='true'
+                      className='btn-arrow'
+                    />
                   </Button>
                 </div>
               </div>
@@ -565,7 +736,7 @@ export function BeiAPIHome() {
         >
           <div className='wrap referral'>
             <div className='reward-shell'>
-              <div className='reward-intro'>
+              <div className='reward-intro' data-reveal=''>
                 <div className='reward-intro-copy'>
                   <p className='kicker'>{t('Campus partners')}</p>
                   <h2 className='reward-heading' id='campus-partner-title'>
@@ -578,17 +749,23 @@ export function BeiAPIHome() {
                   </p>
                 </div>
                 <Button
-                  className='btn btn-primary'
+                  className='btn btn-primary btn-arrow-group'
                   variant='default'
                   role='link'
                   render={<Link to='/campus-partner' />}
                 >
                   {t('Join campus partners')}
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    aria-hidden='true'
+                    className='btn-arrow'
+                  />
                 </Button>
               </div>
               <Card
                 className='signup-reward'
                 aria-labelledby='partner-invitation-title'
+                data-reveal=''
               >
                 <div className='signup-reward-main'>
                   <span className='signup-reward-num' aria-hidden='true'>
@@ -634,18 +811,25 @@ export function BeiAPIHome() {
                   <strong>{t('5% off')}</strong>
                   <em>{t('Pay-as-you-go top-up coupon · Single use')}</em>
                   <Button
-                    className='btn btn-primary'
+                    className='btn btn-primary btn-arrow-group'
                     variant='default'
                     role='link'
                     render={<Link to='/campus-partner' />}
                   >
                     {t('Get my invitation link')}
+                    <HugeiconsIcon
+                      icon={ArrowRight02Icon}
+                      aria-hidden='true'
+                      className='btn-arrow'
+                    />
                   </Button>
                 </div>
               </Card>
               <div
                 className='reward-grid'
                 aria-label={t('Campus partner commission details')}
+                data-reveal=''
+                style={{ '--reveal-delay': '80ms' } as CSSProperties}
               >
                 <Card
                   className='reward-path'
@@ -681,10 +865,24 @@ export function BeiAPIHome() {
                         30%<em>{t('and up')}</em>
                       </strong>
                     </div>
-                    <div className='commission-metric'>
+                    <div className='commission-metric is-peak'>
                       <span>{t('Highest commission tier')}</span>
                       <strong>50%</strong>
                     </div>
+                  </div>
+                  <div className='commission-ladder' aria-hidden='true'>
+                    {commissionLadderBars.map((bar) => (
+                      <span
+                        key={bar.id}
+                        className='commission-ladder-bar'
+                        style={
+                          {
+                            '--bar-scale': bar.height,
+                            '--bar-opacity': bar.opacity,
+                          } as CSSProperties
+                        }
+                      />
+                    ))}
                   </div>
                   <div className='reward-extra reward-extra-neutral'>
                     <span>{t('Top-ups spanning multiple tiers')}</span>
@@ -713,12 +911,17 @@ export function BeiAPIHome() {
                       {t('Read the full rules')}
                     </Button>
                     <Button
-                      className='btn btn-primary'
+                      className='btn btn-primary btn-arrow-group'
                       variant='default'
                       role='link'
                       render={<Link to='/campus-partner' />}
                     >
                       {t('Open partner center')}
+                      <HugeiconsIcon
+                        icon={ArrowRight02Icon}
+                        aria-hidden='true'
+                        className='btn-arrow'
+                      />
                     </Button>
                   </div>
                 </Card>
@@ -736,35 +939,45 @@ export function BeiAPIHome() {
           id='access'
           aria-labelledby='final-title'
         >
-          <div className='wrap'>
-            <p className='kicker'>{t('Get started')}</p>
-            <h2 className='section-title' id='final-title'>
-              {t('Make ChatGPT and Claude part of your research productivity.')}
-            </h2>
-            <p className='section-body'>
-              {t(
-                'Connect and configure your AI tools, then bring writing, coding, data analysis and literature workflows into everyday research.'
-              )}
-            </p>
-            <div className='btn-row'>
-              <Button
-                className='btn btn-primary'
-                variant='default'
-                role='link'
-                render={<Link to='/sign-in' />}
-              >
-                {t('Connect now')}
-              </Button>
-              <Button
-                className='btn btn-outline'
-                type='button'
-                aria-haspopup='dialog'
-                aria-expanded={modal === 'service'}
-                variant='outline'
-                onClick={() => setModal('service')}
-              >
-                {t('About the research API')}
-              </Button>
+          <div className='wrap final-cta-frame' data-reveal=''>
+            <div className='final-cta-backdrop' aria-hidden='true' />
+            <div className='final-cta-content'>
+              <p className='kicker'>{t('Get started')}</p>
+              <h2 className='section-title' id='final-title'>
+                {t(
+                  'Make ChatGPT and Claude part of your research productivity.'
+                )}
+              </h2>
+              <p className='section-body'>
+                {t(
+                  'Connect and configure your AI tools, then bring writing, coding, data analysis and literature workflows into everyday research.'
+                )}
+              </p>
+              <div className='btn-row'>
+                <Button
+                  className='btn btn-primary btn-arrow-group'
+                  variant='default'
+                  role='link'
+                  render={<Link to='/sign-in' />}
+                >
+                  {t('Connect now')}
+                  <HugeiconsIcon
+                    icon={ArrowRight02Icon}
+                    aria-hidden='true'
+                    className='btn-arrow'
+                  />
+                </Button>
+                <Button
+                  className='btn btn-outline'
+                  type='button'
+                  aria-haspopup='dialog'
+                  aria-expanded={modal === 'service'}
+                  variant='outline'
+                  onClick={() => setModal('service')}
+                >
+                  {t('About the research API')}
+                </Button>
+              </div>
             </div>
           </div>
         </section>

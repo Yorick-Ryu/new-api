@@ -20,6 +20,31 @@ For commercial licensing, please contact support@quantumnous.com
   width: 100%;
   container-type: inline-size;
 }
+.beiapi-home .research-hub-canvas {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      color-mix(in oklab, var(--primary) 7%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in oklab, var(--border) 95%, transparent) 1px,
+      transparent 1.1px
+    ),
+    var(--card);
+  background-size:
+    100% 100%,
+    20px 20px,
+    100% 100%;
+  overflow: hidden;
+  transition: border-color 0.24s ease;
+}
+.beiapi-home .research-hub[data-has-active='true'] .research-hub-canvas {
+  border-color: color-mix(in oklab, var(--primary) 34%, var(--border));
+}
 .beiapi-home .research-hub-map {
   position: relative;
   isolation: isolate;
@@ -29,8 +54,8 @@ For commercial licensing, please contact support@quantumnous.com
   margin-inline: auto;
   grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 40px 24px;
-  padding-block: 16px;
+  gap: 36px 24px;
+  padding: 28px 24px;
 }
 .beiapi-home .research-hub-connections {
   position: absolute;
@@ -40,31 +65,67 @@ For commercial licensing, please contact support@quantumnous.com
   overflow: visible;
   pointer-events: none;
 }
+.beiapi-home .research-hub-connection {
+  transition: opacity 0.24s ease;
+}
+.beiapi-home
+  .research-hub-map[data-has-active='true']
+  .research-hub-connection:not(.is-active) {
+  opacity: 0.36;
+}
+.beiapi-home .research-hub-glow,
 .beiapi-home .research-hub-wire,
 .beiapi-home .research-hub-pulse {
   fill: none;
-  stroke: color-mix(in oklab, var(--primary) 22%, var(--border));
-  stroke-width: 1.25;
+}
+.beiapi-home .research-hub-glow {
+  stroke: color-mix(in oklab, var(--primary) 22%, transparent);
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+.beiapi-home .research-hub-connection.is-active .research-hub-glow {
+  opacity: 1;
+}
+.beiapi-home .research-hub-wire {
+  stroke: color-mix(in oklab, var(--primary) 24%, var(--border));
+  stroke-width: 1.35;
+  transition:
+    stroke 0.22s ease,
+    stroke-width 0.22s ease;
 }
 .beiapi-home .research-hub-pulse {
+  display: none;
   stroke: var(--primary);
-  stroke-width: 2;
+  stroke-width: 2.25;
   stroke-linecap: round;
-  stroke-dasharray: 8 122;
+  stroke-dasharray: 10 120;
   stroke-dashoffset: 130;
-  animation: research-hub-flow 5s linear infinite;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .beiapi-home .research-hub-pulse {
+    display: block;
+    animation: research-hub-flow 4.8s linear infinite;
+  }
+  .beiapi-home .research-hub-connection.is-active .research-hub-pulse {
+    stroke-width: 2.75;
+    stroke-dasharray: 16 114;
+    animation-duration: 2.2s;
+  }
 }
 .beiapi-home .research-hub-connection:nth-child(2) .research-hub-pulse {
-  animation-delay: -1.25s;
+  animation-delay: -1.2s;
 }
 .beiapi-home .research-hub-connection:nth-child(3) .research-hub-pulse {
-  animation-delay: -2.5s;
+  animation-delay: -2.4s;
 }
 .beiapi-home .research-hub-connection:nth-child(4) .research-hub-pulse {
-  animation-delay: -3.75s;
+  animation-delay: -3.6s;
 }
 .beiapi-home .research-hub-connection.is-active .research-hub-wire {
   stroke: var(--primary);
+  stroke-width: 1.75;
 }
 .beiapi-home .research-hub-node {
   z-index: 1;
@@ -78,8 +139,8 @@ For commercial licensing, please contact support@quantumnous.com
   align-content: center;
   align-items: center;
   justify-items: start;
-  gap: 3px 12px;
-  padding: 10px 14px;
+  gap: 2px 12px;
+  padding: 11px 14px;
   border-color: var(--border);
   border-radius: var(--radius-xl);
   background: var(--card);
@@ -87,12 +148,20 @@ For commercial licensing, please contact support@quantumnous.com
   white-space: normal;
   text-align: start;
   transform: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .beiapi-home .research-hub-node:hover,
 .beiapi-home .research-hub-node.is-active {
-  border-color: color-mix(in oklab, var(--primary) 60%, var(--border));
-  background: var(--card);
+  border-color: color-mix(in oklab, var(--primary) 58%, var(--border));
+  background: color-mix(in oklab, var(--primary) 5%, var(--card));
   color: var(--card-foreground);
+}
+.beiapi-home .research-hub-node[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--primary) 72%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 26%, transparent);
 }
 .beiapi-home .research-hub-icon {
   display: grid;
@@ -100,25 +169,35 @@ For commercial licensing, please contact support@quantumnous.com
   grid-row: 1 / 3;
   width: 36px;
   height: 36px;
+  border: 1px solid color-mix(in oklab, var(--primary) 16%, transparent);
   border-radius: var(--radius-md);
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   color: var(--primary);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.beiapi-home .research-hub-node.is-active .research-hub-icon {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 .beiapi-home .research-hub-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 .beiapi-home .research-hub-title {
   grid-column: 2;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 .beiapi-home .research-hub-description {
   grid-column: 2;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 0.75rem;
+  line-height: 1.55;
   color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
@@ -142,12 +221,16 @@ For commercial licensing, please contact support@quantumnous.com
   position: absolute;
   top: 50%;
   right: -4px;
-  width: 7px;
-  height: 7px;
-  border: 1px solid color-mix(in oklab, var(--primary) 45%, var(--border));
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid color-mix(in oklab, var(--primary) 50%, var(--border));
   border-radius: 50%;
   background: var(--card);
   transform: translateY(-50%);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .beiapi-home .research-hub-writing .research-hub-port,
 .beiapi-home .research-hub-code .research-hub-port {
@@ -156,6 +239,8 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .research-hub-node.is-active .research-hub-port {
   background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);
 }
 .beiapi-home .research-hub-brand {
   z-index: 1;
@@ -171,13 +256,53 @@ For commercial licensing, please contact support@quantumnous.com
   text-align: center;
 }
 .beiapi-home .research-hub-logo-frame {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border: 1px solid var(--border);
+  width: 66px;
+  height: 66px;
+  border: 1px solid color-mix(in oklab, var(--primary) 24%, var(--border));
   border-radius: var(--radius-xl);
   background: var(--card);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 6%, transparent);
+  transition:
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+.beiapi-home
+  .research-hub-map[data-has-active='true']
+  .research-hub-logo-frame {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 8px color-mix(in oklab, var(--primary) 11%, transparent);
+}
+.beiapi-home .research-hub-halo {
+  display: none;
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .beiapi-home .research-hub-map[data-has-active='true'] .research-hub-halo {
+    display: block;
+    padding: 1.5px;
+    background: conic-gradient(
+      from var(--auto-group-flow-angle),
+      transparent 0deg 230deg,
+      color-mix(in oklab, var(--primary) 45%, transparent) 295deg,
+      var(--primary) 340deg,
+      transparent 360deg
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: auto-group-flow-border-travel 2.8s linear infinite;
+  }
 }
 .beiapi-home .research-hub-mark {
   display: block;
@@ -193,11 +318,67 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .research-hub-name {
   max-width: 100%;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--foreground);
   overflow-wrap: anywhere;
+}
+.beiapi-home .research-hub-detail {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 72%, var(--card));
+  transition: background-color 0.2s ease;
+}
+.beiapi-home .research-hub-detail:not([data-active='idle']) {
+  background: color-mix(in oklab, var(--accent) 55%, var(--card));
+}
+.beiapi-home .research-hub-detail-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.beiapi-home .research-hub-detail-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.beiapi-home .research-hub-detail-body {
+  min-width: 0;
+}
+.beiapi-home .research-hub-detail-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.beiapi-home .research-hub-detail-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+.beiapi-home .research-hub-detail-tag {
+  height: auto;
+  padding: 1px 8px;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  border-radius: var(--radius-badge);
+}
+.beiapi-home .research-hub-detail-copy {
+  margin-top: 3px;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
 }
 @keyframes research-hub-flow {
   to {
@@ -210,7 +391,7 @@ For commercial licensing, please contact support@quantumnous.com
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: 1fr auto 1fr;
     gap: 24px 14px;
-    padding-block: 14px;
+    padding: 18px 14px;
   }
   .beiapi-home .research-hub-brand {
     grid-area: 2 / 1 / 3 / 3;
@@ -245,7 +426,7 @@ For commercial licensing, please contact support@quantumnous.com
     grid-column: 1;
   }
   .beiapi-home .research-hub-title {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
   .beiapi-home .research-hub-port,
   .beiapi-home .research-hub-writing .research-hub-port,
@@ -260,10 +441,24 @@ For commercial licensing, please contact support@quantumnous.com
     top: auto;
     bottom: -4px;
   }
+  .beiapi-home .research-hub-detail {
+    padding: 12px 14px;
+  }
 }
-@media (prefers-reduced-motion: reduce) {
+@media (forced-colors: active) {
+  .beiapi-home .research-hub-wire {
+    stroke: CanvasText;
+  }
+  .beiapi-home .research-hub-connection.is-active .research-hub-wire,
   .beiapi-home .research-hub-pulse {
-    display: none;
-    animation: none;
+    stroke: Highlight;
+  }
+  .beiapi-home .research-hub-node.is-active {
+    border-color: Highlight;
+    outline: 1px solid Highlight;
+  }
+  .beiapi-home .research-hub-node.is-active .research-hub-port {
+    background: Highlight;
+    border-color: Highlight;
   }
 }

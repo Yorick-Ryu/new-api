@@ -389,4 +389,89 @@ describe('configured homepage rendering', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
   })
+  test('setup walkthrough steps toggle active selection by click and keyboard', async () => {
+    const user = userEvent.setup()
+    await renderHome()
+    const stepsList = await screen.findByRole('list', {
+      name: 'Setup walkthrough steps',
+    })
+    const stepButtons = within(stepsList).getAllByRole('button')
+    expect(stepButtons).toHaveLength(3)
+    expect(stepButtons[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(stepButtons[1]).toHaveAttribute('aria-pressed', 'false')
+    await user.click(stepButtons[1])
+    expect(stepButtons[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(stepButtons[1]).toHaveAttribute('aria-pressed', 'true')
+  })
+  test('pricing separates static recommendation badge from interactive dialog buttons', async () => {
+    await renderHome()
+    const pricing = await screen.findByRole('region', {
+      name: 'Cache hits can significantly reduce your research API costs.',
+    })
+    const recommended = within(pricing).getByText('Recommended')
+    expect(recommended.closest('button')).toBeNull()
+    expect(
+      within(pricing).getByRole('button', { name: 'About the research API' })
+    ).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(
+      within(pricing).getByRole('button', { name: 'Contact us' })
+    ).toHaveAttribute('aria-haspopup', 'dialog')
+  })
+  test('scroll reveal fallback hides only below-fold elements when native scroll timelines are unsupported and reveals them on intersection', async () => {
+    let revealCallback: IntersectionObserverCallback | undefined
+    const observed: Element[] = []
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('no-preference'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    }))
+    vi.stubGlobal('CSS', { supports: () => false })
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        callback: IntersectionObserverCallback
+        constructor(callback: IntersectionObserverCallback) {
+          this.callback = callback
+        }
+        observe(target: Element) {
+          observed.push(target)
+          if (target.hasAttribute('data-reveal')) {
+            revealCallback = this.callback
+          }
+        }
+        unobserve() {}
+        disconnect() {}
+      }
+    )
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        if (this.hasAttribute('data-reveal')) {
+          return new DOMRect(0, 1400, 600, 120)
+        }
+        return new DOMRect(0, 0, 600, 120)
+      }
+    )
+    await renderHome()
+    await screen.findByRole('heading', { level: 1, name: 'Bei API' })
+    const revealTargets = [...document.querySelectorAll('[data-reveal]')]
+    expect(revealTargets.length).toBeGreaterThan(0)
+    expect(revealTargets[0]).toHaveAttribute('data-reveal-state', 'pending')
+    await act(async () => {
+      revealCallback?.(
+        [
+          {
+            isIntersecting: true,
+            target: revealTargets[0],
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      )
+    })
+    expect(revealTargets[0]).toHaveAttribute('data-reveal-state', 'visible')
+  })
 })

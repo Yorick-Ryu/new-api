@@ -8788,6 +8788,15 @@
     "Standard cache write price": "一般快取寫入單價",
     "Switch cache billing method?": "切換快取計費方式？",
     "Switch method": "切換方式",
-    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "切換為「{{method}}」將移除以下已設定的快取價格：{{prices}}。"
+    "Switching to {{method}} removes these configured cache prices: {{prices}}.": "切換為「{{method}}」將移除以下已設定的快取價格：{{prices}}。",
+    "Hover or select a node to inspect each research workflow.": "懸停或點擊任意節點，查看對應科研場景的接入方式。",
+    "Unified OpenAI & Claude compatible gateway": "統一相容 OpenAI 與 Claude 協定入口",
+    "Connect Codex, Cursor, Claude Code and Python scripts through one consistent API endpoint and key.": "透過同一套 API 位址與金鑰，直接接入 Codex、Cursor、Claude Code 與科研腳本。",
+    "Polish manuscripts, refine structure, and draft reviewer responses with long-context precision.": "面向長文潤飾、結構梳理與審稿意見回覆，保持上下文連貫與學術表達準確。",
+    "Read dense papers, extract structured tables, and synthesize cross-paper findings efficiently.": "高效速讀英文文獻、擷取結構化對比表並歸納跨論文結論，輔助建構綜述筆記。",
+    "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "輔助排查實驗報錯、重構分析腳本與工程化程式碼，提升重現與迭代效率。",
+    "Pinned": "已釘選",
+    "Video playback progress": "影片播放進度",
+    "Setup walkthrough steps": "一鍵配置步驟"
   }
 }

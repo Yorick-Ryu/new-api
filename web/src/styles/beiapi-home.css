@@ -16,21 +16,40 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/* BeiAPI's deployed homepage styles, scoped to native content and shared-dialog bodies. */
+/* BeiAPI's native homepage styles: colors, fonts, corners and scale inherit NewAPI themes. */
 .beiapi-home {
   --content-max: 1200px;
   --page-gutter: 24px;
-  --font-ui-sans: sans-serif;
   --action: var(--primary);
   --primary-text: var(--primary);
   --radius-card: var(--radius-xl);
   --radius-control: var(--radius-lg);
   --radius-badge: var(--radius-4xl);
+  --home-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --home-ease-snappy: linear(
+    0,
+    0.014,
+    0.056 2.2%,
+    0.21 4.6%,
+    0.766 13%,
+    0.958 17.1%,
+    1.028 20.6%,
+    1.056 24.4%,
+    1.052 28.9%,
+    1.011 40.5%,
+    0.995 49.4%,
+    0.996 62.3%,
+    1
+  );
+  --home-hairline: color-mix(in oklab, var(--border) 88%, transparent);
   --floating-shadow:
     0 2px 16px -6px rgb(0 0 0 / 8%), 0 0 0 0.5px rgb(0 0 0 / 2%);
+  position: relative;
   color: var(--foreground);
   background: var(--background);
-  font: 14px/1.6 var(--font-ui-sans);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 .dark .beiapi-home {
   --floating-shadow: 0 2px 16px -6px rgb(0 0 0 / 40%);
@@ -49,10 +68,6 @@ For commercial licensing, please contact support@quantumnous.com
   scroll-margin-top: 96px;
 }
 
-/* Align the standalone homepage with the site's base-nova semantic theme. */
-.beiapi-home * {
-  box-sizing: border-box;
-}
 .beiapi-home h1,
 .beiapi-home h2,
 .beiapi-home h3,
@@ -75,6 +90,11 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home button,
 .beiapi-home a {
   -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.2s ease;
 }
 .beiapi-home svg {
   display: block;
@@ -84,15 +104,8 @@ For commercial licensing, please contact support@quantumnous.com
   display: block;
   max-width: 100%;
 }
-.beiapi-home button,
-.beiapi-home a {
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease;
-}
 .beiapi-home :focus-visible {
-  outline: 3px solid color-mix(in oklab, var(--ring) 55%, transparent);
+  outline: 3px solid color-mix(in oklab, var(--ring) 60%, transparent);
   outline-offset: 3px;
 }
 .beiapi-home [hidden] {
@@ -102,17 +115,57 @@ For commercial licensing, please contact support@quantumnous.com
   width: min(var(--content-max), calc(100% - 2 * var(--page-gutter)));
   margin-inline: auto;
 }
+
+/* ── Compositor scroll progress hairline (progressive enhancement) ── */
+.beiapi-home .home-scroll-progress {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .beiapi-home .home-scroll-progress {
+      display: block;
+      position: fixed;
+      inset-block-start: 0;
+      inset-inline: 0;
+      z-index: 60;
+      height: 2px;
+      pointer-events: none;
+      background: linear-gradient(
+        90deg,
+        var(--primary),
+        color-mix(
+          in oklab,
+          var(--overview-accent-2, var(--primary)) 75%,
+          var(--primary)
+        )
+      );
+      transform-origin: left center;
+      animation: beiapi-scroll-progress auto linear;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+@keyframes beiapi-scroll-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ── Shared button & directional micro-interactions ── */
 .beiapi-home .btn,
 .beiapi-home .hero-consult-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 9px 17px;
+  min-block-size: 40px;
+  padding: 9px 18px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
@@ -120,9 +173,12 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .btn-primary {
   color: var(--primary-foreground);
   background: var(--action);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--primary) 26%, transparent);
 }
 .beiapi-home .btn-primary:hover {
-  background: color-mix(in oklab, var(--primary) 80%, transparent);
+  background: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  box-shadow: 0 4px 14px -4px
+    color-mix(in oklab, var(--primary) 42%, transparent);
 }
 .beiapi-home .btn-outline,
 .beiapi-home .hero-consult-btn {
@@ -133,10 +189,40 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .btn-outline:hover,
 .beiapi-home .hero-consult-btn:hover {
   background: var(--muted);
+  border-color: color-mix(in oklab, var(--primary) 34%, var(--border));
 }
 .beiapi-home .btn-icon {
   width: 17px;
   height: 17px;
+}
+.beiapi-home .btn-arrow {
+  width: 15px;
+  height: 15px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .beiapi-home .btn-arrow,
+  .beiapi-home .shortcut-arrow,
+  .beiapi-home .hero-referral-arrow,
+  .beiapi-home .video-guide-arrow {
+    transition: transform 0.34s var(--home-ease-out);
+    transition-timing-function: var(--home-ease-snappy);
+  }
+  .beiapi-home .btn-arrow-group:hover .btn-arrow,
+  .beiapi-home .btn-arrow-group:focus-visible .btn-arrow {
+    transform: translateX(3px);
+  }
+  .beiapi-home .btn-arrow-group:hover .btn-arrow-up-right,
+  .beiapi-home .btn-arrow-group:focus-visible .btn-arrow-up-right,
+  .beiapi-home .video-guide-link:hover .video-guide-arrow,
+  .beiapi-home
+    .hero-shortcut:hover
+    .shortcut-arrow:not(.shortcut-arrow-inline) {
+    transform: translate(2px, -2px);
+  }
+  .beiapi-home .hero-shortcut:hover .shortcut-arrow-inline,
+  .beiapi-home .hero-referral:hover .hero-referral-arrow {
+    transform: translateX(3px);
+  }
 }
 .beiapi-home .btn-row {
   display: flex;
@@ -144,34 +230,232 @@ For commercial licensing, please contact support@quantumnous.com
   flex-wrap: wrap;
   margin-top: 26px;
 }
+
+/* ── Shared section typography ── */
 .beiapi-home .section-title,
 .beiapi-home .reward-heading {
-  font-size: clamp(26px, 2.6vw, 36px);
+  font-size: clamp(1.625rem, 1.15rem + 1.35vw, 2.25rem);
   font-weight: 650;
-  line-height: 1.4;
-  letter-spacing: -0.035em;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 .beiapi-home .section-body,
 .beiapi-home .reward-lead {
   margin-top: 16px;
   color: var(--muted-foreground);
-  font-size: 16px;
-  line-height: 1.9;
+  font-size: 1rem;
+  line-height: 1.85;
+  text-wrap: pretty;
 }
 .beiapi-home .kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--primary-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
   line-height: 1.5;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   margin-bottom: 12px;
 }
-.beiapi-home .hero {
-  padding: 48px 0 56px;
+.beiapi-home .kicker::before {
+  content: '';
+  width: 14px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 65%, transparent);
 }
+
+/* ── Hero entrance choreography & scroll-driven reveals ── */
+@keyframes beiapi-hero-rise {
+  from {
+    opacity: 0.01;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes beiapi-beacon-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+  75%,
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+@keyframes beiapi-reveal-up {
+  from {
+    opacity: 0.14;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes beiapi-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .beiapi-home .hero-enter {
+    animation: beiapi-hero-rise 0.38s var(--home-ease-out) backwards;
+  }
+  .beiapi-home .hero-enter-1 {
+    animation-delay: 0ms;
+  }
+  .beiapi-home .hero-enter-2 {
+    animation-delay: 28ms;
+  }
+  .beiapi-home .hero-enter-3 {
+    animation-delay: 56ms;
+  }
+  .beiapi-home .hero-enter-4 {
+    animation-delay: 82ms;
+  }
+  .beiapi-home .hero-enter-5 {
+    animation-delay: 106ms;
+  }
+  .beiapi-home .hero-enter-6 {
+    animation-delay: 130ms;
+  }
+  .beiapi-home .hero-enter-visual {
+    animation-delay: 64ms;
+  }
+  .beiapi-home .hero-beacon-ring {
+    animation: beiapi-beacon-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .beiapi-home [data-reveal] {
+      animation: beiapi-reveal-up auto linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 20%;
+    }
+    .beiapi-home [data-reveal-bar] {
+      transform-origin: left center;
+      animation: beiapi-bar-grow auto linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 24%;
+    }
+  }
+  .beiapi-home [data-reveal][data-reveal-state='pending'] {
+    opacity: 0.14;
+    translate: 0 14px;
+  }
+  .beiapi-home [data-reveal][data-reveal-state='visible'] {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity 0.42s var(--home-ease-out),
+      translate 0.48s var(--home-ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .beiapi-home [data-reveal-bar][data-reveal-state='pending'] {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+  .beiapi-home [data-reveal-bar][data-reveal-state='visible'] {
+    transform: scaleX(1);
+    transform-origin: left center;
+    transition: transform 0.6s var(--home-ease-out);
+  }
+}
+
+/* ── Section 1: Hero ── */
 .beiapi-home .hero {
-  padding-top: 112px;
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  padding: 112px 0 60px;
+}
+.beiapi-home .hero-backdrop {
+  position: absolute;
+  inset: 0 0 auto;
+  height: min(760px, 100%);
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 56% 48% at 18% 12%,
+      color-mix(
+          in oklab,
+          var(--overview-accent-1, var(--primary)) 14%,
+          transparent
+        )
+        0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 46% 42% at 82% 16%,
+      color-mix(
+          in oklab,
+          var(--overview-accent-2, var(--primary)) 11%,
+          transparent
+        )
+        0%,
+      transparent 70%
+    );
+}
+.dark .beiapi-home .hero-backdrop {
+  background:
+    radial-gradient(
+      ellipse 56% 48% at 18% 12%,
+      color-mix(
+          in oklab,
+          var(--overview-accent-1, var(--primary)) 18%,
+          transparent
+        )
+        0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 46% 42% at 82% 16%,
+      color-mix(
+          in oklab,
+          var(--overview-accent-2, var(--primary)) 14%,
+          transparent
+        )
+        0%,
+      transparent 70%
+    );
+}
+.beiapi-home .hero-grid {
+  position: absolute;
+  inset: 0 0 auto;
+  height: min(640px, 100%);
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--border) 62%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--border) 62%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 56px 56px;
+  mask-image: radial-gradient(
+    ellipse 72% 58% at 50% 24%,
+    #000 18%,
+    transparent 92%
+  );
+  opacity: 0.45;
+}
+.dark .beiapi-home .hero-grid {
+  opacity: 0.35;
 }
 .beiapi-home .hero-inner {
   display: grid;
@@ -190,34 +474,47 @@ For commercial licensing, please contact support@quantumnous.com
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
+  padding: 5px 12px;
   color: var(--primary-text);
-  background: var(--accent);
+  background: color-mix(in oklab, var(--accent) 82%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--primary) 22%, var(--border));
   border-radius: var(--radius-badge);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 550;
   margin-bottom: 22px;
 }
-.beiapi-home .hero-eyebrow::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
+.beiapi-home .hero-beacon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 7px;
+  height: 7px;
   flex-shrink: 0;
 }
+.beiapi-home .hero-beacon-ring,
+.beiapi-home .hero-beacon-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+.beiapi-home .hero-beacon-ring {
+  opacity: 0;
+}
 .beiapi-home .hero-h1 {
-  font-size: clamp(42px, 4.6vw, 62px);
-  line-height: 1.18;
+  font-size: clamp(2.5rem, 1.65rem + 2.4vw, 3.875rem);
+  line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.045em;
+  text-wrap: balance;
 }
 .beiapi-home .hero-copy {
-  max-width: 33em;
-  margin-top: 22px;
-  font-size: 16px;
-  line-height: 1.95;
+  max-width: 34em;
+  margin-top: 20px;
+  font-size: 1rem;
+  line-height: 1.9;
   color: var(--muted-foreground);
+  text-wrap: pretty;
 }
 .beiapi-home .hero-tags {
   display: flex;
@@ -230,15 +527,16 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .hero-tags li {
   border: 1px solid var(--border);
   border-radius: var(--radius-badge);
-  padding: 4px 9px;
+  padding: 4px 10px;
+  background: color-mix(in oklab, var(--card) 85%, transparent);
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .beiapi-home .hero .btn-row {
   margin-top: 26px;
 }
 .beiapi-home .hero .btn-row .btn {
-  min-height: 42px;
+  min-block-size: 42px;
   padding-inline: 22px;
 }
 .beiapi-home .hero-shortcuts {
@@ -252,33 +550,49 @@ For commercial licensing, please contact support@quantumnous.com
   min-width: 0;
   flex-direction: column;
   gap: 5px;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--card);
 }
 .beiapi-home .hero-shortcut:hover {
-  background: var(--muted);
+  background: color-mix(in oklab, var(--accent) 45%, var(--card));
+  border-color: color-mix(in oklab, var(--primary) 42%, var(--border));
 }
 .beiapi-home .shortcut-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
+.beiapi-home .shortcut-arrow {
+  width: 15px;
+  height: 15px;
+  color: var(--muted-foreground);
+  transition: color 0.18s ease;
+}
+.beiapi-home .hero-shortcut:hover .shortcut-arrow {
+  color: var(--primary-text);
+}
 .beiapi-home .shortcut-desc {
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 0.75rem;
+  line-height: 1.65;
   color: var(--muted-foreground);
 }
+
+/* ── Hero Video Player Card ── */
 .beiapi-home .hero-video {
   margin: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--card);
+  box-shadow: 0 16px 40px -28px rgb(0 0 0 / 16%);
+}
+.dark .beiapi-home .hero-video {
+  box-shadow: 0 20px 48px -28px rgb(0 0 0 / 55%);
 }
 .beiapi-home .video-heading {
   display: grid;
@@ -293,9 +607,9 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .video-heading h2 {
   grid-column: 1;
   grid-row: 1;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.45;
   letter-spacing: -0.025em;
 }
 .beiapi-home .video-heading em {
@@ -306,21 +620,29 @@ For commercial licensing, please contact support@quantumnous.com
   grid-column: 1 / -1;
   grid-row: 2;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.7;
 }
 .beiapi-home .video-guide-link {
   grid-column: 2;
   grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   padding-block: 3px;
   color: var(--primary-text);
-  font-size: 12px;
+  font-size: 0.75rem;
+  font-weight: 550;
   line-height: 1.75;
   white-space: nowrap;
 }
 .beiapi-home .video-guide-link:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+.beiapi-home .video-guide-arrow {
+  width: 14px;
+  height: 14px;
 }
 .beiapi-home .video-stage {
   position: relative;
@@ -336,45 +658,103 @@ For commercial licensing, please contact support@quantumnous.com
   height: 100%;
   object-fit: contain;
 }
+.beiapi-home .video-progress-rail {
+  position: relative;
+  height: 3px;
+  width: 100%;
+  background: color-mix(in oklab, var(--border) 80%, var(--muted));
+  overflow: hidden;
+}
+.beiapi-home .video-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left center;
+  transition: transform 0.14s linear;
+}
+.beiapi-home .video-progress-tick {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  background: var(--card);
+  opacity: 0.85;
+  pointer-events: none;
+}
 .beiapi-home .video-chapters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 16px 18px;
+  padding: 0;
 }
 .beiapi-home .video-chapter {
+  position: relative;
   justify-content: flex-start;
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 5px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   border: 0;
-  border-right: 1px solid var(--border);
   border-radius: 0;
-  padding: 0 14px;
+  padding: 14px 16px;
   text-align: left;
   background: transparent;
   color: var(--foreground);
 }
-.beiapi-home .video-chapter:first-child {
-  padding-left: 0;
+.beiapi-home .video-chapter:not(:last-child) {
+  border-right: 1px solid var(--border);
 }
-.beiapi-home .video-chapter:last-child {
-  padding-right: 0;
-  border-right: 0;
+.beiapi-home .video-chapter:hover {
+  background: color-mix(in oklab, var(--muted) 72%, var(--card));
+}
+.beiapi-home .video-chapter[aria-current='true'] {
+  background: color-mix(in oklab, var(--accent) 65%, var(--card));
+}
+.beiapi-home .video-chapter-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.24s var(--home-ease-out);
+}
+.beiapi-home .video-chapter:hover .video-chapter-bar {
+  transform: scaleX(0.45);
+}
+.beiapi-home .video-chapter[aria-current='true'] .video-chapter-bar {
+  transform: scaleX(1);
+}
+.beiapi-home .video-chapter-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.beiapi-home .video-chapter-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background-color 0.2s ease;
+}
+.beiapi-home .video-chapter:hover .video-chapter-dot,
+.beiapi-home .video-chapter[aria-current='true'] .video-chapter-dot {
+  background: var(--primary);
 }
 .beiapi-home .video-chapter small {
   color: var(--muted-foreground);
   font:
-    10px/1.5 ui-monospace,
+    0.6875rem/1.4 ui-monospace,
     monospace;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .beiapi-home .video-chapter strong {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.5;
   font-weight: 550;
   white-space: nowrap;
+  transition: color 0.16s ease;
 }
 .beiapi-home .video-chapter:hover strong,
 .beiapi-home .video-chapter[aria-current='true'] strong {
@@ -388,14 +768,18 @@ For commercial licensing, please contact support@quantumnous.com
   border-radius: var(--radius-md);
   background: var(--card);
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .beiapi-home .video-error a {
   color: var(--primary-text);
   text-decoration: underline;
 }
+
+/* ── Hero Services & Campus Partner Strip ── */
 .beiapi-home .hero-services {
-  margin-top: 40px;
+  margin-top: 44px;
+  padding-top: 32px;
+  border-top: 1px solid var(--home-hairline);
 }
 .beiapi-home .hero-services-head {
   display: flex;
@@ -405,15 +789,15 @@ For commercial licensing, please contact support@quantumnous.com
   margin-bottom: 18px;
 }
 .beiapi-home .hero-services-title {
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.5;
 }
 .beiapi-home .hero-consult-btn {
-  min-height: 34px;
-  padding: 7px 12px;
-  font-size: 12px;
+  min-block-size: 34px;
+  padding: 7px 13px;
+  font-size: 0.75rem;
   flex-shrink: 0;
 }
 .beiapi-home .hero-services-row {
@@ -421,6 +805,7 @@ For commercial licensing, please contact support@quantumnous.com
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
+/* Info cards stay stationary on hover per NewAPI theme guidance. */
 .beiapi-home .hero-service-item {
   display: flex;
   align-items: center;
@@ -437,6 +822,7 @@ For commercial licensing, please contact support@quantumnous.com
   place-items: center;
   width: 40px;
   height: 40px;
+  border: 1px solid color-mix(in oklab, var(--primary) 16%, transparent);
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--primary-text);
@@ -444,8 +830,8 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .hero-service-icon svg,
 .beiapi-home .tutorial-play svg {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
 }
 .beiapi-home .hero-service-copy {
   display: flex;
@@ -454,40 +840,58 @@ For commercial licensing, please contact support@quantumnous.com
   min-width: 0;
 }
 .beiapi-home .hero-service-copy strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .beiapi-home .hero-service-copy > span {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-foreground);
   line-height: 1.7;
 }
 .beiapi-home .hero-referral {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   margin-top: 20px;
-  padding: 18px 22px;
-  border: 1px solid var(--border);
+  padding: 16px 22px;
+  border: 1px solid color-mix(in oklab, var(--primary) 24%, var(--border));
   border-radius: var(--radius-card);
-  background: var(--accent);
-  font-size: 13px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent) 95%, var(--card)) 0%,
+    color-mix(in oklab, var(--accent) 55%, var(--card)) 100%
+  );
+  font-size: 0.8125rem;
+}
+.beiapi-home .hero-referral:hover {
+  border-color: color-mix(in oklab, var(--primary) 48%, var(--border));
+  background: color-mix(in oklab, var(--accent) 96%, var(--card));
 }
 .beiapi-home .hero-referral-copy {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-  line-height: 1.8;
+  line-height: 1.75;
 }
 .beiapi-home .hero-referral-copy strong {
   color: var(--primary-text);
   font-weight: 600;
 }
+.beiapi-home .hero-referral-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  flex-shrink: 0;
+}
 .beiapi-home .hero-referral-icon {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   color: var(--primary-text);
 }
 .beiapi-home .hero-referral-link {
@@ -496,43 +900,59 @@ For commercial licensing, please contact support@quantumnous.com
   gap: 4px;
   flex-shrink: 0;
   color: var(--primary-text);
-  font-weight: 550;
-  font-size: 12px;
+  font-weight: 600;
+  font-size: 0.75rem;
 }
 .beiapi-home .hero-referral-link svg {
   width: 16px;
   height: 16px;
 }
+
+/* Reserve right-edge room on medium viewports so the fixed FloatingSupport launcher never overlaps the link. */
+@media (min-width: 601px) and (max-width: 1360px) {
+  .beiapi-home .hero-referral {
+    padding-inline-end: 68px;
+  }
+}
+
+/* ── Alternating sections ── */
 .beiapi-home .routing,
 .beiapi-home .process,
 .beiapi-home .tutorial,
 .beiapi-home .trust,
 .beiapi-home .pricing,
 .beiapi-home .partner-section {
-  padding-block: 64px;
+  padding-block: 68px;
 }
-.beiapi-home .routing {
+.beiapi-home .routing,
+.beiapi-home .trust,
+.beiapi-home .partner-section {
   background: var(--muted);
+  border-block: 1px solid var(--home-hairline);
 }
 .beiapi-home .routing-inner {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
   align-items: center;
-  gap: 80px;
+  gap: 64px;
 }
 .beiapi-home .routing-inner > div:first-child {
   max-width: 650px;
 }
+
+/* ── Section 3: Process ── */
 .beiapi-home .process-head {
   max-width: 750px;
-  margin-bottom: 28px;
+  margin-bottom: 30px;
 }
 .beiapi-home .steps {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 .beiapi-home .step {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -541,6 +961,25 @@ For commercial licensing, please contact support@quantumnous.com
   border-radius: var(--radius-card);
   background: var(--card);
 }
+.beiapi-home .step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.beiapi-home .step-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--muted) 75%, var(--card));
+}
+.beiapi-home .step-icon svg {
+  width: 16px;
+  height: 16px;
+}
 .beiapi-home .step-num,
 .beiapi-home .signup-reward-num,
 .beiapi-home .reward-path-num {
@@ -548,42 +987,47 @@ For commercial licensing, please contact support@quantumnous.com
   place-items: center;
   width: 32px;
   height: 32px;
+  border: 1px solid color-mix(in oklab, var(--primary) 18%, transparent);
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--primary-text);
   font:
-    600 12px/1 ui-monospace,
+    600 0.75rem/1 ui-monospace,
     monospace;
+  font-variant-numeric: tabular-nums;
 }
 .beiapi-home .step-title {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 2px;
+  font-size: 1rem;
   line-height: 1.5;
   font-weight: 600;
 }
 .beiapi-home .step-body {
   color: var(--muted-foreground);
-  font-size: 13px;
-  line-height: 1.9;
+  font-size: 0.8125rem;
+  line-height: 1.85;
+  text-wrap: pretty;
 }
+
+/* ── Section 4: Installation & Setup ── */
 .beiapi-home .tutorial {
   padding-top: 0;
 }
 .beiapi-home .tutorial-inner {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.08fr 0.92fr;
   gap: 48px;
   align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 32px;
+  padding: 36px;
   background: var(--card);
 }
 .beiapi-home .tutorial .section-title {
-  font-size: 28px;
+  font-size: clamp(1.5rem, 1.15rem + 1vw, 1.75rem);
 }
 .beiapi-home .tutorial .section-body {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .beiapi-home .tutorial-actions {
   display: flex;
@@ -593,19 +1037,25 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .tutorial-meta {
   display: flex;
-  gap: 18px;
-  margin-top: 20px;
-  color: var(--muted-foreground);
-  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
 }
 .beiapi-home .tutorial-meta span {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-badge);
+  background: color-mix(in oklab, var(--muted) 60%, var(--card));
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 .beiapi-home .tutorial-meta svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   color: var(--primary-text);
 }
 .beiapi-home .tutorial-preview {
@@ -617,45 +1067,90 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .tutorial-video-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+}
+.beiapi-home .tutorial-brand-frame {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  flex-shrink: 0;
 }
 .beiapi-home .tutorial-brand-logo {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
 }
 .beiapi-home .tutorial-preview-title {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
+  line-height: 1.45;
 }
 .beiapi-home .tutorial-checks {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 8px;
   list-style: none;
   padding: 0;
-  margin-top: 22px;
+  margin-top: 20px;
 }
-.beiapi-home .tutorial-checks li {
+.beiapi-home .tutorial-check-item {
+  position: relative;
+}
+.beiapi-home .tutorial-check-btn {
+  width: 100%;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: start;
   gap: 10px;
-  padding-block: 13px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  line-height: 1.8;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  text-align: left;
+  font-size: 0.8125rem;
+  line-height: 1.75;
 }
-.beiapi-home .tutorial-checks li span {
-  color: var(--primary-text);
+.beiapi-home .tutorial-check-btn:hover {
+  background: color-mix(in oklab, var(--card) 65%, transparent);
+  color: var(--foreground);
+}
+.beiapi-home .tutorial-check-item.is-active .tutorial-check-btn {
+  border-color: color-mix(in oklab, var(--primary) 34%, var(--border));
+  background: var(--card);
+  color: var(--foreground);
+}
+.beiapi-home .tutorial-check-num {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--border) 60%, var(--card));
+  color: var(--muted-foreground);
   font:
-    11px/1.9 ui-monospace,
+    600 0.6875rem/1 ui-monospace,
     monospace;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
-.beiapi-home .trust {
-  background: var(--muted);
+.beiapi-home .tutorial-check-item.is-active .tutorial-check-num {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
+.beiapi-home .tutorial-check-text {
+  min-width: 0;
+}
+
+/* ── Section 5: Trust / About Bei ── */
 .beiapi-home .trust-inner {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
@@ -663,13 +1158,18 @@ For commercial licensing, please contact support@quantumnous.com
   align-items: start;
 }
 .beiapi-home .trust .section-title {
-  font-size: 30px;
+  font-size: clamp(1.625rem, 1.2rem + 1.1vw, 1.95rem);
 }
 .beiapi-home .trust-quote {
-  font-size: 15px;
+  position: relative;
+  padding-inline-start: 16px;
+  border-inline-start: 2px solid
+    color-mix(in oklab, var(--primary) 55%, var(--border));
+  font-size: 0.9375rem;
   line-height: 1.95;
   color: var(--muted-foreground);
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  text-wrap: pretty;
 }
 .beiapi-home .trust-metrics {
   display: grid;
@@ -677,24 +1177,36 @@ For commercial licensing, please contact support@quantumnous.com
   gap: 20px;
 }
 .beiapi-home .metric {
+  position: relative;
   border-top: 1px solid var(--border);
   padding-top: 18px;
+}
+.beiapi-home .metric-accent {
+  position: absolute;
+  inset: -1px auto auto 0;
+  width: 32px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--primary);
 }
 .beiapi-home .metric-val {
   display: block;
   color: var(--foreground);
-  font-size: 28px;
+  font-size: clamp(1.5rem, 1.25rem + 0.7vw, 1.875rem);
   font-weight: 650;
   line-height: 1.3;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .beiapi-home .metric-lbl {
   display: block;
   margin-top: 8px;
   color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.8;
+  font-size: 0.75rem;
+  line-height: 1.75;
 }
+
+/* ── Section 6: Pricing & Cache Impact ── */
 .beiapi-home .pricing-inner {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
@@ -708,6 +1220,8 @@ For commercial licensing, please contact support@quantumnous.com
   margin-bottom: 16px;
 }
 .beiapi-home .price-fact {
+  display: flex;
+  flex-direction: column;
   padding: 18px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -715,17 +1229,53 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .price-fact strong {
   display: block;
-  margin-bottom: 10px;
-  font-size: 26px;
+  font-size: clamp(1.375rem, 1.1rem + 0.7vw, 1.625rem);
   font-weight: 650;
   line-height: 1.3;
   letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
 }
-.beiapi-home .price-fact span {
+.beiapi-home .price-fact-meter {
+  display: block;
+  position: relative;
+  height: 4px;
+  margin-block: 10px 12px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--border) 75%, var(--muted));
+  overflow: hidden;
+}
+.beiapi-home .price-fact-meter-fill {
+  display: block;
+  width: var(--meter-width, 95%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.beiapi-home .price-fact-meter-discount .price-fact-meter-fill {
+  background: var(--primary);
+}
+.beiapi-home .price-fact-segments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  height: 4px;
+  margin-block: 10px 12px;
+}
+.beiapi-home .price-fact-segments span {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 34%, var(--border));
+}
+.beiapi-home .price-fact-segments span:nth-child(2) {
+  background: color-mix(in oklab, var(--primary) 62%, var(--border));
+}
+.beiapi-home .price-fact-segments span:nth-child(3) {
+  background: var(--primary);
+}
+.beiapi-home .price-fact > span:last-child {
   display: block;
   color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.8;
+  font-size: 0.75rem;
+  line-height: 1.75;
 }
 .beiapi-home .price-list {
   overflow: hidden;
@@ -734,54 +1284,95 @@ For commercial licensing, please contact support@quantumnous.com
   background: var(--card);
 }
 .beiapi-home .price-tier {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 18px 20px;
+}
+.beiapi-home .price-tier:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
-.beiapi-home .price-tier:last-child {
-  border-bottom: 0;
+.beiapi-home .price-tier.is-featured {
+  background: color-mix(in oklab, var(--accent) 42%, var(--card));
+}
+.beiapi-home .price-tier.is-featured::before {
+  content: '';
+  position: absolute;
+  inset-block: 12px;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--primary);
 }
 .beiapi-home .price-name {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .beiapi-home .price-desc {
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 1.8;
+  font-size: 0.75rem;
+  line-height: 1.75;
 }
 .beiapi-home .price-badge {
   display: inline-flex;
-  padding: 3px 8px;
-  border: 0;
+  align-items: center;
+  gap: 5px;
+  height: auto;
+  padding: 4px 10px;
   border-radius: var(--radius-badge);
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-size: 11px;
-  font-weight: 550;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
 }
 .beiapi-home .pb-rec {
   color: var(--primary-text);
   background: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--primary) 24%, transparent);
 }
-.beiapi-home .price-badge:is(button):hover {
-  color: var(--primary-text);
+.beiapi-home .price-rec-icon {
+  width: 12px;
+  height: 12px;
+}
+.beiapi-home .price-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 32px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.beiapi-home .price-action:hover {
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
   background: var(--accent);
+  color: var(--primary-text);
+}
+.beiapi-home .price-action .btn-arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted-foreground);
+}
+.beiapi-home .price-action:hover .btn-arrow {
+  color: var(--primary-text);
 }
 .beiapi-home .price-note {
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.8;
   color: var(--muted-foreground);
   margin-top: 12px;
 }
-.beiapi-home .partner-section {
-  background: var(--muted);
-}
+
+/* ── Section 7: Campus Partner ── */
 .beiapi-home .reward-shell {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -799,7 +1390,7 @@ For commercial licensing, please contact support@quantumnous.com
   max-width: 850px;
 }
 .beiapi-home .reward-lead {
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.9;
 }
 .beiapi-home .signup-reward,
@@ -823,16 +1414,17 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .signup-reward-title,
 .beiapi-home .reward-path-title {
-  font-size: 18px;
-  line-height: 1.6;
+  font-size: 1.125rem;
+  line-height: 1.55;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 .beiapi-home .signup-reward-copy {
   margin-top: 9px;
   color: var(--muted-foreground);
-  font-size: 13px;
-  line-height: 1.95;
+  font-size: 0.8125rem;
+  line-height: 1.9;
+  text-wrap: pretty;
 }
 .beiapi-home .signup-reward-flow {
   grid-column: 1 / -1;
@@ -847,24 +1439,31 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .signup-reward-step {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 15px 18px;
+  padding: 14px 16px;
 }
 .beiapi-home .signup-reward-step + .signup-reward-step {
   border-top: 1px solid var(--border);
 }
 .beiapi-home .signup-reward-step span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
   color: var(--primary-text);
   font:
-    600 10px/1.5 ui-monospace,
+    600 0.6875rem/1 ui-monospace,
     monospace;
+  font-variant-numeric: tabular-nums;
 }
 .beiapi-home .signup-reward-step strong {
-  font-size: 12px;
-  line-height: 1.8;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  font-weight: 550;
 }
 .beiapi-home .signup-reward-value {
   display: grid;
@@ -873,26 +1472,33 @@ For commercial licensing, please contact support@quantumnous.com
   align-items: center;
   margin-top: auto;
   padding: 24px;
-  border-top: 1px solid var(--border);
-  background: var(--accent);
+  border-top: 1px dashed color-mix(in oklab, var(--primary) 32%, var(--border));
+  background:
+    radial-gradient(
+      circle at 92% 18%,
+      color-mix(in oklab, var(--primary) 12%, transparent) 0%,
+      transparent 56%
+    ),
+    var(--accent);
 }
 .beiapi-home .signup-reward-value-label {
   grid-column: 1;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-foreground);
 }
 .beiapi-home .signup-reward-value > strong {
   grid-column: 2;
   grid-row: 1 / span 2;
-  font-size: 44px;
+  font-size: clamp(2.25rem, 1.8rem + 1.2vw, 2.75rem);
   font-weight: 650;
   color: var(--primary-text);
   letter-spacing: -0.04em;
-  line-height: 1.2;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
 }
 .beiapi-home .signup-reward-value > em {
   grid-column: 1;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: normal;
 }
 .beiapi-home .signup-reward-value .btn {
@@ -915,40 +1521,66 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .reward-path-subtitle {
   margin-top: 9px;
   color: var(--muted-foreground);
-  font-size: 13px;
-  line-height: 1.95;
+  font-size: 0.8125rem;
+  line-height: 1.9;
+  text-wrap: pretty;
 }
 .beiapi-home .commission-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-block: 22px 20px;
+  margin-block: 22px 14px;
 }
 .beiapi-home .commission-metric {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--muted);
 }
+.beiapi-home .commission-metric.is-peak {
+  border-color: color-mix(in oklab, var(--primary) 26%, var(--border));
+  background: color-mix(in oklab, var(--accent) 55%, var(--muted));
+}
 .beiapi-home .commission-metric > span {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-foreground);
 }
 .beiapi-home .commission-metric strong {
-  font-size: 36px;
+  font-size: clamp(1.875rem, 1.5rem + 0.9vw, 2.25rem);
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.beiapi-home .commission-metric.is-peak strong {
+  color: var(--primary-text);
 }
 .beiapi-home .commission-metric em {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-foreground);
   font-style: normal;
   font-weight: 500;
   margin-left: 5px;
+}
+.beiapi-home .commission-ladder {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  gap: 8px;
+  height: 30px;
+  margin-bottom: 16px;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.beiapi-home .commission-ladder-bar {
+  display: block;
+  height: calc(var(--bar-scale, 1) * 100%);
+  border-radius: 4px 4px 2px 2px;
+  background: var(--primary);
+  opacity: var(--bar-opacity, 1);
 }
 .beiapi-home .reward-extra {
   display: flex;
@@ -957,14 +1589,14 @@ For commercial licensing, please contact support@quantumnous.com
   gap: 18px;
   padding-block: 12px;
   border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.8;
 }
 .beiapi-home .reward-extra > span {
   color: var(--muted-foreground);
 }
 .beiapi-home .reward-extra > strong {
-  font-weight: 500;
+  font-weight: 550;
   text-align: right;
 }
 .beiapi-home .reward-contact {
@@ -977,7 +1609,7 @@ For commercial licensing, please contact support@quantumnous.com
   background: color-mix(in oklab, var(--muted) 65%, var(--card));
 }
 .beiapi-home .reward-contact-copy {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.9;
   color: var(--muted-foreground);
 }
@@ -988,39 +1620,85 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .beiapi-home .reward-contact-actions .btn {
   flex: 1;
-  min-height: 36px;
-  padding: 8px 12px;
-  font-size: 12px;
+  min-block-size: 38px;
+  padding: 8px 14px;
+  font-size: 0.75rem;
 }
 .beiapi-home .reward-rules-note {
   grid-column: 1 / -1;
-  font-size: 11px;
-  line-height: 1.9;
+  font-size: 0.75rem;
+  line-height: 1.85;
   color: var(--muted-foreground);
 }
+
+/* ── Section 8: Final CTA ── */
 .beiapi-home .final-cta {
-  padding: 48px 0 24px;
+  padding: 56px 0 32px;
 }
-.beiapi-home .final-cta > .wrap {
+.beiapi-home .final-cta-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 40px;
+  padding: 48px 40px;
   text-align: center;
   background: var(--card);
+}
+.beiapi-home .final-cta-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 60% 70% at 50% 0%,
+      color-mix(
+          in oklab,
+          var(--overview-accent-1, var(--primary)) 12%,
+          transparent
+        )
+        0%,
+      transparent 74%
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in oklab, var(--border) 85%, transparent) 1px,
+      transparent 1.1px
+    );
+  background-size:
+    100% 100%,
+    22px 22px;
+  mask-image: radial-gradient(
+    ellipse 80% 80% at 50% 35%,
+    #000 25%,
+    transparent 95%
+  );
+}
+.beiapi-home .final-cta-content {
+  position: relative;
+}
+.beiapi-home .final-cta .kicker {
+  justify-content: center;
+}
+.beiapi-home .final-cta .kicker::before {
+  display: none;
 }
 .beiapi-home .final-cta .section-title {
   max-width: 850px;
   margin-inline: auto;
-  font-size: 30px;
+  font-size: clamp(1.5rem, 1.15rem + 1.1vw, 1.95rem);
 }
 .beiapi-home .final-cta .section-body {
-  max-width: 720px;
+  max-width: 680px;
   margin-inline: auto;
-  font-size: 14px;
+  font-size: 0.9375rem;
 }
 .beiapi-home .final-cta .btn-row {
   justify-content: center;
 }
+
+/* ── Service info dialog body ── */
 .beiapi-home .service-body {
   min-height: 0;
   overflow-y: auto;
@@ -1035,7 +1713,7 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .service-region h3,
 .beiapi-home .service-principle h3,
 .beiapi-home .service-disclaimer h3 {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 .beiapi-home .service-region p,
@@ -1043,7 +1721,7 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .service-disclaimer p {
   color: var(--muted-foreground);
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.9;
 }
 .beiapi-home .service-region strong {
@@ -1051,7 +1729,7 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 600;
 }
 .beiapi-home .service-region .service-region-note {
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 .beiapi-home .service-principle {
   display: grid;
@@ -1063,40 +1741,34 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home .service-index {
   color: var(--primary-text);
   font:
-    11px/2 ui-monospace,
+    0.75rem/2 ui-monospace,
     monospace;
+  font-variant-numeric: tabular-nums;
 }
 .beiapi-home .service-disclaimer {
   padding-top: 20px;
 }
 .beiapi-home .service-disclaimer h3,
 .beiapi-home .service-disclaimer p {
-  font-size: 11px;
+  font-size: 0.75rem;
 }
+
+/* ── Responsive breakpoints ── */
 @media (max-width: 1100px) {
   .beiapi-home .hero-inner {
     gap: 32px;
   }
-  .beiapi-home .hero-h1 {
-    font-size: 48px;
-  }
   .beiapi-home .hero-copy {
-    font-size: 14px;
-  }
-  .beiapi-home .hero-eyebrow {
-    font-size: 11px;
+    font-size: 0.9375rem;
   }
   .beiapi-home .video-heading {
     padding: 18px;
   }
   .beiapi-home .video-heading h2 {
-    font-size: 16px;
+    font-size: 1rem;
   }
   .beiapi-home .hero-shortcut {
-    padding: 12px;
-  }
-  .beiapi-home .shortcut-desc {
-    font-size: 11px;
+    padding: 12px 14px;
   }
   .beiapi-home .hero-service-item {
     padding: 18px;
@@ -1113,17 +1785,11 @@ For commercial licensing, please contact support@quantumnous.com
     gap: 28px;
     padding: 28px;
   }
-  .beiapi-home .tutorial-meta {
+  .beiapi-home .price-facts {
     gap: 10px;
   }
-  .beiapi-home .price-facts {
-    gap: 8px;
-  }
   .beiapi-home .price-fact {
-    padding: 16px 12px;
-  }
-  .beiapi-home .price-fact strong {
-    font-size: 23px;
+    padding: 16px 14px;
   }
 }
 @media (max-width: 900px) {
@@ -1137,12 +1803,9 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .hero-intro {
     padding: 0;
   }
-  .beiapi-home .hero-h1 {
-    font-size: 54px;
-  }
   .beiapi-home .hero-copy {
     max-width: 100%;
-    font-size: 16px;
+    font-size: 0.9375rem;
   }
   .beiapi-home .hero-visual {
     margin-top: 4px;
@@ -1156,11 +1819,9 @@ For commercial licensing, please contact support@quantumnous.com
     gap: 12px;
   }
   .beiapi-home .routing-inner {
-    gap: 24px;
-  }
-  .beiapi-home .tutorial-inner {
     gap: 28px;
   }
+  .beiapi-home .tutorial-inner,
   .beiapi-home .trust-inner,
   .beiapi-home .pricing-inner {
     gap: 28px;
@@ -1184,34 +1845,30 @@ For commercial licensing, please contact support@quantumnous.com
     --page-gutter: 16px;
   }
   .beiapi-home .hero {
-    padding: 28px 0 36px;
-  }
-  .beiapi-home .hero {
-    padding-top: 92px;
+    padding: 92px 0 36px;
   }
   .beiapi-home .hero-inner {
     gap: 28px;
   }
   .beiapi-home .hero-eyebrow {
-    font-size: 10px;
+    font-size: 0.6875rem;
     margin-bottom: 18px;
   }
   .beiapi-home .hero-h1 {
-    font-size: clamp(34px, 8.6vw, 46px);
+    font-size: clamp(2.125rem, 1.5rem + 4.5vw, 2.875rem);
     letter-spacing: -0.04em;
   }
   .beiapi-home .hero-copy {
-    margin-top: 18px;
-    font-size: 14px;
-    line-height: 1.95;
+    margin-top: 16px;
+    font-size: 0.875rem;
   }
   .beiapi-home .hero-tags {
     gap: 6px;
     margin-top: 18px;
   }
   .beiapi-home .hero-tags li {
-    font-size: 10px;
-    padding: 4px 7px;
+    font-size: 0.6875rem;
+    padding: 4px 8px;
   }
   .beiapi-home .hero .btn-row {
     margin-top: 22px;
@@ -1228,49 +1885,41 @@ For commercial licensing, please contact support@quantumnous.com
     padding: 12px;
   }
   .beiapi-home .shortcut-title {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .beiapi-home .shortcut-desc {
-    font-size: 10px;
+    font-size: 0.6875rem;
   }
   .beiapi-home .video-heading {
     padding: 16px;
   }
   .beiapi-home .video-heading h2 {
-    font-size: 16px;
-  }
-  .beiapi-home .video-heading p {
-    font-size: 11px;
-  }
-  .beiapi-home .video-chapters {
-    padding: 14px;
+    font-size: 1rem;
   }
   .beiapi-home .video-chapter {
-    padding-inline: 9px;
+    padding: 12px 10px;
   }
   .beiapi-home .video-chapter small {
-    font-size: 9px;
+    font-size: 0.625rem;
   }
   .beiapi-home .video-chapter strong {
-    font-size: 10px;
-  }
-  .beiapi-home .video-guide-link {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
   .beiapi-home .hero-services {
     margin-top: 28px;
+    padding-top: 24px;
   }
   .beiapi-home .hero-services-head {
     align-items: flex-start;
     gap: 12px;
   }
   .beiapi-home .hero-services-title {
-    font-size: 16px;
+    font-size: 1rem;
   }
   .beiapi-home .hero-consult-btn {
-    min-height: 30px;
-    font-size: 11px;
-    padding: 6px 9px;
+    min-block-size: 32px;
+    font-size: 0.6875rem;
+    padding: 6px 10px;
   }
   .beiapi-home .hero-services-row {
     grid-template-columns: 1fr;
@@ -1286,12 +1935,6 @@ For commercial licensing, please contact support@quantumnous.com
     width: 36px;
     height: 36px;
   }
-  .beiapi-home .hero-service-copy strong {
-    font-size: 13px;
-  }
-  .beiapi-home .hero-service-copy > span {
-    font-size: 11px;
-  }
   .beiapi-home .hero-referral {
     align-items: flex-start;
     flex-direction: column;
@@ -1301,15 +1944,10 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .hero-referral-copy {
     gap: 10px;
     align-items: flex-start;
-    font-size: 12px;
-  }
-  .beiapi-home .hero-referral-icon {
-    width: 19px;
-    height: 19px;
-    margin-top: 2px;
+    font-size: 0.75rem;
   }
   .beiapi-home .hero-referral-link {
-    margin-left: 29px;
+    margin-left: 42px;
   }
   .beiapi-home .routing,
   .beiapi-home .process,
@@ -1317,20 +1955,7 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .trust,
   .beiapi-home .pricing,
   .beiapi-home .partner-section {
-    padding-block: 40px;
-  }
-  .beiapi-home .section-title,
-  .beiapi-home .reward-heading {
-    font-size: 25px;
-    line-height: 1.5;
-  }
-  .beiapi-home .section-body {
-    font-size: 14px;
-    margin-top: 14px;
-  }
-  .beiapi-home .kicker {
-    font-size: 11px;
-    margin-bottom: 10px;
+    padding-block: 44px;
   }
   .beiapi-home .steps {
     grid-template-columns: 1fr;
@@ -1340,9 +1965,6 @@ For commercial licensing, please contact support@quantumnous.com
     padding: 20px;
     gap: 12px;
   }
-  .beiapi-home .step-title {
-    margin-top: 0;
-  }
   .beiapi-home .tutorial {
     padding-top: 0;
   }
@@ -1350,33 +1972,14 @@ For commercial licensing, please contact support@quantumnous.com
     padding: 22px;
     gap: 24px;
   }
-  .beiapi-home .tutorial .section-title {
-    font-size: 24px;
-  }
   .beiapi-home .tutorial-actions {
     gap: 8px;
   }
   .beiapi-home .tutorial-actions .btn {
     width: 100%;
   }
-  .beiapi-home .tutorial-meta {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
   .beiapi-home .tutorial-preview {
     padding: 18px;
-  }
-  .beiapi-home .tutorial-preview-title {
-    font-size: 14px;
-  }
-  .beiapi-home .tutorial-checks li {
-    font-size: 11px;
-  }
-  .beiapi-home .trust .section-title {
-    font-size: 25px;
-  }
-  .beiapi-home .trust-quote {
-    font-size: 13px;
   }
   .beiapi-home .trust-metrics {
     gap: 12px;
@@ -1384,43 +1987,19 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .metric {
     padding-top: 14px;
   }
-  .beiapi-home .metric-val {
-    font-size: 24px;
-  }
-  .beiapi-home .metric-lbl {
-    font-size: 10px;
-  }
   .beiapi-home .price-facts {
     gap: 8px;
   }
   .beiapi-home .price-fact {
     padding: 14px 10px;
   }
-  .beiapi-home .price-fact strong {
-    font-size: clamp(16px, 5vw, 20px);
-  }
-  .beiapi-home .price-fact span {
-    font-size: 10px;
-  }
   .beiapi-home .price-tier {
     padding: 16px;
     gap: 12px;
   }
-  .beiapi-home .price-badge {
-    font-size: 10px;
-  }
-  .beiapi-home .price-desc {
-    font-size: 11px;
-  }
-  .beiapi-home .price-name {
-    font-size: 13px;
-  }
   .beiapi-home .reward-intro {
     gap: 18px;
     margin-bottom: 4px;
-  }
-  .beiapi-home .reward-lead {
-    font-size: 13px;
   }
   .beiapi-home .reward-shell {
     gap: 16px;
@@ -1429,42 +2008,12 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .reward-path {
     padding: 20px;
   }
-  .beiapi-home .signup-reward-title,
-  .beiapi-home .reward-path-title {
-    font-size: 16px;
-  }
-  .beiapi-home .signup-reward-copy,
-  .beiapi-home .reward-path-subtitle {
-    font-size: 12px;
-  }
   .beiapi-home .signup-reward-flow {
-    grid-template-columns: 1fr;
     margin-top: 8px;
-  }
-  .beiapi-home .signup-reward-step {
-    display: grid;
-    grid-template-columns: 55px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-    padding: 14px;
-  }
-  .beiapi-home .signup-reward-step + .signup-reward-step {
-    border-left: 0;
-    border-top: 1px solid var(--border);
-  }
-  .beiapi-home .signup-reward-step strong {
-    font-size: 11px;
   }
   .beiapi-home .signup-reward-value {
     padding: 20px;
     gap: 5px 12px;
-  }
-  .beiapi-home .signup-reward-value > strong {
-    font-size: 38px;
-  }
-  .beiapi-home .signup-reward-value-label,
-  .beiapi-home .signup-reward-value > em {
-    font-size: 11px;
   }
   .beiapi-home .commission-metrics {
     gap: 10px;
@@ -1473,39 +2022,14 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .commission-metric {
     padding: 15px;
   }
-  .beiapi-home .commission-metric strong {
-    font-size: 31px;
-  }
-  .beiapi-home .commission-metric > span,
-  .beiapi-home .reward-extra {
-    font-size: 11px;
-  }
   .beiapi-home .reward-contact {
     padding: 20px;
   }
-  .beiapi-home .reward-contact-copy {
-    font-size: 11px;
-  }
-  .beiapi-home .reward-contact-actions {
-    gap: 8px;
-  }
-  .beiapi-home .reward-contact-actions .btn {
-    font-size: 11px;
-  }
-  .beiapi-home .reward-rules-note {
-    font-size: 10px;
-  }
   .beiapi-home .final-cta {
-    padding: 32px 0 16px;
+    padding: 32px 0 20px;
   }
-  .beiapi-home .final-cta > .wrap {
-    padding: 28px 20px;
-  }
-  .beiapi-home .final-cta .section-title {
-    font-size: 24px;
-  }
-  .beiapi-home .final-cta .section-body {
-    font-size: 13px;
+  .beiapi-home .final-cta-frame {
+    padding: 32px 20px;
   }
   .beiapi-home .final-cta .btn-row .btn {
     width: 100%;
@@ -1514,12 +2038,22 @@ For commercial licensing, please contact support@quantumnous.com
     padding: 15px;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .beiapi-home *,
-  .beiapi-home *::before,
-  .beiapi-home *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
+
+@media (forced-colors: active) {
+  .beiapi-home .home-scroll-progress,
+  .beiapi-home .video-progress-fill,
+  .beiapi-home .video-chapter-bar,
+  .beiapi-home .metric-accent,
+  .beiapi-home .price-fact-meter-fill,
+  .beiapi-home .price-tier.is-featured::before {
+    background: Highlight;
+  }
+  .beiapi-home .tutorial-check-item.is-active .tutorial-check-btn,
+  .beiapi-home .hero-referral {
+    border-color: Highlight;
+  }
+  .beiapi-home .pb-rec {
+    border: 1px solid CanvasText;
   }
 }
 

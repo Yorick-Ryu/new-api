@@ -16,12 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
+const DEFAULT_VIDEO_DURATION = 76
 const chapters = [
   {
     start: 3.5,
@@ -51,6 +54,8 @@ export function InstallationVideo() {
   const playRequest = useRef(0)
   const [hasError, setHasError] = useState(false)
   const [currentChapter, setCurrentChapter] = useState(-1)
+  const [duration, setDuration] = useState(DEFAULT_VIDEO_DURATION)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const pauseWhenHidden = () => {
@@ -94,6 +99,11 @@ export function InstallationVideo() {
     })
   }
 
+  const safeDuration =
+    duration > 0 && Number.isFinite(duration)
+      ? duration
+      : DEFAULT_VIDEO_DURATION
+
   return (
     <Card className='hero-video' aria-labelledby='video-title'>
       <header className='video-heading'>
@@ -114,7 +124,12 @@ export function InstallationVideo() {
           target='_blank'
           rel='noopener noreferrer'
         >
-          {t('Read the illustrated guide')}
+          <span>{t('Read the illustrated guide')}</span>
+          <HugeiconsIcon
+            icon={ArrowUpRight01Icon}
+            className='video-guide-arrow'
+            aria-hidden='true'
+          />
         </a>
       </header>
       <div className='video-stage'>
@@ -128,18 +143,29 @@ export function InstallationVideo() {
             'CodexBei installation and setup: a 76-second Windows walkthrough'
           )}
           onLoadedMetadata={(event) => {
+            const mediaDuration = event.currentTarget.duration
+            if (mediaDuration > 0 && Number.isFinite(mediaDuration)) {
+              setDuration(mediaDuration)
+            }
             if (pendingSeek.current !== null) {
               event.currentTarget.currentTime = pendingSeek.current
               pendingSeek.current = null
             }
           }}
           onPlay={() => setHasError(false)}
+          onEnded={() => setProgress(1)}
           onError={() => {
             pendingSeek.current = null
             setHasError(true)
           }}
           onTimeUpdate={(event) => {
             const time = event.currentTarget.currentTime
+            const mediaDuration = event.currentTarget.duration
+            const effectiveDuration =
+              mediaDuration > 0 && Number.isFinite(mediaDuration)
+                ? mediaDuration
+                : safeDuration
+            setProgress(Math.min(1, Math.max(0, time / effectiveDuration)))
             let current = -1
             chapters.forEach((chapter, index) => {
               if (time >= chapter.start) current = index
@@ -161,6 +187,27 @@ export function InstallationVideo() {
           </p>
         )}
       </div>
+      <div
+        className='video-progress-rail'
+        role='progressbar'
+        aria-label={t('Video playback progress')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+      >
+        <span
+          className='video-progress-fill'
+          style={{ transform: `scaleX(${progress})` }}
+        />
+        {chapters.map((chapter) => (
+          <span
+            key={chapter.start}
+            className='video-progress-tick'
+            style={{ left: `${(chapter.start / safeDuration) * 100}%` }}
+            aria-hidden='true'
+          />
+        ))}
+      </div>
       <nav className='video-chapters' aria-label={t('Jump to a video chapter')}>
         {chapters.map((chapter, index) => (
           <Button
@@ -171,7 +218,11 @@ export function InstallationVideo() {
             aria-current={currentChapter === index}
             onClick={() => playChapter(chapter.start)}
           >
-            <small>{chapter.time}</small>
+            <span className='video-chapter-bar' aria-hidden='true' />
+            <span className='video-chapter-meta'>
+              <span className='video-chapter-dot' aria-hidden='true' />
+              <small>{chapter.time}</small>
+            </span>
             <strong>{t(chapter.label)}</strong>
           </Button>
         ))}
