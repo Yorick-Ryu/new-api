@@ -89,10 +89,22 @@ export function ThemeProvider({
     const root = window.document.documentElement
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
+    let restoreFrame = 0
     const applyTheme = () => {
       const nextResolvedTheme = theme === 'system' ? getSystemTheme() : theme
-      root.classList.remove('light', 'dark')
-      root.classList.add(nextResolvedTheme)
+      const previousTheme = nextResolvedTheme === 'dark' ? 'light' : 'dark'
+      if (root.classList.contains(previousTheme)) {
+        root.dataset.switchingTheme = ''
+        root.classList.replace(previousTheme, nextResolvedTheme)
+        cancelAnimationFrame(restoreFrame)
+        restoreFrame = requestAnimationFrame(() => {
+          restoreFrame = requestAnimationFrame(() => {
+            delete root.dataset.switchingTheme
+          })
+        })
+      } else {
+        root.classList.add(nextResolvedTheme)
+      }
       setResolvedTheme(nextResolvedTheme)
     }
 
@@ -100,7 +112,11 @@ export function ThemeProvider({
 
     mediaQuery.addEventListener('change', applyTheme)
 
-    return () => mediaQuery.removeEventListener('change', applyTheme)
+    return () => {
+      mediaQuery.removeEventListener('change', applyTheme)
+      cancelAnimationFrame(restoreFrame)
+      delete root.dataset.switchingTheme
+    }
   }, [theme])
 
   const setTheme = useCallback(

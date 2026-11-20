@@ -40,27 +40,20 @@ describe('BeiAPI homepage theme and motion stylesheet contracts', () => {
     expect(overridesUiSans).toBe(false)
   })
 
-  test('avoids global 0.01ms reduced-motion overrides and gates scroll-driven motion on no-preference + @supports', () => {
+  test('keeps section opacity independent of scroll position and gates the scroll progress indicator', () => {
     expect(homeCss).not.toContain('0.01ms')
-    let hasViewTimelineGuard = false
+    expect(homeCss).not.toContain('animation-timeline: view()')
     let hasScrollTimelineGuard = false
     homeStyles.walkAtRules('media', (media) => {
       if (!media.params.includes('prefers-reduced-motion: no-preference')) {
         return
       }
       media.walkAtRules('supports', (supports) => {
-        if (
-          supports.params.includes('animation-timeline: view()') &&
-          supports.params.includes('animation-range: entry')
-        ) {
-          hasViewTimelineGuard = true
-        }
         if (supports.params.includes('animation-timeline: scroll()')) {
           hasScrollTimelineGuard = true
         }
       })
     })
-    expect(hasViewTimelineGuard).toBe(true)
     expect(hasScrollTimelineGuard).toBe(true)
   })
 

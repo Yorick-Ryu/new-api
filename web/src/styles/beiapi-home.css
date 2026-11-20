@@ -83,6 +83,12 @@ For commercial licensing, please contact support@quantumnous.com
 .beiapi-home button {
   cursor: pointer;
 }
+/* Apply palette changes in one paint while preserving ordinary hover transitions. */
+html[data-switching-theme]:has(.beiapi-home) :is(.beiapi-home *, header *),
+html[data-switching-theme]:has(.beiapi-home) :is(.beiapi-home *, header *)::before,
+html[data-switching-theme]:has(.beiapi-home) :is(.beiapi-home *, header *)::after {
+  transition: none !important;
+}
 .beiapi-home a {
   color: inherit;
   text-decoration: none;
@@ -335,39 +341,13 @@ For commercial licensing, please contact support@quantumnous.com
   .beiapi-home .hero-beacon-ring {
     animation: beiapi-beacon-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
-  @supports ((animation-timeline: view()) and (animation-range: entry)) {
-    .beiapi-home [data-reveal] {
-      animation: beiapi-reveal-up auto linear backwards;
-      animation-timeline: view();
-      animation-range: entry 0% entry 20%;
-    }
-    .beiapi-home [data-reveal-bar] {
-      transform-origin: left center;
-      animation: beiapi-bar-grow auto linear backwards;
-      animation-timeline: view();
-      animation-range: entry 0% entry 24%;
-    }
-  }
-  .beiapi-home [data-reveal][data-reveal-state='pending'] {
-    opacity: 0.14;
-    translate: 0 14px;
-  }
   .beiapi-home [data-reveal][data-reveal-state='visible'] {
-    opacity: 1;
-    translate: 0 0;
-    transition:
-      opacity 0.42s var(--home-ease-out),
-      translate 0.48s var(--home-ease-out);
-    transition-delay: var(--reveal-delay, 0ms);
-  }
-  .beiapi-home [data-reveal-bar][data-reveal-state='pending'] {
-    transform: scaleX(0);
-    transform-origin: left center;
+    animation: beiapi-reveal-up 0.42s var(--home-ease-out) backwards;
+    animation-delay: var(--reveal-delay, 0ms);
   }
   .beiapi-home [data-reveal-bar][data-reveal-state='visible'] {
-    transform: scaleX(1);
     transform-origin: left center;
-    transition: transform 0.6s var(--home-ease-out);
+    animation: beiapi-bar-grow 0.6s var(--home-ease-out);
   }
 }
 

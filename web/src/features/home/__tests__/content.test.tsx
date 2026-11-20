@@ -417,7 +417,7 @@ describe('configured homepage rendering', () => {
       within(pricing).getByRole('button', { name: 'Contact us' })
     ).toHaveAttribute('aria-haspopup', 'dialog')
   })
-  test('scroll reveal fallback hides only below-fold elements when native scroll timelines are unsupported and reveals them on intersection', async () => {
+  test('below-fold content stays readable until its one-time entrance animation', async () => {
     let revealCallback: IntersectionObserverCallback | undefined
     const observed: Element[] = []
     vi.stubGlobal('matchMedia', (query: string) => ({
@@ -430,7 +430,6 @@ describe('configured homepage rendering', () => {
       dispatchEvent: vi.fn(),
       onchange: null,
     }))
-    vi.stubGlobal('CSS', { supports: () => false })
     vi.stubGlobal(
       'IntersectionObserver',
       class {
@@ -460,7 +459,8 @@ describe('configured homepage rendering', () => {
     await screen.findByRole('heading', { level: 1, name: 'Bei API' })
     const revealTargets = [...document.querySelectorAll('[data-reveal]')]
     expect(revealTargets.length).toBeGreaterThan(0)
-    expect(revealTargets[0]).toHaveAttribute('data-reveal-state', 'pending')
+    expect(observed).toContain(revealTargets[0])
+    expect(revealTargets[0]).not.toHaveAttribute('data-reveal-state')
     await act(async () => {
       revealCallback?.(
         [

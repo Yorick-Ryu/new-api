@@ -18,15 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, type RefObject } from 'react'
 
-/**
- * Progressive fallback for scroll-driven reveal animations.
- *
- * Browsers supporting native CSS `animation-timeline: view()` and
- * `animation-range: entry` animate on the compositor thread without JS.
- * Older browsers fall back to an IntersectionObserver that reveals only
- * below-the-fold elements while leaving reduced-motion users in the static
- * final state.
- */
 export function useHomeScrollReveal(
   containerRef: RefObject<HTMLElement | null>
 ): void {
@@ -40,30 +31,12 @@ export function useHomeScrollReveal(
     ) {
       return
     }
-    if (
-      typeof CSS !== 'undefined' &&
-      typeof CSS.supports === 'function' &&
-      CSS.supports('(animation-timeline: view()) and (animation-range: entry)')
-    ) {
-      return
-    }
-
     const targets = [
       ...root.querySelectorAll<HTMLElement>('[data-reveal], [data-reveal-bar]'),
-    ]
-    if (targets.length === 0) return
-
-    const foldThreshold = window.innerHeight * 0.96
-    const belowFold: HTMLElement[] = []
-
-    for (const target of targets) {
-      if (target.getBoundingClientRect().top > foldThreshold) {
-        target.dataset.revealState = 'pending'
-        belowFold.push(target)
-      }
-    }
-
-    if (belowFold.length === 0) return
+    ].filter(
+      (target) => target.getBoundingClientRect().top >= window.innerHeight
+    )
+    if (!targets.length) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -74,16 +47,16 @@ export function useHomeScrollReveal(
           observer.unobserve(element)
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -24px 0px' }
+      { threshold: 0 }
     )
 
-    for (const target of belowFold) {
+    for (const target of targets) {
       observer.observe(target)
     }
 
     return () => {
       observer.disconnect()
-      for (const target of belowFold) {
+      for (const target of targets) {
         delete target.dataset.revealState
       }
     }

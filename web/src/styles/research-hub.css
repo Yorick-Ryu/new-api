@@ -104,24 +104,12 @@ For commercial licensing, please contact support@quantumnous.com
   stroke-dashoffset: 130;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .beiapi-home .research-hub-pulse {
-    display: block;
-    animation: research-hub-flow 4.8s linear infinite;
-  }
   .beiapi-home .research-hub-connection.is-active .research-hub-pulse {
+    display: block;
     stroke-width: 2.75;
     stroke-dasharray: 16 114;
-    animation-duration: 2.2s;
+    animation: research-hub-flow 2.2s linear;
   }
-}
-.beiapi-home .research-hub-connection:nth-child(2) .research-hub-pulse {
-  animation-delay: -1.2s;
-}
-.beiapi-home .research-hub-connection:nth-child(3) .research-hub-pulse {
-  animation-delay: -2.4s;
-}
-.beiapi-home .research-hub-connection:nth-child(4) .research-hub-pulse {
-  animation-delay: -3.6s;
 }
 .beiapi-home .research-hub-connection.is-active .research-hub-wire {
   stroke: var(--primary);
@@ -301,7 +289,7 @@ For commercial licensing, please contact support@quantumnous.com
       linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    animation: auto-group-flow-border-travel 2.8s linear infinite;
+    animation: auto-group-flow-border-travel 2.8s linear;
   }
 }
 .beiapi-home .research-hub-mark {
