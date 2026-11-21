@@ -44,12 +44,14 @@ For commercial licensing, please contact support@quantumnous.com
   --home-hairline: color-mix(in oklab, var(--border) 88%, transparent);
   --floating-shadow:
     0 2px 16px -6px rgb(0 0 0 / 8%), 0 0 0 0.5px rgb(0 0 0 / 2%);
-  position: relative;
   color: var(--foreground);
   background: var(--background);
   font-family: inherit;
   font-size: 0.875rem;
   line-height: 1.6;
+}
+main.beiapi-home {
+  position: relative;
 }
 .dark .beiapi-home {
   --floating-shadow: 0 2px 16px -6px rgb(0 0 0 / 40%);

@@ -25,6 +25,23 @@ describe('BeiAPI homepage theme and motion stylesheet contracts', () => {
   const homeCss = readFileSync('src/styles/beiapi-home.css', 'utf8')
   const homeStyles = postcss.parse(homeCss)
 
+  test('service dialog keeps the shared viewport positioning when it inherits the homepage theme', () => {
+    const dialog = document.createElement('div')
+    dialog.className = 'beiapi-home beiapi-home-dialog'
+    const positionOverrides: string[] = []
+
+    homeStyles.walkDecls('position', (decl) => {
+      if (
+        decl.parent?.type === 'rule' &&
+        dialog.matches(decl.parent.selector)
+      ) {
+        positionOverrides.push(decl.value)
+      }
+    })
+
+    expect(positionOverrides).toEqual([])
+  })
+
   test('inherits NewAPI theme typography without overriding --font-ui-sans', () => {
     let fontFamily = ''
     let overridesUiSans = false
