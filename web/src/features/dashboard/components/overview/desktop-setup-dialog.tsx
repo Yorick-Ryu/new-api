@@ -430,10 +430,7 @@ export function DesktopSetupDialog(props: {
                       value={model}
                       models={models}
                       disabled={
-                        Boolean(selectedKey) ||
-                        launch.isPending ||
-                        modelsLoading ||
-                        !models.length
+                        launch.isPending || modelsLoading || !models.length
                       }
                       loading={modelsLoading}
                       onValueChange={(value) => {

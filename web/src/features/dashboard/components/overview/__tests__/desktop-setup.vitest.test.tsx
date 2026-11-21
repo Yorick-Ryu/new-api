@@ -219,19 +219,18 @@ const selectedKey: ApiKey = {
   allow_user_quota_query: false,
 }
 
-it('uses the selected key and an allowed model from its routing groups', async () => {
+it('launches with the model chosen from the selected key’s allowed models', async () => {
   const { calls, launch } = requests({
     models: ['gpt-5.6-terra'],
     claudeModels: {
-      team: ['gpt-6-astra', 'claude-opus-4-7'],
+      team: ['claude-opus-4-7', 'claude-haiku-4-5'],
       default: ['claude-sonnet-4-6'],
     },
   })
   renderDialog(undefined, false, undefined, {
     ...selectedKey,
-    model_limits: `${selectedKey.model_limits},gpt-6-astra`,
+    model_limits: `${selectedKey.model_limits},claude-opus-4-7`,
   })
-  expect(screen.getByRole('combobox', { name: 'Model' })).toBeDisabled()
   expect(
     within(screen.getByRole('group', { name: 'Group' })).getByText('auto')
   ).toBeTruthy()
@@ -241,9 +240,17 @@ it('uses the selected key and an allowed model from its routing groups', async (
   const user = userEvent.setup()
   await user.click(screen.getByRole('combobox', { name: 'Agent' }))
   await user.click(await screen.findByRole('option', { name: 'Claude Code' }))
-  await within(screen.getByRole('combobox', { name: 'Model' })).findByText(
-    'claude-sonnet-4-6'
-  )
+  const model = screen.getByRole('combobox', { name: 'Model' })
+  await within(model).findByText('claude-opus-4-7')
+  expect(model).toBeEnabled()
+  await user.click(model)
+  expect(
+    await screen.findByRole('option', { name: 'claude-opus-4-7' })
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('option', { name: 'claude-haiku-4-5' })
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('option', { name: 'claude-sonnet-4-6' }))
   await user.click(screen.getByRole('button', { name: 'One-click setup' }))
   await waitFor(() => expect(launch).toHaveBeenCalledOnce())
   const link = new URL(launch.mock.calls[0][0].toString())
@@ -267,6 +274,7 @@ it('disables setup when the selected key has no allowed model for the agent', as
     model_limits: 'claude-sonnet-4-6',
   })
   await screen.findByText('No models available')
+  expect(screen.getByRole('combobox', { name: 'Model' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'One-click setup' })).toBeDisabled()
   expect(calls.some((call) => call.url?.startsWith('/api/token/'))).toBe(false)
 })
