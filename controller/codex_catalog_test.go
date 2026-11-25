@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/klauspost/compress/zstd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -301,4 +305,80 @@ func TestDashboardCodexCatalogMatchesTokenCatalogOrderAndFiltering(t *testing.T)
 	forbiddenContext.Set("id", 1107)
 	GetUserModels(forbiddenContext)
 	assert.JSONEq(t, `{"models":[]}`, forbiddenResponse.Body.String())
+}
+
+func TestCodexModelsPrecompressedZstdAndGzipNegotiation(t *testing.T) {
+	withSelfUseModeEnabled(t)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "gpt-6-astra", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-5.6-sol", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "gpt-5.6-luna", ChannelId: 1, Enabled: true},
+	}).Error)
+
+	doReq := func(acceptEncoding, ifNoneMatch, presetCE string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models?client_version=0.171.0", nil)
+		if acceptEncoding != "" {
+			ctx.Request.Header.Set("Accept-Encoding", acceptEncoding)
+		}
+		if ifNoneMatch != "" {
+			ctx.Request.Header.Set("If-None-Match", ifNoneMatch)
+		}
+		if presetCE != "" {
+			ctx.Writer.Header().Set("Content-Encoding", presetCE)
+		}
+		common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+		common.SetContextKey(ctx, constant.ContextKeyTokenGroup, "default")
+		ListModels(ctx, constant.ChannelTypeOpenAI)
+		ctx.Writer.WriteHeaderNow()
+		return recorder
+	}
+
+	rawResp := doReq("", "", "")
+	require.Equal(t, http.StatusOK, rawResp.Code)
+	assert.Empty(t, rawResp.Header().Get("Content-Encoding"))
+	assert.Equal(t, "Accept-Encoding", rawResp.Header().Get("Vary"))
+	rawBody := rawResp.Body.Bytes()
+	etag := rawResp.Header().Get("ETag")
+	require.NotEmpty(t, etag)
+
+	// zstd preferred over gzip when client sends "zstd,gzip"
+	zstdResp := doReq("zstd,gzip", "", "")
+	require.Equal(t, http.StatusOK, zstdResp.Code)
+	assert.Equal(t, "zstd", zstdResp.Header().Get("Content-Encoding"))
+	assert.Equal(t, "Accept-Encoding", zstdResp.Header().Get("Vary"))
+	assert.Equal(t, etag, zstdResp.Header().Get("ETag"))
+	dec, err := zstd.NewReader(nil)
+	require.NoError(t, err)
+	defer dec.Close()
+	decodedZstd, err := dec.DecodeAll(zstdResp.Body.Bytes(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, rawBody, decodedZstd)
+	assert.Less(t, zstdResp.Body.Len(), len(rawBody)/4, "zstd should compress repetitive Codex catalog aggressively")
+
+	// gzip fallback when zstd is absent or q=0
+	gzipResp := doReq("zstd;q=0, gzip", "", "")
+	require.Equal(t, http.StatusOK, gzipResp.Code)
+	assert.Equal(t, "gzip", gzipResp.Header().Get("Content-Encoding"))
+	gr, err := gzip.NewReader(bytes.NewReader(gzipResp.Body.Bytes()))
+	require.NoError(t, err)
+	decodedGzip, err := io.ReadAll(gr)
+	require.NoError(t, err)
+	require.NoError(t, gr.Close())
+	assert.Equal(t, rawBody, decodedGzip)
+	assert.Less(t, zstdResp.Body.Len(), gzipResp.Body.Len(), "zstd should be smaller than gzip")
+
+	// 304 Not Modified still short-circuits before sending any compressed body
+	notMod := doReq("zstd,gzip", etag, "")
+	assert.Equal(t, http.StatusNotModified, notMod.Code)
+	assert.Empty(t, notMod.Body.Bytes())
+	assert.Empty(t, notMod.Header().Get("Content-Encoding"))
+
+	// Outer middleware owning Content-Encoding must not be double-compressed
+	outerGzip := doReq("zstd,gzip", "", "gzip")
+	require.Equal(t, http.StatusOK, outerGzip.Code)
+	assert.Equal(t, "gzip", outerGzip.Header().Get("Content-Encoding"))
+	assert.Equal(t, rawBody, outerGzip.Body.Bytes())
 }

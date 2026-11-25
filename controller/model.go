@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -329,12 +330,11 @@ func ListModels(c *gin.Context, modelType int) {
 	default:
 		if c.Query("client_version") != "" {
 			// Codex priorities belong to capability profiles, independently of the marketplace order.
-			var body []byte
-			var etag string
+			var payload *service.CodexCatalogPayload
 			if c.Query("purpose") == "desktop_setup" && c.Query("client_version") == "codexbei" {
-				body, etag, err = service.BuildCodexSetupModelCatalog(userOpenAiModels, nil)
+				payload, err = service.BuildCachedCodexSetupModelCatalog(userOpenAiModels, nil)
 			} else {
-				body, etag, err = service.BuildCodexModelCatalog(userOpenAiModels, nil)
+				payload, err = service.BuildCachedCodexModelCatalog(userOpenAiModels, nil)
 			}
 			if err != nil {
 				common.SysError(fmt.Sprintf("build Codex model catalog: %v", err))
@@ -344,15 +344,31 @@ func ListModels(c *gin.Context, modelType int) {
 				return
 			}
 			c.Header("Cache-Control", "private, no-cache")
-			c.Header("ETag", etag)
+			c.Header("Vary", "Accept-Encoding")
+			c.Header("ETag", payload.ETag)
 			for _, validator := range strings.Split(c.GetHeader("If-None-Match"), ",") {
 				validator = strings.TrimSpace(validator)
-				if validator == "*" || strings.TrimPrefix(validator, "W/") == etag {
+				if validator == "*" || strings.TrimPrefix(validator, "W/") == payload.ETag {
 					c.Status(http.StatusNotModified)
 					return
 				}
 			}
-			c.Data(http.StatusOK, "application/json", body)
+			// Only emit pre-compressed bodies when no outer middleware (e.g. api-router gzip)
+			// has already claimed Content-Encoding.
+			if c.Writer.Header().Get("Content-Encoding") == "" {
+				acceptEncoding := c.GetHeader("Accept-Encoding")
+				if acceptsContentEncoding(acceptEncoding, "zstd") && len(payload.Zstd) > 0 {
+					c.Header("Content-Encoding", "zstd")
+					c.Data(http.StatusOK, "application/json", payload.Zstd)
+					return
+				}
+				if acceptsContentEncoding(acceptEncoding, "gzip") && len(payload.Gzip) > 0 {
+					c.Header("Content-Encoding", "gzip")
+					c.Data(http.StatusOK, "application/json", payload.Gzip)
+					return
+				}
+			}
+			c.Data(http.StatusOK, "application/json", payload.Raw)
 			return
 		}
 		c.JSON(200, gin.H{
@@ -361,6 +377,34 @@ func ListModels(c *gin.Context, modelType int) {
 			"object":  "list",
 		})
 	}
+}
+
+func acceptsContentEncoding(header, target string) bool {
+	if header == "" {
+		return false
+	}
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		segments := strings.Split(part, ";")
+		coding := strings.ToLower(strings.TrimSpace(segments[0]))
+		if coding != target {
+			continue
+		}
+		q := 1.0
+		for _, param := range segments[1:] {
+			param = strings.TrimSpace(param)
+			if len(param) >= 2 && (param[0] == 'q' || param[0] == 'Q') && param[1] == '=' {
+				if parsed, err := strconv.ParseFloat(strings.TrimSpace(param[2:]), 64); err == nil {
+					q = parsed
+				}
+			}
+		}
+		return q > 0
+	}
+	return false
 }
 
 func ChannelListModels(c *gin.Context) {

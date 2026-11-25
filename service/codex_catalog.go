@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/klauspost/compress/zstd"
 )
 
 // These are capability defaults, never an availability list. Membership is
@@ -38,9 +41,176 @@ const codexFallbackProfileJSON = `{
 				"base_instructions":"You are a coding assistant. Help the user complete their task."
 			}`
 
+const maxCodexCatalogCacheEntries = 32
+
+// CodexCatalogPayload holds a rendered Codex model catalog along with its
+// deterministic ETag and pre-compressed variants so repeated /v1/models polls
+// avoid redundant JSON marshaling, hashing, and per-request compression.
+type CodexCatalogPayload struct {
+	Raw  []byte
+	Gzip []byte
+	Zstd []byte
+	ETag string
+}
+
+type codexCatalogCacheEntry struct {
+	payload *CodexCatalogPayload
+	seq     uint64
+}
+
+var (
+	codexCatalogCacheMu  sync.RWMutex
+	codexCatalogCache    = make(map[[32]byte]*codexCatalogCacheEntry)
+	codexCatalogCacheSeq uint64
+)
+
+func codexCatalogCacheKey(available []dto.OpenAIModels, displayOrder []string) [32]byte {
+	names := make([]string, 0, len(available))
+	seen := make(map[string]struct{}, len(available))
+	for _, availableModel := range available {
+		name := availableModel.Id
+		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "*?") ||
+			strings.HasSuffix(name, "-openai-compact") {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	common.OptionMapRWMutex.RLock()
+	officialRaw := common.OptionMap[CodexOfficialModelProfilesOptionKey]
+	overridesRaw := common.OptionMap[CodexModelProfilesOptionKey]
+	common.OptionMapRWMutex.RUnlock()
+
+	h := sha256.New()
+	writePart := func(s string) {
+		var lenBuf [8]byte
+		n := len(s)
+		for i := 7; i >= 0; i-- {
+			lenBuf[i] = byte(n)
+			n >>= 8
+		}
+		_, _ = h.Write(lenBuf[:])
+		_, _ = h.Write([]byte(s))
+	}
+	writePart("v1")
+	for _, name := range names {
+		writePart(name)
+	}
+	writePart("\x00order")
+	for _, name := range displayOrder {
+		writePart(name)
+	}
+	writePart("\x00official")
+	writePart(officialRaw)
+	writePart("\x00overrides")
+	writePart(overridesRaw)
+
+	var sum [32]byte
+	h.Sum(sum[:0])
+	return sum
+}
+
+func compressCodexCatalogGzip(raw []byte) []byte {
+	var buf bytes.Buffer
+	w, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return nil
+	}
+	if _, err := w.Write(raw); err != nil {
+		return nil
+	}
+	if err := w.Close(); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+func compressCodexCatalogZstd(raw []byte) []byte {
+	enc, err := zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.SpeedBetterCompression),
+		zstd.WithEncoderConcurrency(1),
+	)
+	if err != nil {
+		return nil
+	}
+	defer enc.Close()
+	return enc.EncodeAll(raw, make([]byte, 0, len(raw)/8))
+}
+
+// BuildCachedCodexModelCatalog returns a cached, pre-compressed Codex model
+// catalog keyed by effective model availability, display order, and current
+// profile options.
+func BuildCachedCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) (*CodexCatalogPayload, error) {
+	key := codexCatalogCacheKey(available, displayOrder)
+
+	codexCatalogCacheMu.RLock()
+	if entry, ok := codexCatalogCache[key]; ok {
+		payload := entry.payload
+		codexCatalogCacheMu.RUnlock()
+		return payload, nil
+	}
+	codexCatalogCacheMu.RUnlock()
+
+	raw, etag, err := buildCodexModelCatalogRaw(available, displayOrder)
+	if err != nil {
+		return nil, err
+	}
+	payload := &CodexCatalogPayload{
+		Raw:  raw,
+		Gzip: compressCodexCatalogGzip(raw),
+		Zstd: compressCodexCatalogZstd(raw),
+		ETag: etag,
+	}
+
+	codexCatalogCacheMu.Lock()
+	if existing, ok := codexCatalogCache[key]; ok {
+		codexCatalogCacheMu.Unlock()
+		return existing.payload, nil
+	}
+	if len(codexCatalogCache) >= maxCodexCatalogCacheEntries {
+		var oldestKey [32]byte
+		var oldestSeq uint64
+		first := true
+		for k, v := range codexCatalogCache {
+			if first || v.seq < oldestSeq {
+				oldestKey = k
+				oldestSeq = v.seq
+				first = false
+			}
+		}
+		delete(codexCatalogCache, oldestKey)
+	}
+	codexCatalogCacheSeq++
+	codexCatalogCache[key] = &codexCatalogCacheEntry{
+		payload: payload,
+		seq:     codexCatalogCacheSeq,
+	}
+	codexCatalogCacheMu.Unlock()
+	return payload, nil
+}
+
+// BuildCachedCodexSetupModelCatalog uses the same profile, availability and
+// pre-compressed caching rules as client discovery.
+func BuildCachedCodexSetupModelCatalog(available []dto.OpenAIModels, displayOrder []string) (*CodexCatalogPayload, error) {
+	return BuildCachedCodexModelCatalog(available, displayOrder)
+}
+
 // BuildCodexModelCatalog renders only available models with a bundled, official,
 // or saved Codex profile. A profile never grants channel, group or token access.
 func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
+	payload, err := BuildCachedCodexModelCatalog(available, displayOrder)
+	if err != nil {
+		return nil, "", err
+	}
+	return payload.Raw, payload.ETag, nil
+}
+
+func buildCodexModelCatalogRaw(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
 	profiles, err := GetEffectiveCodexModelProfiles()
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
