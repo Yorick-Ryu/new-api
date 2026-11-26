@@ -391,7 +391,7 @@ it('creates a default group key only on confirmation and passes the selected mod
   await waitFor(() => expect(launch).toHaveBeenCalledOnce())
   const created = calls.find((call) => call.url === '/api/token/')
   expect(JSON.parse(String(created?.data))).toMatchObject({
-    name: 'CodexBei · ChatGPT',
+    name: 'CodexBei-ChatGPT',
     group: 'default',
     unlimited_quota: true,
     cross_group_retry: false,
@@ -998,7 +998,7 @@ it('uses matching typography and section spacing for setup guidance and the laun
   expect(status.parentElement?.classList.contains('gap-5')).toBe(true)
 })
 
-it('Claude setup requires a permitted group and creates CodexBei · CC with that group', async () => {
+it('Claude setup requires a permitted group and creates CodexBei-CC with that group', async () => {
   const { calls, launch } = requests()
   renderDialog()
   const user = userEvent.setup()
@@ -1025,7 +1025,7 @@ it('Claude setup requires a permitted group and creates CodexBei · CC with that
   await waitFor(() => expect(launch).toHaveBeenCalledOnce())
   const created = calls.find((call) => call.url === '/api/token/')
   expect(JSON.parse(String(created?.data))).toMatchObject({
-    name: 'CodexBei · CC',
+    name: 'CodexBei-CC',
     group: 'claude-kiro',
     cross_group_retry: false,
   })
@@ -1301,6 +1301,7 @@ it('prefers Auto when available and creates a key that inherits the global Auto 
     (call) => call.method === 'post' && call.url === '/api/token/'
   )
   expect(JSON.parse(String(created?.data))).toMatchObject({
+    name: 'CodexBei',
     group: 'auto',
     auto_groups: [],
   })
@@ -1415,7 +1416,7 @@ it('Claude Desktop offers native Claude models and launches its dedicated preset
   await waitFor(() => expect(launch).toHaveBeenCalledOnce())
   const created = calls.find((call) => call.url === '/api/token/')
   expect(JSON.parse(String(created?.data))).toMatchObject({
-    name: 'CodexBei · Claude Desktop',
+    name: 'CodexBei-Claude-Desktop',
     group: 'claude',
     cross_group_retry: false,
   })

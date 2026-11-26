@@ -311,13 +311,13 @@ export function DesktopSetupDialog(props: {
         ))
       if (selection.version !== version.current) return
       if (tokenId === null) {
-        let keyName = 'CodexBei · ChatGPT'
-        if (selection.agent === 'claude') keyName = 'CodexBei · CC'
+        let keyName = 'CodexBei-ChatGPT'
+        if (selection.agent === 'claude') keyName = 'CodexBei-CC'
         if (selection.agent === 'claude-desktop') {
-          keyName = 'CodexBei · Claude Desktop'
+          keyName = 'CodexBei-Claude-Desktop'
         }
         const created = await createApiKey({
-          name: keyName,
+          name: selection.group === 'auto' ? 'CodexBei' : keyName,
           group: selection.group,
           expired_time: -1,
           remain_quota: 0,
