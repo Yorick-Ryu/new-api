@@ -2,7 +2,10 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -181,6 +184,7 @@ func TestCodexCatalogETagDependsOnEffectiveModels(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, one, two)
 	assert.Equal(t, first, reordered)
+	assert.True(t, strings.HasPrefix(first, `W/"`))
 	_, removed, err := BuildCodexModelCatalog([]dto.OpenAIModels{{Id: "gpt-5.6-sol"}}, nil)
 	require.NoError(t, err)
 	assert.NotEqual(t, first, removed)
@@ -261,4 +265,82 @@ func TestCodexCatalogIncludesConfiguredLegacySpark(t *testing.T) {
 	assert.JSONEq(t, `["text"]`, string(catalog.Models[0]["input_modalities"]))
 	assert.JSONEq(t, `true`, string(catalog.Models[0]["supported_in_api"]))
 	assert.JSONEq(t, `"list"`, string(catalog.Models[0]["visibility"]))
+}
+
+func TestCodexCatalogUsesSingleOptionSnapshot(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	options := common.OptionMap
+	common.OptionMap = map[string]string{
+		CodexOfficialModelProfilesOptionKey: `{"revision":"r1","profiles":{"snapshot-model":{"priority":10,"context_window":100000}}}`,
+		CodexModelProfilesOptionKey:         `{"snapshot-model":{"context_window":111111}}`,
+	}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = options
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	officialRaw, overridesRaw := snapshotCodexCatalogOptions()
+
+	// Mutate live options after taking the snapshot to simulate a concurrent save.
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap[CodexOfficialModelProfilesOptionKey] = `{"revision":"r2","profiles":{"snapshot-model":{"priority":10,"context_window":200000}}}`
+	common.OptionMap[CodexModelProfilesOptionKey] = `{"snapshot-model":{"context_window":222222}}`
+	common.OptionMapRWMutex.Unlock()
+
+	raw, etag, err := buildCodexModelCatalogRaw([]dto.OpenAIModels{{Id: "snapshot-model"}}, nil, officialRaw, overridesRaw)
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(etag, `W/"`))
+
+	var catalog struct {
+		Models []struct {
+			Slug          string `json:"slug"`
+			ContextWindow int    `json:"context_window"`
+		} `json:"models"`
+	}
+	require.NoError(t, common.Unmarshal(raw, &catalog))
+	require.Len(t, catalog.Models, 1)
+	assert.Equal(t, "snapshot-model", catalog.Models[0].Slug)
+	assert.Equal(t, 111111, catalog.Models[0].ContextWindow, "catalog build must use the captured snapshot, not later OptionMap writes")
+}
+
+func TestCodexCatalogSharesConcurrentBuildsOnlyForTheSameKey(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		cache := codexCatalogCache{entries: make(map[[32]byte]*codexCatalogCacheEntry)}
+		firstKey, otherKey := [32]byte{1}, [32]byte{2}
+		firstCatalog := &CodexCatalogPayload{Raw: []byte(`{"models":[{"slug":"first"}]}`)}
+		otherCatalog := &CodexCatalogPayload{Raw: []byte(`{"models":[{"slug":"other"}]}`)}
+		var firstBuilds atomic.Int32
+		releaseFirst := make(chan struct{})
+		buildFirst := func() (*CodexCatalogPayload, error) {
+			firstBuilds.Add(1)
+			<-releaseFirst
+			return firstCatalog, nil
+		}
+
+		var first, follower, other *CodexCatalogPayload
+		var firstErr, followerErr, otherErr error
+		go func() { first, firstErr = cache.loadOrBuild(firstKey, buildFirst) }()
+		synctest.Wait()
+		go func() { follower, followerErr = cache.loadOrBuild(firstKey, buildFirst) }()
+		go func() {
+			other, otherErr = cache.loadOrBuild(otherKey, func() (*CodexCatalogPayload, error) {
+				return otherCatalog, nil
+			})
+		}()
+		synctest.Wait()
+		otherCompleted := other != nil
+		close(releaseFirst)
+		synctest.Wait()
+
+		require.NoError(t, firstErr)
+		require.NoError(t, followerErr)
+		require.NoError(t, otherErr)
+		assert.EqualValues(t, 1, firstBuilds.Load(), "concurrent misses for one directory must execute its build once")
+		assert.Same(t, firstCatalog, first)
+		assert.Same(t, first, follower)
+		assert.True(t, otherCompleted, "another directory must be ready before the first build finishes")
+		assert.Same(t, otherCatalog, other)
+	})
 }

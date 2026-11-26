@@ -345,30 +345,29 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			c.Header("Cache-Control", "private, no-cache")
 			c.Header("Vary", "Accept-Encoding")
+			var encoding string
+			body := payload.Raw
+			// Middleware that has already set Content-Encoding owns the encoding.
+			if c.Writer.Header().Get("Content-Encoding") == "" {
+				encoding, body = negotiateCodexCatalogEncoding(c.Request.Header.Values("Accept-Encoding"), payload)
+				if body == nil {
+					c.Status(http.StatusNotAcceptable)
+					return
+				}
+			}
 			c.Header("ETag", payload.ETag)
+			opaqueETag := strings.TrimPrefix(payload.ETag, "W/")
 			for _, validator := range strings.Split(c.GetHeader("If-None-Match"), ",") {
 				validator = strings.TrimSpace(validator)
-				if validator == "*" || strings.TrimPrefix(validator, "W/") == payload.ETag {
+				if validator == "*" || strings.TrimPrefix(validator, "W/") == opaqueETag {
 					c.Status(http.StatusNotModified)
 					return
 				}
 			}
-			// Only emit pre-compressed bodies when no outer middleware (e.g. api-router gzip)
-			// has already claimed Content-Encoding.
-			if c.Writer.Header().Get("Content-Encoding") == "" {
-				acceptEncoding := c.GetHeader("Accept-Encoding")
-				if acceptsContentEncoding(acceptEncoding, "zstd") && len(payload.Zstd) > 0 {
-					c.Header("Content-Encoding", "zstd")
-					c.Data(http.StatusOK, "application/json", payload.Zstd)
-					return
-				}
-				if acceptsContentEncoding(acceptEncoding, "gzip") && len(payload.Gzip) > 0 {
-					c.Header("Content-Encoding", "gzip")
-					c.Data(http.StatusOK, "application/json", payload.Gzip)
-					return
-				}
+			if encoding != "" {
+				c.Header("Content-Encoding", encoding)
 			}
-			c.Data(http.StatusOK, "application/json", payload.Raw)
+			c.Data(http.StatusOK, "application/json", body)
 			return
 		}
 		c.JSON(200, gin.H{
@@ -379,32 +378,56 @@ func ListModels(c *gin.Context, modelType int) {
 	}
 }
 
-func acceptsContentEncoding(header, target string) bool {
-	if header == "" {
-		return false
-	}
-	for _, part := range strings.Split(header, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		segments := strings.Split(part, ";")
-		coding := strings.ToLower(strings.TrimSpace(segments[0]))
-		if coding != target {
-			continue
-		}
-		q := 1.0
-		for _, param := range segments[1:] {
-			param = strings.TrimSpace(param)
-			if len(param) >= 2 && (param[0] == 'q' || param[0] == 'Q') && param[1] == '=' {
-				if parsed, err := strconv.ParseFloat(strings.TrimSpace(param[2:]), 64); err == nil {
-					q = parsed
-				}
+func negotiateCodexCatalogEncoding(headers []string, payload *service.CodexCatalogPayload) (encoding string, body []byte) {
+	qualities := make(map[string]float64)
+	for _, header := range headers {
+		for entry := range strings.SplitSeq(header, ",") {
+			coding, params, _ := strings.Cut(entry, ";")
+			coding = strings.ToLower(strings.TrimSpace(coding))
+			switch coding {
+			case "zstd", "gzip", "identity", "*":
+			default:
+				continue
 			}
+			quality := 1.0
+			for param := range strings.SplitSeq(params, ";") {
+				name, value, _ := strings.Cut(param, "=")
+				if !strings.EqualFold(strings.TrimSpace(name), "q") {
+					continue
+				}
+				quality = 0
+				if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil && parsed >= 0 && parsed <= 1 {
+					quality = parsed
+				}
+				break
+			}
+			qualities[coding] = quality
 		}
-		return q > 0
 	}
-	return false
+
+	wildcard, hasWildcard := qualities["*"]
+	bestQuality := 0.0
+	for _, variant := range [...]struct {
+		encoding string
+		body     []byte
+	}{{"zstd", payload.Zstd}, {"gzip", payload.Gzip}} {
+		quality, explicit := qualities[variant.encoding]
+		if !explicit {
+			quality = wildcard
+		}
+		if quality > bestQuality && len(variant.body) > 0 {
+			encoding, body, bestQuality = variant.encoding, variant.body, quality
+		}
+	}
+	// Unspecified identity is a fallback unless the wildcard excludes it.
+	if identity, explicit := qualities["identity"]; explicit {
+		if identity > bestQuality {
+			return "", payload.Raw
+		}
+	} else if body == nil && (!hasWildcard || wildcard > 0) {
+		return "", payload.Raw
+	}
+	return encoding, body
 }
 
 func ChannelListModels(c *gin.Context) {

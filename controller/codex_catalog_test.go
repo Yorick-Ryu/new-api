@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -166,10 +167,14 @@ func TestCodexModelsUsesFilteredAvailabilityAndConditionalResponses(t *testing.T
 	assert.Equal(t, "gpt-6-astra", catalog.Models[0].Slug)
 	etag := first.Header().Get("ETag")
 	require.NotEmpty(t, etag)
+	assert.True(t, strings.HasPrefix(etag, `W/"`), "catalog ETag must be weak across content encodings")
 	assert.Equal(t, "private, no-cache", first.Header().Get("Cache-Control"))
-	unchanged := request("/v1/models?client_version=0.153.2", "default", `"different", W/`+etag, true)
+	unchanged := request("/v1/models?client_version=0.153.2", "default", `"different", `+etag, true)
 	assert.Equal(t, http.StatusNotModified, unchanged.Code)
 	assert.Empty(t, unchanged.Body.String())
+	strongMatch := request("/v1/models?client_version=0.153.2", "default", strings.TrimPrefix(etag, "W/"), true)
+	assert.Equal(t, http.StatusNotModified, strongMatch.Code)
+	assert.Empty(t, strongMatch.Body.String())
 
 	other := request("/v1/models?client_version=0.153.2", "other", etag, true)
 	require.Equal(t, http.StatusOK, other.Code)
@@ -316,12 +321,12 @@ func TestCodexModelsPrecompressedZstdAndGzipNegotiation(t *testing.T) {
 		{Group: "default", Model: "gpt-5.6-luna", ChannelId: 1, Enabled: true},
 	}).Error)
 
-	doReq := func(acceptEncoding, ifNoneMatch, presetCE string) *httptest.ResponseRecorder {
+	doReq := func(acceptEncoding []string, ifNoneMatch, presetCE string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(recorder)
 		ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models?client_version=0.171.0", nil)
-		if acceptEncoding != "" {
-			ctx.Request.Header.Set("Accept-Encoding", acceptEncoding)
+		for _, value := range acceptEncoding {
+			ctx.Request.Header.Add("Accept-Encoding", value)
 		}
 		if ifNoneMatch != "" {
 			ctx.Request.Header.Set("If-None-Match", ifNoneMatch)
@@ -336,16 +341,17 @@ func TestCodexModelsPrecompressedZstdAndGzipNegotiation(t *testing.T) {
 		return recorder
 	}
 
-	rawResp := doReq("", "", "")
+	rawResp := doReq(nil, "", "")
 	require.Equal(t, http.StatusOK, rawResp.Code)
 	assert.Empty(t, rawResp.Header().Get("Content-Encoding"))
 	assert.Equal(t, "Accept-Encoding", rawResp.Header().Get("Vary"))
 	rawBody := rawResp.Body.Bytes()
 	etag := rawResp.Header().Get("ETag")
 	require.NotEmpty(t, etag)
+	assert.True(t, strings.HasPrefix(etag, `W/"`), "shared ETag across encodings must be weak (RFC 9110 §8.8.3.3)")
 
 	// zstd preferred over gzip when client sends "zstd,gzip"
-	zstdResp := doReq("zstd,gzip", "", "")
+	zstdResp := doReq([]string{"zstd,gzip"}, "", "")
 	require.Equal(t, http.StatusOK, zstdResp.Code)
 	assert.Equal(t, "zstd", zstdResp.Header().Get("Content-Encoding"))
 	assert.Equal(t, "Accept-Encoding", zstdResp.Header().Get("Vary"))
@@ -359,9 +365,10 @@ func TestCodexModelsPrecompressedZstdAndGzipNegotiation(t *testing.T) {
 	assert.Less(t, zstdResp.Body.Len(), len(rawBody)/4, "zstd should compress repetitive Codex catalog aggressively")
 
 	// gzip fallback when zstd is absent or q=0
-	gzipResp := doReq("zstd;q=0, gzip", "", "")
+	gzipResp := doReq([]string{"zstd;q=0, gzip"}, "", "")
 	require.Equal(t, http.StatusOK, gzipResp.Code)
 	assert.Equal(t, "gzip", gzipResp.Header().Get("Content-Encoding"))
+	assert.Equal(t, etag, gzipResp.Header().Get("ETag"))
 	gr, err := gzip.NewReader(bytes.NewReader(gzipResp.Body.Bytes()))
 	require.NoError(t, err)
 	decodedGzip, err := io.ReadAll(gr)
@@ -371,14 +378,48 @@ func TestCodexModelsPrecompressedZstdAndGzipNegotiation(t *testing.T) {
 	assert.Less(t, zstdResp.Body.Len(), gzipResp.Body.Len(), "zstd should be smaller than gzip")
 
 	// 304 Not Modified still short-circuits before sending any compressed body
-	notMod := doReq("zstd,gzip", etag, "")
+	notMod := doReq([]string{"zstd,gzip"}, etag, "")
 	assert.Equal(t, http.StatusNotModified, notMod.Code)
 	assert.Empty(t, notMod.Body.Bytes())
 	assert.Empty(t, notMod.Header().Get("Content-Encoding"))
 
 	// Outer middleware owning Content-Encoding must not be double-compressed
-	outerGzip := doReq("zstd,gzip", "", "gzip")
+	outerGzip := doReq([]string{"zstd,gzip"}, "", "gzip")
 	require.Equal(t, http.StatusOK, outerGzip.Code)
 	assert.Equal(t, "gzip", outerGzip.Header().Get("Content-Encoding"))
 	assert.Equal(t, rawBody, outerGzip.Body.Bytes())
+
+	encodedBodies := map[string][]byte{"": rawBody, "gzip": gzipResp.Body.Bytes(), "zstd": zstdResp.Body.Bytes()}
+	for _, tc := range []struct {
+		name         string
+		accept       []string
+		ifNoneMatch  string
+		wantStatus   int
+		wantEncoding string
+	}{
+		{name: "higher weight beats server order", accept: []string{"zstd;q=0.1, gzip;q=1"}, wantStatus: http.StatusOK, wantEncoding: "gzip"},
+		{name: "weights across multiple header lines", accept: []string{"ZSTD;Q=0.1", "gzip;q=1"}, wantStatus: http.StatusOK, wantEncoding: "gzip"},
+		{name: "wildcard allows compression when identity is refused", accept: []string{"*;q=1, identity;q=0"}, wantStatus: http.StatusOK, wantEncoding: "zstd"},
+		{name: "explicit refusal overrides wildcard", accept: []string{"zstd;q=0, *;q=1"}, wantStatus: http.StatusOK, wantEncoding: "gzip"},
+		{name: "explicit identity can take priority", accept: []string{"gzip;q=0.5, identity;q=1"}, wantStatus: http.StatusOK},
+		{name: "explicit identity overrides wildcard refusal", accept: []string{"*;q=0, identity;q=1"}, wantStatus: http.StatusOK},
+		{name: "explicit gzip overrides wildcard refusal", accept: []string{"*;q=0, gzip;q=0.5"}, wantStatus: http.StatusOK, wantEncoding: "gzip"},
+		{name: "unsupported coding falls back to identity", accept: []string{"br"}, wantStatus: http.StatusOK},
+		{name: "empty header falls back to identity", accept: []string{""}, wantStatus: http.StatusOK},
+		{name: "invalid weights do not enable compression", accept: []string{"gzip;q=NaN, zstd;q=2"}, wantStatus: http.StatusOK},
+		{name: "wildcard refusal excludes implicit identity", accept: []string{"*;q=0"}, wantStatus: http.StatusNotAcceptable},
+		{name: "no acceptable coding even with matching validator", accept: []string{"br, gzip;q=0, zstd;q=0, identity;q=0"}, ifNoneMatch: etag, wantStatus: http.StatusNotAcceptable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := doReq(tc.accept, tc.ifNoneMatch, "")
+			require.Equal(t, tc.wantStatus, response.Code)
+			assert.Equal(t, tc.wantEncoding, response.Header().Get("Content-Encoding"))
+			assert.Equal(t, "Accept-Encoding", response.Header().Get("Vary"))
+			if tc.wantStatus == http.StatusNotAcceptable {
+				assert.Empty(t, response.Body.Bytes())
+			} else {
+				assert.Equal(t, encodedBodies[tc.wantEncoding], response.Body.Bytes())
+			}
+		})
+	}
 }

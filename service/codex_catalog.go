@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/klauspost/compress/zstd"
+	"golang.org/x/sync/singleflight"
 )
 
 // These are capability defaults, never an availability list. Membership is
@@ -58,13 +59,24 @@ type codexCatalogCacheEntry struct {
 	seq     uint64
 }
 
-var (
-	codexCatalogCacheMu  sync.RWMutex
-	codexCatalogCache    = make(map[[32]byte]*codexCatalogCacheEntry)
-	codexCatalogCacheSeq uint64
-)
+type codexCatalogCache struct {
+	mu      sync.RWMutex
+	entries map[[32]byte]*codexCatalogCacheEntry
+	seq     uint64
+	builds  singleflight.Group
+}
 
-func codexCatalogCacheKey(available []dto.OpenAIModels, displayOrder []string) [32]byte {
+var codexCatalogs = codexCatalogCache{entries: make(map[[32]byte]*codexCatalogCacheEntry)}
+
+func snapshotCodexCatalogOptions() (officialRaw, overridesRaw string) {
+	common.OptionMapRWMutex.RLock()
+	officialRaw = common.OptionMap[CodexOfficialModelProfilesOptionKey]
+	overridesRaw = common.OptionMap[CodexModelProfilesOptionKey]
+	common.OptionMapRWMutex.RUnlock()
+	return officialRaw, overridesRaw
+}
+
+func codexCatalogCacheKey(available []dto.OpenAIModels, displayOrder []string, officialRaw, overridesRaw string) [32]byte {
 	names := make([]string, 0, len(available))
 	seen := make(map[string]struct{}, len(available))
 	for _, availableModel := range available {
@@ -80,11 +92,6 @@ func codexCatalogCacheKey(available []dto.OpenAIModels, displayOrder []string) [
 		names = append(names, name)
 	}
 	sort.Strings(names)
-
-	common.OptionMapRWMutex.RLock()
-	officialRaw := common.OptionMap[CodexOfficialModelProfilesOptionKey]
-	overridesRaw := common.OptionMap[CodexModelProfilesOptionKey]
-	common.OptionMapRWMutex.RUnlock()
 
 	h := sha256.New()
 	writePart := func(s string) {
@@ -146,52 +153,72 @@ func compressCodexCatalogZstd(raw []byte) []byte {
 // catalog keyed by effective model availability, display order, and current
 // profile options.
 func BuildCachedCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string) (*CodexCatalogPayload, error) {
-	key := codexCatalogCacheKey(available, displayOrder)
+	officialRaw, overridesRaw := snapshotCodexCatalogOptions()
+	key := codexCatalogCacheKey(available, displayOrder, officialRaw, overridesRaw)
+	return codexCatalogs.loadOrBuild(key, func() (*CodexCatalogPayload, error) {
+		raw, etag, err := buildCodexModelCatalogRaw(available, displayOrder, officialRaw, overridesRaw)
+		if err != nil {
+			return nil, err
+		}
+		return &CodexCatalogPayload{
+			Raw:  raw,
+			Gzip: compressCodexCatalogGzip(raw),
+			Zstd: compressCodexCatalogZstd(raw),
+			ETag: etag,
+		}, nil
+	})
+}
 
-	codexCatalogCacheMu.RLock()
-	if entry, ok := codexCatalogCache[key]; ok {
-		payload := entry.payload
-		codexCatalogCacheMu.RUnlock()
-		return payload, nil
+func (cache *codexCatalogCache) get(key [32]byte) *CodexCatalogPayload {
+	cache.mu.RLock()
+	entry := cache.entries[key]
+	cache.mu.RUnlock()
+	if entry == nil {
+		return nil
 	}
-	codexCatalogCacheMu.RUnlock()
+	return entry.payload
+}
 
-	raw, etag, err := buildCodexModelCatalogRaw(available, displayOrder)
+func (cache *codexCatalogCache) loadOrBuild(key [32]byte, build func() (*CodexCatalogPayload, error)) (*CodexCatalogPayload, error) {
+	if cached := cache.get(key); cached != nil {
+		return cached, nil
+	}
+	result, err, _ := cache.builds.Do(string(key[:]), func() (any, error) {
+		// A build can complete between the first cache lookup and joining the group.
+		if cached := cache.get(key); cached != nil {
+			return cached, nil
+		}
+		payload, err := build()
+		if err != nil {
+			return nil, err
+		}
+
+		cache.mu.Lock()
+		defer cache.mu.Unlock()
+		if len(cache.entries) >= maxCodexCatalogCacheEntries {
+			var oldestKey [32]byte
+			var oldestSeq uint64
+			first := true
+			for k, v := range cache.entries {
+				if first || v.seq < oldestSeq {
+					oldestKey = k
+					oldestSeq = v.seq
+					first = false
+				}
+			}
+			delete(cache.entries, oldestKey)
+		}
+		cache.seq++
+		cache.entries[key] = &codexCatalogCacheEntry{
+			payload: payload,
+			seq:     cache.seq,
+		}
+		return payload, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	payload := &CodexCatalogPayload{
-		Raw:  raw,
-		Gzip: compressCodexCatalogGzip(raw),
-		Zstd: compressCodexCatalogZstd(raw),
-		ETag: etag,
-	}
-
-	codexCatalogCacheMu.Lock()
-	if existing, ok := codexCatalogCache[key]; ok {
-		codexCatalogCacheMu.Unlock()
-		return existing.payload, nil
-	}
-	if len(codexCatalogCache) >= maxCodexCatalogCacheEntries {
-		var oldestKey [32]byte
-		var oldestSeq uint64
-		first := true
-		for k, v := range codexCatalogCache {
-			if first || v.seq < oldestSeq {
-				oldestKey = k
-				oldestSeq = v.seq
-				first = false
-			}
-		}
-		delete(codexCatalogCache, oldestKey)
-	}
-	codexCatalogCacheSeq++
-	codexCatalogCache[key] = &codexCatalogCacheEntry{
-		payload: payload,
-		seq:     codexCatalogCacheSeq,
-	}
-	codexCatalogCacheMu.Unlock()
-	return payload, nil
+	return result.(*CodexCatalogPayload), nil
 }
 
 // BuildCachedCodexSetupModelCatalog uses the same profile, availability and
@@ -210,12 +237,12 @@ func BuildCodexModelCatalog(available []dto.OpenAIModels, displayOrder []string)
 	return payload.Raw, payload.ETag, nil
 }
 
-func buildCodexModelCatalogRaw(available []dto.OpenAIModels, displayOrder []string) ([]byte, string, error) {
-	profiles, err := GetEffectiveCodexModelProfiles()
+func buildCodexModelCatalogRaw(available []dto.OpenAIModels, displayOrder []string, officialRaw, overridesRaw string) ([]byte, string, error) {
+	profiles, err := effectiveCodexModelProfilesFromRaw(officialRaw)
 	if err != nil {
 		return nil, "", fmt.Errorf("load Codex capability profiles: %w", err)
 	}
-	overrides, err := GetCodexModelProfileOverrides()
+	overrides, err := parseCodexModelProfileOverrides(overridesRaw)
 	if err != nil {
 		return nil, "", err
 	}
@@ -314,7 +341,9 @@ func buildCodexModelCatalogRaw(available []dto.OpenAIModels, displayOrder []stri
 	if err != nil {
 		return nil, "", err
 	}
-	etag := fmt.Sprintf(`"%x"`, sha256.Sum256(body))
+	// Weak ETag because identity, gzip, and zstd share semantically equivalent
+	// content with different representation bytes (RFC 9110 §8.8.3.3).
+	etag := fmt.Sprintf(`W/"%x"`, sha256.Sum256(body))
 	return body, etag, nil
 }
 

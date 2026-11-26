@@ -14,10 +14,7 @@ const CodexModelProfilesOptionKey = "CodexModelProfiles"
 
 type CodexModelProfiles map[string]map[string]json.RawMessage
 
-func GetCodexModelProfileOverrides() (CodexModelProfiles, error) {
-	common.OptionMapRWMutex.RLock()
-	raw := common.OptionMap[CodexModelProfilesOptionKey]
-	common.OptionMapRWMutex.RUnlock()
+func parseCodexModelProfileOverrides(raw string) (CodexModelProfiles, error) {
 	profiles := make(CodexModelProfiles)
 	if strings.TrimSpace(raw) == "" {
 		return profiles, nil
@@ -26,6 +23,13 @@ func GetCodexModelProfileOverrides() (CodexModelProfiles, error) {
 		return nil, fmt.Errorf("invalid Codex model profiles")
 	}
 	return profiles, nil
+}
+
+func GetCodexModelProfileOverrides() (CodexModelProfiles, error) {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap[CodexModelProfilesOptionKey]
+	common.OptionMapRWMutex.RUnlock()
+	return parseCodexModelProfileOverrides(raw)
 }
 
 func GetCodexModelProfileDefaults() (CodexModelProfiles, map[string]json.RawMessage, error) {

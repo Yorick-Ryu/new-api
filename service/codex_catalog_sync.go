@@ -28,10 +28,7 @@ type CodexOfficialSnapshot struct {
 	Profiles CodexModelProfiles `json:"profiles"`
 }
 
-func GetCodexOfficialSnapshot() (*CodexOfficialSnapshot, error) {
-	common.OptionMapRWMutex.RLock()
-	raw := common.OptionMap[CodexOfficialModelProfilesOptionKey]
-	common.OptionMapRWMutex.RUnlock()
+func parseCodexOfficialSnapshot(raw string) (*CodexOfficialSnapshot, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
@@ -42,12 +39,19 @@ func GetCodexOfficialSnapshot() (*CodexOfficialSnapshot, error) {
 	return &snapshot, nil
 }
 
-func GetEffectiveCodexModelProfiles() (CodexModelProfiles, error) {
+func GetCodexOfficialSnapshot() (*CodexOfficialSnapshot, error) {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap[CodexOfficialModelProfilesOptionKey]
+	common.OptionMapRWMutex.RUnlock()
+	return parseCodexOfficialSnapshot(raw)
+}
+
+func effectiveCodexModelProfilesFromRaw(officialRaw string) (CodexModelProfiles, error) {
 	builtins, err := codexCatalogProfiles()
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := GetCodexOfficialSnapshot()
+	snapshot, err := parseCodexOfficialSnapshot(officialRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +60,13 @@ func GetEffectiveCodexModelProfiles() (CodexModelProfiles, error) {
 		maps.Copy(profiles, snapshot.Profiles)
 	}
 	return profiles, nil
+}
+
+func GetEffectiveCodexModelProfiles() (CodexModelProfiles, error) {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap[CodexOfficialModelProfilesOptionKey]
+	common.OptionMapRWMutex.RUnlock()
+	return effectiveCodexModelProfilesFromRaw(raw)
 }
 
 // Only public JSON from the fixed official repository is downloaded. No local
