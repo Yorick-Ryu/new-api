@@ -810,9 +810,35 @@ func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (i
 		return total, nil
 	}
 
-	result := LOG_DB.WithContext(ctx).Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
-	if nil != result.Error {
-		return 0, result.Error
+	db := LOG_DB.WithContext(ctx)
+	if LOG_DB != businessActivityDaysDB {
+		result := db.Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
+		if result.Error != nil {
+			return 0, result.Error
+		}
+		return result.RowsAffected, nil
 	}
-	return result.RowsAffected, nil
+	var deleted int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&businessActivityDay{}).Where("day_start = ?", businessActivityLockDay).
+			UpdateColumn("revision", gorm.Expr("revision + 1")).Error; err != nil {
+			return err
+		}
+		result := tx.Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
+		if result.Error != nil {
+			return result.Error
+		}
+		deleted = result.RowsAffected
+		if deleted == 0 {
+			return nil
+		}
+		// The cutoff may remove only part of its last day. Rebuild that day
+		// from the remaining logs along with any other invalidated day.
+		cutoff := businessActivityDayStart(targetTimestamp - 1)
+		return tx.Where("day_start <= ? AND day_start <> ?", cutoff, businessActivityLockDay).Delete(&businessActivityDay{}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
 }

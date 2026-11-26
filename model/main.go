@@ -238,9 +238,11 @@ func InitLogDB() (err error) {
 		common.SetLogDatabaseType(common.MainDatabaseType())
 		initCol()
 		if common.IsMasterNode {
-			return MigrateAuditLogs()
+			if err := MigrateAuditLogs(); err != nil {
+				return err
+			}
 		}
-		return
+		return initBusinessActivityDays()
 	}
 	db, dbType, err := chooseDB("LOG_SQL_DSN", true)
 	if err == nil {
@@ -264,12 +266,13 @@ func InitLogDB() (err error) {
 		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
-		if !common.IsMasterNode {
-			return nil
+		if common.IsMasterNode {
+			common.SysLog(common.LogText("database migration started"))
+			if err := migrateLOGDB(); err != nil {
+				return err
+			}
 		}
-		common.SysLog(common.LogText("database migration started"))
-		err = migrateLOGDB()
-		return err
+		return initBusinessActivityDays()
 	} else {
 		common.FatalLog(err)
 	}

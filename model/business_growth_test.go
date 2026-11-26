@@ -2,10 +2,9 @@ package model
 
 import (
 	"context"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +12,8 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -141,6 +142,9 @@ func TestBusinessActivityIndexAndPeriodsAcrossDatabases(t *testing.T) {
 			db, err := gorm.Open(driver, &gorm.Config{})
 			require.NoError(t, err)
 			LOG_DB = db
+			oldLogType := common.LogDatabaseType()
+			common.SetLogDatabaseType(common.DatabaseType(dialect))
+			t.Cleanup(func() { common.SetLogDatabaseType(oldLogType) })
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = sqlDB.Close() })
@@ -153,11 +157,14 @@ func TestBusinessActivityIndexAndPeriodsAcrossDatabases(t *testing.T) {
 			t.Logf("%s version: %s", dialect, version)
 			for _, scenario := range []string{"fresh", "upgrade"} {
 				t.Run(scenario, func(t *testing.T) {
+					require.NoError(t, db.Migrator().DropTable(&businessActivityDay{}))
 					require.NoError(t, db.Migrator().DropTable(&Log{}))
 					require.NoError(t, db.AutoMigrate(&Log{}))
 					if scenario == "upgrade" {
 						// The released log schema differs only by this new index.
 						require.NoError(t, db.Migrator().DropIndex(&Log{}, "idx_logs_type_created_user"))
+					} else {
+						require.NoError(t, migrateBusinessActivityDays(db))
 					}
 					rows := []Log{
 						{Id: 1, UserId: 1, Type: LogTypeConsume, CreatedAt: 100, Content: "preserved"},
@@ -172,9 +179,11 @@ func TestBusinessActivityIndexAndPeriodsAcrossDatabases(t *testing.T) {
 					require.NoError(t, db.Create(&rows).Error)
 					for range 2 {
 						require.NoError(t, db.AutoMigrate(&Log{}))
+						require.NoError(t, migrateBusinessActivityDays(db))
 					}
 					recorder := &migrationSQLRecorder{}
 					require.NoError(t, db.Session(&gorm.Session{Logger: recorder}).AutoMigrate(&Log{}))
+					require.NoError(t, migrateBusinessActivityDays(db.Session(&gorm.Session{Logger: recorder})))
 					assert.Empty(t, recorder.schemaMutations(), "repeated startup must leave the log schema unchanged")
 					assert.True(t, db.Migrator().HasIndex(&Log{}, "idx_logs_type_created_user"))
 					assert.True(t, db.Migrator().HasIndex(&Log{}, "idx_created_at_type"))
@@ -198,9 +207,105 @@ func TestBusinessActivityIndexAndPeriodsAcrossDatabases(t *testing.T) {
 							assert.Equal(t, &tc.want, got)
 						})
 					}
+					t.Run("completed and partial days", func(t *testing.T) {
+						testBusinessActivityDayCoverage(t, db)
+					})
 				})
 			}
 		})
+	}
+}
+
+func testBusinessActivityDayCoverage(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	ctx := context.Background()
+	const duration = businessActivityDaySeconds
+	const today int64 = 1793462400 // November 1 at 00:00 in Beijing.
+	require.Equal(t, today, businessActivityDayStart(today+duration-1))
+	require.Equal(t, today-duration, businessActivityDayStart(today-1))
+	activityLogs := []Log{
+		{UserId: 10, Type: LogTypeConsume, CreatedAt: today + 9},
+		{UserId: 11, Type: LogTypeConsume, CreatedAt: today + 10},
+		{UserId: 11, Type: LogTypeConsume, CreatedAt: today + duration},
+		{UserId: 12, Type: LogTypeConsume, CreatedAt: today + duration + 100},
+		{UserId: 12, Type: LogTypeConsume, CreatedAt: today + duration + 200},
+		{UserId: 13, Type: LogTypeConsume, CreatedAt: today + 2*duration + 20},
+		{UserId: 14, Type: LogTypeError, CreatedAt: today + 2*duration + 20},
+		{UserId: 0, Type: LogTypeConsume, CreatedAt: today + 2*duration + 20},
+		{UserId: 13, Type: LogTypeConsume, CreatedAt: today + 3*duration},
+		{UserId: 15, Type: LogTypeConsume, CreatedAt: today + 3*duration + 9},
+		{UserId: 16, Type: LogTypeConsume, CreatedAt: today + 3*duration + 10},
+		{UserId: 17, Type: LogTypeConsume, CreatedAt: today - duration},
+	}
+	for i := range activityLogs {
+		activityLogs[i].Id = 100 + i
+	}
+	require.NoError(t, db.Create(&activityLogs).Error)
+	for _, day := range []int64{today - duration, today, today + duration, today + 3*duration, today + 4*duration} {
+		require.NoError(t, summarizeBusinessActivityDay(db, day))
+	}
+
+	// Compare the rolled-up query against the original log query while two
+	// partial days and a missing full day still require log reads.
+	start, end := today+10, today+3*duration+10
+	previousStart, previousEnd := today-5*duration, today
+	want, err := getBusinessActivity(ctx, start, end, previousStart, previousEnd)
+	require.NoError(t, err)
+	require.Equal(t, &BusinessActivity{Users: 4, PreviousUsers: 1}, want)
+	recorder := &migrationSQLRecorder{}
+	oldLogDB, oldActivityDB := LOG_DB, businessActivityDaysDB
+	LOG_DB = db.Session(&gorm.Session{Logger: recorder})
+	businessActivityDaysDB = LOG_DB
+	t.Cleanup(func() { LOG_DB, businessActivityDaysDB = oldLogDB, oldActivityDB })
+	got, err := getBusinessActivity(ctx, start, end, previousStart, previousEnd)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+	assert.Contains(t, strings.Join(recorder.statements, "\n"), "SELECT DISTINCT")
+
+	// A covered whole day, including an empty one, should need no log scans.
+	recorder.reset()
+	got, err = getBusinessActivity(ctx, today+duration, today+2*duration, today+4*duration, today+5*duration)
+	require.NoError(t, err)
+	assert.Equal(t, &BusinessActivity{Users: 2}, got)
+	require.Len(t, recorder.statements, 1)
+	assert.Contains(t, recorder.statements[0], "business_activity_days")
+
+	// Cleanup can cut through a summarized day. Fall back to the remaining
+	// logs until that day is summarized again.
+	deleted, err := DeleteOldLogBatch(ctx, today+duration+1, 100)
+	require.NoError(t, err)
+	require.Positive(t, deleted)
+	got, err = getBusinessActivity(ctx, today+duration, today+2*duration, today-duration, today)
+	require.NoError(t, err)
+	assert.Equal(t, &BusinessActivity{Users: 1}, got)
+	require.NoError(t, summarizeBusinessActivityDay(db, today+duration))
+	got, err = getBusinessActivity(ctx, today+duration, today+2*duration, today-duration, today)
+	require.NoError(t, err)
+	assert.Equal(t, &BusinessActivity{Users: 1}, got)
+
+	// A scan that overlaps cleanup cannot republish the old users afterwards.
+	var cleanupRan bool
+	scanHook := &activityLogScanHook{migrationSQLRecorder: &migrationSQLRecorder{}, afterScan: func() {
+		cleanupRan = true
+		_, err := DeleteOldLogBatch(ctx, today+2*duration+21, 100)
+		require.NoError(t, err)
+	}}
+	require.NoError(t, summarizeBusinessActivityDay(db.Session(&gorm.Session{Logger: scanHook}), today+2*duration))
+	require.True(t, cleanupRan)
+	var published int64
+	require.NoError(t, db.Model(&businessActivityDay{}).Where("day_start = ?", today+2*duration).Count(&published).Error)
+	assert.Zero(t, published)
+}
+
+type activityLogScanHook struct {
+	*migrationSQLRecorder
+	afterScan func()
+}
+
+func (hook *activityLogScanHook) Trace(_ context.Context, _ time.Time, sql func() (string, int64), err error) {
+	statement, _ := sql()
+	if err == nil && strings.HasPrefix(statement, "SELECT DISTINCT") {
+		hook.afterScan()
 	}
 }
 

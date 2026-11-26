@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"strconv"
 	"time"
 
@@ -116,23 +115,6 @@ func getBusinessSales(db *gorm.DB, start, end int64) (*BusinessSales, error) {
 		return nil, err
 	}
 	return result, nil
-}
-
-func getBusinessActivity(ctx context.Context, start, end, previousStart, previousEnd int64) (*BusinessActivity, error) {
-	if LOG_DB == nil {
-		return nil, nil
-	}
-	result := &BusinessActivity{}
-	// Only scan the two displayed periods, including their exclusive end bounds.
-	// Shortcuts compare the same elapsed time, leaving a gap between periods.
-	db := LOG_DB.WithContext(ctx)
-	current := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, start, end).
-		Select("COUNT(DISTINCT user_id) AS users")
-	previous := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, previousStart, previousEnd).
-		Select("COUNT(DISTINCT user_id) AS users")
-	err := db.Table("(?) AS current_activity, (?) AS previous_activity", current, previous).
-		Select("current_activity.users, previous_activity.users AS previous_users").Scan(result).Error
-	return result, err
 }
 
 func getBusinessSubscriptionHealth(db *gorm.DB, start, end, now int64) (*BusinessSubscriptionHealth, error) {
