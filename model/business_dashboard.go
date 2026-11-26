@@ -164,11 +164,6 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 	if err != nil {
 		return nil, err
 	}
-	result.Activity, err = getBusinessActivity(ctx, start, end, result.PreviousStartTimestamp, result.PreviousEndTimestamp)
-	if err != nil {
-		common.SysError("business activity unavailable: " + err.Error())
-		result.Activity = nil
-	}
 
 	// Include soft-deleted registrations in historical cohorts, preserving the denominator.
 	cohort := db.Unscoped().Model(&User{}).Where("created_at >= ? AND created_at < ?", start, end)
@@ -340,6 +335,15 @@ func getBusinessDashboard(ctx context.Context, start, end, comparisonShift int64
 			result.Daily[day.Bucket].WalletRevenue = day.WalletRevenue
 			result.Daily[day.Bucket].SubscriptionRevenue = day.SubscriptionRevenue
 		}
+	}
+	// Run activity last under a bounded child timeout so a slow log store
+	// degrades activity cleanly instead of exhausting the main request budget.
+	activityCtx, cancelActivity := context.WithTimeout(ctx, businessActivityQueryTimeout)
+	defer cancelActivity()
+	result.Activity, err = fetchBusinessActivity(activityCtx, start, end, result.PreviousStartTimestamp, result.PreviousEndTimestamp)
+	if err != nil {
+		common.SysError("business activity unavailable: " + err.Error())
+		result.Activity = nil
 	}
 	return result, nil
 }

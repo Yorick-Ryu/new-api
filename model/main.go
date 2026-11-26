@@ -238,11 +238,9 @@ func InitLogDB() (err error) {
 		common.SetLogDatabaseType(common.MainDatabaseType())
 		initCol()
 		if common.IsMasterNode {
-			if err := MigrateAuditLogs(); err != nil {
-				return err
-			}
+			return MigrateAuditLogs()
 		}
-		return initBusinessActivityDays()
+		return
 	}
 	db, dbType, err := chooseDB("LOG_SQL_DSN", true)
 	if err == nil {
@@ -266,13 +264,12 @@ func InitLogDB() (err error) {
 		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
-		if common.IsMasterNode {
-			common.SysLog(common.LogText("database migration started"))
-			if err := migrateLOGDB(); err != nil {
-				return err
-			}
+		if !common.IsMasterNode {
+			return nil
 		}
-		return initBusinessActivityDays()
+		common.SysLog(common.LogText("database migration started"))
+		err = migrateLOGDB()
+		return err
 	} else {
 		common.FatalLog(err)
 	}
@@ -340,6 +337,9 @@ func migrateDB() error {
 	}
 	if err := migrateOptionPrimaryKey(DB); err != nil {
 		common.SysError(common.LogText("failed to migrate options primary key: %s", err.Error()))
+	}
+	if err := ensureLogActivityIndexConcurrently(DB); err != nil {
+		return err
 	}
 
 	err := DB.AutoMigrate(
@@ -420,7 +420,47 @@ func migrateLOGDB() error {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return migrateClickHouseLogDB()
 	}
+	if err := ensureLogActivityIndexConcurrently(LOG_DB); err != nil {
+		return err
+	}
 	return LOG_DB.AutoMigrate(&Log{})
+}
+
+const logActivityIndexName = "idx_logs_type_user_created"
+
+// ensureLogActivityIndexConcurrently creates the business-activity lookup index
+// without blocking log inserts on existing PostgreSQL tables before AutoMigrate.
+func ensureLogActivityIndexConcurrently(db *gorm.DB) error {
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return nil
+	}
+	if !db.Migrator().HasTable(&Log{}) {
+		return nil
+	}
+	var state struct {
+		Exists bool
+		Valid  bool
+	}
+	err := db.Raw(`
+		SELECT TRUE AS exists, i.indisvalid AS valid
+		FROM pg_index i
+		JOIN pg_class c ON c.oid = i.indexrelid
+		JOIN pg_namespace n ON n.oid = c.relnamespace
+		WHERE c.relname = ? AND n.nspname = current_schema()
+		LIMIT 1
+	`, logActivityIndexName).Scan(&state).Error
+	if err != nil {
+		return err
+	}
+	if state.Exists && state.Valid {
+		return nil
+	}
+	if state.Exists && !state.Valid {
+		if err := db.Exec(`DROP INDEX CONCURRENTLY IF EXISTS ` + logActivityIndexName).Error; err != nil {
+			return err
+		}
+	}
+	return db.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS ` + logActivityIndexName + ` ON logs (type, user_id, created_at)`).Error
 }
 
 func migrateClickHouseLogDB() error {

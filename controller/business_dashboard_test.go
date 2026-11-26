@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -142,4 +143,31 @@ func TestBusinessDashboardCacheFreshnessAndLogRecovery(t *testing.T) {
 	recovered := request(period)
 	require.NotNil(t, recovered.Activity, "a transient log-store failure must not be cached")
 	assert.EqualValues(t, 1, recovered.Activity.Users)
+}
+
+func TestBusinessDashboardSingleflightConcurrentRequests(t *testing.T) {
+	businessDashboardCache.Purge()
+	t.Cleanup(businessDashboardCache.Purge)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.TopUp{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.Option{}, &model.Log{}))
+	require.NoError(t, db.Create(&model.Log{Type: model.LogTypeConsume, UserId: 1, CreatedAt: 1700000001}).Error)
+	engine := gin.New()
+	engine.GET("/business", GetBusinessDashboard)
+
+	const concurrency = 8
+	var wg sync.WaitGroup
+	wg.Add(concurrency)
+	codes := make([]int, concurrency)
+	for i := range concurrency {
+		go func(idx int) {
+			defer wg.Done()
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/business?start_timestamp=1700000000&end_timestamp=1700003600", nil))
+			codes[idx] = recorder.Code
+		}(i)
+	}
+	wg.Wait()
+	for i, code := range codes {
+		assert.Equal(t, http.StatusOK, code, "request %d failed", i)
+	}
 }

@@ -57,9 +57,9 @@ func sanitizeClickHouseLikePattern(input string) (string, error) {
 
 type Log struct {
 	Id                int    `json:"id" gorm:"index:idx_created_at_id,priority:2;index:idx_user_id_id,priority:2"`
-	UserId            int    `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1;index:idx_logs_type_created_user,priority:3"`
-	CreatedAt         int64  `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:1;index:idx_created_at_type;index:idx_logs_type_created_user,priority:2"`
-	Type              int    `json:"type" gorm:"index:idx_created_at_type;index:idx_logs_type_created_user,priority:1"`
+	UserId            int    `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1;index:idx_logs_type_created_user,priority:3;index:idx_logs_type_user_created,priority:2"`
+	CreatedAt         int64  `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:1;index:idx_created_at_type;index:idx_logs_type_created_user,priority:2;index:idx_logs_type_user_created,priority:3"`
+	Type              int    `json:"type" gorm:"index:idx_created_at_type;index:idx_logs_type_created_user,priority:1;index:idx_logs_type_user_created,priority:1"`
 	Content           string `json:"content"`
 	Username          string `json:"username" gorm:"index;index:index_username_model_name,priority:2;default:''"`
 	TokenName         string `json:"token_name" gorm:"index;default:''"`
@@ -810,35 +810,9 @@ func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (i
 		return total, nil
 	}
 
-	db := LOG_DB.WithContext(ctx)
-	if LOG_DB != businessActivityDaysDB {
-		result := db.Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
-		if result.Error != nil {
-			return 0, result.Error
-		}
-		return result.RowsAffected, nil
+	result := LOG_DB.WithContext(ctx).Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
+	if nil != result.Error {
+		return 0, result.Error
 	}
-	var deleted int64
-	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&businessActivityDay{}).Where("day_start = ?", businessActivityLockDay).
-			UpdateColumn("revision", gorm.Expr("revision + 1")).Error; err != nil {
-			return err
-		}
-		result := tx.Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
-		if result.Error != nil {
-			return result.Error
-		}
-		deleted = result.RowsAffected
-		if deleted == 0 {
-			return nil
-		}
-		// The cutoff may remove only part of its last day. Rebuild that day
-		// from the remaining logs along with any other invalidated day.
-		cutoff := businessActivityDayStart(targetTimestamp - 1)
-		return tx.Where("day_start <= ? AND day_start <> ?", cutoff, businessActivityLockDay).Delete(&businessActivityDay{}).Error
-	})
-	if err != nil {
-		return 0, err
-	}
-	return deleted, nil
+	return result.RowsAffected, nil
 }

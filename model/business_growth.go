@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -115,6 +116,77 @@ func getBusinessSales(db *gorm.DB, start, end int64) (*BusinessSales, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+const defaultBusinessActivityQueryTimeout = 5 * time.Second
+
+var (
+	businessActivityQueryTimeout = defaultBusinessActivityQueryTimeout
+	fetchBusinessActivity        = getBusinessActivity
+)
+
+func getBusinessActivity(ctx context.Context, start, end, previousStart, previousEnd int64) (*BusinessActivity, error) {
+	if LOG_DB == nil {
+		return nil, nil
+	}
+	db := LOG_DB.WithContext(ctx)
+	if db.Dialector.Name() == "postgres" {
+		return getBusinessActivityLooseIndexScan(db, start, end, previousStart, previousEnd)
+	}
+	result := &BusinessActivity{}
+	// Only scan the two displayed periods, including their exclusive end bounds.
+	// Shortcuts compare the same elapsed time, leaving a gap between periods.
+	current := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, start, end).
+		Select("COUNT(DISTINCT user_id) AS users")
+	previous := db.Model(&Log{}).Where("type = ? AND user_id > 0 AND created_at >= ? AND created_at < ?", LogTypeConsume, previousStart, previousEnd).
+		Select("COUNT(DISTINCT user_id) AS users")
+	err := db.Table("(?) AS current_activity, (?) AS previous_activity", current, previous).
+		Select("current_activity.users, previous_activity.users AS previous_users").Scan(result).Error
+	return result, err
+}
+
+// getBusinessActivityLooseIndexScan jumps across distinct consuming users via
+// idx_logs_type_user_created (type, user_id, created_at) and stops at the first
+// matching log per user in each window. This keeps query work proportional to
+// distinct consuming users instead of scanning millions of log rows and heap pages.
+func getBusinessActivityLooseIndexScan(db *gorm.DB, start, end, previousStart, previousEnd int64) (*BusinessActivity, error) {
+	result := &BusinessActivity{}
+	err := db.Raw(`
+		WITH RECURSIVE active_users(user_id) AS (
+			SELECT MIN(user_id)
+			FROM logs
+			WHERE type = ? AND user_id > 0
+			UNION ALL
+			SELECT (
+				SELECT MIN(l.user_id)
+				FROM logs l
+				WHERE l.type = ? AND l.user_id > u.user_id
+			)
+			FROM active_users u
+			WHERE u.user_id IS NOT NULL
+		)
+		SELECT
+			COALESCE(SUM(CASE WHEN EXISTS (
+				SELECT 1
+				FROM logs l
+				WHERE l.type = ? AND l.user_id = active_users.user_id
+				  AND l.created_at >= ? AND l.created_at < ?
+			) THEN 1 ELSE 0 END), 0) AS users,
+			COALESCE(SUM(CASE WHEN EXISTS (
+				SELECT 1
+				FROM logs l
+				WHERE l.type = ? AND l.user_id = active_users.user_id
+				  AND l.created_at >= ? AND l.created_at < ?
+			) THEN 1 ELSE 0 END), 0) AS previous_users
+		FROM active_users
+		WHERE user_id IS NOT NULL
+	`,
+		LogTypeConsume,
+		LogTypeConsume,
+		LogTypeConsume, start, end,
+		LogTypeConsume, previousStart, previousEnd,
+	).Scan(result).Error
+	return result, err
 }
 
 func getBusinessSubscriptionHealth(db *gorm.DB, start, end, now int64) (*BusinessSubscriptionHealth, error) {
