@@ -356,6 +356,16 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	require.NoError(t, err)
 	require.Len(t, evicted, 1)
 	assert.Equal(t, unattachedRef.ID, evicted[0].ID)
+	// In-flight provisional rows count toward per-user usedBytes but are never evicted.
+	inFlightProv := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/in-flight-prov", Mime: "image/png", Size: 110 << 20, CreatedAt: now - 100, ExpiresAt: now + 120}
+	require.NoError(t, db.Create(&inFlightProv).Error)
+	blockedByProv := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/blocked-by-prov", Mime: "image/png", Size: 20 << 20, CreatedAt: now + 2, ExpiresAt: 0}
+	evicted, err = model.CreateImageStudioReference(&blockedByProv)
+	assert.ErrorIs(t, err, model.ErrImageStudioBusy, "in-flight provisional upload counts toward user cap and cannot be evicted")
+	assert.Empty(t, evicted)
+	require.NoError(t, db.First(&inFlightProv, "id = ?", inFlightProv.ID).Error)
+	assert.Equal(t, now+120, inFlightProv.ExpiresAt)
+	require.NoError(t, db.Where("id = ?", inFlightProv.ID).Delete(&model.ImageStudioAsset{}).Error)
 	// Concurrent active jobs sharing a reference keep it alive until BOTH become terminal.
 	sharedRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/shared-live", Mime: "image/png", Size: 16, CreatedAt: now, ExpiresAt: 0}
 	require.NoError(t, db.Create(&sharedRef).Error)
@@ -386,17 +396,26 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	expiredSavingRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/expired-saving", Mime: "image/png", Size: 16, CreatedAt: now, ExpiresAt: 0}
 	require.NoError(t, db.Create(&expiredSavingRef).Error)
 	require.NoError(t, worker.store.Put(context.Background(), expiredSavingRef.ObjectKey, []byte("saving-ref-bytes"), "image/png"))
-	expiredSavingJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "saving", CreatedAt: now - 25*3600, ExpiresAt: now - 1}
+	expiredSavingJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "saving", CreatedAt: now - 60, ExpiresAt: now - 1, LeaseUntil: now + 300}
 	require.NoError(t, db.Create(&expiredSavingJob).Error)
 	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: expiredSavingJob.ID, AssetID: expiredSavingRef.ID}).Error)
 	worker.cleanup()
 	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", staleRef.ID).Error, gorm.ErrRecordNotFound)
 	_, err = worker.store.Get(context.Background(), staleRef.ObjectKey)
 	assert.Error(t, err)
+	require.NoError(t, db.First(&expiredSavingJob, "id = ?", expiredSavingJob.ID).Error)
+	assert.Equal(t, "saving", expiredSavingJob.Status, "active lease protects saving job from cleanup expiration")
+	require.NoError(t, db.First(&expiredSavingRef, "id = ?", expiredSavingRef.ID).Error)
+	_, err = worker.store.Get(context.Background(), expiredSavingRef.ObjectKey)
+	assert.NoError(t, err)
+	require.NoError(t, db.Model(&expiredSavingJob).Update("lease_until", now-1).Error)
+	worker.cleanup()
+	require.NoError(t, db.First(&expiredSavingJob, "id = ?", expiredSavingJob.ID).Error)
+	assert.Equal(t, "expired", expiredSavingJob.Status, "expired saving job transitions once lease_until < now")
 	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", expiredSavingRef.ID).Error, gorm.ErrRecordNotFound)
 	_, err = worker.store.Get(context.Background(), expiredSavingRef.ObjectKey)
 	assert.Error(t, err)
-	// Provisional upload finalization detects mid-upload eviction, and discard cleans failed writes.
+	// Provisional upload finalization detects mid-upload eviction and expired leases, and discard cleans failed writes.
 	provExpiry := now + int64(model.ImageStudioProvisionalUploadTTL.Seconds())
 	provAsset := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/provisional-ok", Mime: "image/png", Size: 16, CreatedAt: now, ExpiresAt: provExpiry}
 	require.NoError(t, db.Create(&provAsset).Error)
@@ -410,11 +429,20 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	finalized, err = model.FinalizeImageStudioReference(quotaUser.Id, evictedProv.ID, provExpiry)
 	require.NoError(t, err)
 	assert.False(t, finalized, "evicted provisional upload must not finalize")
+	for _, staleExpiry := range []int64{now - 1, now} {
+		staleProv := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/provisional-stale-" + strconv.FormatInt(staleExpiry, 10), Mime: "image/png", Size: 16, CreatedAt: now - 120, ExpiresAt: staleExpiry}
+		require.NoError(t, db.Create(&staleProv).Error)
+		finalized, err = model.FinalizeImageStudioReference(quotaUser.Id, staleProv.ID, staleExpiry)
+		require.NoError(t, err)
+		assert.False(t, finalized, "expired provisional upload must not finalize")
+		require.NoError(t, db.First(&staleProv, "id = ?", staleProv.ID).Error)
+		assert.Equal(t, staleExpiry, staleProv.ExpiresAt)
+	}
 	discardProv := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/provisional-discard", Mime: "image/png", Size: 16, CreatedAt: now, ExpiresAt: provExpiry}
 	require.NoError(t, db.Create(&discardProv).Error)
 	require.NoError(t, model.DiscardImageStudioReference(quotaUser.Id, discardProv.ID, provExpiry))
 	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", discardProv.ID).Error, gorm.ErrRecordNotFound)
-	// Global eviction across users locks owners in ascending order, skips excludeID and protects active jobs on all 3 DBs.
+	// Global eviction across users locks owners in ascending order, skips excludeID and in-flight provisional rows, and protects active jobs on all 3 DBs.
 	globalPeer := model.User{Id: owner.Id + 201, Username: "image-ref-global", AffCode: "ref-global-matrix", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default"}
 	require.NoError(t, db.Create(&globalPeer).Error)
 	t.Cleanup(func() {
@@ -422,19 +450,32 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 		_ = db.Where("user_id = ?", globalPeer.Id).Delete(&model.ImageStudioJob{}).Error
 		_ = db.Where("id = ?", globalPeer.Id).Delete(&model.User{}).Error
 	})
+	globalProvExpiry := now + 120
+	globalProvisionalRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: globalPeer.Id, Kind: "reference", ObjectKey: "references/global-provisional", Mime: "image/png", Size: 20 << 20, CreatedAt: now - 600, ExpiresAt: globalProvExpiry}
 	globalActiveRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: globalPeer.Id, Kind: "reference", ObjectKey: "references/global-active", Mime: "image/png", Size: 2048, CreatedAt: now - 500, ExpiresAt: 0}
 	globalOldRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: globalPeer.Id, Kind: "reference", ObjectKey: "references/global-old", Mime: "image/png", Size: 2048, CreatedAt: now - 400, ExpiresAt: 0}
 	globalExcludedRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/global-excluded", Mime: "image/png", Size: 2048, CreatedAt: now - 450, ExpiresAt: 0}
+	require.NoError(t, db.Create(&globalProvisionalRef).Error)
 	require.NoError(t, db.Create(&globalActiveRef).Error)
 	require.NoError(t, db.Create(&globalOldRef).Error)
 	require.NoError(t, db.Create(&globalExcludedRef).Error)
 	globalActiveJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: globalPeer.Id, RequestKey: uuid.NewString(), Status: "running", CreatedAt: now}
 	require.NoError(t, db.Create(&globalActiveJob).Error)
 	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: globalActiveJob.ID, AssetID: globalActiveRef.ID}).Error)
-	globalEvicted, err := model.EvictImageStudioReferences(2048, globalExcludedRef.ID)
+	// Provisional bytes (20 MiB) must not be counted toward reclaimed bytes.
+	globalEvicted, err := model.EvictImageStudioReferences(15<<20, globalExcludedRef.ID)
+	require.NoError(t, err)
+	assert.Empty(t, globalEvicted, "in-flight provisional references do not count toward reclaimed bytes")
+	require.NoError(t, db.First(&globalProvisionalRef, "id = ?", globalProvisionalRef.ID).Error)
+	assert.Equal(t, globalProvExpiry, globalProvisionalRef.ExpiresAt)
+	require.NoError(t, db.First(&globalOldRef, "id = ?", globalOldRef.ID).Error)
+	assert.Zero(t, globalOldRef.ExpiresAt)
+	globalEvicted, err = model.EvictImageStudioReferences(2048, globalExcludedRef.ID)
 	require.NoError(t, err)
 	require.Len(t, globalEvicted, 1)
-	assert.Equal(t, globalOldRef.ID, globalEvicted[0].ID, "global eviction skips active-job references and excludeID")
+	assert.Equal(t, globalOldRef.ID, globalEvicted[0].ID, "global eviction skips in-flight provisional, active-job, and excluded references")
+	require.NoError(t, db.First(&globalProvisionalRef, "id = ?", globalProvisionalRef.ID).Error)
+	assert.Equal(t, globalProvExpiry, globalProvisionalRef.ExpiresAt)
 	require.NoError(t, db.First(&globalActiveRef, "id = ?", globalActiveRef.ID).Error)
 	assert.Zero(t, globalActiveRef.ExpiresAt)
 	require.NoError(t, db.First(&globalExcludedRef, "id = ?", globalExcludedRef.ID).Error)
@@ -460,7 +501,62 @@ func imageStudioReferenceLifecycle(t *testing.T, db *gorm.DB, worker *imageStudi
 	require.Equal(t, http.StatusOK, deleteRec.Code)
 	require.NoError(t, db.First(&sharedLegacyRef, "id = ?", sharedLegacyRef.ID).Error)
 	assert.Equal(t, int64(0), sharedLegacyRef.ExpiresAt, "legacy reference shared by another non-deleted job stays live")
-	require.NoError(t, db.Where("job_id IN ?", []string{doneJob.ID, activeJobA.ID, activeJobB.ID, activeJobC.ID, peerA.ID, peerB.ID, staleQueued.ID, expiredSavingJob.ID}).Delete(&model.ImageStudioJobReference{}).Error)
+	// Orphaned terminal-job references (both join-table and legacy reference_id) are swept across users while preserving unattached, active-job, and original assets.
+	orphanRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/orphan-terminal", Mime: "image/png", Size: 16, CreatedAt: now - 300, ExpiresAt: 0}
+	orphanLegacyRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/orphan-legacy", Mime: "image/png", Size: 16, CreatedAt: now - 250, ExpiresAt: 0}
+	orphanUnattached := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/orphan-unattached", Mime: "image/png", Size: 16, CreatedAt: now - 200, ExpiresAt: 0}
+	orphanActiveRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/orphan-active", Mime: "image/png", Size: 16, CreatedAt: now - 150, ExpiresAt: 0}
+	orphanOriginal := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "original", ObjectKey: "generated/orphan/0-original", Mime: "image/png", Size: 16, CreatedAt: now - 100, ExpiresAt: 0}
+	for _, asset := range []model.ImageStudioAsset{orphanRef, orphanLegacyRef, orphanUnattached, orphanActiveRef, orphanOriginal} {
+		require.NoError(t, db.Create(&asset).Error)
+	}
+	orphanDoneJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "success", CreatedAt: now - 300}
+	orphanLegacyJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), ReferenceID: orphanLegacyRef.ID, Status: "failed", CreatedAt: now - 250}
+	orphanActiveJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "running", CreatedAt: now - 150}
+	require.NoError(t, db.Create(&orphanDoneJob).Error)
+	require.NoError(t, db.Create(&orphanLegacyJob).Error)
+	require.NoError(t, db.Create(&orphanActiveJob).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: orphanDoneJob.ID, AssetID: orphanRef.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: orphanDoneJob.ID, AssetID: orphanActiveRef.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: orphanDoneJob.ID, AssetID: orphanOriginal.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: orphanActiveJob.ID, AssetID: orphanActiveRef.ID}).Error)
+	orphaned, err := model.ReleaseOrphanedTerminalImageStudioReferences(now, 100)
+	require.NoError(t, err)
+	orphanedIDs := make([]string, 0, len(orphaned))
+	for _, asset := range orphaned {
+		orphanedIDs = append(orphanedIDs, asset.ID)
+	}
+	assert.Contains(t, orphanedIDs, orphanRef.ID)
+	assert.Contains(t, orphanedIDs, orphanLegacyRef.ID)
+	assert.NotContains(t, orphanedIDs, orphanUnattached.ID)
+	assert.NotContains(t, orphanedIDs, orphanActiveRef.ID)
+	assert.NotContains(t, orphanedIDs, orphanOriginal.ID)
+	require.NoError(t, db.First(&orphanRef, "id = ?", orphanRef.ID).Error)
+	assert.Equal(t, now, orphanRef.ExpiresAt)
+	require.NoError(t, db.First(&orphanLegacyRef, "id = ?", orphanLegacyRef.ID).Error)
+	assert.Equal(t, now, orphanLegacyRef.ExpiresAt)
+	require.NoError(t, db.First(&orphanUnattached, "id = ?", orphanUnattached.ID).Error)
+	assert.Zero(t, orphanUnattached.ExpiresAt)
+	require.NoError(t, db.First(&orphanActiveRef, "id = ?", orphanActiveRef.ID).Error)
+	assert.Zero(t, orphanActiveRef.ExpiresAt)
+	require.NoError(t, db.First(&orphanOriginal, "id = ?", orphanOriginal.ID).Error)
+	assert.Zero(t, orphanOriginal.ExpiresAt)
+	// DeleteOldImageStudioJobs must preserve active "group" parent jobs and their join rows while pruning old terminal jobs.
+	oldGroupRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: quotaUser.Id, Kind: "reference", ObjectKey: "references/old-group", Mime: "image/png", Size: 16, CreatedAt: now - 48*3600, ExpiresAt: 0}
+	oldGroupJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "group", CreatedAt: now - 48*3600, ExpiresAt: 0}
+	oldTerminalJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: quotaUser.Id, RequestKey: uuid.NewString(), Status: "failed", CreatedAt: now - 48*3600, ExpiresAt: 0}
+	require.NoError(t, db.Create(&oldGroupRef).Error)
+	require.NoError(t, db.Create(&oldGroupJob).Error)
+	require.NoError(t, db.Create(&oldTerminalJob).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: oldGroupJob.ID, AssetID: oldGroupRef.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: oldTerminalJob.ID, AssetID: oldGroupRef.ID}).Error)
+	require.NoError(t, model.DeleteOldImageStudioJobs(now-int64(model.ImageStudioRetention.Seconds())))
+	require.NoError(t, db.First(&oldGroupJob, "id = ?", oldGroupJob.ID).Error, "DeleteOldImageStudioJobs preserves status=group parent jobs")
+	var oldGroupLinks int64
+	require.NoError(t, db.Model(&model.ImageStudioJobReference{}).Where("job_id = ?", oldGroupJob.ID).Count(&oldGroupLinks).Error)
+	assert.EqualValues(t, 1, oldGroupLinks)
+	assert.ErrorIs(t, db.First(&model.ImageStudioJob{}, "id = ?", oldTerminalJob.ID).Error, gorm.ErrRecordNotFound, "DeleteOldImageStudioJobs prunes old terminal jobs")
+	require.NoError(t, db.Where("job_id IN ?", []string{doneJob.ID, activeJobA.ID, activeJobB.ID, activeJobC.ID, peerA.ID, peerB.ID, staleQueued.ID, expiredSavingJob.ID, orphanDoneJob.ID, orphanActiveJob.ID, oldGroupJob.ID}).Delete(&model.ImageStudioJobReference{}).Error)
 	require.NoError(t, db.Where("user_id = ?", quotaUser.Id).Delete(&model.ImageStudioAsset{}).Error)
 	require.NoError(t, db.Where("user_id = ?", quotaUser.Id).Delete(&model.ImageStudioJob{}).Error)
 }
@@ -1957,4 +2053,270 @@ func TestImageStudioReferenceUnavailableCodeAndRetention(t *testing.T) {
 	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", oldGlobalID).Error, gorm.ErrRecordNotFound, "oldest global non-active reference is evicted when global cap is reached")
 	_, err = store.Get(context.Background(), "references/"+oldGlobalID)
 	assert.Error(t, err, "evicted global reference file is removed from disk")
+}
+
+func TestImageStudioMarkupIdempotencyAfterReferenceCleanup(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	db := modelManagementDB(t, "sqlite", "")
+	require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}))
+	previousAuto := setting.AutoGroups2JsonString()
+	previousGroups := ratio_setting.GroupRatio2JSONString()
+	permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousPermissions := permissions.ReadAll()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups))
+		permissions.Clear()
+		permissions.AddAll(previousPermissions)
+	})
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+	permissions.Set("default", map[string]string{"+:auto": "Automatic"})
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"gpt-image-2.6":0.01}`))
+	owner := model.User{Id: 801, Username: "markup-idem-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
+	require.NoError(t, db.Create(&owner).Error)
+
+	response := imageStudioTestResponse(t)
+	var edits atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		edits.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(response)
+	}))
+	defer upstream.Close()
+	channel := model.Channel{Id: 802, Type: constant.ChannelTypeOpenAI, Name: "markup-idem-fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-2.6", Group: "default", BaseURL: &upstream.URL}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, channel.AddAbilities(db))
+	service.InitHttpClient()
+	model.InvalidatePricingCache()
+
+	store, restore := imageStudioTestStore(t)
+	restore()
+	worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "markup-idem-node"}
+
+	var basePNG, overlayPNG bytes.Buffer
+	require.NoError(t, png.Encode(&basePNG, image.NewNRGBA(image.Rect(0, 0, 3, 2))))
+	overlay := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+	overlay.Pix[0], overlay.Pix[3] = 255, 255
+	require.NoError(t, png.Encode(&overlayPNG, overlay))
+
+	now := time.Now().Unix()
+	baseID, markupID := uuid.NewString(), uuid.NewString()
+	baseAsset := model.ImageStudioAsset{ID: baseID, UserID: owner.Id, Kind: "reference", ObjectKey: "references/" + baseID, Mime: "image/png", Size: int64(basePNG.Len()), CreatedAt: now, ExpiresAt: 0}
+	markupAsset := model.ImageStudioAsset{ID: markupID, UserID: owner.Id, Kind: "reference", ObjectKey: "references/" + markupID, Mime: "image/png", Size: int64(overlayPNG.Len()), CreatedAt: now, ExpiresAt: 0}
+	_, err := model.CreateImageStudioReference(&baseAsset)
+	require.NoError(t, err)
+	_, err = model.CreateImageStudioReference(&markupAsset)
+	require.NoError(t, err)
+	require.NoError(t, store.Put(context.Background(), baseAsset.ObjectKey, basePNG.Bytes(), baseAsset.Mime))
+	require.NoError(t, store.Put(context.Background(), markupAsset.ObjectKey, overlayPNG.Bytes(), markupAsset.Mime))
+
+	reqKey := uuid.NewString()
+	input := imageStudioInput{Model: "gpt-image-2.6", Prompt: "recolor marked region", N: 1, Complexity: "low", ReferenceIDs: []string{baseID}, MarkupID: markupID}
+	raw, err := common.Marshal(input)
+	require.NoError(t, err)
+
+	submit := func(body []byte) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Set("id", owner.Id)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/image-studio/jobs", bytes.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.Header.Set("Idempotency-Key", reqKey)
+		CreateImageStudioJob(c)
+		return rec
+	}
+
+	firstRec := submit(raw)
+	require.Equal(t, http.StatusOK, firstRec.Code, firstRec.Body.String())
+	var firstResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(firstRec.Body.Bytes(), &firstResp))
+	require.True(t, firstResp.Success)
+	require.NotEmpty(t, firstResp.Data.ID)
+
+	claimed, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	worker.execute(claimed)
+	require.NoError(t, db.First(claimed, "id = ?", claimed.ID).Error)
+	require.Equal(t, "success", claimed.Status, claimed.Error)
+	require.EqualValues(t, 1, edits.Load())
+	// Confirm both base and markup references were deleted upon completion.
+	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", baseID).Error, gorm.ErrRecordNotFound)
+	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", markupID).Error, gorm.ErrRecordNotFound)
+	_, err = store.Get(context.Background(), baseAsset.ObjectKey)
+	assert.Error(t, err)
+	_, err = store.Get(context.Background(), markupAsset.ObjectKey)
+	assert.Error(t, err)
+
+	// Retrying with the exact same Idempotency-Key and body returns HTTP 200 with the original job ID.
+	retryRec := submit(raw)
+	require.Equal(t, http.StatusOK, retryRec.Code, retryRec.Body.String())
+	var retryResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(retryRec.Body.Bytes(), &retryResp))
+	assert.True(t, retryResp.Success)
+	assert.Equal(t, firstResp.Data.ID, retryResp.Data.ID)
+	var jobCount int64
+	require.NoError(t, db.Model(&model.ImageStudioJob{}).Where("user_id = ?", owner.Id).Count(&jobCount).Error)
+	assert.Equal(t, int64(1), jobCount)
+
+	// Retrying with the same Idempotency-Key and a different body returns HTTP 409 conflict.
+	different := input
+	different.Prompt = "different prompt"
+	differentRaw, err := common.Marshal(different)
+	require.NoError(t, err)
+	conflictRec := submit(differentRaw)
+	require.Equal(t, http.StatusConflict, conflictRec.Code, conflictRec.Body.String())
+	var conflictResp struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, common.Unmarshal(conflictRec.Body.Bytes(), &conflictResp))
+	assert.False(t, conflictResp.Success)
+	assert.Equal(t, "Request key already used", conflictResp.Message)
+}
+
+func TestImageStudioWorkerReclaimsIdleReferencesWhenHeadroomTight(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	db := modelManagementDB(t, "sqlite", "")
+	require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}))
+	previousAuto := setting.AutoGroups2JsonString()
+	previousGroups := ratio_setting.GroupRatio2JSONString()
+	permissions := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousPermissions := permissions.ReadAll()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(previousAuto))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousGroups))
+		permissions.Clear()
+		permissions.AddAll(previousPermissions)
+	})
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+	permissions.Set("default", map[string]string{"+:auto": "Automatic"})
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"gpt-image-1":0.01}`))
+	owner := model.User{Id: 811, Username: "headroom-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
+	peer := model.User{Id: 812, Username: "headroom-peer", AffCode: "headroom-peer", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
+	require.NoError(t, db.Create(&owner).Error)
+	require.NoError(t, db.Create(&peer).Error)
+
+	response := imageStudioTestResponse(t)
+	var generations atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		generations.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(response)
+	}))
+	defer upstream.Close()
+	channel := model.Channel{Id: 813, Type: constant.ChannelTypeOpenAI, Name: "headroom-fixture", Key: "fixture", Status: common.ChannelStatusEnabled, Models: "gpt-image-1", Group: "default", BaseURL: &upstream.URL}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, channel.AddAbilities(db))
+	service.InitHttpClient()
+	model.InvalidatePricingCache()
+
+	store, restore := imageStudioTestStore(t)
+	restore()
+	worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "headroom-node"}
+
+	now := time.Now().Unix()
+	activeRefID := uuid.NewString()
+	idleRefID := uuid.NewString()
+	refBytes := bytes.Repeat([]byte("r"), 4096)
+	activeRef := model.ImageStudioAsset{ID: activeRefID, UserID: peer.Id, Kind: "reference", ObjectKey: "references/" + activeRefID, Mime: "image/png", Size: int64(len(refBytes)), CreatedAt: now - 1000, ExpiresAt: 0}
+	idleRef := model.ImageStudioAsset{ID: idleRefID, UserID: peer.Id, Kind: "reference", ObjectKey: "references/" + idleRefID, Mime: "image/png", Size: int64(len(refBytes)), CreatedAt: now - 500, ExpiresAt: 0}
+	require.NoError(t, db.Create(&activeRef).Error)
+	require.NoError(t, db.Create(&idleRef).Error)
+	require.NoError(t, store.Put(context.Background(), activeRef.ObjectKey, refBytes, "image/png"))
+	require.NoError(t, store.Put(context.Background(), idleRef.ObjectKey, refBytes, "image/png"))
+	activeJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: peer.Id, RequestKey: uuid.NewString(), Status: "running", CreatedAt: now - 1000}
+	require.NoError(t, db.Create(&activeJob).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: activeJob.ID, AssetID: activeRefID}).Error)
+
+	// Fill storage into [4 GiB - 328 MiB, 4 GiB) so AvailableCapacity(328 MiB) fails
+	// while evicting the 4096-byte idle reference restores >= 328 MiB free headroom.
+	requiredStoreBytes := int64(2 * (4*service.ImageStudioMaxGeneratedBytes + 4*(1<<20)))
+	usedBefore, err := store.UsedBytes()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(os.Getenv("IMAGE_STUDIO_STORAGE_DIR"), "generated", "sparse"), 0700))
+	fillerPath := filepath.Join(os.Getenv("IMAGE_STUDIO_STORAGE_DIR"), "generated", "sparse", "filler")
+	filler, err := os.Create(fillerPath)
+	require.NoError(t, err)
+	require.NoError(t, filler.Truncate(service.ImageStudioMaxStorageBytes-requiredStoreBytes-usedBefore+int64(len(refBytes))))
+	require.NoError(t, filler.Close())
+	require.Error(t, store.AvailableCapacity(requiredStoreBytes))
+
+	token, err := model.GetOrCreateImageStudioToken(owner.Id, []string{"gpt-image-1"}, nil)
+	require.NoError(t, err)
+	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, TokenID: token.Id, ClientIP: "127.0.0.1", RequestKey: uuid.NewString(), Request: `{"model":"gpt-image-1","prompt":"sunny valley","n":1}`, Status: "queued", CreatedAt: now, UpdatedAt: now}
+	_, err = model.CreateImageStudioJob(job, nil, false)
+	require.NoError(t, err)
+
+	claimed, err := model.ClaimImageStudioJob(worker.owner, time.Now().Unix())
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	worker.execute(claimed)
+
+	require.NoError(t, db.First(claimed, "id = ?", claimed.ID).Error)
+	assert.Equal(t, "success", claimed.Status, claimed.Error)
+	assert.EqualValues(t, 1, generations.Load())
+	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", idleRefID).Error, gorm.ErrRecordNotFound, "idle reference was evicted to restore headroom")
+	_, err = store.Get(context.Background(), idleRef.ObjectKey)
+	assert.Error(t, err, "evicted idle reference file was deleted from disk")
+	require.NoError(t, db.First(&activeRef, "id = ?", activeRefID).Error, "active-job reference was preserved")
+	assert.Zero(t, activeRef.ExpiresAt)
+	_, err = store.Get(context.Background(), activeRef.ObjectKey)
+	assert.NoError(t, err)
+}
+
+func TestImageStudioCleanupSweepsOrphanedTerminalReferences(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	db := modelManagementDB(t, "sqlite", "")
+	require.NoError(t, db.AutoMigrate(&model.ImageStudioJob{}, &model.ImageStudioAsset{}, &model.ImageStudioJobReference{}, &model.ImageStudioToken{}, &model.Token{}))
+	owner := model.User{Id: 821, Username: "orphan-cleanup-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 1000000}
+	require.NoError(t, db.Create(&owner).Error)
+	store, restore := imageStudioTestStore(t)
+	restore()
+	worker := imageStudioWorker{store: store, directory: t.TempDir(), owner: "orphan-cleanup-node"}
+
+	now := time.Now().Unix()
+	orphanedRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: owner.Id, Kind: "reference", ObjectKey: "references/orphaned-success", Mime: "image/png", Size: 16, CreatedAt: now - 60, ExpiresAt: 0}
+	unattachedRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: owner.Id, Kind: "reference", ObjectKey: "references/unattached-live", Mime: "image/png", Size: 16, CreatedAt: now - 60, ExpiresAt: 0}
+	activeRef := model.ImageStudioAsset{ID: uuid.NewString(), UserID: owner.Id, Kind: "reference", ObjectKey: "references/active-live", Mime: "image/png", Size: 16, CreatedAt: now - 60, ExpiresAt: 0}
+	for _, asset := range []model.ImageStudioAsset{orphanedRef, unattachedRef, activeRef} {
+		require.NoError(t, db.Create(&asset).Error)
+		require.NoError(t, store.Put(context.Background(), asset.ObjectKey, []byte("reference-bytes!"), asset.Mime))
+	}
+	// Simulated crash: job is already in success while its reference remained at expires_at = 0.
+	doneJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "success", CreatedAt: now - 60, ExpiresAt: now + 3600}
+	activeJob := model.ImageStudioJob{ID: uuid.NewString(), UserID: owner.Id, RequestKey: uuid.NewString(), Status: "queued", CreatedAt: now - 60}
+	require.NoError(t, db.Create(&doneJob).Error)
+	require.NoError(t, db.Create(&activeJob).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: doneJob.ID, AssetID: orphanedRef.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: doneJob.ID, AssetID: activeRef.ID}).Error)
+	require.NoError(t, db.Create(&model.ImageStudioJobReference{JobID: activeJob.ID, AssetID: activeRef.ID}).Error)
+
+	worker.cleanup()
+
+	assert.ErrorIs(t, db.First(&model.ImageStudioAsset{}, "id = ?", orphanedRef.ID).Error, gorm.ErrRecordNotFound, "orphaned terminal-job reference DB row is deleted by cleanup")
+	_, err := store.Get(context.Background(), orphanedRef.ObjectKey)
+	assert.Error(t, err, "orphaned terminal-job reference file is deleted from disk")
+
+	require.NoError(t, db.First(&unattachedRef, "id = ?", unattachedRef.ID).Error, "unattached reference survives cleanup")
+	assert.Zero(t, unattachedRef.ExpiresAt)
+	_, err = store.Get(context.Background(), unattachedRef.ObjectKey)
+	assert.NoError(t, err)
+
+	require.NoError(t, db.First(&activeRef, "id = ?", activeRef.ID).Error, "active-job reference survives cleanup")
+	assert.Zero(t, activeRef.ExpiresAt)
+	_, err = store.Get(context.Background(), activeRef.ObjectKey)
+	assert.NoError(t, err)
 }

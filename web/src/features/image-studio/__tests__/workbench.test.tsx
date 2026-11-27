@@ -339,7 +339,7 @@ describe('Image workbench', () => {
     ).toHaveTextContent('2K')
     fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith(input, expect.any(String), false)
+      expect(create).toHaveBeenCalledWith(input, expect.any(String), false, 1)
     )
     fireEvent.click(screen.getByRole('combobox', { name: /Nano Banana 2/ }))
     fireEvent.click(await screen.findByRole('option', { name: /gpt-image-1/ }))
@@ -360,7 +360,8 @@ describe('Image workbench', () => {
           size: '',
         }),
         expect.any(String),
-        false
+        false,
+        1
       )
     )
   })
@@ -591,7 +592,8 @@ describe('Image workbench', () => {
         ],
       },
       expect.any(String),
-      false
+      false,
+      1
     )
   })
 
@@ -1353,6 +1355,7 @@ describe('Image workbench', () => {
       create.mock.calls[0][0],
       create.mock.calls[0][1],
       true,
+      1,
     ])
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
@@ -1963,6 +1966,175 @@ describe('Image workbench', () => {
       expect.objectContaining({ reference_ids: ['reuploaded-ref'] }),
       expect.any(Object)
     )
+  })
+  it('aborts image_reference_unavailable recovery without uploading or creating a job after switching accounts', async () => {
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([job])
+    vi.spyOn(imageAPI, 'readLocalImageReference').mockResolvedValue({
+      file: new File(['original'], 'reference.png', { type: 'image/png' }),
+      reusableRemoteId: 'task-one-0-original',
+      userId: 1,
+    })
+    const unavailable = Object.assign(new Error('unavailable'), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          code: 'image_reference_unavailable',
+          message: 'Reference image is unavailable',
+        },
+      },
+    })
+    let rejectJob!: (reason?: unknown) => void
+    let markJobSent!: () => void
+    const jobSent = new Promise<void>((resolve) => {
+      markJobSent = resolve
+    })
+    const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
+      if (url === '/api/image-studio/references') {
+        return { data: { success: true, data: { id: 'unexpected-upload' } } }
+      }
+      if (url === '/api/image-studio/jobs') {
+        markJobSent()
+        return await new Promise((_resolve, reject) => {
+          rejectJob = reject
+        })
+      }
+      return { data: { success: true, data: {} } }
+    })
+
+    render(<ImageStudio />, { wrapper })
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use as reference' })
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Reference images (up to 4)' })
+      ).toHaveTextContent('1/4')
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'User A edit prompt' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await jobSent
+
+    // Switch active account from User A (id: 1) to User B (id: 2) while POST /jobs is pending.
+    act(() => {
+      useAuthStore
+        .getState()
+        .auth.setUser({ id: 2, username: 'user-b', role: 1 })
+    })
+
+    await act(async () => {
+      rejectJob(unavailable)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+
+    expect(
+      post.mock.calls.filter(([url]) => url === '/api/image-studio/references')
+    ).toHaveLength(0)
+    expect(
+      post.mock.calls.filter(([url]) => url === '/api/image-studio/jobs')
+    ).toHaveLength(1)
+  })
+  it('preserves the frozen reference snapshot during image_reference_unavailable retry after clicking Reuse parameters', async () => {
+    vi.mocked(imageAPI.getImageJobs).mockResolvedValue([job])
+    vi.spyOn(imageAPI, 'readLocalImageReference').mockResolvedValue({
+      file: new File(['original'], 'reference.png', { type: 'image/png' }),
+      reusableRemoteId: 'task-one-0-original',
+      userId: 1,
+    })
+    const unavailable = Object.assign(new Error('unavailable'), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          code: 'image_reference_unavailable',
+          message: 'Reference image is unavailable',
+        },
+      },
+    })
+    let rejectFirstJob!: (reason?: unknown) => void
+    let markFirstJobSent!: () => void
+    const firstJobSent = new Promise<void>((resolve) => {
+      markFirstJobSent = resolve
+    })
+    let jobAttempts = 0
+    const post = vi.spyOn(api, 'post').mockImplementation(async (url) => {
+      if (url === '/api/image-studio/references') {
+        return { data: { success: true, data: { id: 'reuploaded-frozen-ref' } } }
+      }
+      if (url === '/api/image-studio/jobs') {
+        jobAttempts += 1
+        if (jobAttempts === 1) {
+          markFirstJobSent()
+          return await new Promise((_resolve, reject) => {
+            rejectFirstJob = reject
+          })
+        }
+        return { data: { success: true, data: { id: 'recovered-edit-job' } } }
+      }
+      return { data: { success: true, data: {} } }
+    })
+
+    render(<ImageStudio />, { wrapper })
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use as reference' })
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Reference images (up to 4)' })
+      ).toHaveTextContent('1/4')
+    )
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Add snow to house' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await firstJobSent
+
+    // While POST /jobs is pending, click "Reuse parameters" which clears live form references.
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    const details = await screen.findByRole('dialog', { name: 'Image details' })
+    fireEvent.click(
+      within(details).getByRole('button', { name: 'Reuse parameters' })
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Reference images (up to 4)' })
+      ).not.toHaveTextContent('1/4')
+    )
+
+    // Reject first POST /jobs with 400 image_reference_unavailable -> retry must re-upload frozen reference.
+    act(() => {
+      rejectFirstJob(unavailable)
+    })
+
+    await waitFor(() => expect(jobAttempts).toBe(2))
+    const uploadCalls = post.mock.calls.filter(
+      ([url]) => url === '/api/image-studio/references'
+    )
+    const jobCalls = post.mock.calls.filter(
+      ([url]) => url === '/api/image-studio/jobs'
+    )
+    expect(uploadCalls).toHaveLength(1)
+    expect(jobCalls).toHaveLength(2)
+    expect(jobCalls[0][1]).toEqual(
+      expect.objectContaining({
+        prompt: 'Add snow to house',
+        reference_ids: ['task-one-0-original'],
+      })
+    )
+    expect(jobCalls[1][1]).toEqual(
+      expect.objectContaining({
+        prompt: 'Add snow to house',
+        reference_ids: ['reuploaded-frozen-ref'],
+      })
+    )
+    // Live form remains cleared with the reused parameters.
+    expect(
+      screen.getByRole('button', { name: 'Reference images (up to 4)' })
+    ).not.toHaveTextContent('1/4')
   })
   it('uses the same request key when retrying after a lost response', async () => {
     const post = vi
@@ -2834,7 +3006,8 @@ describe('Image complexity and markup capabilities', () => {
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({ complexity: 'low' }),
         expect.any(String),
-        false
+        false,
+        1
       )
     )
     fireEvent.click(screen.getByRole('combobox', { name: 'gpt-image-2.6' }))
@@ -2850,7 +3023,8 @@ describe('Image complexity and markup capabilities', () => {
           complexity: undefined,
         }),
         expect.any(String),
-        false
+        false,
+        1
       )
     )
   })
@@ -2961,7 +3135,8 @@ describe('Image complexity and markup capabilities', () => {
                 : ['normalized'],
           }),
           expect.any(String),
-          false
+          false,
+          1
         )
       )
       const uploadsAfterFirst = post.mock.calls.length
@@ -3008,6 +3183,107 @@ describe('Image complexity and markup capabilities', () => {
       )
     }
   )
+
+  it('reuses the cached normalized markup image on retry after overlay upload failure', async () => {
+    const context = {
+      clearRect: vi.fn(),
+      beginPath: vi.fn(),
+      ellipse: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      drawImage: vi.fn(),
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as CanvasRenderingContext2D
+    )
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
+      (callback) => callback(new Blob(['png'], { type: 'image/png' }))
+    )
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:source')
+    vi.spyOn(toast, 'error').mockReturnValue('error')
+    let overlayAttempts = 0
+    const post = vi
+      .spyOn(api, 'post')
+      .mockImplementation(async (url, data) => {
+        if (url === '/api/image-studio/references') {
+          const file = (data as FormData).get('image') as File
+          if (file.name === 'reference.png') {
+            return { data: { success: true, data: { id: 'normalized' } } }
+          }
+          if (file.name === 'markup.png') {
+            if (overlayAttempts++ === 0) {
+              throw new Error('Overlay upload failed')
+            }
+            return { data: { success: true, data: { id: 'overlay' } } }
+          }
+        }
+        return { data: { success: true, data: { id: 'marked-task' } } }
+      })
+    const onCreated = vi.fn()
+    render(
+      <ImageForm
+        options={capableOptions}
+        reuse={null}
+        reference={{
+          localId: 'first',
+          name: 'Original',
+          blob: new File(['first'], 'Original.png', { type: 'image/png' }),
+        }}
+        onCreated={onCreated}
+      />,
+      { wrapper }
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Mark areas to edit' })
+    )
+    const image = within(screen.getByRole('dialog')).getByRole('img', {
+      name: 'Original',
+    })
+    Object.defineProperties(image, {
+      naturalWidth: { value: 400 },
+      naturalHeight: { value: 300 },
+    })
+    fireEvent.load(image)
+    fireEvent.keyDown(
+      screen.getByRole('img', { name: 'Image markup canvas' }),
+      { key: ' ' }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Apply markup' }))
+    await screen.findByRole('button', { name: 'Edit markup' })
+    fireEvent.change(screen.getByLabelText('Image prompt'), {
+      target: { value: 'Make the marked area blue' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() =>
+      expect(
+        post.mock.calls.filter(([url]) => url === '/api/image-studio/references')
+      ).toHaveLength(2)
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Generate image' })
+      ).toBeEnabled()
+    )
+    expect(
+      post.mock.calls.filter(([url]) => url === '/api/image-studio/jobs')
+    ).toHaveLength(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('marked-task'))
+    const uploadedNames = post.mock.calls
+      .filter(([url]) => url === '/api/image-studio/references')
+      .map(([, data]) => ((data as FormData).get('image') as File).name)
+    expect(uploadedNames).toEqual(['reference.png', 'markup.png', 'markup.png'])
+    expect(post).toHaveBeenCalledWith(
+      '/api/image-studio/jobs',
+      expect.objectContaining({
+        reference_ids: ['normalized'],
+        markup_id: 'overlay',
+      }),
+      expect.any(Object)
+    )
+  })
 
   it('removes the markup editor when its first reference is removed', async () => {
     render(

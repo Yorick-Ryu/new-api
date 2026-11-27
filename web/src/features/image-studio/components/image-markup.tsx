@@ -32,8 +32,8 @@ import type { ImageReference } from './image-references'
 type Point = { x: number; y: number }
 type Stroke = { points: Point[]; circle: boolean }
 export type CachedRemoteMarkup = {
-  normalizedRefId: string
-  markupId: string
+  normalizedRefId?: string
+  markupId?: string
   userId: number
 }
 export type ImageMarkupValue = {

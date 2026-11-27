@@ -203,6 +203,17 @@ func ValidateImageStudioReferenceIDs(ids []string) error {
 	return nil
 }
 
+func FindImageStudioJobByRequestKey(userID int, requestKey string) (*ImageStudioJob, error) {
+	var job ImageStudioJob
+	if err := DB.Where("user_id = ? AND request_key = ?", userID, requestKey).First(&job).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &job, nil
+}
+
 // CreateImageStudioJob serializes submissions per user, including concurrent
 // retries. The unique key also protects installations using SQLite.
 func CreateImageStudioJob(job *ImageStudioJob, referenceIDs []string, confirmDuplicate bool) (*ImageStudioJob, error) {
@@ -389,12 +400,14 @@ func DeleteExpiredImageStudioAsset(id string, now int64) error {
 }
 
 func DeleteOldImageStudioJobs(before int64) error {
+	activeStatuses := []string{"queued", "running", "saving", "group"}
+	now := time.Now().Unix()
 	return DB.Transaction(func(tx *gorm.DB) error {
-		jobs := tx.Model(&ImageStudioJob{}).Select("id").Where("created_at < ? AND (expires_at = 0 OR expires_at <= ?) AND status NOT IN ?", before, time.Now().Unix(), []string{"queued", "running", "saving"})
+		jobs := tx.Model(&ImageStudioJob{}).Select("id").Where("created_at < ? AND (expires_at = 0 OR expires_at <= ?) AND status NOT IN ?", before, now, activeStatuses)
 		if err := tx.Where("job_id IN (?)", jobs).Delete(&ImageStudioJobReference{}).Error; err != nil {
 			return err
 		}
-		return tx.Where("created_at < ? AND (expires_at = 0 OR expires_at <= ?) AND status NOT IN ?", before, time.Now().Unix(), []string{"queued", "running", "saving"}).Delete(&ImageStudioJob{}).Error
+		return tx.Where("created_at < ? AND (expires_at = 0 OR expires_at <= ?) AND status NOT IN ?", before, now, activeStatuses).Delete(&ImageStudioJob{}).Error
 	})
 }
 
@@ -426,8 +439,8 @@ func CreateImageStudioReference(asset *ImageStudioAsset) ([]ImageStudioAsset, er
 			activeRefs := tx.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", activeJobs)
 			legacyActiveRefs := tx.Model(&ImageStudioJob{}).Select("reference_id").Where("user_id = ? AND status IN ? AND reference_id <> ''", asset.UserID, activeStatuses)
 			var candidates []ImageStudioAsset
-			if err := tx.Where("user_id = ? AND kind = ? AND (expires_at = 0 OR expires_at > ?) AND id NOT IN (?) AND id NOT IN (?)",
-				asset.UserID, "reference", now, activeRefs, legacyActiveRefs).
+			if err := tx.Where("user_id = ? AND kind = ? AND expires_at = 0 AND id NOT IN (?) AND id NOT IN (?)",
+				asset.UserID, "reference", activeRefs, legacyActiveRefs).
 				Order("created_at ASC, id ASC").
 				Find(&candidates).Error; err != nil {
 				return err
@@ -447,7 +460,7 @@ func CreateImageStudioReference(asset *ImageStudioAsset) ([]ImageStudioAsset, er
 				return ErrImageStudioBusy
 			}
 			if err := tx.Model(&ImageStudioAsset{}).
-				Where("user_id = ? AND kind = ? AND id IN ?", asset.UserID, "reference", evictIDs).
+				Where("user_id = ? AND kind = ? AND expires_at = 0 AND id IN ?", asset.UserID, "reference", evictIDs).
 				Update("expires_at", now).Error; err != nil {
 				evicted = nil
 				return err
@@ -463,16 +476,23 @@ func CreateImageStudioReference(asset *ImageStudioAsset) ([]ImageStudioAsset, er
 
 // FinalizeImageStudioReference transitions a provisional upload to a live
 // reference (expires_at = 0) under the user lock. Returns false if the
-// provisional row was evicted or deleted before the upload completed.
+// provisional row expired, was evicted, or was deleted before the upload completed.
 func FinalizeImageStudioReference(userID int, id string, provisionalExpiry int64) (bool, error) {
+	if provisionalExpiry <= time.Now().Unix() {
+		return false, nil
+	}
 	var finalized bool
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
 		if err := lockForUpdate(tx).Select("id").First(&user, userID).Error; err != nil {
 			return err
 		}
+		now := time.Now().Unix()
+		if provisionalExpiry <= now {
+			return nil
+		}
 		res := tx.Model(&ImageStudioAsset{}).
-			Where("id = ? AND user_id = ? AND kind = ? AND expires_at = ?", id, userID, "reference", provisionalExpiry).
+			Where("id = ? AND user_id = ? AND kind = ? AND expires_at = ? AND expires_at > ?", id, userID, "reference", provisionalExpiry, now).
 			Update("expires_at", 0)
 		if res.Error != nil {
 			return res.Error
@@ -588,14 +608,13 @@ func EvictImageStudioReferences(bytesNeeded int64, excludeID string) ([]ImageStu
 		return nil, nil
 	}
 	activeStatuses := []string{"queued", "running", "saving", "group"}
-	scanNow := time.Now().Unix()
 	initialActiveJobs := DB.Model(&ImageStudioJob{}).Select("id").Where("status IN ?", activeStatuses)
 	initialActiveRefs := DB.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", initialActiveJobs)
 	initialLegacyActive := DB.Model(&ImageStudioJob{}).Select("reference_id").Where("status IN ? AND reference_id <> ''", activeStatuses)
 	var initial []ImageStudioAsset
 	if err := DB.Select("id", "user_id", "size").
-		Where("kind = ? AND (expires_at = 0 OR expires_at > ?) AND id <> ? AND id NOT IN (?) AND id NOT IN (?)",
-			"reference", scanNow, excludeID, initialActiveRefs, initialLegacyActive).
+		Where("kind = ? AND expires_at = 0 AND id <> ? AND id NOT IN (?) AND id NOT IN (?)",
+			"reference", excludeID, initialActiveRefs, initialLegacyActive).
 		Order("created_at ASC, id ASC").
 		Find(&initial).Error; err != nil {
 		return nil, err
@@ -640,8 +659,8 @@ func EvictImageStudioReferences(bytesNeeded int64, excludeID string) ([]ImageStu
 		activeRefs := tx.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", activeJobs)
 		legacyActiveRefs := tx.Model(&ImageStudioJob{}).Select("reference_id").Where("user_id IN ? AND status IN ? AND reference_id <> ''", userIDs, activeStatuses)
 		var candidates []ImageStudioAsset
-		if err := tx.Where("user_id IN ? AND kind = ? AND (expires_at = 0 OR expires_at > ?) AND id <> ? AND id NOT IN (?) AND id NOT IN (?)",
-			userIDs, "reference", now, excludeID, activeRefs, legacyActiveRefs).
+		if err := tx.Where("user_id IN ? AND kind = ? AND expires_at = 0 AND id <> ? AND id NOT IN (?) AND id NOT IN (?)",
+			userIDs, "reference", excludeID, activeRefs, legacyActiveRefs).
 			Order("created_at ASC, id ASC").
 			Find(&candidates).Error; err != nil {
 			return err
@@ -661,7 +680,7 @@ func EvictImageStudioReferences(bytesNeeded int64, excludeID string) ([]ImageStu
 			return nil
 		}
 		if err := tx.Model(&ImageStudioAsset{}).
-			Where("kind = ? AND id IN ?", "reference", evictIDs).
+			Where("kind = ? AND expires_at = 0 AND id IN ?", "reference", evictIDs).
 			Update("expires_at", now).Error; err != nil {
 			evicted = nil
 			return err
@@ -757,6 +776,93 @@ func ReleaseTerminalImageStudioReferences(userID int, jobID string, now int64) (
 		}
 		if err := tx.Model(&ImageStudioAsset{}).
 			Where("user_id = ? AND kind = ? AND id IN ? AND (expires_at = 0 OR expires_at > ?)", userID, "reference", matchedIDs, now).
+			Update("expires_at", now).Error; err != nil {
+			released = nil
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return released, nil
+}
+
+// ReleaseOrphanedTerminalImageStudioReferences sweeps live (expires_at = 0)
+// reference uploads that are linked to at least one job and no active job,
+// recovering from crashes or transient errors between terminal job status
+// commit and immediate reference release. Unattached references (0 job links),
+// active-job references, and generated kind='original' assets are untouched.
+func ReleaseOrphanedTerminalImageStudioReferences(now int64, limit int) ([]ImageStudioAsset, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	if now <= 0 {
+		now = time.Now().Unix()
+	}
+	activeStatuses := []string{"queued", "running", "saving", "group"}
+	initialLinkedRefs := DB.Model(&ImageStudioJobReference{}).Select("asset_id")
+	initialLegacyLinked := DB.Model(&ImageStudioJob{}).Select("reference_id").Where("reference_id <> ''")
+	initialActiveJobs := DB.Model(&ImageStudioJob{}).Select("id").Where("status IN ?", activeStatuses)
+	initialActiveRefs := DB.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", initialActiveJobs)
+	initialLegacyActive := DB.Model(&ImageStudioJob{}).Select("reference_id").Where("status IN ? AND reference_id <> ''", activeStatuses)
+	var initial []ImageStudioAsset
+	if err := DB.Select("id", "user_id").
+		Where("kind = ? AND expires_at = 0 AND (id IN (?) OR id IN (?)) AND id NOT IN (?) AND id NOT IN (?)",
+			"reference", initialLinkedRefs, initialLegacyLinked, initialActiveRefs, initialLegacyActive).
+		Order("created_at ASC, id ASC").
+		Limit(limit).
+		Find(&initial).Error; err != nil {
+		return nil, err
+	}
+	if len(initial) == 0 {
+		return nil, nil
+	}
+	userSet := make(map[int]struct{}, len(initial))
+	for _, candidate := range initial {
+		userSet[candidate.UserID] = struct{}{}
+	}
+	userIDs := make([]int, 0, len(userSet))
+	for userID := range userSet {
+		userIDs = append(userIDs, userID)
+	}
+	slices.Sort(userIDs)
+
+	var released []ImageStudioAsset
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		// Acquire users locks in ascending order BEFORE any non-locking SELECT
+		// so MySQL REPEATABLE READ and PostgreSQL READ COMMITTED see all
+		// concurrent CreateImageStudioJob commits before checking active jobs.
+		for _, userID := range userIDs {
+			var user User
+			if err := lockForUpdate(tx).Select("id").First(&user, userID).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return err
+			}
+		}
+		userJobs := tx.Model(&ImageStudioJob{}).Select("id").Where("user_id IN ?", userIDs)
+		linkedRefs := tx.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", userJobs)
+		legacyLinkedRefs := tx.Model(&ImageStudioJob{}).Select("reference_id").Where("user_id IN ? AND reference_id <> ''", userIDs)
+		activeJobs := tx.Model(&ImageStudioJob{}).Select("id").Where("user_id IN ? AND status IN ?", userIDs, activeStatuses)
+		activeRefs := tx.Model(&ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", activeJobs)
+		legacyActiveRefs := tx.Model(&ImageStudioJob{}).Select("reference_id").Where("user_id IN ? AND status IN ? AND reference_id <> ''", userIDs, activeStatuses)
+		if err := tx.Where(
+			"user_id IN ? AND kind = ? AND expires_at = 0 AND (id IN (?) OR id IN (?)) AND id NOT IN (?) AND id NOT IN (?)",
+			userIDs, "reference", linkedRefs, legacyLinkedRefs, activeRefs, legacyActiveRefs,
+		).Order("created_at ASC, id ASC").Limit(limit).Find(&released).Error; err != nil {
+			return err
+		}
+		if len(released) == 0 {
+			return nil
+		}
+		matchedIDs := make([]string, 0, len(released))
+		for _, asset := range released {
+			matchedIDs = append(matchedIDs, asset.ID)
+		}
+		if err := tx.Model(&ImageStudioAsset{}).
+			Where("kind = ? AND expires_at = 0 AND id IN ?", "reference", matchedIDs).
 			Update("expires_at", now).Error; err != nil {
 			released = nil
 			return err

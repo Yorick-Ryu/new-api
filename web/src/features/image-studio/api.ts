@@ -95,7 +95,10 @@ useAuthStore.subscribe((state, previous) => {
   }
 })
 
-function currentUser(): number {
+function currentUser(expectedUserId?: number): number {
+  if (expectedUserId !== undefined) {
+    assertCurrentUser(expectedUserId)
+  }
   const userID = useAuthStore.getState().auth.user?.id
   if (!userID) throw new Error(t('Your session has changed. Please try again.'))
   imageHistory.setActiveUser(userID)
@@ -263,9 +266,10 @@ export function isReferenceUnavailableError(error: unknown): boolean {
 export async function createImageJob(
   input: ImageInput,
   key: string,
-  confirmDuplicate = false
+  confirmDuplicate = false,
+  expectedUserId?: number
 ): Promise<{ id: string }> {
-  const userID = currentUser()
+  const userID = currentUser(expectedUserId)
   const now = Math.floor(Date.now() / 1000)
   const pendingID = `pending:${key}`
   const entry: HistoryEntry = {
@@ -284,9 +288,12 @@ export async function createImageJob(
       assets: [],
     },
   }
+  assertCurrentUser(userID)
   await imageHistory.saveJob(entry)
+  let sent = false
   try {
     assertCurrentUser(userID)
+    sent = true
     const response = await api.post(`${base}/jobs`, input, {
       headers: {
         'Idempotency-Key': key,
@@ -302,9 +309,14 @@ export async function createImageJob(
     assertCurrentUser(userID)
     return result
   } catch (error) {
+    if (!sent) {
+      await imageHistory.discardRejectedSubmission(userID, key)
+      throw error
+    }
     if (isDuplicateImageRequest(error) || isReferenceUnavailableError(error)) {
       markServerErrorHandled(error)
       await imageHistory.discardRejectedSubmission(userID, key)
+      assertCurrentUser(userID)
       throw error
     }
     if (!entry.remote) {
@@ -315,13 +327,18 @@ export async function createImageJob(
       }
       await imageHistory.saveJob(entry)
     }
+    assertCurrentUser(userID)
     throw error
   }
 }
-export async function uploadReference(file: File): Promise<string> {
-  const userID = currentUser()
+export async function uploadReference(
+  file: File,
+  expectedUserId?: number
+): Promise<string> {
+  const userID = currentUser(expectedUserId)
   const form = new FormData()
   form.append('image', file)
+  assertCurrentUser(userID)
   const response = await api.post(`${base}/references`, form)
   assertCurrentUser(userID)
   requireServerSuccess(response.data)

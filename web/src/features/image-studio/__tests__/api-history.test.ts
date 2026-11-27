@@ -229,6 +229,22 @@ describe('local image API history', () => {
     expect((await studio.getImageJobs())[0].id).toBe('job-a')
   })
 
+  it('rejects uploadReference and createImageJob before any network or IndexedDB write when expectedUserId mismatches', async () => {
+    const { studio, useAuthStore } = await signedIn()
+    const { imageHistory } = await import('../lib/local-history')
+    useAuthStore.getState().auth.setUser({ id: 2, username: 'two', role: 1 })
+    const file = new File(['png'], 'ref.png', { type: 'image/png' })
+    await expect(studio.uploadReference(file, 1)).rejects.toThrow(
+      'Your session has changed'
+    )
+    await expect(
+      studio.createImageJob(input, 'stale-key', false, 1)
+    ).rejects.toThrow('Your session has changed')
+    expect(http.post).not.toHaveBeenCalled()
+    expect(await imageHistory.list(1)).toEqual([])
+    expect(await imageHistory.list(2)).toEqual([])
+  })
+
   it('keeps completed images usable with a storage warning when IndexedDB is blocked', async () => {
     vi.stubGlobal('indexedDB', undefined)
     const { studio } = await signedIn()

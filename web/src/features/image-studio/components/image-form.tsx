@@ -72,7 +72,11 @@ import {
 import { formatAspectRatio } from '../lib/aspect-ratio'
 import { imageModelDisplayName } from '../lib/model-name'
 import { ImageCostEstimate } from './image-cost-estimate'
-import { ImageMarkup, type ImageMarkupValue } from './image-markup'
+import {
+  ImageMarkup,
+  type CachedRemoteMarkup,
+  type ImageMarkupValue,
+} from './image-markup'
 import { ImageReferenceOrder } from './image-reference-order'
 import { ImageReferences, type ImageReference } from './image-references'
 import { ImageSizePicker } from './image-size-picker'
@@ -144,6 +148,17 @@ function buildResolvedInput(
     delete next.markup_id
   }
   return next
+}
+
+type SubmissionSnapshot = {
+  references: ImageReference[]
+  markup: ImageMarkupValue | null
+}
+
+type DuplicateSubmission = {
+  input: ImageInput
+  snapshot: SubmissionSnapshot
+  submitUserId: number
 }
 
 type ImageFormProps = {
@@ -221,7 +236,37 @@ export function ImageForm(props: ImageFormProps) {
   >('idle')
   const request = useRef<{ fingerprint: string; key: string } | null>(null)
   const submitting = useRef(false)
-  const [duplicate, setDuplicate] = useState<ImageInput | null>(null)
+  const [duplicate, setDuplicate] = useState<DuplicateSubmission | null>(null)
+
+  function assertSubmitUser(
+    submitUserId: number | undefined
+  ): asserts submitUserId is number {
+    if (
+      submitUserId === undefined ||
+      useAuthStore.getState().auth.user?.id !== submitUserId
+    ) {
+      throw new Error(t('Your session has changed. Please try again.'))
+    }
+  }
+
+  function captureSnapshot(): SubmissionSnapshot {
+    const currentRefs = referencesRef.current
+    return {
+      references: currentRefs.map((entry) => ({
+        ...entry,
+        remote: entry.remote ? { ...entry.remote } : undefined,
+      })),
+      markup:
+        capability?.markup && currentRefs[0] && markupRef.current
+          ? {
+              ...markupRef.current,
+              remote: markupRef.current.remote
+                ? { ...markupRef.current.remote }
+                : undefined,
+            }
+          : null,
+    }
+  }
 
   function updateReferences(next: ImageReference[]) {
     referencesRef.current = next
@@ -233,83 +278,154 @@ export function ImageForm(props: ImageFormProps) {
     setMarkup(next)
   }
 
-  function invalidateCachedRemotes() {
-    updateReferences(
-      referencesRef.current.map((entry) =>
-        entry.remote ? { ...entry, remote: undefined } : entry
-      )
-    )
-    if (markupRef.current?.remote) {
+  function invalidateCachedRemotes(
+    snapshot: SubmissionSnapshot,
+    submitUserId: number
+  ) {
+    const snapshotRefsByLocalId = new Map<string, Blob>()
+    for (const entry of snapshot.references) {
+      entry.remote = undefined
+      snapshotRefsByLocalId.set(entry.localId, entry.blob)
+    }
+    const snapshotMarkup = snapshot.markup
+    if (snapshotMarkup) {
+      snapshotMarkup.remote = undefined
+    }
+    if (useAuthStore.getState().auth.user?.id !== submitUserId) return
+    let liveRefsChanged = false
+    const nextLiveRefs = referencesRef.current.map((entry) => {
+      if (
+        entry.remote &&
+        snapshotRefsByLocalId.get(entry.localId) === entry.blob
+      ) {
+        liveRefsChanged = true
+        return { ...entry, remote: undefined }
+      }
+      return entry
+    })
+    if (liveRefsChanged) {
+      updateReferences(nextLiveRefs)
+    }
+    if (
+      snapshotMarkup &&
+      markupRef.current?.remote &&
+      markupRef.current.normalizedBlob === snapshotMarkup.normalizedBlob &&
+      markupRef.current.overlayBlob === snapshotMarkup.overlayBlob
+    ) {
       updateMarkup({ ...markupRef.current, remote: undefined })
     }
   }
 
-  async function resolveUploads(forceFresh: boolean): Promise<{
+  async function resolveUploads(
+    snapshot: SubmissionSnapshot,
+    forceFresh: boolean,
+    submitUserId: number
+  ): Promise<{
     referenceIDs: string[]
     markupID?: string
     usedCached: boolean
   }> {
-    const currentRefs = referencesRef.current
-    if (currentRefs.length === 0) {
+    assertSubmitUser(submitUserId)
+    const snapshotRefs = snapshot.references
+    if (snapshotRefs.length === 0) {
       return { referenceIDs: [], markupID: undefined, usedCached: false }
     }
-    const activeUserID = useAuthStore.getState().auth.user?.id
-    const currentMarkup =
-      capability?.markup && currentRefs[0] ? markupRef.current : null
-    const referenceIDs = Array.from<string>({ length: currentRefs.length })
+    const snapshotMarkup = snapshot.markup
+    const referenceIDs = Array.from<string>({ length: snapshotRefs.length })
     const usedRemoteIDs = new Set<string>()
     let markupID: string | undefined
     let usedCached = false
     const tasks: Array<Promise<void>> = []
 
-    if (currentMarkup) {
+    if (snapshotMarkup) {
+      const targetMarkup = snapshotMarkup
+      const cachedRemote =
+        !forceFresh && targetMarkup.remote?.userId === submitUserId
+          ? targetMarkup.remote
+          : undefined
+
+      const updateCachedMarkupRemote = (
+        patch: Pick<CachedRemoteMarkup, 'normalizedRefId' | 'markupId'>
+      ) => {
+        const existingSnapshotRemote =
+          targetMarkup.remote?.userId === submitUserId
+            ? targetMarkup.remote
+            : undefined
+        targetMarkup.remote = {
+          ...existingSnapshotRemote,
+          ...patch,
+          userId: submitUserId,
+        }
+        if (useAuthStore.getState().auth.user?.id !== submitUserId) return
+        const latest = markupRef.current
+        if (
+          !latest ||
+          latest.normalizedBlob !== targetMarkup.normalizedBlob ||
+          latest.overlayBlob !== targetMarkup.overlayBlob
+        ) {
+          return
+        }
+        const existingRemote =
+          latest.remote?.userId === submitUserId ? latest.remote : undefined
+        updateMarkup({
+          ...latest,
+          remote: {
+            ...existingRemote,
+            ...patch,
+            userId: submitUserId,
+          },
+        })
+      }
+
       if (
-        !forceFresh &&
-        currentMarkup.remote &&
-        activeUserID !== undefined &&
-        currentMarkup.remote.userId === activeUserID
+        cachedRemote?.normalizedRefId &&
+        !usedRemoteIDs.has(cachedRemote.normalizedRefId)
       ) {
-        referenceIDs[0] = currentMarkup.remote.normalizedRefId
-        usedRemoteIDs.add(currentMarkup.remote.normalizedRefId)
-        markupID = currentMarkup.remote.markupId
+        referenceIDs[0] = cachedRemote.normalizedRefId
+        usedRemoteIDs.add(cachedRemote.normalizedRefId)
         usedCached = true
       } else {
-        const targetMarkup = currentMarkup
         tasks.push(
-          Promise.all([
-            uploadReference(
-              toUploadFile(targetMarkup.normalizedBlob, 'reference')
-            ),
-            uploadReference(toUploadFile(targetMarkup.overlayBlob, 'markup')),
-          ]).then(([normalizedRefId, uploadedMarkupId]) => {
+          (async () => {
+            assertSubmitUser(submitUserId)
+            const normalizedRefId = await uploadReference(
+              toUploadFile(targetMarkup.normalizedBlob, 'reference'),
+              submitUserId
+            )
+            assertSubmitUser(submitUserId)
             referenceIDs[0] = normalizedRefId
+            updateCachedMarkupRemote({ normalizedRefId })
+          })()
+        )
+      }
+
+      if (cachedRemote?.markupId && !usedRemoteIDs.has(cachedRemote.markupId)) {
+        markupID = cachedRemote.markupId
+        usedRemoteIDs.add(cachedRemote.markupId)
+        usedCached = true
+      } else {
+        tasks.push(
+          (async () => {
+            assertSubmitUser(submitUserId)
+            const uploadedMarkupId = await uploadReference(
+              toUploadFile(targetMarkup.overlayBlob, 'markup'),
+              submitUserId
+            )
+            assertSubmitUser(submitUserId)
             markupID = uploadedMarkupId
-            if (
-              activeUserID !== undefined &&
-              markupRef.current === targetMarkup
-            ) {
-              updateMarkup({
-                ...targetMarkup,
-                remote: {
-                  normalizedRefId,
-                  markupId: uploadedMarkupId,
-                  userId: activeUserID,
-                },
-              })
-            }
-          })
+            updateCachedMarkupRemote({ markupId: uploadedMarkupId })
+          })()
         )
       }
     }
 
-    const startIndex = currentMarkup ? 1 : 0
-    for (let index = startIndex; index < currentRefs.length; index++) {
-      const item = currentRefs[index]
+    const startIndex = snapshotMarkup ? 1 : 0
+    for (let index = startIndex; index < snapshotRefs.length; index++) {
+      const item = snapshotRefs[index]
       if (
         !forceFresh &&
         item.remote &&
-        activeUserID !== undefined &&
-        item.remote.userId === activeUserID &&
+        item.remote.userId === submitUserId &&
         !usedRemoteIDs.has(item.remote.id)
       ) {
         referenceIDs[index] = item.remote.id
@@ -318,51 +434,82 @@ export function ImageForm(props: ImageFormProps) {
         continue
       }
       tasks.push(
-        uploadReference(toUploadFile(item.blob, item.name || 'reference')).then(
-          (id) => {
-            referenceIDs[index] = id
-            if (activeUserID === undefined) return
-            updateReferences(
-              referencesRef.current.map((entry) =>
-                entry.localId === item.localId
-                  ? {
-                      ...entry,
-                      remote: { id, userId: activeUserID },
-                    }
-                  : entry
-              )
+        (async () => {
+          assertSubmitUser(submitUserId)
+          const id = await uploadReference(
+            toUploadFile(item.blob, item.name || 'reference'),
+            submitUserId
+          )
+          assertSubmitUser(submitUserId)
+          referenceIDs[index] = id
+          item.remote = { id, userId: submitUserId }
+          if (useAuthStore.getState().auth.user?.id !== submitUserId) return
+          if (
+            !referencesRef.current.some(
+              (entry) =>
+                entry.localId === item.localId && entry.blob === item.blob
             )
+          ) {
+            return
           }
-        )
+          updateReferences(
+            referencesRef.current.map((entry) =>
+              entry.localId === item.localId && entry.blob === item.blob
+                ? {
+                    ...entry,
+                    remote: { id, userId: submitUserId },
+                  }
+                : entry
+            )
+          )
+        })()
       )
     }
 
     if (tasks.length > 0) {
       setSubmitPhase('uploading')
       const results = await Promise.allSettled(tasks)
+      assertSubmitUser(submitUserId)
       const failure = results.find((result) => result.status === 'rejected')
       if (failure) throw failure.reason
     }
 
+    assertSubmitUser(submitUserId)
     return { referenceIDs, markupID, usedCached }
   }
 
   const create = useMutation({
     mutationFn: async ({
       input,
+      snapshot,
+      submitUserId,
       confirmDuplicate = false,
       resolved = false,
     }: {
       input: ImageInput
+      snapshot: SubmissionSnapshot
+      submitUserId: number | undefined
       confirmDuplicate?: boolean
       resolved?: boolean
     }) => {
+      if (
+        submitUserId === undefined ||
+        useAuthStore.getState().auth.user?.id !== submitUserId
+      ) {
+        if (resolved) setDuplicate(null)
+        throw new Error(t('Your session has changed. Please try again.'))
+      }
       for (let attempt = 0; attempt < 2; attempt++) {
+        assertSubmitUser(submitUserId)
         let resolvedInput = input
-        let usedCached = resolved && referencesRef.current.length > 0
+        let usedCached = resolved && snapshot.references.length > 0
         if (!resolved || attempt > 0) {
           try {
-            const uploaded = await resolveUploads(attempt > 0)
+            const uploaded = await resolveUploads(
+              snapshot,
+              attempt > 0,
+              submitUserId
+            )
             usedCached = uploaded.usedCached
             resolvedInput = buildResolvedInput(
               input,
@@ -374,20 +521,25 @@ export function ImageForm(props: ImageFormProps) {
             throw error
           }
         }
+        assertSubmitUser(submitUserId)
         setSubmitPhase('submitting')
         const fingerprint = JSON.stringify(resolvedInput)
         if (request.current?.fingerprint !== fingerprint) {
           request.current = { fingerprint, key: crypto.randomUUID() }
         }
         try {
-          return await createImageJob(
+          const result = await createImageJob(
             resolvedInput,
             request.current.key,
-            confirmDuplicate
+            confirmDuplicate,
+            submitUserId
           )
+          assertSubmitUser(submitUserId)
+          return result
         } catch (error) {
           if (isDuplicateImageRequest(error)) {
-            setDuplicate(resolvedInput)
+            assertSubmitUser(submitUserId)
+            setDuplicate({ input: resolvedInput, snapshot, submitUserId })
             throw error
           }
           if (
@@ -395,7 +547,8 @@ export function ImageForm(props: ImageFormProps) {
             usedCached &&
             isReferenceUnavailableError(error)
           ) {
-            invalidateCachedRemotes()
+            assertSubmitUser(submitUserId)
+            invalidateCachedRemotes(snapshot, submitUserId)
             continue
           }
           if (resolved && (attempt > 0 || isReferenceUnavailableError(error))) {
@@ -420,7 +573,10 @@ export function ImageForm(props: ImageFormProps) {
       submitting.current = false
       setSubmitPhase('idle')
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
+      if (useAuthStore.getState().auth.user?.id !== variables.submitUserId) {
+        return
+      }
       request.current = null
       setDuplicate(null)
       props.onCreated(result.id)
@@ -521,10 +677,14 @@ export function ImageForm(props: ImageFormProps) {
               return
             }
             submitting.current = true
+            const submitUserId = useAuthStore.getState().auth.user?.id
+            const snapshot = captureSnapshot()
             void form.handleSubmit(
               (input) =>
                 create.mutate({
                   input: { ...input, size: input.size || ratioSize },
+                  snapshot,
+                  submitUserId,
                 }),
               (errors) => {
                 submitting.current = false
@@ -998,7 +1158,9 @@ export function ImageForm(props: ImageFormProps) {
             if (!duplicate || submitting.current) return
             submitting.current = true
             create.mutate({
-              input: duplicate,
+              input: duplicate.input,
+              snapshot: duplicate.snapshot,
+              submitUserId: duplicate.submitUserId,
               confirmDuplicate: true,
               resolved: true,
             })

@@ -310,9 +310,42 @@ func CreateImageStudioJob(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	encoded, err := common.Marshal(input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	digest := sha256.Sum256(encoded)
+	requestHash := hex.EncodeToString(digest[:])
+	existing, err := model.FindImageStudioJobByRequestKey(c.GetInt("id"), requestKey)
+	if err != nil {
+		common.ApiError(c, errors.New("Unable to create image task"))
+		return
+	}
+	if existing != nil {
+		if existing.RequestHash != requestHash {
+			c.JSON(409, gin.H{"success": false, "message": "Request key already used"})
+			return
+		}
+		common.ApiSuccess(c, gin.H{"id": existing.ID})
+		return
+	}
 	if input.MarkupID != "" {
 		if _, err := loadImageStudioMarkup(c.Request.Context(), c.GetInt("id"), input, store); err != nil {
 			if errors.Is(err, errImageStudioReferenceUnavailable) {
+				existing, findErr := model.FindImageStudioJobByRequestKey(c.GetInt("id"), requestKey)
+				if findErr != nil {
+					common.ApiError(c, errors.New("Unable to create image task"))
+					return
+				}
+				if existing != nil {
+					if existing.RequestHash != requestHash {
+						c.JSON(409, gin.H{"success": false, "message": "Request key already used"})
+						return
+					}
+					common.ApiSuccess(c, gin.H{"id": existing.ID})
+					return
+				}
 				c.JSON(400, gin.H{"success": false, "code": "image_reference_unavailable", "message": errImageStudioReferenceUnavailable.Error()})
 				return
 			}
@@ -359,14 +392,8 @@ func CreateImageStudioJob(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Image model is not allowed by the image API key"})
 		return
 	}
-	encoded, err := common.Marshal(input)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	digest := sha256.Sum256(encoded)
 	now := time.Now().Unix()
-	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: c.GetInt("id"), TokenID: token.Id, ClientIP: c.ClientIP(), RequestKey: requestKey, RequestHash: hex.EncodeToString(digest[:]), Request: string(encoded), Status: "queued", CreatedAt: now, UpdatedAt: now}
+	job := &model.ImageStudioJob{ID: uuid.NewString(), UserID: c.GetInt("id"), TokenID: token.Id, ClientIP: c.ClientIP(), RequestKey: requestKey, RequestHash: requestHash, Request: string(encoded), Status: "queued", CreatedAt: now, UpdatedAt: now}
 	references, _ := imageStudioReferences(input) // Validated before encoding the request.
 	saved, err := model.CreateImageStudioJob(job, references, c.GetHeader("X-Confirm-Duplicate") == "true")
 	if err != nil {
@@ -662,15 +689,17 @@ func storeImageStudioReference(c *gin.Context, store *service.ImageStudioStore, 
 		}
 	}
 	if err = store.Put(c.Request.Context(), asset.ObjectKey, data, mime); err != nil {
-		_ = store.Delete(context.Background(), asset.ObjectKey)
-		_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+		if store.Delete(context.Background(), asset.ObjectKey) == nil {
+			_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+		}
 		common.ApiError(c, err)
 		return
 	}
 	finalized, err := model.FinalizeImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
 	if err != nil {
-		_ = store.Delete(context.Background(), asset.ObjectKey)
-		_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+		if store.Delete(context.Background(), asset.ObjectKey) == nil {
+			_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+		}
 		common.ApiError(c, err)
 		return
 	}

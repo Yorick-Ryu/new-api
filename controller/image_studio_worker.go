@@ -285,9 +285,31 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 			diskBytes += info.Size()
 		}
 	}
-	if diskBytes > (1<<30)-2*(imageStudioResponseLimit+4*service.ImageStudioMaxGeneratedBytes) || w.store.AvailableCapacity(2*(4*service.ImageStudioMaxGeneratedBytes+4*(1<<20))) != nil {
+	if diskBytes > (1<<30)-2*(imageStudioResponseLimit+4*service.ImageStudioMaxGeneratedBytes) {
 		w.setStatus(job, "failed", "Image storage is temporarily busy")
 		return errors.New("spool full")
+	}
+	requiredStoreBytes := int64(2 * (4*service.ImageStudioMaxGeneratedBytes + 4*(1<<20)))
+	if w.store.AvailableCapacity(requiredStoreBytes) != nil {
+		if used, usedErr := w.store.UsedBytes(); usedErr == nil {
+			deficit := used + requiredStoreBytes - service.ImageStudioMaxStorageBytes
+			if deficit > 0 {
+				if evicted, evictErr := model.EvictImageStudioReferences(deficit, ""); evictErr == nil {
+					for _, item := range evicted {
+						deleteCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+						deleteErr := w.store.Delete(deleteCtx, item.ObjectKey)
+						cancel()
+						if deleteErr == nil {
+							_ = model.DeleteExpiredImageStudioAsset(item.ID, time.Now().Unix())
+						}
+					}
+				}
+			}
+		}
+		if w.store.AvailableCapacity(requiredStoreBytes) != nil {
+			w.setStatus(job, "failed", "Image storage is temporarily busy")
+			return errors.New("spool full")
+		}
 	}
 	file, err := os.OpenFile(path+".partial", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
@@ -624,9 +646,9 @@ func (w *imageStudioWorker) cleanup() {
 	}
 	model.DB.Model(&model.ImageStudioJob{}).Where("expires_at > 0 AND expires_at <= ? AND status = ?", now, "success").Updates(map[string]any{"status": "expired", "error": ""})
 	var expiredSaving []model.ImageStudioJob
-	if err := model.DB.Where("expires_at > 0 AND expires_at <= ? AND status = ?", now, "saving").Limit(100).Find(&expiredSaving).Error; err == nil {
+	if err := model.DB.Where("expires_at > 0 AND expires_at <= ? AND status = ? AND lease_until < ?", now, "saving", now).Limit(100).Find(&expiredSaving).Error; err == nil {
 		for _, job := range expiredSaving {
-			res := model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ?", job.ID, "saving").Updates(map[string]any{"status": "expired", "error": ""})
+			res := model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ? AND lease_until < ?", job.ID, "saving", now).Updates(map[string]any{"status": "expired", "error": ""})
 			if res.Error == nil && res.RowsAffected == 1 {
 				_ = model.RefreshImageStudioGroup(job.ParentID)
 				w.releaseTerminalReferences(job.UserID, job.ID)
@@ -664,9 +686,28 @@ func (w *imageStudioWorker) cleanup() {
 			_ = model.RefreshImageStudioGroup(group.ID)
 		}
 	}
+	// Sweep live references left behind by terminal jobs when the process exited
+	// or a release transaction failed after committing terminal status. Run after
+	// parent reconciliation and before deleting old job rows.
+	const orphanSweepLimit = 100
+	orphaned, orphanErr := model.ReleaseOrphanedTerminalImageStudioReferences(now, orphanSweepLimit)
+	if orphanErr == nil {
+		for _, asset := range orphaned {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			err := w.store.Delete(ctx, asset.ObjectKey)
+			cancel()
+			if err == nil {
+				_ = model.DeleteExpiredImageStudioAsset(asset.ID, now)
+			}
+		}
+	}
 	// Server prompt/parameter rows are delivery metadata, not browser history.
-	// Billing logs keep the normal system retention policy.
-	_ = model.DeleteOldImageStudioJobs(now - int64(model.ImageStudioRetention.Seconds()))
+	// Billing logs keep the normal system retention policy. Skip pruning when the
+	// orphan sweep failed or hit its batch limit so terminal references do not
+	// lose their join rows before being swept.
+	if orphanErr == nil && len(orphaned) < orphanSweepLimit {
+		_ = model.DeleteOldImageStudioJobs(now - int64(model.ImageStudioRetention.Seconds()))
+	}
 }
 
 // classifyImageStudioFailure separates definite rejections from requests whose
