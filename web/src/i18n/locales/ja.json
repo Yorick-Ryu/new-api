@@ -8797,6 +8797,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "実験エラーのデバッグ、分析ノートブックのリファクタリング、再現性の高い研究コード開発を加速します。",
     "Pinned": "固定中",
     "Video playback progress": "動画の再生進行状況",
-    "Setup walkthrough steps": "セットアップ手順"
+    "Setup walkthrough steps": "セットアップ手順",
+    "Too many reference images": "一時保存中の参照画像が上限に達しました。しばらくしてからもう一度お試しください",
+    "Use a PNG, JPEG or WebP image": "PNG、JPEG、または WebP 形式の画像を使用してください",
+    "Invalid or oversized image": "画像が無効か、サイズ上限を超えています"
   }
 }

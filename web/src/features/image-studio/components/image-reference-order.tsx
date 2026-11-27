@@ -52,14 +52,16 @@ export function ImageReferenceOrder(props: ImageReferenceOrderProps) {
       >
         {props.value.map((reference, index) => (
           <SortableReference
-            key={reference.id}
+            key={reference.localId}
             reference={reference}
             disabled={props.disabled}
             canSort={props.value.length > 1}
             descriptionId={descriptionId}
             onRemove={() =>
               props.onChange(
-                props.value.filter((item) => item.id !== reference.id)
+                props.value.filter(
+                  (item) => item.localId !== reference.localId
+                )
               )
             }
             onMove={(direction) => {

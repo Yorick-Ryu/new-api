@@ -1092,6 +1092,7 @@ export const STATIC_I18N_KEYS = [
   'Image storage is unavailable',
   'Invalid image task IDs',
   'Failed to delete local images. Please try again.',
+  'Too many reference images',
   // Access token permission catalog labels and descriptions (served by the backend).
   'View',
   'Profile',

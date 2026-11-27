@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMutation } from '@tanstack/react-query'
 import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -31,17 +30,25 @@ import {
 } from '@/components/ui/field'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
-import { markServerErrorHandled } from '@/lib/handle-server-error'
-import { getServerErrorMessage } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 
-import { uploadReference } from '../api'
+const MAX_REFERENCE_BYTES = 20 * 1024 * 1024
+const SUPPORTED_REFERENCE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+])
+
+export type CachedRemoteReference = {
+  id: string
+  userId: number
+}
 
 export type ImageReference = {
-  id: string
+  localId: string
   name: string
-  blob?: Blob
-  url?: string
+  blob: Blob
+  remote?: CachedRemoteReference
 }
 
 type ImageReferencesProps = {
@@ -49,7 +56,6 @@ type ImageReferencesProps = {
   maxCount?: number
   disabled: boolean
   onChange: (references: ImageReference[]) => void
-  onUploadingChange: (uploading: boolean) => void
 }
 
 export function ImageReferences(props: ImageReferencesProps) {
@@ -60,23 +66,8 @@ export function ImageReferences(props: ImageReferencesProps) {
     limit: formatNumber(maxCount, locale),
   })
   const inputRef = useRef<HTMLInputElement>(null)
-  const onUploadingChange = props.onUploadingChange
   const [error, setError] = useState('')
-  const upload = useMutation({
-    mutationFn: (files: File[]) =>
-      Promise.allSettled(
-        files.map(async (file) => ({
-          id: await uploadReference(file),
-          name: file.name,
-          blob: file,
-        }))
-      ),
-  })
-  useEffect(() => {
-    onUploadingChange(upload.isPending)
-    return () => onUploadingChange(false)
-  }, [upload.isPending, onUploadingChange])
-  const busy = props.disabled || upload.isPending
+  const busy = props.disabled
 
   return (
     <Field data-invalid={!!error} className='gap-2.5'>
@@ -116,46 +107,35 @@ export function ImageReferences(props: ImageReferencesProps) {
             )
             return
           }
-          if (files.some((file) => file.size > 20 * 1024 * 1024)) {
+          if (files.some((file) => file.size > MAX_REFERENCE_BYTES)) {
             setError(t('Reference images must be 20 MB or smaller'))
             return
           }
+          if (files.some((file) => file.size === 0)) {
+            setError(t('Invalid or oversized image'))
+            return
+          }
+          if (
+            files.some((file) => !SUPPORTED_REFERENCE_TYPES.has(file.type))
+          ) {
+            setError(t('Use a PNG, JPEG or WebP image'))
+            return
+          }
           setError('')
-          upload.mutate(files, {
-            onSuccess: (results) => {
-              const added = results.flatMap((result) =>
-                result.status === 'fulfilled' ? [result.value] : []
-              )
-              props.onChange([...props.value, ...added])
-              const failure = results.find(
-                (result) => result.status === 'rejected'
-              )
-              if (failure) {
-                setError(
-                  t(
-                    getServerErrorMessage(
-                      failure.reason,
-                      t(
-                        'Some reference images could not be uploaded. You can retry the failed images.'
-                      )
-                    )
-                  )
-                )
-                markServerErrorHandled(failure.reason)
-              }
-            },
-          })
+          props.onChange([
+            ...props.value,
+            ...files.map((file) => ({
+              localId: crypto.randomUUID(),
+              name: file.name,
+              blob: file,
+            })),
+          ])
         }}
       />
       <FieldDescription className='text-xs'>
         {t('PNG, JPEG, WebP, 20 MB each')}
       </FieldDescription>
       {error && <FieldError>{error}</FieldError>}
-      {upload.isPending && (
-        <span role='status' className='text-muted-foreground text-xs'>
-          {t('Uploading…')}
-        </span>
-      )}
     </Field>
   )
 }
@@ -167,16 +147,12 @@ export function ImageReferencePreview(props: {
   previewButtonProps?: ComponentProps<typeof Button>
 }) {
   const { t } = useTranslation()
-  const [url, setURL] = useState(props.reference.url)
+  const [url, setURL] = useState('')
   useEffect(() => {
-    if (!props.reference.blob) {
-      setURL(props.reference.url)
-      return
-    }
     const objectURL = URL.createObjectURL(props.reference.blob)
     setURL(objectURL)
     return () => URL.revokeObjectURL(objectURL)
-  }, [props.reference.blob, props.reference.url])
+  }, [props.reference.blob])
   return (
     <div className='relative size-14 shrink-0'>
       <Dialog

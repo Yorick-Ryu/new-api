@@ -8797,6 +8797,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Déboguez vos expériences, refactorisez vos notebooks d’analyse et accélérez votre code de recherche reproductible.",
     "Pinned": "Épinglé",
     "Video playback progress": "Progression de la lecture vidéo",
-    "Setup walkthrough steps": "Étapes de configuration guidée"
+    "Setup walkthrough steps": "Étapes de configuration guidée",
+    "Too many reference images": "Trop d’images de référence en attente. Veuillez réessayer plus tard.",
+    "Use a PNG, JPEG or WebP image": "Utilisez une image PNG, JPEG ou WebP",
+    "Invalid or oversized image": "Image invalide ou trop volumineuse"
   }
 }

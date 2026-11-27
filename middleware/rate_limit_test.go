@@ -290,3 +290,53 @@ func TestGlobalWebRateLimitCountsFrontendFilesInStaticBucket(t *testing.T) {
 		assert.Equal(t, "1", webCount)
 	})
 }
+
+func TestImageStudioUploadRateLimitScaling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousEnable, previousNum, previousDuration := common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration
+	t.Cleanup(func() {
+		common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration = previousEnable, previousNum, previousDuration
+	})
+	common.CriticalRateLimitDuration = 60
+
+	for _, tc := range []struct {
+		name      string
+		enable    bool
+		critical  int
+		wantLimit int
+	}{
+		{"default 5x scaling floor", true, 20, 100},
+		{"scaled above floor", true, 25, 125},
+		{"disabled bypasses limiter", false, 1, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useRateLimitMiniRedis(t)
+			common.CriticalRateLimitEnable = tc.enable
+			common.CriticalRateLimitNum = tc.critical
+
+			router := gin.New()
+			router.POST(
+				"/upload",
+				func(c *gin.Context) { c.Set("id", 77) },
+				ImageStudioUploadRateLimit(),
+				func(c *gin.Context) { c.Status(http.StatusNoContent) },
+			)
+			send := func() int {
+				rec := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodPost, "/upload", nil)
+				router.ServeHTTP(rec, req)
+				return rec.Code
+			}
+			if !tc.enable {
+				for range 25 {
+					assert.Equal(t, http.StatusNoContent, send())
+				}
+				return
+			}
+			for range tc.wantLimit {
+				assert.Equal(t, http.StatusNoContent, send())
+			}
+			assert.Equal(t, http.StatusTooManyRequests, send())
+		})
+	}
+}

@@ -8965,6 +8965,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.",
     "Pinned": "Pinned",
     "Video playback progress": "Video playback progress",
-    "Setup walkthrough steps": "Setup walkthrough steps"
+    "Setup walkthrough steps": "Setup walkthrough steps",
+    "Too many reference images": "Too many reference images",
+    "Use a PNG, JPEG or WebP image": "Use a PNG, JPEG or WebP image",
+    "Invalid or oversized image": "Invalid or oversized image"
   }
 }

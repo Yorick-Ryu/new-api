@@ -61,6 +61,8 @@ type imageStudioCapability struct {
 
 const imageStudioGeminiModel = "gemini-3.1-flash-image"
 
+var errImageStudioReferenceUnavailable = errors.New("Reference image is unavailable")
+
 func imageStudioCapabilities(userID int) ([]imageStudioCapability, error) {
 	user, err := model.GetUserCache(userID)
 	if err != nil {
@@ -310,6 +312,10 @@ func CreateImageStudioJob(c *gin.Context) {
 	}
 	if input.MarkupID != "" {
 		if _, err := loadImageStudioMarkup(c.Request.Context(), c.GetInt("id"), input, store); err != nil {
+			if errors.Is(err, errImageStudioReferenceUnavailable) {
+				c.JSON(400, gin.H{"success": false, "code": "image_reference_unavailable", "message": errImageStudioReferenceUnavailable.Error()})
+				return
+			}
 			c.JSON(400, gin.H{"success": false, "message": err.Error()})
 			return
 		}
@@ -372,7 +378,7 @@ func CreateImageStudioJob(c *gin.Context) {
 		case errors.Is(err, model.ErrImageStudioConflict):
 			c.JSON(409, gin.H{"success": false, "message": "Request key already used"})
 		case errors.Is(err, gorm.ErrRecordNotFound):
-			c.JSON(400, gin.H{"success": false, "message": "Reference image is unavailable"})
+			c.JSON(400, gin.H{"success": false, "code": "image_reference_unavailable", "message": errImageStudioReferenceUnavailable.Error()})
 		case errors.Is(err, model.ErrImageStudioReferences):
 			c.JSON(400, gin.H{"success": false, "message": "Use up to 4 different reference images"})
 		default:
@@ -538,34 +544,15 @@ func ListImageStudioJobs(c *gin.Context) {
 }
 
 func DeleteImageStudioJob(c *gin.Context) {
-	var job model.ImageStudioJob
-	if err := model.DB.Where("id = ? AND user_id = ? AND parent_id = ? AND deleted_at = 0", c.Param("id"), c.GetInt("id"), "").First(&job).Error; err != nil {
-		c.Status(404)
-		return
-	}
-	if job.Status == "queued" || job.Status == "running" || job.Status == "saving" || job.Status == "group" {
-		c.JSON(409, gin.H{"success": false, "message": "Wait for the image task to finish"})
-		return
-	}
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
-		var members []model.ImageStudioJob
-		if err := tx.Where("user_id = ? AND (id = ? OR parent_id = ?)", job.UserID, job.ID, job.ID).Find(&members).Error; err != nil {
-			return err
+	if err := model.DeleteImageStudioJob(c.GetInt("id"), c.Param("id")); err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.Status(404)
+		case errors.Is(err, model.ErrImageStudioJobActive):
+			c.JSON(409, gin.H{"success": false, "message": "Wait for the image task to finish"})
+		default:
+			common.ApiError(c, err)
 		}
-		ids := make([]string, 0, len(members))
-		for _, member := range members {
-			ids = append(ids, member.ID)
-		}
-		if err := tx.Model(&model.ImageStudioJob{}).Where("id IN ?", ids).Updates(map[string]any{"deleted_at": time.Now().Unix(), "expires_at": time.Now().Unix()}).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&model.ImageStudioAsset{}).Where("job_id IN ? AND user_id = ?", ids, job.UserID).Update("expires_at", time.Now().Unix()).Error; err != nil {
-			return err
-		}
-		return tx.Where("job_id IN ?", ids).Delete(&model.ImageStudioJobReference{}).Error
-	})
-	if err != nil {
-		common.ApiError(c, err)
 		return
 	}
 	common.ApiSuccess(c, nil)
@@ -641,10 +628,13 @@ func storeImageStudioReference(c *gin.Context, store *service.ImageStudioStore, 
 		return
 	}
 	id := uuid.NewString()
-	now := time.Now()
-	asset := model.ImageStudioAsset{ID: id, UserID: c.GetInt("id"), Kind: "reference", ObjectKey: "references/" + id, Mime: mime, Size: int64(len(data)), CreatedAt: now.Unix(), ExpiresAt: now.Add(model.ImageStudioRetention).Unix()}
-	// Track before upload so interrupted uploads are still cleaned up.
-	if err = model.CreateImageStudioReference(&asset); err != nil {
+	now := time.Now().Unix()
+	provisionalExpiry := now + int64(model.ImageStudioProvisionalUploadTTL.Seconds())
+	asset := model.ImageStudioAsset{ID: id, UserID: c.GetInt("id"), Kind: "reference", ObjectKey: "references/" + id, Mime: mime, Size: int64(len(data)), CreatedAt: now, ExpiresAt: provisionalExpiry}
+	// Insert with a short provisional expiry before writing bytes so crashes
+	// cannot leave phantom expires_at=0 rows and mid-upload eviction is detected.
+	evicted, err := model.CreateImageStudioReference(&asset)
+	if err != nil {
 		if errors.Is(err, model.ErrImageStudioBusy) {
 			c.JSON(429, gin.H{"success": false, "message": "Too many reference images"})
 			return
@@ -652,8 +642,41 @@ func storeImageStudioReference(c *gin.Context, store *service.ImageStudioStore, 
 		common.ApiError(c, err)
 		return
 	}
+	for _, item := range evicted {
+		if err := store.Delete(c.Request.Context(), item.ObjectKey); err == nil {
+			_ = model.DeleteExpiredImageStudioAsset(item.ID, time.Now().Unix())
+		}
+	}
+	if store.AvailableCapacity(asset.Size) != nil {
+		if used, usedErr := store.UsedBytes(); usedErr == nil {
+			deficit := used + asset.Size - service.ImageStudioMaxStorageBytes
+			if deficit > 0 {
+				if globalEvicted, evictErr := model.EvictImageStudioReferences(deficit, asset.ID); evictErr == nil {
+					for _, item := range globalEvicted {
+						if err := store.Delete(c.Request.Context(), item.ObjectKey); err == nil {
+							_ = model.DeleteExpiredImageStudioAsset(item.ID, time.Now().Unix())
+						}
+					}
+				}
+			}
+		}
+	}
 	if err = store.Put(c.Request.Context(), asset.ObjectKey, data, mime); err != nil {
+		_ = store.Delete(context.Background(), asset.ObjectKey)
+		_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
 		common.ApiError(c, err)
+		return
+	}
+	finalized, err := model.FinalizeImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+	if err != nil {
+		_ = store.Delete(context.Background(), asset.ObjectKey)
+		_ = model.DiscardImageStudioReference(asset.UserID, asset.ID, provisionalExpiry)
+		common.ApiError(c, err)
+		return
+	}
+	if !finalized {
+		_ = store.Delete(context.Background(), asset.ObjectKey)
+		c.JSON(429, gin.H{"success": false, "message": "Too many reference images"})
 		return
 	}
 	common.ApiSuccess(c, gin.H{"id": id})
@@ -738,14 +761,14 @@ func loadImageStudioMarkup(ctx context.Context, userID int, input imageStudioInp
 		return nil, errors.New("Unsupported image parameters")
 	}
 	var images [][]byte
-	for _, id := range []string{input.MarkupID, references[0]} {
+	for i, id := range []string{input.MarkupID, references[0]} {
 		asset, err := model.GetImageStudioAsset(userID, id)
-		if err != nil || asset.Kind != "reference" {
-			return nil, errors.New("Reference image is unavailable")
+		if err != nil || (i == 0 && asset.Kind != "reference") || (i == 1 && asset.Kind != "reference" && asset.Kind != "original") {
+			return nil, errImageStudioReferenceUnavailable
 		}
 		data, err := store.Get(ctx, asset.ObjectKey)
 		if err != nil || len(data) > service.ImageStudioMaxReferenceBytes {
-			return nil, errors.New("Reference image is unavailable")
+			return nil, errImageStudioReferenceUnavailable
 		}
 		images = append(images, data)
 	}

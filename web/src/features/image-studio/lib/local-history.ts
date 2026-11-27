@@ -417,15 +417,19 @@ export class ImageHistoryStore {
     requestKey: string
   ): Promise<void> {
     const id = `pending:${requestKey}`
-    const db = await this.open()
-    const transaction = db.transaction('jobs', 'readwrite')
-    const jobs = transaction.objectStore('jobs')
-    const request = jobs.get([userID, id])
-    request.onsuccess = () => {
-      const entry = request.result as HistoryEntry | undefined
-      if (entry && !entry.remote) jobs.delete([userID, id])
+    try {
+      const db = await this.open()
+      const transaction = db.transaction('jobs', 'readwrite')
+      const jobs = transaction.objectStore('jobs')
+      const request = jobs.get([userID, id])
+      request.onsuccess = () => {
+        const entry = request.result as HistoryEntry | undefined
+        if (entry && !entry.remote) jobs.delete([userID, id])
+      }
+      await transactionResult(transaction)
+    } catch {
+      // When browser storage is unavailable, discard the in-memory placeholder only.
     }
-    await transactionResult(transaction)
     const key = this.key(userID, id)
     this.memoryJobs.delete(key)
     this.failures.delete(key)

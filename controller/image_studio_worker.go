@@ -113,6 +113,8 @@ func (w *imageStudioWorker) setStatus(job *model.ImageStudioJob, status, message
 }
 
 func (w *imageStudioWorker) execute(job *model.ImageStudioJob) {
+	// Defers run LIFO: recover panic -> refresh parent group -> release terminal references.
+	defer w.releaseTerminalReferences(job.UserID, job.ID)
 	defer func() {
 		if err := model.RefreshImageStudioGroup(job.ParentID); err != nil {
 			common.SysError("image studio group update failed")
@@ -179,7 +181,7 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 	if input.Model == imageStudioGeminiModel {
 		parts := []imagedto.MediaContent{{Type: "text", Text: input.Prompt}}
 		for _, id := range referenceIDs {
-			data, mime, err := w.readReference(ctx, job, id)
+			data, mime, err := w.readReference(ctx, job, id, true)
 			if err != nil {
 				return err
 			}
@@ -215,10 +217,14 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 		if len(referenceIDs) > 1 {
 			fieldName = "image[]"
 		}
+		var firstReference []byte
 		for i, id := range referenceIDs {
-			data, mime, err := w.readReference(ctx, job, id)
+			data, mime, err := w.readReference(ctx, job, id, true)
 			if err != nil {
 				return err
+			}
+			if i == 0 {
+				firstReference = data
 			}
 			ext := "png"
 			if mime == "image/jpeg" {
@@ -236,8 +242,11 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 			}
 		}
 		if input.MarkupID != "" {
-			markup, err := loadImageStudioMarkup(ctx, job.UserID, input, w.store)
+			markup, _, err := w.readReference(ctx, job, input.MarkupID, false)
 			if err != nil {
+				return err
+			}
+			if err := validateImageStudioMarkup(markup, firstReference); err != nil {
 				w.setStatus(job, "failed", err.Error())
 				return err
 			}
@@ -340,10 +349,17 @@ func (w *imageStudioWorker) generate(ctx context.Context, job *model.ImageStudio
 	return nil
 }
 
-func (w *imageStudioWorker) readReference(ctx context.Context, job *model.ImageStudioJob, id string) ([]byte, string, error) {
+func (w *imageStudioWorker) readReference(ctx context.Context, job *model.ImageStudioJob, id string, allowOriginal bool) ([]byte, string, error) {
 	var reference model.ImageStudioAsset
-	// Active jobs protect owned reference uploads beyond their original expiry.
-	err := model.DB.Where("id = ? AND user_id = ? AND kind = ?", id, job.UserID, "reference").First(&reference).Error
+	// Active jobs protect owned reference uploads and reused generated originals
+	// beyond their original expiry.
+	query := model.DB.Where("id = ? AND user_id = ?", id, job.UserID)
+	if allowOriginal {
+		query = query.Where("kind IN ?", []string{"reference", "original"})
+	} else {
+		query = query.Where("kind = ?", "reference")
+	}
+	err := query.First(&reference).Error
 	if err != nil {
 		w.setStatus(job, "failed", "Reference image is unavailable")
 		return nil, "", err
@@ -354,6 +370,23 @@ func (w *imageStudioWorker) readReference(ctx context.Context, job *model.ImageS
 		return nil, "", errors.New("reference image cannot be read")
 	}
 	return data, reference.Mime, nil
+}
+
+func (w *imageStudioWorker) releaseTerminalReferences(userID int, jobID string) {
+	now := time.Now().Unix()
+	released, err := model.ReleaseTerminalImageStudioReferences(userID, jobID, now)
+	if err != nil {
+		common.SysError("image studio reference release failed")
+		return
+	}
+	for _, asset := range released {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err := w.store.Delete(ctx, asset.ObjectKey)
+		cancel()
+		if err == nil {
+			_ = model.DeleteExpiredImageStudioAsset(asset.ID, time.Now().Unix())
+		}
+	}
 }
 
 type imageStudioResponseWriter struct {
@@ -570,15 +603,41 @@ func (w *imageStudioWorker) cleanup() {
 				expires = info.ModTime().Add(model.ImageStudioRetention).Unix()
 			}
 		}
-		model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ? AND lease_until < ?", job.ID, job.Status, now).Updates(map[string]any{"status": status, "expires_at": expires, "error": "Image result could not be confirmed"})
+		if job.Status == "unknown" && status == "unknown" {
+			continue
+		}
+		res := model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ? AND lease_until < ?", job.ID, job.Status, now).Updates(map[string]any{"status": status, "expires_at": expires, "error": "Image result could not be confirmed"})
+		if res.Error == nil && res.RowsAffected == 1 && status == "unknown" {
+			_ = model.RefreshImageStudioGroup(job.ParentID)
+			w.releaseTerminalReferences(job.UserID, job.ID)
+		}
 	}
-	model.DB.Model(&model.ImageStudioJob{}).Where("status = ? AND created_at < ?", "queued", now-int64(model.ImageStudioRetention.Seconds())).Updates(map[string]any{"status": "failed", "error": "Image task expired before generation"})
-	model.DB.Model(&model.ImageStudioJob{}).Where("expires_at > 0 AND expires_at <= ? AND status IN ?", now, []string{"success", "saving"}).Updates(map[string]any{"status": "expired", "error": ""})
+	var expiredQueued []model.ImageStudioJob
+	if err := model.DB.Where("status = ? AND created_at < ?", "queued", now-int64(model.ImageStudioRetention.Seconds())).Limit(100).Find(&expiredQueued).Error; err == nil {
+		for _, job := range expiredQueued {
+			res := model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ?", job.ID, "queued").Updates(map[string]any{"status": "failed", "error": "Image task expired before generation"})
+			if res.Error == nil && res.RowsAffected == 1 {
+				_ = model.RefreshImageStudioGroup(job.ParentID)
+				w.releaseTerminalReferences(job.UserID, job.ID)
+			}
+		}
+	}
+	model.DB.Model(&model.ImageStudioJob{}).Where("expires_at > 0 AND expires_at <= ? AND status = ?", now, "success").Updates(map[string]any{"status": "expired", "error": ""})
+	var expiredSaving []model.ImageStudioJob
+	if err := model.DB.Where("expires_at > 0 AND expires_at <= ? AND status = ?", now, "saving").Limit(100).Find(&expiredSaving).Error; err == nil {
+		for _, job := range expiredSaving {
+			res := model.DB.Model(&model.ImageStudioJob{}).Where("id = ? AND status = ?", job.ID, "saving").Updates(map[string]any{"status": "expired", "error": ""})
+			if res.Error == nil && res.RowsAffected == 1 {
+				_ = model.RefreshImageStudioGroup(job.ParentID)
+				w.releaseTerminalReferences(job.UserID, job.ID)
+			}
+		}
+	}
 	activeJobs := model.DB.Model(&model.ImageStudioJob{}).Select("id").Where("status IN ?", []string{"queued", "running", "saving"})
 	activeRefs := model.DB.Model(&model.ImageStudioJobReference{}).Select("asset_id").Where("job_id IN (?)", activeJobs)
 	legacyRefs := model.DB.Model(&model.ImageStudioJob{}).Select("reference_id").Where("status IN ? AND reference_id <> ''", []string{"queued", "running", "saving"})
 	var assets []model.ImageStudioAsset
-	if err := model.DB.Where("expires_at <= ? AND id NOT IN (?) AND id NOT IN (?)", now, activeRefs, legacyRefs).Limit(100).Find(&assets).Error; err == nil {
+	if err := model.DB.Where("expires_at > 0 AND expires_at <= ? AND id NOT IN (?) AND id NOT IN (?)", now, activeRefs, legacyRefs).Limit(100).Find(&assets).Error; err == nil {
 		for _, asset := range assets {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			err := w.store.Delete(ctx, asset.ObjectKey)

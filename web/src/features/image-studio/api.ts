@@ -252,6 +252,14 @@ export function isDuplicateImageRequest(error: unknown): boolean {
   )
 }
 
+export function isReferenceUnavailableError(error: unknown): boolean {
+  return (
+    isAxiosError(error) &&
+    error.response?.status === 400 &&
+    error.response.data?.code === 'image_reference_unavailable'
+  )
+}
+
 export async function createImageJob(
   input: ImageInput,
   key: string,
@@ -294,7 +302,7 @@ export async function createImageJob(
     assertCurrentUser(userID)
     return result
   } catch (error) {
-    if (isDuplicateImageRequest(error)) {
+    if (isDuplicateImageRequest(error) || isReferenceUnavailableError(error)) {
       markServerErrorHandled(error)
       await imageHistory.discardRejectedSubmission(userID, key)
       throw error
@@ -391,7 +399,11 @@ export function isImageJobActive(job: ImageJob): boolean {
   return ['queued', 'running', 'saving'].includes(job.status)
 }
 
-export async function cloneImageReference(id: string): Promise<string> {
+export async function readLocalImageReference(id: string): Promise<{
+  file: File
+  reusableRemoteId?: string
+  userId: number
+}> {
   const userID = currentUser()
   const entry = (await imageHistory.list(userID)).find((item) =>
     item.job.assets.some(
@@ -401,16 +413,21 @@ export async function cloneImageReference(id: string): Promise<string> {
   if (!entry) throw new Error(t('Image unavailable'))
   const asset = await cacheImageAsset(userID, entry, id)
   assertCurrentUser(userID)
-  if (asset.blob.size > 20 * 1024 * 1024) {
+  if (asset.blob.size === 0 || asset.blob.size > 20 * 1024 * 1024) {
     throw new Error(t('Reference images must be 20 MB or smaller'))
   }
   const extension =
     asset.blob.type === 'image/jpeg'
       ? 'jpg'
       : asset.blob.type.split('/')[1] || 'png'
-  return uploadReference(
-    new File([asset.blob], `reference.${extension}`, { type: asset.blob.type })
-  )
+  const file = new File([asset.blob], `reference.${extension}`, {
+    type: asset.blob.type,
+  })
+  return {
+    file,
+    reusableRemoteId: entry.remote && !deliveryExpired(entry) ? id : undefined,
+    userId: userID,
+  }
 }
 
 function deliveryExpired(entry: HistoryEntry): boolean {

@@ -46,6 +46,25 @@ func validImageStudioObjectKey(key string) bool {
 		!strings.Contains(key, "..") && (strings.HasPrefix(key, "references/") || strings.HasPrefix(key, "generated/"))
 }
 
+// UsedBytes returns the current disk usage of the delivery storage directory.
+func (s *ImageStudioStore) UsedBytes() (int64, error) {
+	var used int64
+	err := filepath.WalkDir(s.directory, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type().IsRegular() {
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			used += info.Size()
+		}
+		return nil
+	})
+	return used, err
+}
+
 // AvailableCapacity is checked before charging; Put also enforces the hard cap.
 func (s *ImageStudioStore) AvailableCapacity(bytes int64) error {
 	var used int64

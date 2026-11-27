@@ -205,6 +205,17 @@ func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 	)
 }
 
+func ImageStudioUploadRateLimit() func(c *gin.Context) {
+	if !common.CriticalRateLimitEnable {
+		return defNext
+	}
+	return userRateLimitFactory(
+		max(100, common.CriticalRateLimitNum*5),
+		common.CriticalRateLimitDuration,
+		"UC:image-studio-upload",
+	)
+}
+
 func DownloadRateLimit() func(c *gin.Context) {
 	return rateLimitFactory(common.DownloadRateLimitNum, common.DownloadRateLimitDuration, "DW")
 }

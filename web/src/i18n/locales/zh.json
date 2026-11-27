@@ -8965,6 +8965,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "辅助排查实验报错、重构分析脚本与工程化代码，提升复现与迭代效率。",
     "Pinned": "已固定",
     "Video playback progress": "视频播放进度",
-    "Setup walkthrough steps": "一键配置步骤"
+    "Setup walkthrough steps": "一键配置步骤",
+    "Too many reference images": "暂存参考图数量已达上限，请稍后再试",
+    "Use a PNG, JPEG or WebP image": "请使用 PNG、JPEG 或 WebP 格式的图片",
+    "Invalid or oversized image": "图片无效或超过大小限制"
   }
 }

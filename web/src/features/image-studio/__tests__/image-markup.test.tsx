@@ -40,7 +40,11 @@ const context = {
   stroke: vi.fn(),
   drawImage: vi.fn(),
 }
-const reference = { id: 'source', name: 'First reference', url: 'blob:source' }
+const reference = {
+  localId: 'source',
+  name: 'First reference',
+  blob: new Blob(['source'], { type: 'image/png' }),
+}
 beforeEach(() => {
   useAuthStore
     .getState()
@@ -69,16 +73,9 @@ async function openCanvas(width = 400, height = 300) {
   return screen.getByRole('img', { name: 'Image markup canvas' })
 }
 describe('Image markup', () => {
-  it('exports a separate overlay and normalized original after keyboard drawing, undo and clear', async () => {
+  it('exports a separate overlay and normalized original locally without uploading', async () => {
     const apply = vi.fn()
-    const post = vi
-      .spyOn(api, 'post')
-      .mockResolvedValueOnce({
-        data: { success: true, data: { id: 'normalized-source' } },
-      })
-      .mockResolvedValueOnce({
-        data: { success: true, data: { id: 'overlay' } },
-      })
+    const post = vi.spyOn(api, 'post')
     render(
       <ImageMarkup
         reference={reference}
@@ -104,23 +101,13 @@ describe('Image markup', () => {
     await waitFor(() =>
       expect(apply).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'normalized-source',
-          name: reference.name,
-          blob: expect.any(Blob),
-        }),
-        expect.objectContaining({
-          id: 'overlay',
+          normalizedBlob: expect.any(Blob),
+          overlayBlob: expect.any(Blob),
           strokes: [expect.objectContaining({ circle: true })],
         })
       )
     )
-    expect(post).toHaveBeenCalledTimes(2)
-    for (const call of post.mock.calls) {
-      expect(call[0]).toBe('/api/image-studio/references')
-      expect(((call[1] as FormData).get('image') as File).type).toBe(
-        'image/png'
-      )
-    }
+    expect(post).not.toHaveBeenCalled()
     expect(context.drawImage).toHaveBeenCalledTimes(1)
   })
   it.each(['Brush', 'Circle'])(
@@ -186,11 +173,11 @@ describe('Image markup', () => {
     }
   )
 
-  it('keeps the original selection and editor when upload fails', async () => {
+  it('keeps the original selection and editor when preparing markup fails', async () => {
     const apply = vi.fn()
-    const post = vi.spyOn(api, 'post').mockResolvedValue({
-      data: { success: false, message: 'Upload unavailable' },
-    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
+      (callback) => callback(null)
+    )
     render(
       <ImageMarkup
         reference={reference}
@@ -204,14 +191,13 @@ describe('Image markup', () => {
     const canvas = await openCanvas()
     fireEvent.keyDown(canvas, { key: ' ' })
     fireEvent.click(screen.getByRole('button', { name: 'Apply markup' }))
-    await waitFor(() => expect(post).toHaveBeenCalled())
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Apply markup' })).toBeEnabled()
     )
     expect(apply).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
-  it('rejects oversized images before drawing or uploading', async () => {
+  it('rejects oversized images before drawing or exporting', async () => {
     const post = vi.spyOn(api, 'post')
     render(
       <ImageMarkup
@@ -234,7 +220,11 @@ describe('Image markup', () => {
     render(
       <ImageMarkup
         reference={reference}
-        value={{ id: 'markup', strokes: [] }}
+        value={{
+          strokes: [],
+          normalizedBlob: new Blob(['normalized'], { type: 'image/png' }),
+          overlayBlob: new Blob(['overlay'], { type: 'image/png' }),
+        }}
         disabled
         onBusyChange={vi.fn()}
         onApply={vi.fn()}

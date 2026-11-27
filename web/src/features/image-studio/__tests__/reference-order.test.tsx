@@ -14,9 +14,21 @@ import { ImageReferenceOrder } from '../components/image-reference-order'
 import type { ImageReference } from '../components/image-references'
 
 const references: ImageReference[] = [
-  { id: 'first', name: 'First', url: 'blob:first' },
-  { id: 'second', name: 'Second', url: 'blob:second' },
-  { id: 'third', name: 'Third', url: 'blob:third' },
+  {
+    localId: 'first',
+    name: 'First',
+    blob: new Blob(['first'], { type: 'image/png' }),
+  },
+  {
+    localId: 'second',
+    name: 'Second',
+    blob: new Blob(['second'], { type: 'image/png' }),
+  },
+  {
+    localId: 'third',
+    name: 'Third',
+    blob: new Blob(['third'], { type: 'image/png' }),
+  },
 ]
 function References() {
   const [value, setValue] = useState(references)

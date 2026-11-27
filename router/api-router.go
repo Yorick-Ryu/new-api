@@ -35,10 +35,10 @@ func SetApiRouter(router *gin.Engine) {
 		images.GET("/jobs", controller.ListImageStudioJobs)
 		images.POST("/jobs", middleware.SessionCookieOriginGuard(), middleware.UserCriticalRateLimit("image-studio"), controller.CreateImageStudioJob)
 		images.DELETE("/jobs/:id", middleware.SessionCookieOriginGuard(), controller.DeleteImageStudioJob)
-		images.POST("/references", middleware.SessionCookieOriginGuard(), middleware.UserCriticalRateLimit("image-studio-upload"), controller.UploadImageStudioReference)
+		images.POST("/references", middleware.SessionCookieOriginGuard(), middleware.ImageStudioUploadRateLimit(), controller.UploadImageStudioReference)
 		images.GET("/assets/:id", controller.ImageStudioAssetURL)
 		images.GET("/assets/:id/content", controller.ImageStudioAssetContent)
-		images.POST("/assets/:id/reference", middleware.SessionCookieOriginGuard(), middleware.UserCriticalRateLimit("image-studio-upload"), controller.CloneImageStudioReference)
+		images.POST("/assets/:id/reference", middleware.SessionCookieOriginGuard(), middleware.ImageStudioUploadRateLimit(), controller.CloneImageStudioReference)
 
 		apiRouter.GET("/service-status", middleware.UserAuth(), controller.GetServiceStatus)
 		apiRouter.GET("/service-status/settings", middleware.AdminAuth(), controller.GetServiceStatusSettings)

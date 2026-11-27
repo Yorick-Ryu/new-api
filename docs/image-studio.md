@@ -41,6 +41,23 @@ pricing remain unchanged. Drain jobs using these fields before reverting to an
 older binary, which otherwise ignores them. No schema migration is needed.
 See [OpenAI's image-generation guide](https://developers.openai.com/api/docs/guides/image-generation).
 
+Reference and markup uploads have no time-based TTL (`expires_at = 0`) and are
+not extended when a job completes; jobs and generated delivery assets keep the
+24-hour retention window. Reference uploads are deleted immediately from disk
+and database once all jobs referencing them reach a terminal state (`success`,
+`failed`, `unknown`, `expired`), while remaining protected across sibling
+children in multi-image batches and concurrent active jobs. Unsubmitted or
+active reference storage is bounded by a 256 MiB per-user capacity limit and
+the 4 GiB global storage cap, automatically evicting oldest non-active
+references when needed (returning HTTP 429 only if active-job references alone
+cannot fit within the per-user cap). Existing unexpired generated `original`
+assets (up to 20 MiB) can be referenced directly in `reference_ids` without
+re-uploading and are never deleted when a follow-up job finishes or is deleted.
+Deleting a job expires its unshared uploaded references. Reference upload rate
+limiting scales to `max(100, CRITICAL_RATE_LIMIT * 5)` per
+`CRITICAL_RATE_LIMIT_DURATION` to match up to 4 references plus 1 markup per
+job.
+
 All workbench requests use wallet funding, including accounts configured for
 subscription-only API use. Fixed request prices and group ratios come from
 current pricing configuration; no price is embedded in the workbench. Unknown

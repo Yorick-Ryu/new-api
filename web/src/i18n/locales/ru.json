@@ -8797,6 +8797,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Отлаживайте эксперименты, рефакторите ноутбуки анализа и ускоряйте разработку воспроизводимого научного кода.",
     "Pinned": "Закреплено",
     "Video playback progress": "Прогресс воспроизведения видео",
-    "Setup walkthrough steps": "Шаги быстрой настройки"
+    "Setup walkthrough steps": "Шаги быстрой настройки",
+    "Too many reference images": "Слишком много временных эталонных изображений. Попробуйте позже.",
+    "Use a PNG, JPEG or WebP image": "Используйте изображение PNG, JPEG или WebP",
+    "Invalid or oversized image": "Недопустимое или слишком большое изображение"
   }
 }

@@ -34,20 +34,20 @@ import { getServerErrorMessage } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
-  cloneImageReference,
-  getImageURL,
   deleteImageAssets,
   deleteImageJobs,
   getImageJobs,
   getImageOptions,
   imageJobsRefetchInterval,
   isImageJobActive,
+  readLocalImageReference,
   releaseImageURLs,
   type ImageInput,
   type ImageJob,
 } from './api'
 import { ImageForm } from './components/image-form'
 import { ImageGallery } from './components/image-gallery'
+import type { ImageReference } from './components/image-references'
 
 export function ImageStudio() {
   const userID = useAuthStore((state) => state.auth.user?.id)
@@ -108,11 +108,7 @@ function ImageStudioWorkspace() {
     enabled: false,
     limit: 4,
   })
-  const [reference, setReference] = useState<{
-    id: string
-    name: string
-    url: string
-  } | null>(null)
+  const [reference, setReference] = useState<ImageReference | null>(null)
   const [deleting, setDeleting] = useState<{
     ids: string[]
     kind: 'images' | 'job' | 'records' | 'all'
@@ -144,12 +140,17 @@ function ImageStudioWorkspace() {
       if (!referenceState.enabled) {
         throw new Error(t('Image editing is not supported by this model'))
       }
-      const url = await getImageURL(value.assetID)
-      const id = await cloneImageReference(value.assetID)
-      return { id, url }
+      const local = await readLocalImageReference(value.assetID)
+      return {
+        localId: crypto.randomUUID(),
+        name: t('Generated image'),
+        blob: local.file,
+        remote: local.reusableRemoteId
+          ? { id: local.reusableRemoteId, userId: local.userId }
+          : undefined,
+      } satisfies ImageReference
     },
-    onSuccess: (reference) =>
-      setReference({ ...reference, name: t('Generated image') }),
+    onSuccess: (next) => setReference(next),
   })
   let deleteTitle = t('Delete image generation?')
   let deleteDescription = t(

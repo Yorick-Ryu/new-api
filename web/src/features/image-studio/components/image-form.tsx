@@ -31,6 +31,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -58,10 +59,13 @@ import { handleServerError } from '@/lib/handle-server-error'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { resolveModelProvider } from '@/lib/model-provider'
 import { getServerErrorMessage } from '@/lib/server-error-message'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   createImageJob,
   isDuplicateImageRequest,
+  isReferenceUnavailableError,
+  uploadReference,
   type ImageInput,
   type ImageOptions,
 } from '../api'
@@ -111,6 +115,35 @@ const defaults: ImageInput = {
   size: '',
   quality: '',
   n: 1,
+}
+
+function toUploadFile(blob: Blob, fallbackName: string): File {
+  if (blob instanceof File) return blob
+  const extension =
+    blob.type === 'image/jpeg' ? 'jpg' : blob.type.split('/')[1] || 'png'
+  return new File([blob], `${fallbackName}.${extension}`, {
+    type: blob.type || 'image/png',
+  })
+}
+
+function buildResolvedInput(
+  input: ImageInput,
+  referenceIDs: string[],
+  markupID?: string
+): ImageInput {
+  const next = { ...input }
+  delete next.reference_id
+  if (referenceIDs.length > 0) {
+    next.reference_ids = referenceIDs
+  } else {
+    delete next.reference_ids
+  }
+  if (markupID) {
+    next.markup_id = markupID
+  } else {
+    delete next.markup_id
+  }
+  return next
 }
 
 type ImageFormProps = {
@@ -179,29 +212,204 @@ export function ImageForm(props: ImageFormProps) {
   const [complexityOpen, setComplexityOpen] = useState(false)
   const maxReferences = capability?.max_references ?? 4
   const [references, setReferences] = useState<ImageReference[]>([])
-  const [uploading, setUploading] = useState(false)
+  const referencesRef = useRef<ImageReference[]>([])
   const [markup, setMarkup] = useState<ImageMarkupValue | null>(null)
-  const [markupUploading, setMarkupUploading] = useState(false)
+  const markupRef = useRef<ImageMarkupValue | null>(null)
+  const [markupBusy, setMarkupBusy] = useState(false)
+  const [submitPhase, setSubmitPhase] = useState<
+    'idle' | 'uploading' | 'submitting'
+  >('idle')
   const request = useRef<{ fingerprint: string; key: string } | null>(null)
   const submitting = useRef(false)
   const [duplicate, setDuplicate] = useState<ImageInput | null>(null)
+
+  function updateReferences(next: ImageReference[]) {
+    referencesRef.current = next
+    setReferences(next)
+  }
+
+  function updateMarkup(next: ImageMarkupValue | null) {
+    markupRef.current = next
+    setMarkup(next)
+  }
+
+  function invalidateCachedRemotes() {
+    updateReferences(
+      referencesRef.current.map((entry) =>
+        entry.remote ? { ...entry, remote: undefined } : entry
+      )
+    )
+    if (markupRef.current?.remote) {
+      updateMarkup({ ...markupRef.current, remote: undefined })
+    }
+  }
+
+  async function resolveUploads(forceFresh: boolean): Promise<{
+    referenceIDs: string[]
+    markupID?: string
+    usedCached: boolean
+  }> {
+    const currentRefs = referencesRef.current
+    if (currentRefs.length === 0) {
+      return { referenceIDs: [], markupID: undefined, usedCached: false }
+    }
+    const activeUserID = useAuthStore.getState().auth.user?.id
+    const currentMarkup =
+      capability?.markup && currentRefs[0] ? markupRef.current : null
+    const referenceIDs = Array.from<string>({ length: currentRefs.length })
+    const usedRemoteIDs = new Set<string>()
+    let markupID: string | undefined
+    let usedCached = false
+    const tasks: Array<Promise<void>> = []
+
+    if (currentMarkup) {
+      if (
+        !forceFresh &&
+        currentMarkup.remote &&
+        activeUserID !== undefined &&
+        currentMarkup.remote.userId === activeUserID
+      ) {
+        referenceIDs[0] = currentMarkup.remote.normalizedRefId
+        usedRemoteIDs.add(currentMarkup.remote.normalizedRefId)
+        markupID = currentMarkup.remote.markupId
+        usedCached = true
+      } else {
+        const targetMarkup = currentMarkup
+        tasks.push(
+          Promise.all([
+            uploadReference(
+              toUploadFile(targetMarkup.normalizedBlob, 'reference')
+            ),
+            uploadReference(toUploadFile(targetMarkup.overlayBlob, 'markup')),
+          ]).then(([normalizedRefId, uploadedMarkupId]) => {
+            referenceIDs[0] = normalizedRefId
+            markupID = uploadedMarkupId
+            if (
+              activeUserID !== undefined &&
+              markupRef.current === targetMarkup
+            ) {
+              updateMarkup({
+                ...targetMarkup,
+                remote: {
+                  normalizedRefId,
+                  markupId: uploadedMarkupId,
+                  userId: activeUserID,
+                },
+              })
+            }
+          })
+        )
+      }
+    }
+
+    const startIndex = currentMarkup ? 1 : 0
+    for (let index = startIndex; index < currentRefs.length; index++) {
+      const item = currentRefs[index]
+      if (
+        !forceFresh &&
+        item.remote &&
+        activeUserID !== undefined &&
+        item.remote.userId === activeUserID &&
+        !usedRemoteIDs.has(item.remote.id)
+      ) {
+        referenceIDs[index] = item.remote.id
+        usedRemoteIDs.add(item.remote.id)
+        usedCached = true
+        continue
+      }
+      tasks.push(
+        uploadReference(toUploadFile(item.blob, item.name || 'reference')).then(
+          (id) => {
+            referenceIDs[index] = id
+            if (activeUserID === undefined) return
+            updateReferences(
+              referencesRef.current.map((entry) =>
+                entry.localId === item.localId
+                  ? {
+                      ...entry,
+                      remote: { id, userId: activeUserID },
+                    }
+                  : entry
+              )
+            )
+          }
+        )
+      )
+    }
+
+    if (tasks.length > 0) {
+      setSubmitPhase('uploading')
+      const results = await Promise.allSettled(tasks)
+      const failure = results.find((result) => result.status === 'rejected')
+      if (failure) throw failure.reason
+    }
+
+    return { referenceIDs, markupID, usedCached }
+  }
+
   const create = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       input,
       confirmDuplicate = false,
+      resolved = false,
     }: {
       input: ImageInput
       confirmDuplicate?: boolean
+      resolved?: boolean
     }) => {
-      const fingerprint = JSON.stringify(input)
-      if (request.current?.fingerprint !== fingerprint) {
-        request.current = { fingerprint, key: crypto.randomUUID() }
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let resolvedInput = input
+        let usedCached = resolved && referencesRef.current.length > 0
+        if (!resolved || attempt > 0) {
+          try {
+            const uploaded = await resolveUploads(attempt > 0)
+            usedCached = uploaded.usedCached
+            resolvedInput = buildResolvedInput(
+              input,
+              uploaded.referenceIDs,
+              uploaded.markupID
+            )
+          } catch (error) {
+            if (resolved) setDuplicate(null)
+            throw error
+          }
+        }
+        setSubmitPhase('submitting')
+        const fingerprint = JSON.stringify(resolvedInput)
+        if (request.current?.fingerprint !== fingerprint) {
+          request.current = { fingerprint, key: crypto.randomUUID() }
+        }
+        try {
+          return await createImageJob(
+            resolvedInput,
+            request.current.key,
+            confirmDuplicate
+          )
+        } catch (error) {
+          if (isDuplicateImageRequest(error)) {
+            setDuplicate(resolvedInput)
+            throw error
+          }
+          if (
+            attempt === 0 &&
+            usedCached &&
+            isReferenceUnavailableError(error)
+          ) {
+            invalidateCachedRemotes()
+            continue
+          }
+          if (resolved && (attempt > 0 || isReferenceUnavailableError(error))) {
+            setDuplicate(null)
+          }
+          throw error
+        }
       }
-      return createImageJob(input, request.current.key, confirmDuplicate)
+      throw new Error(t('Reference image is unavailable'))
     },
-    onError: (error, variables) => {
-      if (isDuplicateImageRequest(error)) {
-        setDuplicate(variables.input)
+    onError: (error) => {
+      if (isDuplicateImageRequest(error)) return
+      if (isReferenceUnavailableError(error)) {
+        toast.error(t(getServerErrorMessage(error)))
         return
       }
       handleServerError(error, undefined, {
@@ -210,6 +418,7 @@ export function ImageForm(props: ImageFormProps) {
     },
     onSettled: () => {
       submitting.current = false
+      setSubmitPhase('idle')
     },
     onSuccess: (result) => {
       request.current = null
@@ -232,7 +441,7 @@ export function ImageForm(props: ImageFormProps) {
   useEffect(() => {
     if (props.reuse) {
       form.reset({ ...props.reuse.input, markup_id: undefined })
-      setMarkup(null)
+      updateMarkup(null)
       const ratio = formatAspectRatio(props.reuse.input.size)
       const lastLine = props.reuse.input.prompt.split('\n').at(-1)
       automaticRatioLine.current =
@@ -240,35 +449,35 @@ export function ImageForm(props: ImageFormProps) {
           i18n.t('Image aspect ratio: {{ratio}}', { ratio, lng: code })
         ).find((line) => ratio && line === lastLine) ?? ''
       setRatioSize('')
-      setReferences([])
+      updateReferences([])
     }
   }, [props.reuse, form, i18n])
   const appliedReference = useRef<ImageReference | null>(null)
   useEffect(() => {
     if (!props.reference || appliedReference.current === props.reference) return
     appliedReference.current = props.reference
+    const current = referencesRef.current
     if (
-      references.length >= maxReferences ||
-      references.some((item) => item.id === props.reference?.id)
+      current.length >= maxReferences ||
+      current.some((item) => item.localId === props.reference?.localId)
     ) {
       return
     }
-    const next = [...references, props.reference]
-    form.setValue('reference_id', undefined)
-    form.setValue(
-      'reference_ids',
-      next.map((item) => item.id)
-    )
-    setReferences(next)
-  }, [props.reference, references, form, maxReferences])
+    const nextReference =
+      props.reference.remote &&
+      current.some((item) => item.remote?.id === props.reference?.remote?.id)
+        ? { ...props.reference, remote: undefined }
+        : props.reference
+    updateReferences([...current, nextReference])
+  }, [props.reference, maxReferences])
   const onReferenceStateChange = props.onReferenceStateChange
   useEffect(() => {
     onReferenceStateChange?.({
       count: references.length,
       enabled:
         !!capability?.editing &&
-        !uploading &&
-        !markupUploading &&
+        !markupBusy &&
+        submitPhase === 'idle' &&
         !create.isPending,
       limit: maxReferences,
     })
@@ -276,14 +485,17 @@ export function ImageForm(props: ImageFormProps) {
     references.length,
     capability?.editing,
     maxReferences,
-    uploading,
-    markupUploading,
+    markupBusy,
+    submitPhase,
     create.isPending,
     onReferenceStateChange,
   ])
 
   const busy =
-    create.isPending || uploading || markupUploading || !!props.referencePending
+    create.isPending ||
+    submitPhase !== 'idle' ||
+    markupBusy ||
+    !!props.referencePending
   const qualityLabels: Record<string, string> = {
     low: t('Low'),
     medium: t('Medium'),
@@ -360,41 +572,26 @@ export function ImageForm(props: ImageFormProps) {
                 value={references}
                 disabled={busy}
                 onChange={(next) => {
-                  if (next[0]?.id !== references[0]?.id) {
-                    setMarkup(null)
-                    form.setValue('markup_id', undefined)
+                  if (next[0]?.localId !== references[0]?.localId) {
+                    updateMarkup(null)
                   }
-                  setReferences(next)
-                  form.setValue('reference_id', undefined)
-                  form.setValue(
-                    'reference_ids',
-                    next.map((item) => item.id)
-                  )
+                  updateReferences(next)
                 }}
               />
             )}
             {capability?.markup && references[0] && (
               <div className='flex flex-wrap gap-2'>
                 <ImageMarkup
-                  key={references[0].id}
+                  key={references[0].localId}
                   reference={references[0]}
                   value={markup}
                   disabled={busy}
-                  onBusyChange={setMarkupUploading}
+                  onBusyChange={setMarkupBusy}
                   onClear={() => {
-                    setMarkup(null)
-                    form.setValue('markup_id', undefined)
+                    updateMarkup(null)
                   }}
-                  onApply={(reference, value) => {
-                    const next = [reference, ...references.slice(1)]
-                    setReferences(next)
-                    setMarkup(value)
-                    form.setValue('reference_id', undefined)
-                    form.setValue(
-                      'reference_ids',
-                      next.map((item) => item.id)
-                    )
-                    form.setValue('markup_id', value.id)
+                  onApply={(value) => {
+                    updateMarkup(value)
                   }}
                 />
               </div>
@@ -426,13 +623,13 @@ export function ImageForm(props: ImageFormProps) {
                     form.setValue('quality', '')
                     form.setValue('complexity', undefined)
                     form.setValue('markup_id', undefined)
-                    setMarkup(null)
+                    updateMarkup(null)
                     form.setValue('aspect_ratio', undefined)
                     form.setValue('resolution', undefined)
                     form.setValue('n', 1)
                     form.setValue('reference_id', undefined)
                     form.setValue('reference_ids', undefined)
-                    setReferences([])
+                    updateReferences([])
                   }}
                 />
               </Field>
@@ -471,14 +668,8 @@ export function ImageForm(props: ImageFormProps) {
                       value={references}
                       maxCount={maxReferences}
                       disabled={busy || !props.options.available}
-                      onUploadingChange={setUploading}
                       onChange={(items) => {
-                        setReferences(items)
-                        form.setValue('reference_id', undefined)
-                        form.setValue(
-                          'reference_ids',
-                          items.map((item) => item.id)
-                        )
+                        updateReferences(items)
                       }}
                     />
                   </PopoverContent>
@@ -786,7 +977,9 @@ export function ImageForm(props: ImageFormProps) {
                   disabled={busy || !props.options.available || !capability}
                 >
                   {busy ? <Spinner /> : <Sparkles className='size-4' />}
-                  {t('Generate image')}
+                  {submitPhase === 'uploading'
+                    ? t('Uploading…')
+                    : t('Generate image')}
                 </Button>
               </div>
             </div>
@@ -804,7 +997,11 @@ export function ImageForm(props: ImageFormProps) {
           handleConfirm={() => {
             if (!duplicate || submitting.current) return
             submitting.current = true
-            create.mutate({ input: duplicate, confirmDuplicate: true })
+            create.mutate({
+              input: duplicate,
+              confirmDuplicate: true,
+              resolved: true,
+            })
           }}
         />
       </CardContent>

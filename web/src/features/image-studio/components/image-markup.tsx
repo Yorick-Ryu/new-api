@@ -27,12 +27,21 @@ import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { uploadReference } from '../api'
 import type { ImageReference } from './image-references'
 
 type Point = { x: number; y: number }
 type Stroke = { points: Point[]; circle: boolean }
-export type ImageMarkupValue = { id: string; strokes: Stroke[] }
+export type CachedRemoteMarkup = {
+  normalizedRefId: string
+  markupId: string
+  userId: number
+}
+export type ImageMarkupValue = {
+  strokes: Stroke[]
+  normalizedBlob: Blob
+  overlayBlob: Blob
+  remote?: CachedRemoteMarkup
+}
 
 // The shared dialog supplies focus and scrolling; canvas is needed because the
 // existing image preview has no drawing or transparent-overlay export API.
@@ -41,12 +50,12 @@ export function ImageMarkup(props: {
   value: ImageMarkupValue | null
   disabled: boolean
   onBusyChange: (busy: boolean) => void
-  onApply: (reference: ImageReference, markup: ImageMarkupValue) => void
+  onApply: (markup: ImageMarkupValue) => void
   onClear: () => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [url, setURL] = useState(props.reference.url)
+  const [url, setURL] = useState('')
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [tool, setTool] = useState('pen')
@@ -63,14 +72,10 @@ export function ImageMarkup(props: {
     return () => onBusyChange(false)
   }, [saving, onBusyChange])
   useEffect(() => {
-    if (!props.reference.blob) {
-      setURL(props.reference.url)
-      return
-    }
     const objectURL = URL.createObjectURL(props.reference.blob)
     setURL(objectURL)
     return () => URL.revokeObjectURL(objectURL)
-  }, [props.reference.blob, props.reference.url])
+  }, [props.reference.blob])
   useEffect(() => {
     const context = canvasRef.current?.getContext('2d')
     if (!context) return
@@ -131,16 +136,11 @@ export function ImageMarkup(props: {
       if (blobs.some((blob) => blob.size > 20 * 1024 * 1024)) {
         throw new Error(t('Reference images must be 20 MB or smaller'))
       }
-      const referenceID = await uploadReference(
-        new File([blobs[0]], 'reference.png', { type: 'image/png' })
-      )
-      const markupID = await uploadReference(
-        new File([blobs[1]], 'markup.png', { type: 'image/png' })
-      )
-      props.onApply(
-        { id: referenceID, name: props.reference.name, blob: blobs[0] },
-        { id: markupID, strokes }
-      )
+      props.onApply({
+        strokes,
+        normalizedBlob: blobs[0],
+        overlayBlob: blobs[1],
+      })
       setOpen(false)
     } catch (failure) {
       handleServerError(failure)

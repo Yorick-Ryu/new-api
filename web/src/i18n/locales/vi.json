@@ -8797,6 +8797,9 @@
     "Debug experiments, refactor analysis notebooks, and accelerate reproducible research code.": "Gỡ lỗi thí nghiệm, tái cấu trúc notebook phân tích và tăng tốc mã nguồn nghiên cứu có thể tái lập.",
     "Pinned": "Đã ghim",
     "Video playback progress": "Tiến trình phát video",
-    "Setup walkthrough steps": "Các bước cấu hình nhanh"
+    "Setup walkthrough steps": "Các bước cấu hình nhanh",
+    "Too many reference images": "Số lượng ảnh tham chiếu tạm lưu đã đạt giới hạn. Vui lòng thử lại sau.",
+    "Use a PNG, JPEG or WebP image": "Vui lòng sử dụng ảnh định dạng PNG, JPEG hoặc WebP",
+    "Invalid or oversized image": "Ảnh không hợp lệ hoặc vượt quá kích thước cho phép"
   }
 }

@@ -264,26 +264,55 @@ describe('local image API history', () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps old original images downloadable and reusable as references after the delivery deadline', async () => {
+  it('discards the unsubmitted placeholder when references are unavailable', async () => {
+    const { studio } = await signedIn()
+    const { imageHistory } = await import('../lib/local-history')
+    const unavailable = Object.assign(new Error('unavailable'), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          code: 'image_reference_unavailable',
+          message: 'Reference image is unavailable',
+        },
+      },
+    })
+    http.post.mockRejectedValueOnce(unavailable)
+    await expect(
+      studio.createImageJob(
+        { ...input, reference_ids: ['expired-ref'] },
+        'expired-key'
+      )
+    ).rejects.toBe(unavailable)
+    expect(studio.isReferenceUnavailableError(unavailable)).toBe(true)
+    expect(await imageHistory.list(1)).toHaveLength(0)
+  })
+
+  it('keeps old original images downloadable and reusable as local references after the delivery deadline without uploading', async () => {
     const { studio } = await signedIn()
     serveGeneration()
     await studio.createImageJob(input, 'request-a')
     await studio.getImageJobs()
     const requests = http.get.mock.calls.length
+    const posts = http.post.mock.calls.length
+    const fresh = await studio.readLocalImageReference('original-a')
+    expect(fresh.file.name).toBe('reference.png')
+    expect(fresh.file.type).toBe('image/png')
+    expect(fresh.file.size).toBeGreaterThan(0)
+    expect(fresh.reusableRemoteId).toBe('original-a')
+    expect(fresh.userId).toBe(1)
     vi.spyOn(Date, 'now').mockReturnValue((now + 86400 * 365) * 1000)
     http.get.mockRejectedValue(new Error('Server data expired'))
     expect((await studio.getImageJobs())[0].status).toBe('success')
     expect(await studio.getImageURL('original-a', true)).toBe(
       'blob:local-image'
     )
-    http.post.mockResolvedValue({
-      data: { success: true, data: { id: 'reference-a' } },
-    })
-    expect(await studio.cloneImageReference('original-a')).toBe('reference-a')
-    expect(http.post).toHaveBeenLastCalledWith(
-      '/api/image-studio/references',
-      expect.any(FormData)
-    )
+    const expired = await studio.readLocalImageReference('original-a')
+    expect(expired.file.name).toBe('reference.png')
+    expect(expired.file.type).toBe('image/png')
+    expect(expired.file.size).toBeGreaterThan(0)
+    expect(expired.reusableRemoteId).toBeUndefined()
+    expect(http.post).toHaveBeenCalledTimes(posts)
     expect(http.get).toHaveBeenCalledTimes(requests)
   })
 
